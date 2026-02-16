@@ -1,20 +1,34 @@
 // Drama Types
 export interface Drama {
-  id: string;
+  _id: string;
   title: string;
   cover: string;
   description: string;
   categories: string[];
   actors: string[];
   rating: number;
-  episodes: Episode[];
+  episodes?: Episode[];
   isCompleted: boolean;
-  createdAt: string;
+  status?: 'draft' | 'published';
+  viewCount?: number;
+  year?: number;
+  director?: string;
+  totalEpisodes?: number;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string[];
+  isFeatured?: boolean;
+  featuredPosition?: number;
+  releaseDate?: string;
+  country?: string;
+  language?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Episode {
-  id: string;
-  dramaId: string;
+  _id: string;
+  dramaId: string | Drama;
   title: string;
   episodeNumber: number;
   videoUrl: string;
@@ -22,24 +36,46 @@ export interface Episode {
   duration: number;
   isFree: boolean;
   unlockPrice: number;
+  subtitleUrl?: string;
+  subtitleLanguage?: string;
+  videoQuality?: '480p' | '720p' | '1080p';
+  previewUrl?: string;
+  viewCount?: number;
 }
 
 // User Types
 export interface User {
-  id: string;
+  _id: string;
   email: string;
   nickname: string;
-  avatar: string;
-  coins: number;
-  createdAt: string;
+  avatar?: string;
+  coins?: number;
+  role?: 'user' | 'admin';
+  status?: 'active' | 'banned';
+  vipStatus?: 'none' | 'active' | 'expired';
+  vipExpireDate?: string;
+  createdAt?: string;
 }
 
 // Category Types
 export interface Category {
-  id: string;
+  _id: string;
   name: string;
   slug: string;
   icon?: string;
+  sortOrder?: number;
+}
+
+// Comment Types
+export interface Comment {
+  _id: string;
+  userId: User;
+  dramaId: string | Drama;
+  episodeId?: string | Episode;
+  content: string;
+  status: 'pending' | 'approved' | 'rejected';
+  likes?: number;
+  createdAt?: string;
 }
 
 // API Response Types
@@ -48,7 +84,7 @@ export interface ApiResponse<T> {
   data?: T;
   message?: string;
   error?: {
-    code: string;
+    code?: string;
     message: string;
   };
 }

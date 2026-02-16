@@ -17,14 +17,16 @@
 
 ## 2. 技术栈
 
-| 层级 | 选型 |
-|-----|------|
-| **前端** | Next.js 14 + TypeScript + Tailwind CSS |
-| **后端** | Node.js + Express + TypeScript |
-| **数据库** | MongoDB + Redis |
-| **视频托管** | 第三方CDN（Mux / Cloudflare Stream） |
-| **支付** | Stripe |
-| **部署** | Vercel(前端) + AWS/Railway(后端) |
+| 层级 | 选型 | 端口 |
+|------|------|------|
+| **前端** | Next.js 14 + TypeScript + Tailwind CSS | 7001 |
+| **后台** | Next.js 14 + TypeScript + Tailwind CSS | 7002 |
+| **后端** | Node.js + Express + TypeScript | 7003 |
+| **数据库** | MongoDB (Docker) | 27017 |
+| **缓存** | Redis | 6379 |
+| **视频托管** | 第三方CDN（Mux / Cloudflare Stream） | - |
+| **支付** | Stripe | - |
+| **部署** | Vercel(前端/后台) + Railway/AWS(后端) | - |
 
 ---
 
@@ -88,7 +90,33 @@ Lead → Product → Design → Dev → Audit → Lead
 
 ---
 
-## 5. 代码规范
+## 5. 项目结构
+
+```
+/tinytale-frontend/     # 前端项目 (Port 7001)
+  /src
+    /app              # Next.js页面
+    /components       # 组件
+    /lib              # 工具/API
+    /types            # 类型定义
+
+/tinytale-admin/       # 后台管理项目 (Port 7002)
+  /src
+    /app/admin       # 管理后台页面
+    /components       # 组件
+    /lib              # 工具/API
+
+/tinytale-api/        # 后端API项目 (Port 7003)
+  /src
+    /config          # 配置
+    /models          # MongoDB模型
+    /routes          # API路由
+    /middleware      # 中间件
+```
+
+---
+
+## 6. 代码规范
 
 ### 前端 (Next.js 14 + TypeScript + Tailwind)
 
@@ -135,7 +163,43 @@ Lead → Product → Design → Dev → Audit → Lead
 
 ---
 
-## 6. API设计规范
+## 7. API接口
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/auth/register | 用户注册 |
+| POST | /api/auth/login | 用户登录 |
+| GET | /api/auth/me | 获取当前用户 |
+
+### 短剧接口
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/dramas | 获取短剧列表 |
+| GET | /api/dramas/:id | 获取短剧详情 |
+
+### 用户接口
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET/POST/DELETE | /api/user/favorites | 收藏管理 |
+| GET/POST/DELETE | /api/user/history | 观看历史 |
+
+### 金币接口
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/coins/balance | 获取余额 |
+| POST | /api/coins/recharge | 金币充值 |
+| POST | /api/coins/unlock | 解锁剧集 |
+
+### 管理后台接口
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/admin/stats | 统计数据 |
+| GET | /api/admin/users | 用户管理 |
+| GET | /api/admin/dramas | 短剧管理 |
+| GET | /api/admin/transactions | 交易记录 |
+
+---
+
+## 8. API设计规范
 
 ### RESTful风格
 
@@ -170,16 +234,20 @@ Lead → Product → Design → Dev → Audit → Lead
 
 ---
 
-## 7. 数据库设计 (MongoDB)
+## 9. 数据库设计 (MongoDB)
 
 ### 核心 Collections
 
-- **users**: 用户信息
-- **dramas**: 短剧元数据
-- **episodes**: 剧集信息
-- **episodes_unlock**: 用户解锁记录
-- **transactions**: 交易记录
-- **categories**: 分类
+| Collection | 说明 |
+|------------|------|
+| **users** | 用户信息 |
+| **dramas** | 短剧元数据 |
+| **episodes** | 剧集信息 |
+| **favorites** | 用户收藏 |
+| **watch_history** | 观看历史 |
+| **unlocked_episodes** | 用户解锁记录 |
+| **transactions** | 交易记录 |
+| **categories** | 分类 |
 
 ### Redis 缓存
 
@@ -187,9 +255,15 @@ Lead → Product → Design → Dev → Audit → Lead
 - 视频播放Token
 - 热门数据缓存
 
+### 数据库连接
+
+```
+MongoDB: mongodb://localhost:27017/tinytale (Docker)
+```
+
 ---
 
-## 8. 支付流程
+## 10. 支付流程
 
 ### 金币模式
 
@@ -205,7 +279,7 @@ Lead → Product → Design → Dev → Audit → Lead
 
 ---
 
-## 9. 视频播放
+## 11. 视频播放
 
 ### 第三方CDN
 
@@ -221,7 +295,7 @@ Lead → Product → Design → Dev → Audit → Lead
 
 ---
 
-## 10. 验收标准
+## 12. 验收标准
 
 ### 功能验收
 
@@ -249,7 +323,7 @@ Lead → Product → Design → Dev → Audit → Lead
 
 ---
 
-## 11. 开发原则
+## 13. 开发原则
 
 1. **MVP优先**: 先完成核心功能，不追求完美
 2. **组件化**: 复用组件，减少重复代码
@@ -259,7 +333,7 @@ Lead → Product → Design → Dev → Audit → Lead
 
 ---
 
-## 12. 禁止事项
+## 14. 禁止事项
 
 - **禁止** Lead Agent之外直接分配任务
 - **禁止** 跳过Product Agent直接写代码
