@@ -3,7 +3,7 @@ import type { Drama, Category } from "@/types";
 // Mock data for development
 export const mockDramas: Drama[] = [
   {
-    id: "1",
+    _id: "1",
     title: "The CEO's Secret Love",
     cover: "https://picsum.photos/seed/drama1/400/600",
     description: "A romantic story about a CEO and his secret love.",
@@ -11,16 +11,16 @@ export const mockDramas: Drama[] = [
     actors: ["John Doe", "Jane Smith"],
     rating: 4.5,
     episodes: [
-      { id: "e1", dramaId: "1", title: "Episode 1", episodeNumber: 1, videoUrl: "", thumbnail: "", duration: 1800, isFree: true, unlockPrice: 0 },
-      { id: "e2", dramaId: "1", title: "Episode 2", episodeNumber: 2, videoUrl: "", thumbnail: "", duration: 1800, isFree: true, unlockPrice: 0 },
-      { id: "e3", dramaId: "1", title: "Episode 3", episodeNumber: 3, videoUrl: "", thumbnail: "", duration: 1800, isFree: true, unlockPrice: 0 },
-      { id: "e4", dramaId: "1", title: "Episode 4", episodeNumber: 4, videoUrl: "", thumbnail: "", duration: 1800, isFree: false, unlockPrice: 100 },
+      { _id: "e1", dramaId: "1", title: "Episode 1", episodeNumber: 1, videoUrl: "", thumbnail: "", duration: 1800, isFree: true, unlockPrice: 0 },
+      { _id: "e2", dramaId: "1", title: "Episode 2", episodeNumber: 2, videoUrl: "", thumbnail: "", duration: 1800, isFree: true, unlockPrice: 0 },
+      { _id: "e3", dramaId: "1", title: "Episode 3", episodeNumber: 3, videoUrl: "", thumbnail: "", duration: 1800, isFree: true, unlockPrice: 0 },
+      { _id: "e4", dramaId: "1", title: "Episode 4", episodeNumber: 4, videoUrl: "", thumbnail: "", duration: 1800, isFree: false, unlockPrice: 100 },
     ],
     isCompleted: false,
     createdAt: "2024-01-01",
   },
   {
-    id: "2",
+    _id: "2",
     title: "Revenge of the Princess",
     cover: "https://picsum.photos/seed/drama2/400/600",
     description: "A princess seeks revenge on those who wronged her family.",
@@ -32,7 +32,7 @@ export const mockDramas: Drama[] = [
     createdAt: "2024-02-01",
   },
   {
-    id: "3",
+    _id: "3",
     title: "Sweet Love in Office",
     cover: "https://picsum.photos/seed/drama3/400/600",
     description: "A romantic comedy set in a modern office.",
@@ -44,7 +44,7 @@ export const mockDramas: Drama[] = [
     createdAt: "2024-03-01",
   },
   {
-    id: "4",
+    _id: "4",
     title: "Mysterious Doctor",
     cover: "https://picsum.photos/seed/drama4/400/600",
     description: "A doctor with a mysterious past.",
@@ -56,7 +56,7 @@ export const mockDramas: Drama[] = [
     createdAt: "2024-04-01",
   },
   {
-    id: "5",
+    _id: "5",
     title: "Powerful CEO",
     cover: "https://picsum.photos/seed/drama5/400/600",
     description: "The rise of a powerful CEO.",
@@ -68,7 +68,7 @@ export const mockDramas: Drama[] = [
     createdAt: "2024-05-01",
   },
   {
-    id: "6",
+    _id: "6",
     title: "Love in the City",
     cover: "https://picsum.photos/seed/drama6/400/600",
     description: "Love stories in a big city.",
@@ -82,10 +82,10 @@ export const mockDramas: Drama[] = [
 ];
 
 export const mockCategories: Category[] = [
-  { id: "1", name: "Romance", slug: "romance" },
-  { id: "2", name: "Drama", slug: "drama" },
-  { id: "3", name: "Comedy", slug: "comedy" },
-  { id: "4", name: "Historical", slug: "historical" },
-  { id: "5", name: "Mystery", slug: "mystery" },
-  { id: "6", name: "Business", slug: "business" },
+  { _id: "1", name: "Romance", slug: "romance" },
+  { _id: "2", name: "Drama", slug: "drama" },
+  { _id: "3", name: "Comedy", slug: "comedy" },
+  { _id: "4", name: "Historical", slug: "historical" },
+  { _id: "5", name: "Mystery", slug: "mystery" },
+  { _id: "6", name: "Business", slug: "business" },
 ];

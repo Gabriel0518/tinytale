@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -12,6 +13,8 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [nickname, setNickname] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,12 +45,12 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#141414] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-bg-primary px-4">
       <div className="w-full max-w-md">
         {/* Back Button */}
         <button
           onClick={() => router.back()}
-          className="mb-8 flex h-10 w-10 items-center justify-center rounded-full bg-gray-800 text-white transition hover:bg-gray-700"
+          className="mb-8 flex h-10 w-10 items-center justify-center rounded-full bg-bg-elevated text-white transition hover:bg-gray-700"
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -60,7 +63,7 @@ export default function RegisterPage() {
             <span className="text-3xl font-bold text-white">T</span>
           </Link>
           <h1 className="text-2xl font-bold text-white">Create Account</h1>
-          <p className="mt-2 text-gray-400">Join TinyTale and start watching</p>
+          <p className="mt-2 text-text-secondary">Join TinyTale and start watching</p>
         </div>
 
         {/* Error Message */}
@@ -73,56 +76,74 @@ export default function RegisterPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">Nickname</label>
+            <label className="mb-2 block text-sm font-medium text-text-secondary">Nickname</label>
             <input
               type="text"
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               placeholder="Choose a nickname"
-              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
+              className="w-full rounded-lg border border-white/10 bg-bg-secondary px-4 py-3 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
               required
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">Email</label>
+            <label className="mb-2 block text-sm font-medium text-text-secondary">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
-              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
+              className="w-full rounded-lg border border-white/10 bg-bg-secondary px-4 py-3 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
               required
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a password"
-              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
-              required
-              minLength={6}
-            />
+            <label className="mb-2 block text-sm font-medium text-text-secondary">Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Create a password"
+                className="w-full rounded-lg border border-white/10 bg-bg-secondary px-4 py-3 pr-12 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
+                required
+                minLength={6}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 transition hover:text-text-secondary"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">Confirm Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your password"
-              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
-              required
-            />
+            <label className="mb-2 block text-sm font-medium text-text-secondary">Confirm Password</label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm your password"
+                className="w-full rounded-lg border border-white/10 bg-bg-secondary px-4 py-3 pr-12 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 transition hover:text-text-secondary"
+              >
+                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
 
-          <div className="flex items-start gap-2 text-sm text-gray-400">
-            <input type="checkbox" required className="mt-1 rounded border-gray-700 bg-gray-900" />
+          <div className="flex items-start gap-2 text-sm text-text-secondary">
+            <input type="checkbox" required className="mt-1 rounded border-white/10 bg-bg-secondary" />
             <span>
               I agree to the{" "}
               <Link href="/help" className="text-red-500 hover:underline">Terms of Service</Link>
@@ -141,7 +162,7 @@ export default function RegisterPage() {
         </form>
 
         {/* Sign In Link */}
-        <p className="mt-8 text-center text-gray-400">
+        <p className="mt-8 text-center text-text-secondary">
           Already have an account?{" "}
           <Link href="/auth/login" className="text-red-500 hover:underline">
             Sign In

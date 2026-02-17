@@ -4,12 +4,14 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -39,12 +41,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#141414] px-4">
+    <div className="min-h-screen flex items-center justify-center bg-bg-primary px-4">
       <div className="w-full max-w-md">
         {/* Back Button */}
         <button
           onClick={() => router.back()}
-          className="mb-8 flex h-10 w-10 items-center justify-center rounded-full bg-gray-800 text-white transition hover:bg-gray-700"
+          className="mb-8 flex h-10 w-10 items-center justify-center rounded-full bg-bg-elevated text-white transition hover:bg-gray-700"
         >
           <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -57,7 +59,7 @@ export default function LoginPage() {
             <span className="text-3xl font-bold text-white">T</span>
           </Link>
           <h1 className="text-2xl font-bold text-white">Welcome Back</h1>
-          <p className="mt-2 text-gray-400">Sign in to continue watching</p>
+          <p className="mt-2 text-text-secondary">Sign in to continue watching</p>
         </div>
 
         {/* Error Message */}
@@ -70,32 +72,41 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">Email</label>
+            <label className="mb-2 block text-sm font-medium text-text-secondary">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
-              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
+              className="w-full rounded-lg border border-white/10 bg-bg-secondary px-4 py-3 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
               required
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
-              required
-            />
+            <label className="mb-2 block text-sm font-medium text-text-secondary">Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                className="w-full rounded-lg border border-white/10 bg-bg-secondary px-4 py-3 pr-12 text-white placeholder-gray-500 focus:border-red-600 focus:outline-none"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 transition hover:text-text-secondary"
+              >
+                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center justify-between text-sm">
-            <label className="flex items-center gap-2 text-gray-400">
-              <input type="checkbox" className="rounded border-gray-700 bg-gray-900" />
+            <label className="flex items-center gap-2 text-text-secondary">
+              <input type="checkbox" className="rounded border-white/10 bg-bg-secondary" />
               Remember me
             </label>
             <Link href="/auth/reset-password" className="text-red-500 hover:underline">
@@ -114,16 +125,16 @@ export default function LoginPage() {
 
         {/* Divider */}
         <div className="my-6 flex items-center gap-4">
-          <div className="h-px flex-1 bg-gray-800" />
+          <div className="h-px flex-1 bg-bg-elevated" />
           <span className="text-sm text-gray-500">Or</span>
-          <div className="h-px flex-1 bg-gray-800" />
+          <div className="h-px flex-1 bg-bg-elevated" />
         </div>
 
         {/* Social Login */}
         <div className="space-y-3">
           <button
             onClick={handleGoogleLogin}
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-700 bg-gray-800 py-3 font-medium text-white transition hover:bg-gray-700"
+            className="flex w-full items-center justify-center gap-3 rounded-lg border border-white/10 bg-bg-elevated py-3 font-medium text-white transition hover:bg-gray-700"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
               <path
@@ -148,7 +159,7 @@ export default function LoginPage() {
 
           <button
             onClick={handleAppleLogin}
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-700 bg-gray-800 py-3 font-medium text-white transition hover:bg-gray-700"
+            className="flex w-full items-center justify-center gap-3 rounded-lg border border-white/10 bg-bg-elevated py-3 font-medium text-white transition hover:bg-gray-700"
           >
             <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
@@ -158,7 +169,7 @@ export default function LoginPage() {
         </div>
 
         {/* Sign Up Link */}
-        <p className="mt-8 text-center text-gray-400">
+        <p className="mt-8 text-center text-text-secondary">
           Don&apos;t have an account?{" "}
           <Link href="/auth/register" className="text-red-500 hover:underline">
             Sign Up

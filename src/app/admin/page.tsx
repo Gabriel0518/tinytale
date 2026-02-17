@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminLayout from "./layout";
+import { DashboardCharts } from "@/components/admin/DashboardCharts";
 
 // Mock token for demo - in real app would come from auth
 const MOCK_TOKEN = "demo-token";
@@ -117,6 +118,11 @@ export default function AdminDashboard() {
               </div>
             </div>
           </a>
+        </div>
+
+        {/* Charts */}
+        <div className="mb-8">
+          <DashboardCharts />
         </div>
 
         {/* Info Card */}

@@ -43,7 +43,7 @@ export function DramaCard({ drama, onClick }: DramaCardProps) {
 
         {/* Episodes Count */}
         <div className="absolute bottom-2 right-2 rounded bg-black/70 px-2 py-1 text-xs text-text-secondary">
-          {drama.episodes.length} episodes
+          {drama.episodes?.length || drama.totalEpisodes || 0} episodes
         </div>
       </div>
 

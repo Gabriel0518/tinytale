@@ -20,8 +20,8 @@
 | 层级 | 选型 | 端口 |
 |------|------|------|
 | **前端** | Next.js 14 + TypeScript + Tailwind CSS | 7001 |
-| **后台** | Next.js 14 + TypeScript + Tailwind CSS | 7002 |
-| **后端** | Node.js + Express + TypeScript | 7003 |
+| **后端** | Node.js + Express | 7002 |
+| **后台** | Next.js 14 + TypeScript + Tailwind CSS | 7003 |
 | **数据库** | MongoDB (Docker) | 27017 |
 | **缓存** | Redis | 6379 |
 | **视频托管** | 第三方CDN（Mux / Cloudflare Stream） | - |
@@ -34,13 +34,13 @@
 
 ### 团队成员
 
-| 角色 | Agent | 职责 |
-|------|-------|------|
-| 项目负责人 | Lead Agent | 拆任务、调度Agent、做最终决策 |
-| 产品经理 | Product Agent | PRD、用户路径、逻辑规则 |
-| UI/UX设计师 | Design Agent | 视觉、交互、前端结构 |
-| 工程师 | Dev Agent | 写代码、改代码、合并 |
-| 测试工程师 | Audit Agent | 冲突、风险、规范检查 |
+| 角色 | Agent | 职责 | 文件归属权 |
+|------|-------|------|-----------|
+| 项目负责人 | Lead Agent | 拆任务、调度Agent、做最终决策 | `src/types/`, `src/lib/` |
+| 产品经理 | Product Agent | PRD、用户路径、逻辑规则、开发文档 | 不写代码文件（只输出需求文档） |
+| UI/UX设计师 | Design Agent | 视觉、交互、设计系统、共享组件 | `tailwind.config.ts`, `globals.css`, `src/components/ui/` |
+| 工程师 | Dev Agent | 写代码、改代码（唯一修改页面文件的Agent） | `src/app/**/page.tsx`, `src/app/**/layout.tsx` |
+| 测试工程师 | Audit Agent | 测试页面、发现问题、提供修复建议（不修改任何代码） | 不写代码文件（只输出测试报告） |
 
 ### 团队规则
 
@@ -48,6 +48,8 @@
 - **Responsibility**: 每个Agent必须在自己的职责范围内工作
 - **Tools**: 每个Agent必须遵守工具权限
 - **Output**: 输出必须清楚标记是哪个Agent在说话
+- **File Ownership**: 每个Agent只能修改自己归属权范围内的文件，严禁跨界
+- **Audit No-Code**: Audit Agent 严禁修改任何代码文件，只负责测试和报告
 
 ### Agent输出格式
 
@@ -55,17 +57,65 @@
 - `[Product Agent] PRD / Feature Logic`
 - `[Design Agent] UI / Layout`
 - `[Dev Agent] Code Implementation`
-- `[Audit Agent] Issues / Suggestions`
+- `[Audit Agent] Test Report / Issues / Suggestions`
 
 ---
 
 ## 4. 开发流程
 
-### 工作流
+### 工作流（循环模式）
 
 ```
-Lead → Product → Design → Dev → Audit → Lead
+┌─────────────────────────────────────────────────┐
+│                                                 │
+│  Lead ──→ Product ──→ Design ──→ Dev ──→ Audit  │
+│   ▲                                       │     │
+│   └───────────────────────────────────────┘     │
+│                                                 │
+│  最多循环 5 轮，或无影响使用的 bug 时停止        │
+└─────────────────────────────────────────────────┘
 ```
+
+### 循环流程详解
+
+**Step 1 — Audit 测试**
+- Audit Agent 测试所有页面，检查功能、视觉、交互、类型安全、可访问性
+- 输出：问题清单 + 每个问题的修复建议
+- 提交给 Lead Agent
+
+**Step 2 — Lead 拆解**
+- Lead Agent 接收 Audit 的问题清单
+- 按优先级分类（P0 阻断性 / P1 功能缺失 / P2 视觉偏差 / P3 优化建议）
+- 拆解为具体子任务，分配给 Product
+
+**Step 3 — Product 出文档**
+- Product Agent 根据 Lead 的任务拆解，结合设计方案文档
+- 输出每个子任务的详细开发需求（功能描述、验收标准、参考设计文档编号）
+- 提交给 Design
+
+**Step 4 — Design 设计**
+- Design Agent 根据 Product 的需求文档
+- 更新设计 token、共享样式、UI 组件
+- 确保视觉规范一致性
+- 提交给 Dev
+
+**Step 5 — Dev 开发**
+- Dev Agent 根据 Product 需求 + Design 输出
+- 实现页面代码修改
+- 只修改自己归属权范围内的文件
+
+**Step 6 — 回到 Step 1**
+- Audit Agent 再次测试
+- 如果无影响使用的 bug → 流程结束
+- 如果仍有问题 → 继续下一轮循环
+- 最多执行 5 轮
+
+### 退出条件
+
+- ✅ 无 P0（阻断性）bug
+- ✅ 无 P1（功能缺失）bug
+- ✅ P2（视觉偏差）数量 ≤ 3 且不影响核心体验
+- ✅ 或已达到第 5 轮循环
 
 ### 开发阶段
 
@@ -340,6 +390,9 @@ MongoDB: mongodb://localhost:27017/tinytale (Docker)
 - **禁止** Dev Agent自行决定UI设计
 - **禁止** 未经Audit Agent检查直接合并
 - **禁止** 改变产品范围（需Lead Agent审批）
+- **禁止** Audit Agent修改任何代码文件（只能测试和报告）
+- **禁止** Agent修改自己文件归属权范围之外的文件
+- **禁止** 跳过循环流程中的任何步骤
 
 ---
 

@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7003';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
 
 interface FetchOptions extends RequestInit {
   token?: string;
@@ -23,7 +23,7 @@ class ApiClient {
     return headers;
   }
 
-  async get<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
+  async get<T = any>(endpoint: string, options: FetchOptions = {}): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'GET',
       headers: this.getHeaders(options),
@@ -37,7 +37,7 @@ class ApiClient {
     return data;
   }
 
-  async post<T>(endpoint: string, body?: any, options: FetchOptions = {}): Promise<T> {
+  async post<T = any>(endpoint: string, body?: any, options: FetchOptions = {}): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'POST',
       headers: this.getHeaders(options),
@@ -52,7 +52,7 @@ class ApiClient {
     return data;
   }
 
-  async put<T>(endpoint: string, body?: any, options: FetchOptions = {}): Promise<T> {
+  async put<T = any>(endpoint: string, body?: any, options: FetchOptions = {}): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'PUT',
       headers: this.getHeaders(options),
@@ -67,7 +67,7 @@ class ApiClient {
     return data;
   }
 
-  async delete<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
+  async delete<T = any>(endpoint: string, options: FetchOptions = {}): Promise<T> {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'DELETE',
       headers: this.getHeaders(options),
@@ -98,7 +98,7 @@ export const authApi = {
 
 // Dramas API
 export const dramasApi = {
-  getAll: (params?: { category?: string; sort?: string; page?: number; limit?: number }) => {
+  getAll: (params?: { category?: string; sort?: string; page?: number; limit?: number; search?: string }) => {
     const query = new URLSearchParams(params as any).toString();
     return api.get(`/api/dramas${query ? `?${query}` : ''}`);
   },
@@ -161,4 +161,51 @@ export const coinsApi = {
 
   unlock: (token: string, episodeId: string) =>
     api.post('/api/coins/unlock', { episodeId }, { token }),
+
+  getPackages: () =>
+    api.get('/api/coins/packages'),
+
+  recharge: (token: string, packageId: string) =>
+    api.post('/api/coins/recharge', { packageId }, { token }),
+};
+
+// Password Reset API
+export const passwordApi = {
+  sendResetCode: (email: string) =>
+    api.post('/api/auth/reset-password', { email }),
+
+  verifyCode: (email: string, code: string) =>
+    api.post('/api/auth/verify-code', { email, code }),
+
+  resetPassword: (email: string, code: string, newPassword: string) =>
+    api.post('/api/auth/reset-password/confirm', { email, code, newPassword }),
+};
+
+// User Profile API
+export const profileApi = {
+  update: (token: string, data: { nickname?: string; avatar?: string }) =>
+    api.put('/api/user/profile', data, { token }),
+
+  changePassword: (token: string, oldPassword: string, newPassword: string) =>
+    api.put('/api/user/password', { oldPassword, newPassword }, { token }),
+
+  getPurchases: (token: string, params?: { page?: number; type?: string }) => {
+    const query = params ? new URLSearchParams(params as any).toString() : '';
+    return api.get(`/api/user/purchases${query ? `?${query}` : ''}`, { token });
+  },
+
+  deleteAccount: (token: string) =>
+    api.delete('/api/user/account', { token }),
+};
+
+// Subscription API
+export const subscriptionApi = {
+  getPlans: () =>
+    api.get('/api/subscriptions/plans'),
+
+  subscribe: (token: string, planId: string) =>
+    api.post('/api/subscriptions/subscribe', { planId }, { token }),
+
+  getStatus: (token: string) =>
+    api.get('/api/subscriptions/status', { token }),
 };

@@ -53,7 +53,7 @@ export default function AdminDramasPage() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredDramas.map((drama) => (
-                <tr key={drama.id} className="hover:bg-gray-50">
+                <tr key={drama._id} className="hover:bg-gray-50">
                   <td className="whitespace-nowrap px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="h-12 w-8 overflow-hidden rounded">
@@ -66,7 +66,7 @@ export default function AdminDramasPage() {
                     {drama.categories.join(", ")}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {drama.episodes.length}
+                    {drama.episodes?.length || 0}
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                     {drama.rating}

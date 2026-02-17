@@ -1,16 +1,16 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { dramasApi } from "@/lib/api";
 import { Drama } from "@/types";
+import { Navbar } from "@/components/features/Navbar";
 
 const hotSearches = ["Romance", "CEO", "Sweet", "Revenge", "Drama"];
 
 function SearchContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const initialQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<Drama[]>([]);
@@ -44,34 +44,7 @@ function SearchContent() {
   return (
     <div className="min-h-screen bg-[#141414]">
       {/* Navbar */}
-      <nav className="fixed left-0 right-0 top-0 z-50 bg-[#141414]/95 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded bg-red-600">
-              <span className="text-lg font-bold text-white">T</span>
-            </div>
-            <span className="text-xl font-bold text-white">TinyTale</span>
-          </Link>
-
-          <div className="hidden items-center gap-6 md:flex">
-            <Link href="/" className="text-sm font-medium text-gray-300 hover:text-white">
-              Home
-            </Link>
-            <Link href="/browse" className="text-sm font-medium text-gray-300 hover:text-white">
-              Browse
-            </Link>
-            <Link href="/rankings" className="text-sm font-medium text-gray-300 hover:text-white">
-              Rankings
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Link href="/auth/login" className="text-sm font-medium text-gray-300 hover:text-white">
-              Sign In
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar showSearch={false} />
 
       <main className="pt-20 pb-12">
         <div className="mx-auto max-w-7xl px-4">

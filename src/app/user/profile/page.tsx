@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { userApi, dramasApi } from "@/lib/api";
 import { Drama } from "@/types";
+import { Navbar } from "@/components/features/Navbar";
 
 type Tab = "favorites" | "history" | "coins";
 
@@ -77,27 +78,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[#141414]">
       {/* Navbar */}
-      <nav className="fixed left-0 right-0 top-0 z-50 bg-[#141414]/95 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded bg-red-600">
-              <span className="text-lg font-bold text-white">T</span>
-            </div>
-            <span className="text-xl font-bold text-white">TinyTale</span>
-          </Link>
-
-          <div className="flex items-center gap-4">
-            <Link href="/search" className="text-gray-300 hover:text-white">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </Link>
-            <button onClick={handleLogout} className="text-sm font-medium text-gray-300 hover:text-white">
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       <main className="pt-20 pb-12">
         {/* Profile Header */}
@@ -134,12 +115,46 @@ export default function ProfilePage() {
               </div>
 
               {/* Edit Button */}
-              <div className="mt-4 md:ml-auto">
+              <div className="mt-4 md:ml-auto flex gap-2">
                 <Link href="/user/settings" className="rounded-lg bg-gray-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-700">
                   Edit Profile
                 </Link>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Quick Links */}
+        <div className="mx-auto max-w-7xl px-4">
+          <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Link href="/user/favorites" className="flex items-center gap-3 rounded-xl bg-gray-900 p-4 transition hover:bg-gray-800">
+              <span className="text-2xl">❤️</span>
+              <div>
+                <div className="text-sm font-medium text-white">Favorites</div>
+                <div className="text-xs text-gray-500">{favorites.length} dramas</div>
+              </div>
+            </Link>
+            <Link href="/user/history" className="flex items-center gap-3 rounded-xl bg-gray-900 p-4 transition hover:bg-gray-800">
+              <span className="text-2xl">🕐</span>
+              <div>
+                <div className="text-sm font-medium text-white">History</div>
+                <div className="text-xs text-gray-500">{history.length} watched</div>
+              </div>
+            </Link>
+            <Link href="/user/purchases" className="flex items-center gap-3 rounded-xl bg-gray-900 p-4 transition hover:bg-gray-800">
+              <span className="text-2xl">🧾</span>
+              <div>
+                <div className="text-sm font-medium text-white">Purchases</div>
+                <div className="text-xs text-gray-500">View history</div>
+              </div>
+            </Link>
+            <Link href="/user/settings" className="flex items-center gap-3 rounded-xl bg-gray-900 p-4 transition hover:bg-gray-800">
+              <span className="text-2xl">⚙️</span>
+              <div>
+                <div className="text-sm font-medium text-white">Settings</div>
+                <div className="text-xs text-gray-500">Account</div>
+              </div>
+            </Link>
           </div>
         </div>
 

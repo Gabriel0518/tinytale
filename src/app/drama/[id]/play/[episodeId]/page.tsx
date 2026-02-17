@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { dramasApi, coinsApi, userApi } from "@/lib/api";
+import { dramasApi, coinsApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { Drama, Episode } from "@/types";
 
@@ -29,6 +29,7 @@ export default function VideoPlayerPage() {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isLocked, setIsLocked] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,7 +79,8 @@ export default function VideoPlayerPage() {
       }
     } catch (error) {
       console.error('Failed to unlock:', error);
-      alert('Failed to unlock episode. Please check your coin balance.');
+      setUnlockError('Failed to unlock episode. Please check your coin balance.');
+      setTimeout(() => setUnlockError(null), 4000);
     } finally {
       setUnlocking(false);
     }
@@ -189,6 +191,12 @@ export default function VideoPlayerPage() {
 
       {/* Video Player */}
       <div className="relative pt-14">
+        {/* Unlock Error Banner */}
+        {unlockError && (
+          <div className="absolute left-0 right-0 top-14 z-40 bg-red-600 px-4 py-3 text-center text-sm font-medium text-white">
+            {unlockError}
+          </div>
+        )}
         {isLocked ? (
           <div className="flex aspect-video items-center justify-center bg-gray-900">
             <div className="text-center">

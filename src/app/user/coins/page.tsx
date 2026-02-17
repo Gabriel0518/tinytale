@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
+import { Navbar } from "@/components/features/Navbar";
+import { PaymentSuccessModal } from "@/components/features/PaymentSuccessModal";
+import { PaymentFailedModal } from "@/components/features/PaymentFailedModal";
+import { VipSubscriptionModal } from "@/components/features/VipSubscriptionModal";
 
 interface CoinPackage {
   id: string;
@@ -19,6 +22,20 @@ export default function CoinsPage() {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
+  const [successModal, setSuccessModal] = useState<{
+    open: boolean;
+    coins?: number;
+    amount?: number;
+    transactionId?: string;
+    newBalance?: number;
+  }>({ open: false });
+  const [failedModal, setFailedModal] = useState<{
+    open: boolean;
+    errorMessage?: string;
+    transactionId?: string;
+    retryPkgId?: string;
+  }>({ open: false });
+  const [showVipModal, setShowVipModal] = useState(false);
 
   useEffect(() => {
     if (!user && !loading) {
@@ -75,16 +92,32 @@ export default function CoinsPage() {
 
       if (data.success) {
         // Update user coins
+        const newBalance = (user?.coins || 0) + data.data.coinsAdded;
         if (user) {
-          updateUser({ ...user, coins: (user.coins || 0) + data.data.coinsAdded });
+          updateUser({ ...user, coins: newBalance });
         }
-        alert(`Successfully purchased ${data.data.coinsAdded} coins!`);
+        setSuccessModal({
+          open: true,
+          coins: data.data.coinsAdded,
+          amount: data.data.amount,
+          transactionId: data.data.transactionId,
+          newBalance,
+        });
       } else {
-        alert(data.error?.message || 'Purchase failed');
+        setFailedModal({
+          open: true,
+          errorMessage: data.error?.message || "Purchase failed",
+          transactionId: data.data?.transactionId,
+          retryPkgId: pkgId,
+        });
       }
     } catch (error) {
       console.error('Purchase failed:', error);
-      alert('Purchase failed. Please try again.');
+      setFailedModal({
+        open: true,
+        errorMessage: "Purchase failed. Please try again.",
+        retryPkgId: pkgId,
+      });
     } finally {
       setProcessing(false);
       setSelectedPackage(null);
@@ -102,22 +135,7 @@ export default function CoinsPage() {
   return (
     <div className="min-h-screen bg-[#141414]">
       {/* Navbar */}
-      <nav className="fixed left-0 right-0 top-0 z-50 bg-[#141414]/95 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded bg-red-600">
-              <span className="text-lg font-bold text-white">T</span>
-            </div>
-            <span className="text-xl font-bold text-white">TinyTale</span>
-          </Link>
-
-          <div className="flex items-center gap-4">
-            <Link href="/user/profile" className="text-sm font-medium text-gray-300 hover:text-white">
-              Profile
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar showSearch={false} />
 
       <main className="pt-20 pb-12">
         <div className="mx-auto max-w-4xl px-4">
@@ -137,6 +155,23 @@ export default function CoinsPage() {
               <div className="text-6xl">🪙</div>
             </div>
           </div>
+
+          {/* VIP Upsell */}
+          <button
+            onClick={() => setShowVipModal(true)}
+            className="mb-8 flex w-full items-center justify-between rounded-xl border border-yellow-500/30 bg-gradient-to-r from-yellow-900/20 to-yellow-800/10 p-5 text-left transition hover:border-yellow-500/50"
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600">
+                <span className="text-lg">👑</span>
+              </div>
+              <div>
+                <p className="font-semibold text-white">Upgrade to VIP</p>
+                <p className="text-sm text-gray-400">Unlimited access, ad-free, exclusive content</p>
+              </div>
+            </div>
+            <span className="text-sm font-medium text-yellow-500">From $8.33/mo →</span>
+          </button>
 
           {/* Coin Packages */}
           <h2 className="mb-4 text-xl font-semibold text-white">Select Package</h2>
@@ -206,6 +241,46 @@ export default function CoinsPage() {
           </div>
         </div>
       </main>
+
+      {/* Payment Modals */}
+      <PaymentSuccessModal
+        open={successModal.open}
+        onClose={() => setSuccessModal({ open: false })}
+        coins={successModal.coins}
+        amount={successModal.amount}
+        transactionId={successModal.transactionId}
+        newBalance={successModal.newBalance}
+        onNavigate={(target) => {
+          setSuccessModal({ open: false });
+          if (target === "player") {
+            router.push("/");
+          }
+        }}
+      />
+      <PaymentFailedModal
+        open={failedModal.open}
+        onClose={() => setFailedModal({ open: false })}
+        errorMessage={failedModal.errorMessage}
+        transactionId={failedModal.transactionId}
+        onRetry={() => {
+          setFailedModal({ open: false });
+          if (failedModal.retryPkgId) {
+            handlePurchase(failedModal.retryPkgId);
+          }
+        }}
+        onContactSupport={() => {
+          setFailedModal({ open: false });
+          router.push("/help");
+        }}
+      />
+      <VipSubscriptionModal
+        open={showVipModal}
+        onClose={() => setShowVipModal(false)}
+        onSubscribe={(planId) => {
+          setShowVipModal(false);
+          console.log("Subscribe to plan:", planId);
+        }}
+      />
     </div>
   );
 }

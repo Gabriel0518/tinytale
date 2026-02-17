@@ -1,28 +1,60 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
-import { Navbar } from "@/components/features/Navbar";
-import { DramaCard } from "@/components/features/DramaCard";
-import { mockDramas, mockCategories } from "@/lib/mockData";
+import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { dramasApi, categoriesApi } from '@/lib/api';
+import { Drama, Category } from '@/types';
+import { Navbar } from '@/components/features/Navbar';
+import { DramaCard } from '@/components/features/DramaCard';
 
-export default function CategoryPage() {
-  const params = useParams();
-  const slug = params.slug as string;
-  const [selectedCategory, setSelectedCategory] = useState(slug || "all");
-  const [sortBy, setSortBy] = useState("newest");
+function CategoryContent() {
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category');
 
-  const currentCategory = mockCategories.find((c) => c.slug === selectedCategory);
+  const [dramas, setDramas] = useState<Drama[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>(categoryParam || 'all');
+  const [sortBy, setSortBy] = useState('newest');
 
-  const filteredDramas = selectedCategory === "all"
-    ? mockDramas
-    : mockDramas.filter((d) => d.categories.some((c) => c.toLowerCase() === currentCategory?.name.toLowerCase()));
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res: any = await categoriesApi.getAll();
+        setCategories(res.data || []);
+      } catch (err) {
+        console.error('Failed to fetch categories:', err);
+      }
+    };
+    fetchCategories();
+  }, []);
 
-  const sortedDramas = [...filteredDramas].sort((a, b) => {
-    if (sortBy === "newest") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    if (sortBy === "rating") return b.rating - a.rating;
-    return 0;
-  });
+  useEffect(() => {
+    const fetchDramas = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params: any = { limit: 50 };
+        if (selectedCategory !== 'all') {
+          params.category = selectedCategory;
+        }
+        params.sort = sortBy;
+
+        const res: any = await dramasApi.getAll(params);
+        setDramas(res.data?.dramas || []);
+      } catch (err) {
+        console.error('Failed to fetch dramas:', err);
+        setError('Failed to load dramas. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDramas();
+  }, [selectedCategory, sortBy]);
+
+  const currentCategory = categories.find((c) => c.slug === selectedCategory);
 
   return (
     <div className="min-h-screen bg-bg-primary">
@@ -36,23 +68,23 @@ export default function CategoryPage() {
               <h3 className="mb-4 text-sm font-semibold text-text-tertiary uppercase">Categories</h3>
               <nav className="space-y-1">
                 <button
-                  onClick={() => setSelectedCategory("all")}
+                  onClick={() => setSelectedCategory('all')}
                   className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition ${
-                    selectedCategory === "all"
-                      ? "bg-accent-primary text-white"
-                      : "text-text-secondary hover:bg-bg-secondary"
+                    selectedCategory === 'all'
+                      ? 'bg-accent-primary text-white'
+                      : 'text-text-secondary hover:bg-bg-secondary'
                   }`}
                 >
                   All Dramas
                 </button>
-                {mockCategories.map((category) => (
+                {categories.map((category) => (
                   <button
-                    key={category.id}
+                    key={category._id}
                     onClick={() => setSelectedCategory(category.slug)}
                     className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition ${
                       selectedCategory === category.slug
-                        ? "bg-accent-primary text-white"
-                        : "text-text-secondary hover:bg-bg-secondary"
+                        ? 'bg-accent-primary text-white'
+                        : 'text-text-secondary hover:bg-bg-secondary'
                     }`}
                   >
                     {category.name}
@@ -66,7 +98,7 @@ export default function CategoryPage() {
               {/* Header */}
               <div className="mb-6 flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-text-primary">
-                  {currentCategory?.name || "All Dramas"}
+                  {currentCategory?.name || 'All Dramas'}
                 </h1>
                 <select
                   value={sortBy}
@@ -81,23 +113,23 @@ export default function CategoryPage() {
               {/* Mobile Categories */}
               <div className="mb-6 flex gap-2 overflow-x-auto pb-2 md:hidden">
                 <button
-                  onClick={() => setSelectedCategory("all")}
+                  onClick={() => setSelectedCategory('all')}
                   className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
-                    selectedCategory === "all"
-                      ? "bg-accent-primary text-white"
-                      : "bg-bg-secondary text-text-secondary"
+                    selectedCategory === 'all'
+                      ? 'bg-accent-primary text-white'
+                      : 'bg-bg-secondary text-text-secondary'
                   }`}
                 >
                   All
                 </button>
-                {mockCategories.map((category) => (
+                {categories.map((category) => (
                   <button
-                    key={category.id}
+                    key={category._id}
                     onClick={() => setSelectedCategory(category.slug)}
                     className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
                       selectedCategory === category.slug
-                        ? "bg-accent-primary text-white"
-                        : "bg-bg-secondary text-text-secondary"
+                        ? 'bg-accent-primary text-white'
+                        : 'bg-bg-secondary text-text-secondary'
                     }`}
                   >
                     {category.name}
@@ -106,16 +138,33 @@ export default function CategoryPage() {
               </div>
 
               {/* Drama Grid */}
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                {sortedDramas.map((drama) => (
-                  <DramaCard key={drama.id} drama={drama} />
-                ))}
-              </div>
-
-              {/* Empty State */}
-              {sortedDramas.length === 0 && (
+              {loading ? (
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {[...Array(10)].map((_, i) => (
+                    <div key={i} className="aspect-[9/16] animate-pulse rounded-lg bg-bg-elevated" />
+                  ))}
+                </div>
+              ) : error ? (
+                <div className="py-12 text-center">
+                  <p className="text-red-400">{error}</p>
+                  <button
+                    onClick={() => setSelectedCategory(selectedCategory)}
+                    className="mt-4 rounded bg-accent-primary px-4 py-2 text-sm text-white hover:opacity-90"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : dramas.length === 0 ? (
                 <div className="py-12 text-center">
                   <p className="text-text-tertiary">No dramas found in this category</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {dramas.map((drama) => (
+                    <Link key={drama._id} href={`/drama/${drama._id}`}>
+                      <DramaCard drama={drama} />
+                    </Link>
+                  ))}
                 </div>
               )}
             </div>
@@ -123,5 +172,13 @@ export default function CategoryPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function CategoryPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-bg-primary" />}>
+      <CategoryContent />
+    </Suspense>
   );
 }

@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { dramasApi, categoriesApi, featuredApi } from '@/lib/api';
+import { dramasApi, categoriesApi } from '@/lib/api';
 import { Drama, Category } from '@/types';
+import { Navbar } from '@/components/features/Navbar';
+import { HomeCarousel } from '@/components/features/HomeCarousel';
 
 export default function Home() {
   const [dramas, setDramas] = useState<Drama[]>([]);
@@ -38,51 +40,10 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[#141414]">
       {/* Navbar */}
-      <nav className="fixed left-0 right-0 top-0 z-50 bg-[#141414]/95 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded bg-red-600">
-              <span className="text-lg font-bold text-white">T</span>
-            </div>
-            <span className="text-xl font-bold text-white">TinyTale</span>
-          </Link>
-
-          <div className="hidden items-center gap-6 md:flex">
-            <Link href="/" className="text-sm font-medium text-gray-300 hover:text-white">
-              Home
-            </Link>
-            <Link href="/browse" className="text-sm font-medium text-gray-300 hover:text-white">
-              Browse
-            </Link>
-            <Link href="/rankings" className="text-sm font-medium text-gray-300 hover:text-white">
-              Rankings
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Link href="/search" className="text-gray-300 hover:text-white">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </Link>
-            <Link
-              href="/auth/login"
-              className="text-sm font-medium text-gray-300 hover:text-white"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/auth/register"
-              className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-            >
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar activePath="/" variant="transparent" />
 
       {/* Hero Banner */}
-      <section className="relative h-[60vh] w-full overflow-hidden md:h-[70vh]">
+      <section className="relative h-[60vh] w-full overflow-hidden md:h-[80vh]">
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
@@ -110,9 +71,14 @@ export default function Home() {
                 Play Now
               </Link>
             )}
-            <button className="flex items-center gap-2 rounded bg-gray-600 px-6 py-2.5 font-medium text-white transition hover:bg-gray-700">
-              More Info
-            </button>
+            {heroDrama._id && (
+              <Link
+                href={`/drama/${heroDrama._id}`}
+                className="flex items-center gap-2 rounded bg-gray-600 px-6 py-2.5 font-medium text-white transition hover:bg-gray-700"
+              >
+                More Info
+              </Link>
+            )}
           </div>
         </div>
       </section>
@@ -140,62 +106,22 @@ export default function Home() {
 
       {/* Featured Content */}
       {featured.featured && featured.featured.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-8">
-          <h2 className="mb-6 text-xl font-bold text-white">Featured</h2>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4 xl:grid-cols-5">
-            {featured.featured.slice(0, 5).map((drama: Drama) => (
-              <Link key={drama._id} href={`/drama/${drama._id}`}>
-                <div className="group relative aspect-[2/3] overflow-hidden rounded-lg">
-                  <img
-                    src={drama.cover}
-                    alt={drama.title}
-                    className="h-full w-full object-cover transition group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 transition group-hover:opacity-100" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 transition group-hover:opacity-100">
-                    <p className="truncate text-sm font-medium text-white">{drama.title}</p>
-                    <p className="text-xs text-gray-300">{drama.rating?.toFixed(1)} ★</p>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </section>
+        <HomeCarousel title="Featured" dramas={featured.featured} />
       )}
 
       {/* Trending Dramas */}
-      <section className="mx-auto max-w-7xl px-4 py-8">
-        <h2 className="mb-6 text-xl font-bold text-white">Trending Dramas</h2>
-        {loading ? (
+      {loading ? (
+        <section className="mx-auto max-w-7xl px-4 py-8">
+          <h2 className="mb-6 text-xl font-bold text-white">Trending Dramas</h2>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4 xl:grid-cols-5">
             {[...Array(10)].map((_, i) => (
               <div key={i} className="aspect-[2/3] animate-pulse rounded-lg bg-gray-800" />
             ))}
           </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-6 lg:grid-cols-4 xl:grid-cols-5">
-            {dramas.map((drama) => (
-              <Link key={drama._id} href={`/drama/${drama._id}`}>
-                <div className="group relative aspect-[2/3] overflow-hidden rounded-lg">
-                  <img
-                    src={drama.cover}
-                    alt={drama.title}
-                    className="h-full w-full object-cover transition group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 transition group-hover:opacity-100" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 transition group-hover:opacity-100">
-                    <p className="truncate text-sm font-medium text-white">{drama.title}</p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs text-gray-300">{drama.rating?.toFixed(1)} ★</p>
-                      <p className="text-xs text-gray-300">{drama.year}</p>
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+        </section>
+      ) : (
+        <HomeCarousel title="Trending Dramas" dramas={dramas} />
+      )}
 
       {/* Footer */}
       <footer className="border-t border-gray-800 bg-[#141414] py-12">
@@ -207,7 +133,7 @@ export default function Home() {
             <span className="text-xl font-bold text-white">TinyTale</span>
           </div>
           <p className="mt-4 text-sm text-gray-500">
-            © 2024 TinyTale. All rights reserved.
+            © {new Date().getFullYear()} TinyTale. All rights reserved.
           </p>
         </div>
       </footer>
