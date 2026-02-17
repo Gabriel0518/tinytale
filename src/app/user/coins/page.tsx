@@ -1,286 +1,374 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
+import { coinsApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
-import { PaymentSuccessModal } from "@/components/features/PaymentSuccessModal";
-import { PaymentFailedModal } from "@/components/features/PaymentFailedModal";
-import { VipSubscriptionModal } from "@/components/features/VipSubscriptionModal";
 
 interface CoinPackage {
-  id: string;
+  _id: string;
   coins: number;
   price: number;
   bonus: number;
+  tag: string | null;
+  originalPrice: number | null;
 }
+
+type PaymentMethod = "stripe" | "paypal" | "apple_pay";
 
 export default function CoinsPage() {
   const { user, token, updateUser } = useAuth();
   const router = useRouter();
   const [packages, setPackages] = useState<CoinPackage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
   const [processing, setProcessing] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
-  const [successModal, setSuccessModal] = useState<{
-    open: boolean;
-    coins?: number;
-    amount?: number;
-    transactionId?: string;
-    newBalance?: number;
-  }>({ open: false });
-  const [failedModal, setFailedModal] = useState<{
-    open: boolean;
-    errorMessage?: string;
-    transactionId?: string;
-    retryPkgId?: string;
-  }>({ open: false });
-  const [showVipModal, setShowVipModal] = useState(false);
+  const [redeemCode, setRedeemCode] = useState("");
+  const [showRedeem, setShowRedeem] = useState(false);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [balance, setBalance] = useState(0);
 
   useEffect(() => {
-    if (!user && !loading) {
-      router.push("/auth/login");
-    }
-  }, [user, loading, router]);
-
-  useEffect(() => {
-    // Fetch coin packages
-    const fetchPackages = async () => {
+    if (!user) { router.push("/auth/login"); return; }
+    setBalance(user.coins || 0);
+    const load = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7003'}/api/payment/packages`);
-        const data = await response.json();
-        if (data.success) {
-          setPackages(data.data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch packages:', error);
-        // Fallback packages
+        const res = await coinsApi.getPackages();
+        const pkgs = res.data || [];
+        setPackages(pkgs);
+        if (pkgs.length > 0) setSelectedPkg(pkgs[1]?._id || pkgs[0]._id);
+      } catch {
         setPackages([
-          { id: '1', coins: 100, price: 0.99, bonus: 0 },
-          { id: '2', coins: 500, price: 4.99, bonus: 25 },
-          { id: '3', coins: 1000, price: 9.99, bonus: 100 },
-          { id: '4', coins: 2000, price: 19.99, bonus: 300 },
-          { id: '5', coins: 5000, price: 49.99, bonus: 1000 },
+          { _id: "p1", coins: 100, price: 0.99, bonus: 0, tag: null, originalPrice: null },
+          { _id: "p2", coins: 550, price: 4.99, bonus: 50, tag: "Popular", originalPrice: 5.99 },
+          { _id: "p3", coins: 1200, price: 9.99, bonus: 200, tag: null, originalPrice: 12.99 },
+          { _id: "p4", coins: 2500, price: 19.99, bonus: 500, tag: "Best Value", originalPrice: 24.99 },
+          { _id: "p5", coins: 5500, price: 49.99, bonus: 1000, tag: null, originalPrice: 59.99 },
+          { _id: "p6", coins: 12000, price: 99.99, bonus: 3000, tag: null, originalPrice: 129.99 },
         ]);
-      } finally {
-        setLoading(false);
-      }
+        setSelectedPkg("p2");
+      } finally { setLoading(false); }
     };
+    load();
+  }, [user, router]);
 
-    if (user) {
-      fetchPackages();
-    }
-  }, [user]);
+  const selected = packages.find(p => p._id === selectedPkg);
 
-  const handlePurchase = async (pkgId: string) => {
-    if (!token) return;
+  const showMsg = (type: "success" | "error", text: string) => {
+    setMessage({ type, text });
+    setTimeout(() => setMessage(null), 4000);
+  };
 
+  const handlePay = async () => {
+    if (!token || !selectedPkg) return;
     setProcessing(true);
-    setSelectedPackage(pkgId);
-
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7003'}/api/payment/create-order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ packageId: pkgId, paymentMethod: 'credit_card' }),
-      });
+      const res = await coinsApi.createOrder(token, selectedPkg, paymentMethod);
+      const d = res.data;
+      const newBal = d.balance || (balance + (selected?.coins || 0) + (selected?.bonus || 0));
+      setBalance(newBal);
+      if (user) updateUser({ ...user, coins: newBal });
+      showMsg("success", `Successfully purchased ${selected?.coins || 0} coins!`);
+    } catch (err: any) {
+      showMsg("error", err.message || "Payment failed. Please try again.");
+    } finally { setProcessing(false); }
+  };
 
-      const data = await response.json();
-
-      if (data.success) {
-        // Update user coins
-        const newBalance = (user?.coins || 0) + data.data.coinsAdded;
-        if (user) {
-          updateUser({ ...user, coins: newBalance });
-        }
-        setSuccessModal({
-          open: true,
-          coins: data.data.coinsAdded,
-          amount: data.data.amount,
-          transactionId: data.data.transactionId,
-          newBalance,
-        });
-      } else {
-        setFailedModal({
-          open: true,
-          errorMessage: data.error?.message || "Purchase failed",
-          transactionId: data.data?.transactionId,
-          retryPkgId: pkgId,
-        });
-      }
-    } catch (error) {
-      console.error('Purchase failed:', error);
-      setFailedModal({
-        open: true,
-        errorMessage: "Purchase failed. Please try again.",
-        retryPkgId: pkgId,
-      });
-    } finally {
-      setProcessing(false);
-      setSelectedPackage(null);
+  const handleRedeem = async () => {
+    if (!token || !redeemCode.trim()) return;
+    try {
+      const res = await coinsApi.redeem(token, redeemCode.trim());
+      const d = res.data;
+      const newBal = balance + (d.coins || 0);
+      setBalance(newBal);
+      if (user) updateUser({ ...user, coins: newBal });
+      showMsg("success", d.message || `Redeemed ${d.coins} coins!`);
+      setRedeemCode("");
+      setShowRedeem(false);
+    } catch (err: any) {
+      showMsg("error", err.message || "Invalid or expired code");
     }
   };
 
   if (!user || loading) {
     return (
-      <div className="min-h-screen bg-[#141414] flex items-center justify-center">
-        <div className="text-white">Loading...</div>
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#141414]">
-      {/* Navbar */}
-      <Navbar showSearch={false} />
+    <div className="min-h-screen bg-black text-white">
+      <style jsx>{`
+        @keyframes shine {
+          0% { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        .gold-shine {
+          background: linear-gradient(90deg, #FFD700 0%, #FFF8DC 25%, #FFD700 50%, #FFF8DC 75%, #FFD700 100%);
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: shine 3s linear infinite;
+        }
+        .card-shine::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          padding: 1px;
+          background: linear-gradient(135deg, rgba(255,215,0,0.4), transparent 50%, rgba(255,215,0,0.2));
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          pointer-events: none;
+        }
+      `}</style>
+      <Navbar />
 
-      <main className="pt-20 pb-12">
-        <div className="mx-auto max-w-4xl px-4">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold text-white">Recharge Coins</h1>
-            <p className="mt-2 text-gray-400">Purchase coins to unlock premium episodes</p>
-          </div>
+      {/* Toast */}
+      {message && (
+        <div className={`fixed top-20 right-6 z-50 px-5 py-3 rounded-lg text-sm font-medium shadow-lg transition-all ${message.type === "success" ? "bg-green-600" : "bg-red-600"}`}>
+          {message.text}
+        </div>
+      )}
 
-          {/* Current Balance */}
-          <div className="mb-8 rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-700 p-6 text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm opacity-80">Current Balance</p>
-                <p className="mt-2 text-4xl font-bold">{user.coins || 0} Coins</p>
+      <div className="max-w-6xl mx-auto px-4 pt-24 pb-16">
+        {/* Page Title */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">
+            <span className="gold-shine">Gold Recharge</span>
+          </h1>
+          <p className="text-gray-400 mt-2">Purchase gold coins to unlock premium episodes and exclusive content</p>
+        </div>
+
+        {/* Balance Banner */}
+        <div className="relative mb-10 rounded-2xl overflow-hidden bg-gradient-to-r from-yellow-900/40 via-yellow-800/30 to-yellow-900/40 border border-yellow-500/20 p-6 shadow-[0_0_30px_rgba(255,215,0,0.08)]">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,215,0,0.1),transparent_70%)]" />
+          <div className="relative flex items-center justify-between">
+            <div>
+              <p className="text-sm text-yellow-200/70 mb-1">Current Balance</p>
+              <div className="flex items-center gap-3">
+                <svg className="w-10 h-10 text-yellow-400 drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="url(#coinGrad)" /><text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text><defs><linearGradient id="coinGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFD700" /><stop offset="100%" stopColor="#F59E0B" /></linearGradient></defs></svg>
+                <span className="text-4xl font-bold gold-shine">{balance.toLocaleString()}</span>
+                <span className="text-yellow-300/60 text-lg">coins</span>
               </div>
-              <div className="text-6xl">🪙</div>
             </div>
-          </div>
-
-          {/* VIP Upsell */}
-          <button
-            onClick={() => setShowVipModal(true)}
-            className="mb-8 flex w-full items-center justify-between rounded-xl border border-yellow-500/30 bg-gradient-to-r from-yellow-900/20 to-yellow-800/10 p-5 text-left transition hover:border-yellow-500/50"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-yellow-500 to-yellow-600">
-                <span className="text-lg">👑</span>
-              </div>
-              <div>
-                <p className="font-semibold text-white">Upgrade to VIP</p>
-                <p className="text-sm text-gray-400">Unlimited access, ad-free, exclusive content</p>
-              </div>
-            </div>
-            <span className="text-sm font-medium text-yellow-500">From $8.33/mo →</span>
-          </button>
-
-          {/* Coin Packages */}
-          <h2 className="mb-4 text-xl font-semibold text-white">Select Package</h2>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            {packages.map((pkg) => (
-              <button
-                key={pkg.id}
-                onClick={() => handlePurchase(pkg.id)}
-                disabled={processing}
-                className={`relative flex flex-col items-center rounded-xl border p-6 transition ${
-                  selectedPackage === pkg.id
-                    ? 'border-red-500 bg-red-900/20'
-                    : 'border-gray-800 bg-gray-900 hover:border-gray-700'
-                }`}
-              >
-                {pkg.bonus > 0 && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-green-600 px-3 py-1 text-xs font-bold text-white">
-                    +{pkg.bonus} BONUS
-                  </div>
-                )}
-                <div className="text-3xl font-bold text-yellow-500">{pkg.coins + pkg.bonus}</div>
-                <div className="text-sm text-gray-400">Coins</div>
-                <div className="mt-4 text-xl font-bold text-white">${pkg.price}</div>
-                {processing && selectedPackage === pkg.id && (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/50">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Payment Methods */}
-          <div className="mt-8">
-            <h2 className="mb-4 text-xl font-semibold text-white">Payment Methods</h2>
-            <div className="flex gap-4">
-              <button className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-white">
-                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none">
-                  <rect x="1" y="4" width="22" height="16" rx="2" stroke="currentColor" strokeWidth="2" />
-                  <line x1="1" y1="10" x2="23" y2="10" stroke="currentColor" strokeWidth="2" />
-                </svg>
-                Credit Card
-              </button>
-              <button className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-white">
-                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" />
-                </svg>
-                PayPal
-              </button>
-              <button className="flex items-center gap-2 rounded-lg border border-gray-700 bg-gray-900 px-4 py-2 text-white">
-                <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15l-4-4 1.41-1.41L11 13.17l6.59-6.59L19 8l-8 8z"/>
-                </svg>
-                Apple Pay
-              </button>
-            </div>
-          </div>
-
-          {/* Info */}
-          <div className="mt-8 rounded-lg bg-gray-900 p-4">
-            <h3 className="font-semibold text-white">Note:</h3>
-            <ul className="mt-2 list-inside list-disc text-sm text-gray-400">
-              <li>Coins are non-refundable</li>
-              <li>Bonus coins are valid for 30 days</li>
-              <li>1 coin = approximately $0.01 USD</li>
-            </ul>
+            <Link href="/user/purchases" className="flex items-center gap-2 text-sm text-yellow-300/70 hover:text-yellow-200 transition">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              Transaction History
+            </Link>
           </div>
         </div>
-      </main>
 
-      {/* Payment Modals */}
-      <PaymentSuccessModal
-        open={successModal.open}
-        onClose={() => setSuccessModal({ open: false })}
-        coins={successModal.coins}
-        amount={successModal.amount}
-        transactionId={successModal.transactionId}
-        newBalance={successModal.newBalance}
-        onNavigate={(target) => {
-          setSuccessModal({ open: false });
-          if (target === "player") {
-            router.push("/");
-          }
-        }}
-      />
-      <PaymentFailedModal
-        open={failedModal.open}
-        onClose={() => setFailedModal({ open: false })}
-        errorMessage={failedModal.errorMessage}
-        transactionId={failedModal.transactionId}
-        onRetry={() => {
-          setFailedModal({ open: false });
-          if (failedModal.retryPkgId) {
-            handlePurchase(failedModal.retryPkgId);
-          }
-        }}
-        onContactSupport={() => {
-          setFailedModal({ open: false });
-          router.push("/help");
-        }}
-      />
-      <VipSubscriptionModal
-        open={showVipModal}
-        onClose={() => setShowVipModal(false)}
-        onSubscribe={(planId) => {
-          setShowVipModal(false);
-          console.log("Subscribe to plan:", planId);
-        }}
-      />
+        <div className="flex gap-8">
+          {/* Left: Package Grid */}
+          <div className="flex-1">
+            <h2 className="text-xl font-semibold mb-5">Select a Package</h2>
+            <div className="grid grid-cols-3 gap-4">
+              {packages.map(pkg => {
+                const isSelected = selectedPkg === pkg._id;
+                return (
+                  <button
+                    key={pkg._id}
+                    onClick={() => setSelectedPkg(pkg._id)}
+                    className={`relative rounded-xl p-5 text-left transition-all duration-200 hover:-translate-y-1 ${
+                      isSelected
+                        ? "bg-gradient-to-b from-yellow-900/30 to-yellow-950/20 border-2 border-yellow-500/60 shadow-[0_0_20px_rgba(255,215,0,0.15)]"
+                        : "bg-zinc-900/60 border border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    {/* Tag */}
+                    {pkg.tag && (
+                      <span className={`absolute -top-2.5 right-3 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                        pkg.tag === "Popular" ? "bg-blue-500 text-white" : "bg-green-500 text-white"
+                      }`}>{pkg.tag === "Popular" ? "Most Popular" : "Best Value"}</span>
+                    )}
+                    {/* Coin icon + amount */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <svg className="w-7 h-7 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="url(#coinGrad2)" /><text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text><defs><linearGradient id="coinGrad2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFD700" /><stop offset="100%" stopColor="#F59E0B" /></linearGradient></defs></svg>
+                      <span className={`text-2xl font-bold ${isSelected ? "text-yellow-300" : "text-white"}`}>{pkg.coins.toLocaleString()}</span>
+                    </div>
+                    {/* Bonus */}
+                    {pkg.bonus > 0 && (
+                      <p className="text-xs text-red-400 font-medium mb-2">+{pkg.bonus.toLocaleString()} Bonus</p>
+                    )}
+                    {/* Price */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-white">${pkg.price}</span>
+                      {pkg.originalPrice && (
+                        <span className="text-xs text-gray-500 line-through">${pkg.originalPrice}</span>
+                      )}
+                    </div>
+                    {/* Selected indicator */}
+                    {isSelected && (
+                      <div className="absolute top-3 left-3">
+                        <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Info Notes */}
+            <div className="mt-8 p-5 bg-zinc-900/40 rounded-xl border border-white/5">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-yellow-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                <div className="text-sm text-gray-400 space-y-1">
+                  <p>Coins are non-refundable once purchased.</p>
+                  <p>Bonus coins are valid for 30 days from the date of purchase.</p>
+                  <p>All prices are in USD. Taxes may apply based on your region.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Order Summary Sidebar */}
+          <aside className="w-80 shrink-0">
+            <div className="sticky top-24 space-y-5">
+              {/* Order Summary Card */}
+              <div className="bg-zinc-900/60 rounded-xl border border-white/10 p-6 card-shine relative">
+                <h3 className="text-lg font-semibold mb-5">Order Summary</h3>
+                {selected ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between py-3 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="url(#coinGrad3)" /><text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text><defs><linearGradient id="coinGrad3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFD700" /><stop offset="100%" stopColor="#F59E0B" /></linearGradient></defs></svg>
+                        <span className="text-sm">{selected.coins.toLocaleString()} Coins</span>
+                      </div>
+                      <span className="text-sm font-medium">${selected.price}</span>
+                    </div>
+                    {selected.bonus > 0 && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-green-400">Bonus Coins</span>
+                        <span className="text-green-400">+{selected.bonus.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                      <span className="font-semibold">Total</span>
+                      <span className="text-xl font-bold text-yellow-400">${selected.price}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Select a package to continue</p>
+                )}
+              </div>
+
+              {/* Payment Method */}
+              <div className="bg-zinc-900/60 rounded-xl border border-white/10 p-6">
+                <h3 className="text-sm font-semibold mb-4 text-gray-300">Payment Method</h3>
+                <div className="space-y-2.5">
+                  {([
+                    ["stripe", "Credit / Debit Card", <svg key="s" className="w-6 h-6" viewBox="0 0 24 24" fill="none"><rect x="1" y="4" width="22" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" /><path d="M1 10h22" stroke="currentColor" strokeWidth="1.5" /><path d="M5 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>],
+                    ["paypal", "PayPal", <svg key="pp" className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M7.076 21.337H2.47a.641.641 0 01-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" opacity="0.7" /></svg>],
+                    ["apple_pay", "Apple Pay", <svg key="ap" className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" /></svg>],
+                  ] as [PaymentMethod, string, React.ReactNode][]).map(([id, label, icon]) => (
+                    <button
+                      key={id}
+                      onClick={() => setPaymentMethod(id)}
+                      className={`w-full flex items-center gap-3 p-3.5 rounded-lg border transition ${
+                        paymentMethod === id
+                          ? "border-yellow-500/60 bg-yellow-500/10"
+                          : "border-white/10 bg-zinc-800/50 hover:border-white/20"
+                      }`}
+                    >
+                      <span className={paymentMethod === id ? "text-yellow-400" : "text-gray-400"}>{icon}</span>
+                      <span className="text-sm font-medium">{label}</span>
+                      <div className={`ml-auto w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === id ? "border-yellow-500" : "border-gray-600"}`}>
+                        {paymentMethod === id && <div className="w-2 h-2 rounded-full bg-yellow-500" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pay Button */}
+              <button
+                onClick={handlePay}
+                disabled={!selected || processing}
+                className="w-full py-3.5 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,215,0,0.2)]"
+              >
+                {processing ? (
+                  <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                    Pay Securely {selected ? `$${selected.price}` : ""}
+                  </>
+                )}
+              </button>
+
+              {/* Redeem Code */}
+              <div className="text-center">
+                <button onClick={() => setShowRedeem(!showRedeem)} className="text-sm text-yellow-400/70 hover:text-yellow-300 transition inline-flex items-center gap-1">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+                  Have a redeem code?
+                </button>
+                {showRedeem && (
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      type="text"
+                      value={redeemCode}
+                      onChange={e => setRedeemCode(e.target.value.toUpperCase())}
+                      placeholder="Enter code"
+                      className="flex-1 bg-zinc-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-yellow-500 focus:outline-none"
+                    />
+                    <button onClick={handleRedeem} disabled={!redeemCode.trim()} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-black text-sm font-medium rounded-lg transition disabled:opacity-50">Redeem</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Security Badge */}
+              <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
+                Secured by 256-bit SSL encryption
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="border-t border-white/10 bg-zinc-950">
+        <div className="max-w-6xl mx-auto px-4 py-12">
+          <div className="grid grid-cols-4 gap-8">
+            <div>
+              <h3 className="text-red-500 font-bold text-lg mb-4">TinyTale</h3>
+              <p className="text-sm text-gray-400">Your destination for premium short dramas.</p>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-3">Discover</h4>
+              <div className="space-y-2 text-sm text-gray-400">
+                <Link href="/" className="block hover:text-white transition">Home</Link>
+                <Link href="/dramas" className="block hover:text-white transition">Browse</Link>
+                <Link href="/search" className="block hover:text-white transition">Search</Link>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-3">Account</h4>
+              <div className="space-y-2 text-sm text-gray-400">
+                <Link href="/user/profile" className="block hover:text-white transition">Profile</Link>
+                <Link href="/user/settings" className="block hover:text-white transition">Settings</Link>
+                <Link href="/user/favorites" className="block hover:text-white transition">Watchlist</Link>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold mb-3">Support</h4>
+              <div className="space-y-2 text-sm text-gray-400">
+                <Link href="/help" className="block hover:text-white transition">Help Center</Link>
+                <Link href="/terms" className="block hover:text-white transition">Terms of Service</Link>
+                <Link href="/privacy" className="block hover:text-white transition">Privacy Policy</Link>
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 pt-8 border-t border-white/10 text-center text-sm text-gray-500">&copy; 2026 TinyTale. All rights reserved.</div>
+        </div>
+      </footer>
     </div>
   );
 }

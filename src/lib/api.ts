@@ -167,6 +167,12 @@ export const coinsApi = {
 
   recharge: (token: string, packageId: string) =>
     api.post('/api/coins/recharge', { packageId }, { token }),
+
+  createOrder: (token: string, packageId: string, paymentMethod: string) =>
+    api.post('/api/coins/create-order', { packageId, paymentMethod }, { token }),
+
+  redeem: (token: string, code: string) =>
+    api.post('/api/coins/redeem', { code }, { token }),
 };
 
 // Password Reset API
@@ -198,6 +204,24 @@ export const profileApi = {
     api.delete('/api/user/account', { token }),
 };
 
+// Settings API
+export const settingsApi = {
+  getSettings: (token: string) =>
+    api.get('/api/user/settings', { token }),
+
+  updateSettings: (token: string, data: any) =>
+    api.put('/api/user/settings', data, { token }),
+
+  getSecurity: (token: string) =>
+    api.get('/api/user/security', { token }),
+
+  removeSession: (token: string, sessionId: string) =>
+    api.delete(`/api/user/sessions/${sessionId}`, { token }),
+
+  logoutAll: (token: string) =>
+    api.post('/api/user/sessions/logout-all', {}, { token }),
+};
+
 // Subscription API
 export const subscriptionApi = {
   getPlans: () =>
@@ -208,4 +232,10 @@ export const subscriptionApi = {
 
   getStatus: (token: string) =>
     api.get('/api/subscriptions/status', { token }),
+};
+
+// Contact / Help Center API
+export const contactApi = {
+  submitInquiry: (data: { name: string; email: string; subject: string; message: string; type?: string }) =>
+    api.post('/api/v1/contact/inquiry', data),
 };
