@@ -180,6 +180,15 @@ export const userApi = {
 
   checkUnlocked: (token: string, episodeId: string) =>
     api.get(`/api/user/unlocked/${episodeId}`, { token }),
+
+  getNotifications: (token: string) =>
+    api.get('/api/user/notifications', { token }),
+
+  markNotificationRead: (token: string, id: string) =>
+    api.put(`/api/user/notifications/${id}/read`, {}, { token }),
+
+  markAllNotificationsRead: (token: string) =>
+    api.put('/api/user/notifications/read-all', {}, { token }),
 };
 
 // Comments API

@@ -1,93 +1,606 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 import Image from "next/image";
-import AdminLayout from "../layout";
-import { mockDramas } from "@/lib/mockData";
+import { useRouter } from "next/navigation";
+import EditDramaModal from "./components/EditDramaModal";
 
-export default function AdminDramasPage() {
+// ── Types ──────────────────────────────────────────────
+type DramaStatus = "Published" | "Draft" | "Suspended";
+
+interface Drama {
+  id: string;
+  code: string;
+  title: string;
+  cover: string;
+  genre: string;
+  episodes: number;
+  status: DramaStatus;
+  totalViews: number;
+  lastUpdated: string;
+}
+
+// ── Mock Data ──────────────────────────────────────────
+const MOCK_DRAMAS: Drama[] = [
+  {
+    id: "1",
+    code: "DR-2023-001",
+    title: "Love in the Moonlight",
+    cover: "https://picsum.photos/seed/drama1/200/300",
+    genre: "Romance",
+    episodes: 24,
+    status: "Published",
+    totalViews: 1_280_000,
+    lastUpdated: "2025-12-15",
+  },
+  {
+    id: "2",
+    code: "DR-2023-002",
+    title: "CEO's Secret Wife",
+    cover: "https://picsum.photos/seed/drama2/200/300",
+    genre: "Romance",
+    episodes: 36,
+    status: "Published",
+    totalViews: 2_450_000,
+    lastUpdated: "2025-11-28",
+  },
+  {
+    id: "3",
+    code: "DR-2023-003",
+    title: "Revenge of the Heiress",
+    cover: "https://picsum.photos/seed/drama3/200/300",
+    genre: "Thriller",
+    episodes: 18,
+    status: "Draft",
+    totalViews: 0,
+    lastUpdated: "2025-12-20",
+  },
+  {
+    id: "4",
+    code: "DR-2024-004",
+    title: "My Billionaire Husband",
+    cover: "https://picsum.photos/seed/drama4/200/300",
+    genre: "Romance",
+    episodes: 42,
+    status: "Published",
+    totalViews: 5_120_000,
+    lastUpdated: "2026-01-05",
+  },
+  {
+    id: "5",
+    code: "DR-2024-005",
+    title: "The Alpha's Mate",
+    cover: "https://picsum.photos/seed/drama5/200/300",
+    genre: "Fantasy",
+    episodes: 30,
+    status: "Suspended",
+    totalViews: 890_000,
+    lastUpdated: "2025-10-12",
+  },
+  {
+    id: "6",
+    code: "DR-2024-006",
+    title: "Trapped with the Mafia Boss",
+    cover: "https://picsum.photos/seed/drama6/200/300",
+    genre: "Thriller",
+    episodes: 20,
+    status: "Published",
+    totalViews: 1_750_000,
+    lastUpdated: "2026-01-18",
+  },
+  {
+    id: "7",
+    code: "DR-2024-007",
+    title: "Back to the Past",
+    cover: "https://picsum.photos/seed/drama7/200/300",
+    genre: "Sci-Fi",
+    episodes: 12,
+    status: "Draft",
+    totalViews: 0,
+    lastUpdated: "2026-02-01",
+  },
+  {
+    id: "8",
+    code: "DR-2024-008",
+    title: "The Forgotten Princess",
+    cover: "https://picsum.photos/seed/drama8/200/300",
+    genre: "Fantasy",
+    episodes: 28,
+    status: "Published",
+    totalViews: 3_340_000,
+    lastUpdated: "2025-12-30",
+  },
+  {
+    id: "9",
+    code: "DR-2024-009",
+    title: "Office Romance",
+    cover: "https://picsum.photos/seed/drama9/200/300",
+    genre: "Romance",
+    episodes: 16,
+    status: "Published",
+    totalViews: 960_000,
+    lastUpdated: "2026-01-22",
+  },
+  {
+    id: "10",
+    code: "DR-2024-010",
+    title: "Werewolf Academy",
+    cover: "https://picsum.photos/seed/drama10/200/300",
+    genre: "Fantasy",
+    episodes: 22,
+    status: "Draft",
+    totalViews: 0,
+    lastUpdated: "2026-02-10",
+  },
+];
+
+const ALL_GENRES = ["Romance", "Thriller", "Fantasy", "Sci-Fi"];
+const ROWS_PER_PAGE_OPTIONS = [5, 10, 20];
+
+const STATUS_STYLES: Record<DramaStatus, string> = {
+  Published: "bg-green-500/20 text-green-400",
+  Draft: "bg-gray-500/20 text-gray-400",
+  Suspended: "bg-red-500/20 text-red-400",
+};
+
+function formatViews(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toString();
+}
+
+// ── Component ──────────────────────────────────────────
+export default function DramaManagementPage() {
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"All" | DramaStatus>("All");
+  const [genreFilter, setGenreFilter] = useState<string>("All");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [dramas, setDramas] = useState(MOCK_DRAMAS);
+  const [actionMenuId, setActionMenuId] = useState<string | null>(null);
+  const [editingDrama, setEditingDrama] = useState<Drama | null>(null);
+  const [deletingDrama, setDeletingDrama] = useState<Drama | null>(null);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
-  const filteredDramas = mockDramas.filter((d) =>
-    d.title.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setActionMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const togglePublish = useCallback((drama: Drama) => {
+    setDramas((prev) =>
+      prev.map((d) =>
+        d.id === drama.id
+          ? { ...d, status: (d.status === "Published" ? "Draft" : "Published") as DramaStatus }
+          : d
+      )
+    );
+    setActionMenuId(null);
+  }, []);
+
+  const handleDelete = useCallback(() => {
+    if (!deletingDrama) return;
+    setDramas((prev) => prev.filter((d) => d.id !== deletingDrama.id));
+    setDeletingDrama(null);
+  }, [deletingDrama]);
+
+  const filtered = useMemo(() => {
+    return dramas.filter((d) => {
+      const matchesSearch =
+        d.title.toLowerCase().includes(search.toLowerCase()) ||
+        d.code.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus = statusFilter === "All" || d.status === statusFilter;
+      const matchesGenre = genreFilter === "All" || d.genre === genreFilter;
+      return matchesSearch && matchesStatus && matchesGenre;
+    });
+  }, [search, statusFilter, genreFilter, dramas]);
+
+  const totalResults = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(totalResults / rowsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIdx = (safePage - 1) * rowsPerPage;
+  const paginated = filtered.slice(startIdx, startIdx + rowsPerPage);
+  const showingFrom = totalResults === 0 ? 0 : startIdx + 1;
+  const showingTo = Math.min(startIdx + rowsPerPage, totalResults);
 
   return (
-    <AdminLayout>
-      <div>
-        <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Dramas</h1>
-          <button className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
-            + Add Drama
+    <div className="space-y-6">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-sm text-gray-500">
+        <Link href="/admin" className="hover:text-gray-300 transition-colors">
+          Home
+        </Link>
+        <span>/</span>
+        <span>Content</span>
+        <span>/</span>
+        <span className="text-gray-300">Drama Management</span>
+      </nav>
+
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Drama Management</h1>
+          <p className="mt-1 text-sm text-gray-400">
+            Manage your video dramas, episodes, and publication status.
+          </p>
+        </div>
+        <Link
+          href="/admin/dramas/create"
+          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
+              clipRule="evenodd"
+            />
+          </svg>
+          Create New Drama
+        </Link>
+      </div>
+
+      {/* Filters Card */}
+      <div className="rounded-xl bg-[#1a1a2e] p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[240px]">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by ID or Title..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="w-full rounded-lg border border-gray-800 bg-[#13131d] py-2 pl-10 pr-4 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-indigo-600"
+            />
+          </div>
+
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as "All" | DramaStatus);
+              setCurrentPage(1);
+            }}
+            className="rounded-lg border border-gray-800 bg-[#13131d] px-3 py-2 text-sm text-gray-300 outline-none transition-colors focus:border-indigo-600"
+          >
+            <option value="All">All Status</option>
+            <option value="Published">Published</option>
+            <option value="Draft">Draft</option>
+            <option value="Suspended">Suspended</option>
+          </select>
+
+          {/* Genre Filter */}
+          <select
+            value={genreFilter}
+            onChange={(e) => {
+              setGenreFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="rounded-lg border border-gray-800 bg-[#13131d] px-3 py-2 text-sm text-gray-300 outline-none transition-colors focus:border-indigo-600"
+          >
+            <option value="All">All Genres</option>
+            {ALL_GENRES.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+
+          {/* More Filters */}
+          <button className="rounded-lg border border-gray-800 bg-[#13131d] px-3 py-2 text-sm text-gray-400 transition-colors hover:border-gray-600 hover:text-gray-300">
+            More Filters
           </button>
         </div>
+      </div>
 
-        {/* Search & Filters */}
-        <div className="mb-6 flex gap-4">
-          <input
-            type="text"
-            placeholder="Search dramas..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-red-500 focus:outline-none"
-          />
-          <select className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-red-500 focus:outline-none">
-            <option>All Status</option>
-            <option>Published</option>
-            <option>Draft</option>
-          </select>
-        </div>
-
-        {/* Table */}
-        <div className="rounded-xl bg-white shadow-sm">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Drama</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Categories</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Episodes</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Rating</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+      {/* Table Card */}
+      <div className="rounded-xl bg-[#1a1a2e] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-gray-800">
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Cover
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Drama Title
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Episodes
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Total Views
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Last Updated
+                </th>
+                <th className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  Actions
+                </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filteredDramas.map((drama) => (
-                <tr key={drama._id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="h-12 w-8 overflow-hidden rounded">
-                        <Image src={drama.cover} alt={drama.title} width={32} height={48} className="rounded object-cover" />
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{drama.title}</span>
-                    </div>
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {drama.categories.join(", ")}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {drama.episodes?.length || 0}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                    {drama.rating}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4">
-                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${
-                      drama.isCompleted ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"
-                    }`}>
-                      {drama.isCompleted ? "Completed" : "Ongoing"}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-4 text-sm">
-                    <button className="mr-3 text-blue-600 hover:text-blue-800">Edit</button>
-                    <button className="text-red-600 hover:text-red-800">Delete</button>
+            <tbody className="divide-y divide-gray-800">
+              {paginated.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-6 py-12 text-center text-sm text-gray-500"
+                  >
+                    No dramas found.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                paginated.map((drama) => (
+                  <tr
+                    key={drama.id}
+                    className="transition-colors hover:bg-white/[0.02]"
+                  >
+                    {/* Cover */}
+                    <td className="px-6 py-3">
+                      <div className="h-14 w-10 overflow-hidden rounded-md bg-gray-800">
+                        <Image
+                          src={drama.cover}
+                          alt={drama.title}
+                          width={40}
+                          height={56}
+                          className="h-full w-full object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    </td>
+
+                    {/* Title + Code */}
+                    <td className="px-6 py-3">
+                      <p className="text-sm font-medium text-white">
+                        {drama.title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        #{drama.code}
+                      </p>
+                    </td>
+
+                    {/* Episodes */}
+                    <td className="px-6 py-3 text-sm text-gray-300">
+                      {drama.episodes}
+                    </td>
+
+                    {/* Status Badge */}
+                    <td className="px-6 py-3">
+                      <span
+                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[drama.status]}`}
+                      >
+                        {drama.status}
+                      </span>
+                    </td>
+
+                    {/* Total Views */}
+                    <td className="px-6 py-3 text-sm text-gray-300">
+                      {formatViews(drama.totalViews)}
+                    </td>
+
+                    {/* Last Updated */}
+                    <td className="px-6 py-3 text-sm text-gray-400">
+                      {drama.lastUpdated}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-6 py-3">
+                      <div
+                        className="relative"
+                        ref={actionMenuId === drama.id ? actionMenuRef : undefined}
+                      >
+                        <button
+                          onClick={() =>
+                            setActionMenuId(actionMenuId === drama.id ? null : drama.id)
+                          }
+                          className="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+                          title="Actions"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                        </button>
+                        {actionMenuId === drama.id && (
+                          <div className="absolute right-0 top-full z-50 mt-1 w-40 rounded-lg border border-gray-800 bg-[#1a1a2e] py-1 shadow-xl">
+                            <button
+                              onClick={() => togglePublish(drama)}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-white/5"
+                            >
+                              {drama.status === "Published" ? (
+                                <>
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                  </svg>
+                                  Unpublish
+                                </>
+                              ) : (
+                                <>
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  Publish
+                                </>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingDrama(drama);
+                                setActionMenuId(null);
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-white/5"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              Edit Drama
+                            </button>
+                            <Link
+                              href={`/admin/dramas/${drama.id}/episodes`}
+                              onClick={() => setActionMenuId(null)}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-white/5"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                              </svg>
+                              Episodes
+                            </Link>
+                            <div className="my-1 border-t border-gray-800" />
+                            <button
+                              onClick={() => {
+                                setDeletingDrama(drama);
+                                setActionMenuId(null);
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 transition-colors hover:bg-red-500/10"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        <div className="flex flex-wrap items-center justify-between gap-4 border-t border-gray-800 px-6 py-4">
+          <p className="text-sm text-gray-500">
+            Showing {showingFrom} to {showingTo} of {totalResults} results
+          </p>
+
+          <div className="flex items-center gap-4">
+            {/* Rows per page */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500">Rows per page:</span>
+              <select
+                value={rowsPerPage}
+                onChange={(e) => {
+                  setRowsPerPage(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="rounded-md border border-gray-800 bg-[#13131d] px-2 py-1 text-sm text-gray-300 outline-none focus:border-indigo-600"
+              >
+                {ROWS_PER_PAGE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Page numbers */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="rounded-md px-2 py-1 text-sm text-gray-400 transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Prev
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                (page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`min-w-[32px] rounded-md px-2 py-1 text-sm font-medium transition-colors ${
+                      page === safePage
+                        ? "bg-indigo-600 text-white"
+                        : "text-gray-400 hover:bg-white/5"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                )
+              )}
+              <button
+                onClick={() =>
+                  setCurrentPage((p) => Math.min(totalPages, p + 1))
+                }
+                disabled={safePage >= totalPages}
+                className="rounded-md px-2 py-1 text-sm text-gray-400 transition-colors hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    </AdminLayout>
+      {/* Delete Confirmation Modal */}
+      {deletingDrama && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-xl bg-[#1a1a2e] p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white">Confirm Delete</h3>
+            <p className="mt-2 text-sm text-gray-400">
+              Are you sure you want to delete &ldquo;{deletingDrama.title}&rdquo;? This action cannot be undone.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-3">
+              <button
+                onClick={() => setDeletingDrama(null)}
+                className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:border-gray-500 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Drama Modal */}
+      {editingDrama && (
+        <EditDramaModal
+          drama={editingDrama}
+          onClose={() => setEditingDrama(null)}
+          onSave={(updated) => {
+            setDramas((prev) =>
+              prev.map((d) => (d.id === updated.id ? updated : d))
+            );
+            setEditingDrama(null);
+          }}
+        />
+      )}
+    </div>
   );
 }

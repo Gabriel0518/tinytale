@@ -28,6 +28,18 @@
 | **支付** | Stripe | - |
 | **部署** | Vercel(前端/后台) + Railway/AWS(后端) | - |
 
+### 服务地址（生产环境端口不可修改）
+
+| 服务 | 地址 | 说明 |
+|------|------|------|
+| **前端 (Frontend)** | `http://localhost:7001` | 用户端 Web 应用 |
+| **后端 (Backend API)** | `http://localhost:7002` | Express API 服务，前端和后台共用 |
+| **后台 (Admin)** | `http://localhost:7003` | 管理后台 Web 应用 |
+| **MongoDB** | `mongodb://localhost:27017/tinytale` | Docker 容器 |
+| **Redis** | `localhost:6379` | 缓存服务 |
+
+> **禁止事项**：生产环境下严禁修改以上端口号（7001 / 7002 / 7003 / 27017 / 6379）。所有涉及服务器地址的开发（API 调用、环境变量、部署配置等）必须使用上述固定端口。
+
 ---
 
 ## 3. Agent Team
@@ -163,6 +175,57 @@
     /routes          # API路由
     /middleware      # 中间件
 ```
+
+### 后台管理系统页面架构
+
+```
+后台管理系统 (/admin)
+│
+├── 🔐 登录
+│   └── /admin/login ──────────────── 管理员登录（不显示侧边栏）
+│
+├── 📊 仪表盘 Dashboard
+│   └── /admin ─────────────────────── 数据概览、快捷操作、图表
+│
+├── 📺 内容管理 Content
+│   ├── /admin/dramas ──────────────── 短剧列表管理
+│   │   └── /admin/dramas/[id] ────── 短剧详情编辑
+│   │       └── /admin/dramas/[id]/episodes ── 分集管理与编辑
+│   ├── /admin/categories ─────────── 分类管理
+│   ├── /admin/rankings ───────────── 排行榜与推荐
+│   └── /admin/comments ───────────── 评论审核
+│
+├── 👥 用户管理 Users
+│   ├── /admin/users ──────────────── 用户列表
+│   └── /admin/users/[id] ─────────── 用户详情与编辑
+│
+├── 💰 财务管理 Finance
+│   ├── /admin/orders ─────────────── 订单管理
+│   ├── /admin/subscriptions ──────── VIP 订阅管理
+│   ├── /admin/coin-records ───────── 金币交易记录
+│   └── /admin/finance ────────────── 财务报表与概览
+│
+├── 📢 推广管理 Promoters
+│   ├── /admin/promoters ──────────── 推广员列表
+│   │   ├── /admin/promoters/[id] ── 推广员详情
+│   │   └── /admin/promoters/settings ── 推广设置
+│   └── /admin/withdrawals ────────── 提现审核
+│
+├── 🎯 营销管理 Marketing
+│   ├── /admin/checkin ────────────── 每日签到系统
+│   ├── /admin/tasks ──────────────── 任务管理
+│   └── /admin/campaigns ──────────── 营销活动
+│
+└── ⚙️ 系统管理 System
+    ├── /admin/admins ─────────────── 管理员账号
+    ├── /admin/roles ──────────────── 角色与权限
+    ├── /admin/settings ───────────── 系统设置
+    └── /admin/logs ───────────────── 审计日志
+```
+
+> 共 7 大模块、19 个导航项 + 1 个登录页 + 5 个子页面，总计 25 个页面。
+> 布局：固定左侧边栏（dark gray-900），当前路由高亮 red-600，登录页不显示侧边栏。
+> 关键文件：`src/app/admin/layout.tsx`（布局）、`src/lib/adminApi.ts`（API 客户端）
 
 ---
 

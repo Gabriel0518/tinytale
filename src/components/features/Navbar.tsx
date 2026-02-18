@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/authContext";
+import { userApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 interface NavbarProps {
@@ -32,7 +33,15 @@ export function Navbar({
 }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrollOpacity, setScrollOpacity] = useState(0);
-  const { user } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const { user, token } = useAuth();
+
+  useEffect(() => {
+    if (!token) return;
+    userApi.getNotifications(token)
+      .then((res: { data: { unreadCount: number } }) => setUnreadCount(res.data.unreadCount))
+      .catch(() => {});
+  }, [token]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -112,12 +121,14 @@ export function Navbar({
                 <span className="font-medium">{user.coins || 0}</span>
                 <span className="text-xs font-semibold text-yellow-400">ADD</span>
               </Link>
-              <button className="relative text-gray-300 transition hover:text-white" aria-label="Notifications">
+              <Link href="/user/notifications" className="relative text-gray-300 transition hover:text-white" aria-label="Notifications">
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">3</span>
-              </button>
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">{unreadCount}</span>
+                )}
+              </Link>
               <Link
                 href="/user/profile"
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 text-sm font-medium text-white"
