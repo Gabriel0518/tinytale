@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import Image from "next/image";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/authContext";
 import { cn } from "@/lib/utils";
 
@@ -30,22 +31,44 @@ export function Navbar({
   renderSearch,
 }: NavbarProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [scrollOpacity, setScrollOpacity] = useState(0);
   const { user } = useAuth();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const opacity = Math.min(window.scrollY / 100, 1);
+      setScrollOpacity(opacity);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const bgStyle =
+    variant === "transparent"
+      ? { backgroundColor: `rgba(20, 20, 20, ${scrollOpacity * 0.95})` }
+      : undefined;
 
   const bgClass =
     variant === "transparent"
-      ? "bg-transparent"
+      ? "transition-colors duration-300"
       : "bg-[#141414]/95 backdrop-blur-sm";
 
   return (
-    <nav className={cn("fixed left-0 right-0 top-0 z-50", bgClass, className)}>
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
+    <nav
+      className={cn("fixed left-0 right-0 top-0 z-50", bgClass, scrollOpacity > 0.1 && variant === "transparent" ? "backdrop-blur-sm" : "", className)}
+      style={bgStyle}
+    >
+      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-red-600">
-            <span className="text-lg font-bold text-white">T</span>
-          </div>
-          <span className="text-xl font-bold text-white">TinyTale</span>
+        <Link href="/" className="flex items-center">
+          <Image
+            src="/logo.png"
+            alt="TinyTale"
+            width={378}
+            height={97}
+            className="h-[97px] w-auto"
+            priority
+          />
         </Link>
 
         {/* Desktop Nav Links */}
@@ -69,8 +92,8 @@ export function Navbar({
           {renderSearch ? (
             <div className="hidden flex-1 justify-center px-4 md:flex">{renderSearch}</div>
           ) : showSearch ? (
-            <Link href="/search" className="text-gray-300 hover:text-white">
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <Link href="/search" className="text-gray-300 hover:text-white" aria-label="Search">
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </Link>
@@ -83,14 +106,14 @@ export function Navbar({
                 href="/user/coins"
                 className="flex items-center gap-1.5 rounded-full bg-gray-800 px-3 py-1.5 text-sm text-yellow-500 transition hover:bg-gray-700"
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" />
                 </svg>
                 <span className="font-medium">{user.coins || 0}</span>
                 <span className="text-xs font-semibold text-yellow-400">ADD</span>
               </Link>
-              <button className="relative text-gray-300 transition hover:text-white">
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <button className="relative text-gray-300 transition hover:text-white" aria-label="Notifications">
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
                 <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">3</span>
@@ -100,7 +123,7 @@ export function Navbar({
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 text-sm font-medium text-white"
               >
                 {user.avatar ? (
-                  <img src={user.avatar} alt={user.nickname} className="h-full w-full rounded-full object-cover" />
+                  <Image src={user.avatar} alt={user.nickname} width={32} height={32} className="h-full w-full rounded-full object-cover" />
                 ) : (
                   user.nickname?.charAt(0).toUpperCase() || "U"
                 )}
@@ -128,6 +151,8 @@ export function Navbar({
           <button
             className="md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMenuOpen}
           >
             <svg
               className="h-6 w-6 text-white"

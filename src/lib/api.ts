@@ -1,3 +1,5 @@
+import type { StreamPlaybackInfo } from '@/types';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
 
 interface FetchOptions extends RequestInit {
@@ -92,6 +94,9 @@ export const authApi = {
   register: (email: string, password: string, nickname: string) =>
     api.post('/api/auth/register', { email, password, nickname }),
 
+  googleLogin: (credential: string) =>
+    api.post('/api/auth/google', { credential }),
+
   getMe: (token: string) =>
     api.get('/api/auth/me', { token }),
 };
@@ -114,6 +119,35 @@ export const dramasApi = {
 
   getTrending: () =>
     api.get('/api/featured/trending'),
+
+  getRelated: (id: string) =>
+    api.get(`/api/dramas/${id}/related`),
+};
+
+// Episodes API
+export const episodesApi = {
+  // Get stream playback info (HLS URL + signed token)
+  getStream: (episodeId: string, token?: string) => {
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return api.get<StreamPlaybackInfo>(`/api/episodes/${episodeId}/stream`, { headers });
+  },
+
+  // Check access permission for an episode
+  checkAccess: (episodeId: string, token: string) =>
+    api.get<{ hasAccess: boolean; reason?: string }>(`/api/episodes/${episodeId}/access`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+
+  // Report playback progress
+  reportProgress: (episodeId: string, token: string, currentTime: number, duration: number) =>
+    api.post<void>(`/api/episodes/${episodeId}/progress`, {
+      currentTime,
+      duration,
+      completed: currentTime >= duration * 0.9,
+    }, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
 };
 
 // Categories API
@@ -137,6 +171,15 @@ export const userApi = {
 
   addHistory: (token: string, dramaId: string, episodeId: string) =>
     api.post('/api/user/history', { dramaId, episodeId }, { token }),
+
+  deleteHistory: (token: string) =>
+    api.delete('/api/user/history', { token }),
+
+  deleteHistoryEntry: (token: string, id: string) =>
+    api.delete(`/api/user/history/${id}`, { token }),
+
+  checkUnlocked: (token: string, episodeId: string) =>
+    api.get(`/api/user/unlocked/${episodeId}`, { token }),
 };
 
 // Comments API
@@ -152,6 +195,15 @@ export const commentsApi = {
 
   like: (token: string, commentId: string) =>
     api.post(`/api/comments/${commentId}/like`, {}, { token }),
+};
+
+// Reviews API
+export const reviewsApi = {
+  getByDrama: (dramaId: string) =>
+    api.get(`/api/dramas/${dramaId}/reviews`),
+
+  add: (token: string, dramaId: string, rating: number, content: string) =>
+    api.post(`/api/dramas/${dramaId}/reviews`, { rating, content }, { token }),
 };
 
 // Coins API
@@ -227,8 +279,8 @@ export const subscriptionApi = {
   getPlans: () =>
     api.get('/api/subscriptions/plans'),
 
-  subscribe: (token: string, planId: string) =>
-    api.post('/api/subscriptions/subscribe', { planId }, { token }),
+  subscribe: (token: string, planId: string, paymentMethod?: string) =>
+    api.post('/api/subscriptions/subscribe', { planId, paymentMethod }, { token }),
 
   getStatus: (token: string) =>
     api.get('/api/subscriptions/status', { token }),

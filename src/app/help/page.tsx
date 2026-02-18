@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
+import Image from "next/image";
 import { Navbar } from "@/components/features/Navbar";
+import { Footer } from "@/components/features/Footer";
 import { contactApi } from "@/lib/api";
 
 /* ─── Tab definitions ─── */
@@ -142,6 +143,14 @@ export default function HelpPage() {
     if (first) setActiveAnchor(first.id);
   }, [activeTab]);
 
+  /* Auto-reset form status after 5 seconds */
+  useEffect(() => {
+    if (formStatus === "sent" || formStatus === "error") {
+      const timer = setTimeout(() => setFormStatus("idle"), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [formStatus]);
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setFormStatus("sending");
@@ -161,10 +170,6 @@ export default function HelpPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <style>{`
-        @keyframes goldShine { 0%{background-position:200% center} 100%{background-position:-200% center} }
-        .gold-text { background:linear-gradient(90deg,#FFD700,#FFF8DC,#FFD700,#B8860B,#FFD700); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; animation:goldShine 4s linear infinite; }
-      `}</style>
       <Navbar />
 
       {/* Hero Banner */}
@@ -182,11 +187,13 @@ export default function HelpPage() {
       {/* Tab Navigation */}
       <div className="sticky top-16 z-30 bg-black/90 backdrop-blur-xl border-b border-white/10">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="flex overflow-x-auto scrollbar-hide gap-1">
+          <div className="flex overflow-x-auto scrollbar-hide gap-1" role="tablist">
             {TABS.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
+                role="tab"
+                aria-selected={activeTab === tab}
                 className={`whitespace-nowrap px-5 py-3.5 text-sm font-medium transition-all border-b-2 ${
                   activeTab === tab
                     ? "border-[#FFD700] text-[#FFD700]"
@@ -203,7 +210,7 @@ export default function HelpPage() {
       {/* Main Content with Sidebar */}
       <div className="max-w-6xl mx-auto px-6 py-12">
         <div className="flex gap-10">
-          {/* Sticky Sidebar */}
+          {/* Sticky Sidebar - Desktop */}
           <aside className="hidden lg:block w-56 shrink-0">
             <nav className="sticky top-36 space-y-1">
               {SIDEBAR_MAP[activeTab].map(({ id, label }) => (
@@ -221,6 +228,25 @@ export default function HelpPage() {
               ))}
             </nav>
           </aside>
+
+          {/* Sidebar - Mobile horizontal scroll */}
+          <div className="lg:hidden -mx-6 px-6 mb-6 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-2">
+              {SIDEBAR_MAP[activeTab].map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => scrollToAnchor(id)}
+                  className={`whitespace-nowrap px-3 py-2 rounded-lg text-sm transition-all ${
+                    activeAnchor === id
+                      ? "bg-[#FFD700]/10 text-[#FFD700] font-medium"
+                      : "text-zinc-500 hover:text-zinc-300 bg-zinc-900/60"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Content Area */}
           <div ref={contentRef} className="flex-1 min-w-0">
@@ -292,13 +318,14 @@ export default function HelpPage() {
                   </button>
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input
                   type="text"
                   placeholder="Your Name"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   required
+                  aria-label="Your Name"
                   className="w-full px-4 py-3 rounded-lg bg-zinc-900 border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-[#FFD700]/50 transition"
                 />
                 <input
@@ -307,6 +334,7 @@ export default function HelpPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
+                  aria-label="Email Address"
                   className="w-full px-4 py-3 rounded-lg bg-zinc-900 border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-[#FFD700]/50 transition"
                 />
               </div>
@@ -315,6 +343,7 @@ export default function HelpPage() {
                 placeholder="Subject"
                 value={formData.subject}
                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                aria-label="Subject"
                 className="w-full px-4 py-3 rounded-lg bg-zinc-900 border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-[#FFD700]/50 transition"
               />
               <textarea
@@ -323,6 +352,7 @@ export default function HelpPage() {
                 value={formData.message}
                 onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                 required
+                aria-label="Your message"
                 className="w-full px-4 py-3 rounded-lg bg-zinc-900 border border-white/10 text-white placeholder-zinc-500 text-sm focus:outline-none focus:border-[#FFD700]/50 transition resize-none"
               />
               <button
@@ -332,58 +362,13 @@ export default function HelpPage() {
               >
                 {formStatus === "sending" ? "Sending..." : formStatus === "sent" ? "Sent Successfully!" : "Send Message"}
               </button>
-              {formStatus === "error" && <p className="text-red-400 text-sm text-center">Failed to send. Please try again.</p>}
+              {formStatus === "error" && <p role="alert" className="text-red-400 text-sm text-center">Failed to send. Please try again.</p>}
             </form>
           </div>
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10 bg-black">
-        <div className="max-w-6xl mx-auto px-6 py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
-            <div>
-              <h4 className="text-sm font-semibold text-white mb-3">Discover</h4>
-              <div className="space-y-2">
-                <Link href="/" className="block text-sm text-zinc-500 hover:text-white transition">Home</Link>
-                <Link href="/categories" className="block text-sm text-zinc-500 hover:text-white transition">Categories</Link>
-                <Link href="/rankings" className="block text-sm text-zinc-500 hover:text-white transition">Rankings</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-white mb-3">Account</h4>
-              <div className="space-y-2">
-                <Link href="/user/profile" className="block text-sm text-zinc-500 hover:text-white transition">Profile</Link>
-                <Link href="/user/coins" className="block text-sm text-zinc-500 hover:text-white transition">Coins</Link>
-                <Link href="/user/subscription" className="block text-sm text-zinc-500 hover:text-white transition">VIP</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-white mb-3">Support</h4>
-              <div className="space-y-2">
-                <Link href="/help" className="block text-sm text-zinc-500 hover:text-white transition">Help Center</Link>
-                <Link href="/help" className="block text-sm text-zinc-500 hover:text-white transition">Contact Us</Link>
-                <Link href="/help" className="block text-sm text-zinc-500 hover:text-white transition">FAQ</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold text-white mb-3">Legal</h4>
-              <div className="space-y-2">
-                <button onClick={() => setActiveTab("Privacy Policy")} className="block text-sm text-zinc-500 hover:text-white transition">Privacy Policy</button>
-                <button onClick={() => setActiveTab("Terms of Service")} className="block text-sm text-zinc-500 hover:text-white transition">Terms of Service</button>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-zinc-600">&copy; {new Date().getFullYear()} TinyTale. All rights reserved.</p>
-            <div className="flex gap-4">
-              {["Twitter", "Instagram", "YouTube"].map((s) => (
-                <span key={s} className="text-xs text-zinc-600 hover:text-zinc-400 cursor-pointer transition">{s}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
@@ -438,7 +423,7 @@ function AboutSection() {
           {TEAM.map((m) => (
             <div key={m.name} className="text-center group">
               <div className="aspect-square rounded-xl overflow-hidden mb-3 bg-zinc-800">
-                <img src={m.img} alt={m.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <Image src={m.img} alt={m.name} width={200} height={200} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
               </div>
               <p className="text-sm font-semibold text-white">{m.name}</p>
               <p className="text-xs text-zinc-500">{m.role}</p>
@@ -555,6 +540,7 @@ function FaqSection({ openFaq, setOpenFaq }: { openFaq: string | null; setOpenFa
                   <button
                     onClick={() => setOpenFaq(isOpen ? null : key)}
                     className="flex items-center w-full px-5 py-4 text-left gap-3"
+                    aria-expanded={isOpen}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`text-[#FFD700] shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`}>
                       <polyline points="9 18 15 12 9 6" />

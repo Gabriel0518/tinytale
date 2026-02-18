@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -19,10 +20,7 @@ export function AuthLayout({ children, navRight }: AuthLayoutProps) {
       {/* Header */}
       <header className="relative z-10 flex h-16 items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-red-600">
-            <span className="text-lg font-bold text-white">T</span>
-          </div>
-          <span className="text-xl font-bold text-white">TinyTale</span>
+          <Image src="/logo.png" alt="TinyTale" width={420} height={108} className="h-[108px] w-auto" />
         </Link>
         <div className="flex items-center gap-6 text-sm text-gray-400">
           <Link href="/" className="hidden transition hover:text-white sm:block">Home</Link>

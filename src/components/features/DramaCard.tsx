@@ -11,6 +11,9 @@ export function DramaCard({ drama, onClick }: DramaCardProps) {
     <div
       className="group relative cursor-pointer overflow-hidden rounded-lg bg-bg-secondary transition-all duration-300 hover:scale-105 hover:shadow-lg"
       onClick={onClick}
+      role="link"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
     >
       {/* Cover Image */}
       <div className="relative aspect-[9/16] w-full overflow-hidden">
@@ -29,6 +32,7 @@ export function DramaCard({ drama, onClick }: DramaCardProps) {
               className="h-6 w-6 text-white"
               fill="currentColor"
               viewBox="0 0 24 24"
+              aria-hidden="true"
             >
               <path d="M8 5v14l11-7z" />
             </svg>

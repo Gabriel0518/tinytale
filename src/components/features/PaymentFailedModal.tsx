@@ -35,7 +35,7 @@ export function PaymentFailedModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
@@ -48,7 +48,7 @@ export function PaymentFailedModal({
         `}</style>
 
         {/* Close Button */}
-        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 backdrop-blur flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition">
+        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 backdrop-blur flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition" aria-label="Close dialog">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
 
@@ -79,6 +79,7 @@ export function PaymentFailedModal({
                 onClick={handleCopy}
                 className="shrink-0 w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition"
                 title="Copy to clipboard"
+                aria-label="Copy error reference to clipboard"
               >
                 {copied ? (
                   <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>

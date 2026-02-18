@@ -2,10 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
-import { profileApi, coinsApi } from "@/lib/api";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { profileApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
+import { Footer } from "@/components/features/Footer";
 
 interface Transaction {
   _id: string;
@@ -25,6 +28,7 @@ type FilterStatus = "all" | "completed" | "pending" | "failed";
 
 export default function PurchasesPage() {
   const { user, token } = useAuth();
+  const { loading: authLoading } = useAuthGuard();
   const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,18 +38,18 @@ export default function PurchasesPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) { router.push("/auth/login"); return; }
+    if (!user) return;
     setBalance(user.coins || 0);
     const load = async () => {
       if (!token) return;
       try {
-        const res: any = await profileApi.getPurchases(token);
+        const res = await profileApi.getPurchases(token);
         setTransactions(res.data?.purchases || res.data || []);
       } catch { /* fallback empty */ }
       finally { setLoading(false); }
     };
     load();
-  }, [user, token, router]);
+  }, [user, token]);
 
   const filtered = transactions.filter(t => {
     if (filterType !== "all" && t.type !== filterType) return false;
@@ -53,9 +57,18 @@ export default function PurchasesPage() {
     return true;
   });
 
-  const monthlySpent = transactions
-    .filter(t => t.amountFiat && t.status === "completed")
-    .reduce((sum, t) => sum + (t.amountFiat || 0), 0);
+  const monthlySpent = (() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    return transactions
+      .filter(t => {
+        if (!t.amountFiat || t.status !== "completed") return false;
+        const d = new Date(t.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      })
+      .reduce((sum, t) => sum + (t.amountFiat || 0), 0);
+  })();
 
   const handleCopyId = async (id: string) => {
     try {
@@ -67,7 +80,7 @@ export default function PurchasesPage() {
 
   const getTypeIcon = (t: Transaction) => {
     if (t.type === "unlock" && t.cover) {
-      return <div className="w-10 h-10 rounded-lg bg-zinc-800 overflow-hidden opacity-80"><img src={t.cover} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} /></div>;
+      return <div className="w-10 h-10 rounded-lg bg-zinc-800 overflow-hidden opacity-80"><Image src={t.cover} alt="" width={40} height={40} className="w-full h-full object-cover" /></div>;
     }
     const icons: Record<string, { path: string; color: string; bg: string }> = {
       coins: { path: "M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z", color: "text-yellow-400", bg: "bg-yellow-500/10" },
@@ -98,7 +111,7 @@ export default function PurchasesPage() {
     );
   };
 
-  if (!user) return null;
+  if (authLoading || !user) return null;
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -132,9 +145,9 @@ export default function PurchasesPage() {
             <p className="text-3xl font-bold text-white">${monthlySpent.toFixed(2)}</p>
             <p className="text-xs text-gray-500 mt-1">{transactions.filter(t => t.status === "completed").length} transactions completed</p>
           </div>
-          <button className="absolute right-6 bottom-6 flex items-center gap-2 text-xs text-gray-400 hover:text-yellow-400 transition">
+          <button disabled className="absolute right-6 bottom-6 flex items-center gap-2 text-xs text-gray-500 cursor-not-allowed opacity-50">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-            Download Invoice
+            Download Invoice (Coming soon)
           </button>
         </div>
 
@@ -172,38 +185,62 @@ export default function PurchasesPage() {
               const isFailed = t.status === "failed";
               const isPositive = (t.amountCoins || 0) > 0 || t.type === "purchase" || t.type === "subscription";
               return (
-                <div key={t._id} className="group grid grid-cols-12 items-center gap-4 px-4 py-3.5 rounded-xl hover:bg-[#2A2A2A] transition">
-                  {/* Icon */}
-                  <div className="col-span-1">{getTypeIcon(t)}</div>
-                  {/* Info */}
-                  <div className="col-span-4">
-                    <p className={`text-sm font-medium ${isFailed ? "line-through text-gray-500" : "text-white"}`}>{t.itemName}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {t.episodes && <span className="text-[11px] text-gray-500">Ep. {t.episodes}</span>}
-                      <button onClick={() => handleCopyId(t._id)} className="text-[11px] text-gray-600 hover:text-gray-400 font-mono transition" title="Click to copy">
-                        {copiedId === t._id ? "Copied!" : t._id}
-                      </button>
+                <div key={t._id} className="group rounded-xl hover:bg-[#2A2A2A] transition">
+                  {/* Desktop layout */}
+                  <div className="hidden md:grid grid-cols-12 items-center gap-4 px-4 py-3.5">
+                    <div className="col-span-1">{getTypeIcon(t)}</div>
+                    <div className="col-span-4">
+                      <p className={`text-sm font-medium ${isFailed ? "line-through text-gray-500" : "text-white"}`}>{t.itemName}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {t.episodes && <span className="text-[11px] text-gray-500">Ep. {t.episodes}</span>}
+                        <button onClick={() => handleCopyId(t._id)} className="text-[11px] text-gray-600 hover:text-gray-400 font-mono transition" title="Click to copy">
+                          {copiedId === t._id ? "Copied!" : t._id}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="col-span-3 text-sm text-gray-500">
+                      {new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      <span className="text-gray-600 ml-1.5">{new Date(t.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                    <div className="col-span-2">{getStatusBadge(t.status)}</div>
+                    <div className="col-span-2 text-right">
+                      {t.amountFiat != null && (
+                        <p className={`text-sm font-semibold ${isPositive ? "text-green-400" : "text-red-400"}`}>
+                          {isPositive ? "+" : "-"}${t.amountFiat.toFixed(2)}
+                        </p>
+                      )}
+                      {t.amountCoins != null && (
+                        <p className={`text-xs ${(t.amountCoins || 0) >= 0 ? "text-yellow-400/70" : "text-red-400/70"}`}>
+                          {(t.amountCoins || 0) >= 0 ? "+" : ""}{t.amountCoins?.toLocaleString()} coins
+                        </p>
+                      )}
                     </div>
                   </div>
-                  {/* Date */}
-                  <div className="col-span-3 text-sm text-gray-500">
-                    {new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    <span className="text-gray-600 ml-1.5">{new Date(t.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
-                  </div>
-                  {/* Status */}
-                  <div className="col-span-2">{getStatusBadge(t.status)}</div>
-                  {/* Amount */}
-                  <div className="col-span-2 text-right">
-                    {t.amountFiat != null && (
-                      <p className={`text-sm font-semibold ${isPositive ? "text-green-400" : "text-red-400"}`}>
-                        {isPositive ? "+" : "-"}${t.amountFiat.toFixed(2)}
+                  {/* Mobile layout */}
+                  <div className="md:hidden flex items-start gap-3 px-4 py-3.5">
+                    <div className="shrink-0">{getTypeIcon(t)}</div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium truncate ${isFailed ? "line-through text-gray-500" : "text-white"}`}>{t.itemName}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {t.episodes && <span> · Ep. {t.episodes}</span>}
                       </p>
-                    )}
-                    {t.amountCoins != null && (
-                      <p className={`text-xs ${(t.amountCoins || 0) >= 0 ? "text-yellow-400/70" : "text-red-400/70"}`}>
-                        {(t.amountCoins || 0) >= 0 ? "+" : ""}{t.amountCoins?.toLocaleString()} coins
-                      </p>
-                    )}
+                      <div className="flex items-center gap-2 mt-1.5">
+                        {getStatusBadge(t.status)}
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {t.amountFiat != null && (
+                        <p className={`text-sm font-semibold ${isPositive ? "text-green-400" : "text-red-400"}`}>
+                          {isPositive ? "+" : "-"}${t.amountFiat.toFixed(2)}
+                        </p>
+                      )}
+                      {t.amountCoins != null && (
+                        <p className={`text-xs ${(t.amountCoins || 0) >= 0 ? "text-yellow-400/70" : "text-red-400/70"}`}>
+                          {(t.amountCoins || 0) >= 0 ? "+" : ""}{t.amountCoins?.toLocaleString()}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -224,42 +261,7 @@ export default function PurchasesPage() {
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10 bg-zinc-950">
-        <div className="max-w-6xl mx-auto px-4 py-12">
-          <div className="grid grid-cols-4 gap-8">
-            <div>
-              <h3 className="text-red-500 font-bold text-lg mb-4">TinyTale</h3>
-              <p className="text-sm text-gray-400">Your destination for premium short dramas.</p>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold mb-3">Discover</h4>
-              <div className="space-y-2 text-sm text-gray-400">
-                <Link href="/" className="block hover:text-white transition">Home</Link>
-                <Link href="/dramas" className="block hover:text-white transition">Browse</Link>
-                <Link href="/search" className="block hover:text-white transition">Search</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold mb-3">Account</h4>
-              <div className="space-y-2 text-sm text-gray-400">
-                <Link href="/user/profile" className="block hover:text-white transition">Profile</Link>
-                <Link href="/user/settings" className="block hover:text-white transition">Settings</Link>
-                <Link href="/user/coins" className="block hover:text-white transition">Recharge</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold mb-3">Support</h4>
-              <div className="space-y-2 text-sm text-gray-400">
-                <Link href="/help" className="block hover:text-white transition">Help Center</Link>
-                <Link href="/terms" className="block hover:text-white transition">Terms of Service</Link>
-                <Link href="/privacy" className="block hover:text-white transition">Privacy Policy</Link>
-              </div>
-            </div>
-          </div>
-          <div className="mt-8 pt-8 border-t border-white/10 text-center text-sm text-gray-500">&copy; 2026 TinyTale. All rights reserved.</div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

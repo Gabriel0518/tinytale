@@ -5,10 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
+import { useGoogleLogin } from "@react-oauth/google";
+import { useToast } from "@/components/ui/Toast";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -23,19 +26,35 @@ export default function LoginPage() {
     try {
       await login(email, password);
       router.push("/user/profile");
-    } catch (err: any) {
-      setError(err.message || "Login failed. Please try again.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      setError(message || "Login failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleLogin = () => {
-    router.push("/user/profile");
-  };
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setIsLoading(true);
+      setError("");
+      try {
+        await googleLogin(tokenResponse.access_token);
+        router.push("/user/profile");
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'An error occurred';
+        setError(message || "Google login failed. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    onError: () => {
+      setError("Google login was cancelled or failed.");
+    },
+  });
 
   const handleFacebookLogin = () => {
-    router.push("/user/profile");
+    toast("Facebook login coming soon!", "info");
   };
 
   return (
@@ -67,7 +86,7 @@ export default function LoginPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="mb-4 rounded-lg border border-red-700 bg-red-900/50 p-3 text-sm text-red-200">
+          <div role="alert" className="mb-4 rounded-lg border border-red-700 bg-red-900/50 p-3 text-sm text-red-200">
             {error}
           </div>
         )}
@@ -76,7 +95,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Email Field */}
           <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">
+            <label htmlFor="login-email" className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">
               Email Address
             </label>
             <div className="relative">
@@ -86,6 +105,7 @@ export default function LoginPage() {
                 </svg>
               </span>
               <input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -98,7 +118,7 @@ export default function LoginPage() {
 
           {/* Password Field */}
           <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">
+            <label htmlFor="login-password" className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">
               Password
             </label>
             <div className="relative">
@@ -109,6 +129,7 @@ export default function LoginPage() {
                 </svg>
               </span>
               <input
+                id="login-password"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -119,6 +140,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 transition hover:text-gray-300"
               >
                 {showPassword ? (
@@ -162,7 +184,8 @@ export default function LoginPage() {
         {/* Social Login */}
         <div className="grid grid-cols-2 gap-3">
           <button
-            onClick={handleGoogleLogin}
+            onClick={() => handleGoogleLogin()}
+            disabled={isLoading}
             className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#1a1c23] py-3 text-sm font-medium text-white transition hover:bg-[#22242b]"
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -175,6 +198,7 @@ export default function LoginPage() {
           </button>
           <button
             onClick={handleFacebookLogin}
+            disabled={isLoading}
             className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#1a1c23] py-3 text-sm font-medium text-white transition hover:bg-[#22242b]"
           >
             <svg className="h-5 w-5" fill="#1877F2" viewBox="0 0 24 24">

@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, nickname: string) => Promise<void>;
+  googleLogin: (credential: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: User) => void;
 }
@@ -23,6 +24,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Check for stored token on mount
+    if (typeof window === 'undefined') {
+      setLoading(false);
+      return;
+    }
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
 
@@ -34,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await authApi.login(email, password) as any;
+    const response = await authApi.login(email, password);
     if (response.success && response.data) {
       const { user: userData, token: authToken } = response.data;
       setUser(userData);
@@ -47,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (email: string, password: string, nickname: string) => {
-    const response = await authApi.register(email, password, nickname) as any;
+    const response = await authApi.register(email, password, nickname);
     if (response.success && response.data) {
       const { user: userData, token: authToken } = response.data;
       setUser(userData);
@@ -56,6 +61,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('user', JSON.stringify(userData));
     } else {
       throw new Error(response.error?.message || 'Registration failed');
+    }
+  };
+
+  const googleLogin = async (credential: string) => {
+    const response = await authApi.googleLogin(credential);
+    if (response.success && response.data) {
+      const { user: userData, token: authToken } = response.data;
+      setUser(userData);
+      setToken(authToken);
+      localStorage.setItem('token', authToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+    } else {
+      throw new Error(response.error?.message || 'Google login failed');
     }
   };
 
@@ -72,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, googleLogin, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

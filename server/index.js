@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const https = require('https');
 
 const app = express();
 const PORT = 7002;
@@ -18,6 +19,27 @@ const mockUsers = [
 
 // Token -> userId mapping
 const tokenMap = {};
+
+// ============ Auth Middleware ============
+
+function authenticateToken(req, res, next) {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const userId = tokenMap[token];
+  if (!userId) {
+    return res.status(401).json({ success: false, error: { message: 'Not authenticated' } });
+  }
+  req.user = { id: userId };
+  next();
+}
+
+function optionalAuth(req, res, next) {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const userId = tokenMap[token];
+  if (userId) {
+    req.user = { id: userId };
+  }
+  next();
+}
 
 const mockCategories = [
   { _id: 'c1', name: 'Romance', slug: 'romance', dramaCount: 32 },
@@ -545,12 +567,41 @@ const mockEpisodes = [
   { _id: 'e150', dramaId: 'd50', title: 'Dark Magic', episodeNumber: 3, duration: 183, isFree: false, unlockPrice: 50, videoUrl: '' }
 ];
 
+// Enrich episodes with streamVideoId, previewSeconds, and subtitles
+const defaultSubtitles = [
+  { language: 'en', label: 'English', src: '/subtitles/en.vtt', regions: ['US', 'GB', 'AU'] },
+  { language: 'zh', label: '中文', src: '/subtitles/zh.vtt', regions: ['CN', 'SG', 'TW'] },
+];
+
+mockEpisodes.forEach(ep => {
+  ep.streamVideoId = `cf-video-${ep.dramaId}-${ep.episodeNumber}`;
+  if (!ep.isFree) {
+    ep.previewSeconds = 30;
+  }
+  if (ep.episodeNumber <= 3) {
+    ep.subtitles = defaultSubtitles;
+  }
+});
+
 const mockComments = [
   { _id: 'cm1', userId: 'u1', userName: 'TinyTale Fan', dramaId: 'd1', content: 'This drama is absolutely addictive! Cannot stop watching!', status: 'approved', createdAt: '2026-01-15' },
   { _id: 'cm2', userId: 'u2', userName: 'Alice', dramaId: 'd1', content: 'The chemistry between the leads is incredible.', status: 'approved', createdAt: '2026-01-16' },
   { _id: 'cm3', userId: 'u3', userName: 'Bob', dramaId: 'd9', content: 'Dark Throne is the best fantasy drama this year!', status: 'approved', createdAt: '2026-01-17' },
   { _id: 'cm4', userId: 'u1', userName: 'TinyTale Fan', dramaId: 'd12', content: 'The revenge plot is so satisfying. 10/10', status: 'approved', createdAt: '2026-01-18' },
   { _id: 'cm5', userId: 'u2', userName: 'Alice', dramaId: 'd7', content: 'Wolf Moon Rising has the best werewolf storyline ever!', status: 'pending', createdAt: '2026-01-19' },
+];
+
+const mockReviews = [
+  { _id: 'rv1', userId: 'u1', userName: 'TinyTale Fan', dramaId: 'd1', rating: 5, content: 'Absolutely loved every episode! The chemistry between the leads is unreal. Best CEO drama on the platform.', likes: 42, createdAt: '2026-01-15' },
+  { _id: 'rv2', userId: 'u2', userName: 'Alice', dramaId: 'd1', rating: 4, content: 'Great storyline but the pacing slows down around episode 30. Still worth watching though!', likes: 18, createdAt: '2026-01-16' },
+  { _id: 'rv3', userId: 'u3', userName: 'Bob', dramaId: 'd1', rating: 5, content: 'Cannot stop watching. The plot twists are incredible!', likes: 31, createdAt: '2026-01-17' },
+  { _id: 'rv4', userId: 'u1', userName: 'TinyTale Fan', dramaId: 'd9', rating: 5, content: 'Dark Throne is a masterpiece. The world-building is phenomenal.', likes: 56, createdAt: '2026-01-18' },
+  { _id: 'rv5', userId: 'u2', userName: 'Alice', dramaId: 'd9', rating: 4, content: 'Amazing fantasy drama! The magic system is so creative.', likes: 23, createdAt: '2026-01-19' },
+  { _id: 'rv6', userId: 'u3', userName: 'Bob', dramaId: 'd7', rating: 5, content: 'Best werewolf drama ever! The forbidden love angle is perfect.', likes: 38, createdAt: '2026-01-20' },
+  { _id: 'rv7', userId: 'u1', userName: 'TinyTale Fan', dramaId: 'd12', rating: 5, content: 'The revenge plot is so satisfying. Every episode keeps you on edge.', likes: 45, createdAt: '2026-01-21' },
+  { _id: 'rv8', userId: 'u2', userName: 'Alice', dramaId: 'd2', rating: 4, content: 'Strong female lead! Love the historical setting.', likes: 29, createdAt: '2026-01-22' },
+  { _id: 'rv9', userId: 'u3', userName: 'Bob', dramaId: 'd2', rating: 3, content: 'Good but a bit predictable. The acting saves it.', likes: 12, createdAt: '2026-01-23' },
+  { _id: 'rv10', userId: 'u1', userName: 'TinyTale Fan', dramaId: 'd22', rating: 5, content: 'Rebirth of the Queen is the best drama on TinyTale. Period.', likes: 67, createdAt: '2026-01-24' },
 ];
 
 const mockTransactions = [
@@ -566,7 +617,66 @@ const mockTransactions = [
   { _id: 'TRX-889180', type: 'purchase', itemName: '100 Coins Pack', amountFiat: 0.99, amountCoins: 100, status: 'completed', date: '2026-01-08T11:30:00Z', icon: 'coins' },
 ];
 
+// Track unlocked episodes per user (in-memory)
+const unlockedEpisodes = {};
+
 // ============ Auth Routes ============
+
+app.post('/api/auth/google', (req, res) => {
+  const { credential } = req.body;
+  if (!credential) {
+    return res.status(400).json({ success: false, error: { message: 'Missing Google credential' } });
+  }
+
+  // Fetch Google user info using https module
+  const options = {
+    hostname: 'www.googleapis.com',
+    path: '/oauth2/v3/userinfo',
+    headers: { Authorization: `Bearer ${credential}` },
+  };
+
+  https.get(options, (gRes) => {
+    let data = '';
+    gRes.on('data', (chunk) => { data += chunk; });
+    gRes.on('end', () => {
+      try {
+        const googleUser = JSON.parse(data);
+        if (!googleUser.email) {
+          return res.status(401).json({ success: false, error: { message: 'Invalid Google token' } });
+        }
+
+        const { email, name, picture, sub: googleId } = googleUser;
+
+        // Check if user already exists
+        let user = mockUsers.find(u => u.email === email);
+        if (!user) {
+          user = {
+            _id: 'u' + Date.now(),
+            email,
+            password: '',
+            nickname: name || email.split('@')[0],
+            avatar: picture || '',
+            role: 'user',
+            status: 'active',
+            coins: 100,
+            googleId,
+            createdAt: new Date().toISOString(),
+          };
+          mockUsers.push(user);
+        }
+
+        const token = 'mock-jwt-token-' + user._id;
+        tokenMap[token] = user._id;
+        const { password: _, ...safeUser } = user;
+        res.json({ success: true, data: { token, user: safeUser } });
+      } catch (err) {
+        res.status(500).json({ success: false, error: { message: 'Failed to parse Google response' } });
+      }
+    });
+  }).on('error', (err) => {
+    res.status(500).json({ success: false, error: { message: 'Google authentication failed: ' + err.message } });
+  });
+});
 
 app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
@@ -616,10 +726,44 @@ app.get('/api/dramas/:id', (req, res) => {
   const drama = mockDramas.find(d => d._id === req.params.id);
   if (drama) {
     const episodes = mockEpisodes.filter(e => e.dramaId === drama._id);
-    res.json({ data: { ...drama, episodes } });
+    res.json({ data: { drama, episodes } });
   } else {
     res.status(404).json({ error: { message: 'Drama not found' } });
   }
+});
+
+app.get('/api/dramas/:id/related', (req, res) => {
+  const drama = mockDramas.find(d => d._id === req.params.id);
+  if (!drama) return res.status(404).json({ error: { message: 'Drama not found' } });
+  const related = mockDramas.filter(d =>
+    d._id !== drama._id && d.categories.some(c => drama.categories.includes(c))
+  ).slice(0, 8);
+  res.json({ data: related });
+});
+
+app.get('/api/dramas/:id/reviews', (req, res) => {
+  const reviews = mockReviews.filter(r => r.dramaId === req.params.id);
+  const total = reviews.length;
+  const avgRating = total > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / total : 0;
+  res.json({ data: { reviews, total, avgRating } });
+});
+
+app.post('/api/dramas/:id/reviews', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const userId = tokenMap[token];
+  const user = userId ? mockUsers.find(u => u._id === userId) : null;
+  const review = {
+    _id: 'rv' + Date.now(),
+    userId: user?._id || 'anonymous',
+    userName: user?.nickname || 'Anonymous',
+    dramaId: req.params.id,
+    rating: req.body.rating,
+    content: req.body.content,
+    likes: 0,
+    createdAt: new Date().toISOString(),
+  };
+  mockReviews.push(review);
+  res.json({ data: review });
 });
 
 app.get('/api/featured', (req, res) => {
@@ -643,7 +787,11 @@ app.get('/api/categories', (req, res) => {
 });
 
 app.get('/api/comments', (req, res) => {
-  res.json({ data: mockComments });
+  const { dramaId } = req.query;
+  const filtered = dramaId
+    ? mockComments.filter(c => c.dramaId === dramaId)
+    : mockComments;
+  res.json({ data: { comments: filtered, total: filtered.length } });
 });
 
 app.post('/api/comments', (req, res) => {
@@ -689,7 +837,36 @@ app.post('/api/coins/recharge', (req, res) => {
 });
 
 app.post('/api/coins/unlock', (req, res) => {
-  res.json({ data: { success: true, balance: 450 } });
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const userId = tokenMap[token];
+  if (!userId) return res.status(401).json({ error: { message: 'Unauthorized' } });
+
+  const user = mockUsers.find(u => u._id === userId);
+  if (!user) return res.status(404).json({ error: { message: 'User not found' } });
+
+  const { episodeId } = req.body;
+  if (!episodeId) return res.status(400).json({ error: { message: 'Missing episodeId' } });
+
+  // Check if already unlocked
+  if (!unlockedEpisodes[userId]) unlockedEpisodes[userId] = [];
+  if (unlockedEpisodes[userId].includes(episodeId)) {
+    return res.json({ success: true, data: { success: true, balance: user.coins, alreadyUnlocked: true } });
+  }
+
+  // Find episode and get price
+  const episode = mockEpisodes.find(e => e._id === episodeId);
+  const price = episode ? episode.unlockPrice : 50;
+
+  // Check sufficient balance
+  if (user.coins < price) {
+    return res.status(400).json({ error: { message: 'Insufficient coins', required: price, current: user.coins } });
+  }
+
+  // Deduct coins and track unlock
+  user.coins -= price;
+  unlockedEpisodes[userId].push(episodeId);
+
+  res.json({ success: true, data: { success: true, balance: user.coins, cost: price } });
 });
 
 app.get('/api/user/favorites', (req, res) => {
@@ -712,6 +889,10 @@ app.get('/api/user/history', (req, res) => {
     { ...mockDramas[14], lastEpisode: 1, watchedAt: '2026-01-15' },
     { ...mockDramas[6], lastEpisode: 3, watchedAt: '2026-01-14' },
   ] });
+});
+
+app.post('/api/user/history', (req, res) => {
+  res.json({ data: { success: true } });
 });
 
 app.put('/api/user/profile', (req, res) => {
@@ -936,6 +1117,222 @@ app.post('/api/v1/contact/inquiry', (req, res) => {
     return res.status(400).json({ success: false, error: { message: 'Name, email and message are required' } });
   }
   res.json({ success: true, data: { ticketId: 'TKT-' + Date.now(), status: 'received', message: 'Your inquiry has been submitted. We will get back to you within 24 hours.' } });
+});
+
+// ============ User Unlock Check & History Management ============
+
+app.get('/api/user/unlocked/:episodeId', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const userId = tokenMap[token];
+  if (!userId) {
+    return res.status(401).json({ success: false, error: { message: 'Not authenticated' } });
+  }
+  const episodeId = req.params.episodeId;
+  const episode = mockEpisodes.find(e => e._id === episodeId);
+  if (!episode) {
+    return res.status(404).json({ success: false, error: { message: 'Episode not found' } });
+  }
+  // Free episodes are always unlocked
+  if (episode.isFree) {
+    return res.json({ data: { unlocked: true } });
+  }
+  const userUnlocked = unlockedEpisodes[userId] || [];
+  const unlocked = userUnlocked.includes(episodeId);
+  res.json({ data: { unlocked } });
+});
+
+app.delete('/api/user/history', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const userId = tokenMap[token];
+  if (!userId) {
+    return res.status(401).json({ success: false, error: { message: 'Not authenticated' } });
+  }
+  res.json({ data: { message: 'History cleared' } });
+});
+
+app.delete('/api/user/history/:id', (req, res) => {
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const userId = tokenMap[token];
+  if (!userId) {
+    return res.status(401).json({ success: false, error: { message: 'Not authenticated' } });
+  }
+  res.json({ data: { message: 'History entry deleted' } });
+});
+
+// ============ Video Stream & Playback Endpoints ============
+
+// In-memory progress storage
+const playbackProgress = {};
+
+// GET /api/episodes/:id/stream — Returns stream playback info for an episode
+app.get('/api/episodes/:id/stream', optionalAuth, (req, res) => {
+  const episodeId = req.params.id;
+
+  // Find the episode and its drama
+  let episode = null;
+  let drama = null;
+  const ep = mockEpisodes.find(e => e._id === episodeId);
+  if (ep) {
+    episode = ep;
+    drama = mockDramas.find(d => d._id === ep.dramaId);
+  }
+
+  if (!episode) return res.status(404).json({ error: 'Episode not found' });
+
+  const subdomain = process.env.CF_STREAM_SUBDOMAIN || 'mock-subdomain';
+  const videoUid = episode.streamVideoId || `mock-${episodeId}`;
+
+  res.json({
+    data: {
+      videoUid,
+      playbackUrl: subdomain
+        ? `https://customer-${subdomain}.cloudflarestream.com/${videoUid}/manifest/video.m3u8`
+        : '',
+      signedToken: null, // Mock: no signing in dev mode
+      thumbnailUrl: episode.thumbnail || drama?.cover || '',
+      duration: episode.duration || 120,
+      subtitles: episode.subtitles || [],
+    }
+  });
+});
+
+// GET /api/episodes/:id/access — Checks if user has access to an episode
+app.get('/api/episodes/:id/access', optionalAuth, (req, res) => {
+  const episodeId = req.params.id;
+  const userId = req.user?.id;
+
+  // Find episode
+  const episode = mockEpisodes.find(e => e._id === episodeId);
+
+  if (!episode) return res.status(404).json({ error: 'Episode not found' });
+
+  // Free episodes are always accessible
+  if (episode.isFree) {
+    return res.json({ data: { hasAccess: true, reason: 'free' } });
+  }
+
+  // Check if user has unlocked this episode
+  if (userId && unlockedEpisodes[userId]?.includes(episodeId)) {
+    return res.json({ data: { hasAccess: true, reason: 'unlocked' } });
+  }
+
+  // Check if user is VIP
+  if (userId) {
+    const user = mockUsers.find(u => u._id === userId);
+    if (user?.vipStatus === 'active' || user?.role === 'vip') {
+      return res.json({ data: { hasAccess: true, reason: 'vip' } });
+    }
+  }
+
+  res.json({
+    data: {
+      hasAccess: false,
+      reason: 'payment_required',
+      price: episode.unlockPrice || 30,
+      previewSeconds: episode.previewSeconds || 30,
+    }
+  });
+});
+
+// POST /api/episodes/:id/progress — Records playback progress
+app.post('/api/episodes/:id/progress', authenticateToken, (req, res) => {
+  const episodeId = req.params.id;
+  const userId = req.user.id;
+  const { currentTime, duration, completed } = req.body;
+
+  if (!playbackProgress[userId]) playbackProgress[userId] = {};
+  playbackProgress[userId][episodeId] = {
+    currentTime,
+    duration,
+    completed: completed || false,
+    updatedAt: new Date().toISOString(),
+  };
+
+  res.json({ data: { success: true } });
+});
+
+// ============ Subtitle Management ============
+
+// SRT to VTT conversion utility
+function srtToVtt(srtContent) {
+  let vtt = 'WEBVTT\n\n';
+  vtt += srtContent
+    .replace(/\r\n/g, '\n')
+    .replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2'); // comma → dot in timestamps
+  return vtt;
+}
+
+// POST /api/admin/episodes/:id/subtitles — Upload subtitle track
+app.post('/api/admin/episodes/:id/subtitles', (req, res) => {
+  const episodeId = req.params.id;
+  const { language, label, regions } = req.body;
+
+  // In production: parse SRT → convert to VTT → store file → return URL
+  // Mock: return a fake VTT URL
+  const subtitleTrack = {
+    language: language || 'en',
+    label: label || 'English',
+    src: `/subtitles/${episodeId}/${language || 'en'}.vtt`,
+    regions: regions ? (Array.isArray(regions) ? regions : [regions]) : ['US'],
+  };
+
+  const ep = mockEpisodes.find(e => e._id === episodeId);
+  if (!ep) {
+    return res.status(404).json({ error: 'Episode not found' });
+  }
+
+  if (!ep.subtitles) ep.subtitles = [];
+  // Replace if same language exists
+  ep.subtitles = ep.subtitles.filter(s => s.language !== subtitleTrack.language);
+  ep.subtitles.push(subtitleTrack);
+
+  res.json({ data: subtitleTrack });
+});
+
+// DELETE /api/admin/episodes/:id/subtitles/:lang — Remove subtitle track
+app.delete('/api/admin/episodes/:id/subtitles/:lang', (req, res) => {
+  const { id: episodeId, lang } = req.params;
+
+  const ep = mockEpisodes.find(e => e._id === episodeId);
+  if (!ep || !ep.subtitles) {
+    return res.status(404).json({ error: 'Episode not found' });
+  }
+
+  ep.subtitles = ep.subtitles.filter(s => s.language !== lang);
+  res.json({ data: { success: true } });
+});
+
+// ============ Admin Video Upload Endpoints ============
+
+// POST /api/admin/upload/video — Get TUS upload URL for video upload
+app.post('/api/admin/upload/video', (req, res) => {
+  const { filename, filesize } = req.body || {};
+
+  // In production: call Cloudflare Stream API to get TUS upload URL
+  // Mock: return a fake upload URL and video UID
+  const videoUid = `cf-video-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  res.json({
+    data: {
+      upload_url: `https://upload.cloudflarestream.com/tus/${videoUid}`,
+      video_uid: videoUid,
+    }
+  });
+});
+
+// PUT /api/admin/episodes/:id/video — Attach uploaded video to an episode
+app.put('/api/admin/episodes/:id/video', (req, res) => {
+  const episodeId = req.params.id;
+  const { videoUid } = req.body || {};
+
+  // Find and update episode's streamVideoId
+  const ep = mockEpisodes.find(e => e._id === episodeId);
+  if (ep) {
+    ep.streamVideoId = videoUid;
+    return res.json({ data: { success: true, streamVideoId: videoUid } });
+  }
+
+  res.status(404).json({ error: 'Episode not found' });
 });
 
 // ============ Start Server ============

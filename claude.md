@@ -331,17 +331,108 @@ MongoDB: mongodb://localhost:27017/tinytale (Docker)
 
 ## 11. 视频播放
 
-### 第三方CDN
+### 技术架构：Cloudflare Stream + HLS + Video.js
 
-- Mux / Cloudflare Stream
-- 播放器组件封装
-- 防下载处理
-- 清晰度切换（可选）
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     前端播放器层                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │ Video.js    │  │ 自定义控制栏│  │ 业务层              │  │
+│  │ + HLS.js    │  │ (Controls)  │  │ (付费墙/字幕/连播)  │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                     后端服务层                               │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │ 视频管理API │  │ 签名服务    │  │ 权限校验            │  │
+│  │             │  │ (Token)     │  │ (付费/VIP)          │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                   Cloudflare Stream                          │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+│  │ 视频存储    │  │ 自动转码    │  │ HLS 全球分发        │  │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 核心依赖
+
+| 包 | 用途 |
+|---|---|
+| `video.js` | 播放器核心，内置 HLS 支持 |
+| `@types/video.js` | TypeScript 类型 |
+| `tus-js-client` | 后台视频分片上传（TUS 协议） |
+
+### 播放器组件结构
+
+```
+components/player/
+├── CloudflarePlayer.tsx      # Video.js 播放器封装（消费 HLS 流）
+├── PlayerRoot.tsx            # 播放器根容器 + Context
+├── PaywallOverlay.tsx        # 付费墙覆盖层
+├── PreviewController.tsx     # 预览时长控制
+├── SubtitleSystem.tsx        # 字幕菜单 + VTT 加载
+├── Controls/
+│   ├── PlayControls.tsx      # 播放/暂停/上下集
+│   ├── ProgressBar.tsx       # 进度条 + 缓冲条
+│   ├── VolumeControl.tsx     # 音量滑块 + 静音
+│   └── SettingsMenu.tsx      # 倍速 + 画质 + 字幕
+├── hooks/
+│   ├── usePlayerState.ts     # useReducer 播放状态管理
+│   └── useFullscreen.ts      # Fullscreen API + Safari polyfill
+└── types/
+    └── player.ts             # 播放器类型定义
+```
+
+### 播放流地址格式
+
+```
+https://customer-{subdomain}.cloudflarestream.com/{video_uid}/manifest/video.m3u8
+```
+
+### 双模式支持
+
+- **Stream 模式**：Episode 有 `streamVideoId` 时，从 CF Stream 获取 HLS 流
+- **Fallback 模式**：无 Stream ID 时，降级为原生 `<video>` + 直接 URL（开发调试用）
+
+### 字幕系统
+
+- 存储方式：独立存储（非 CF Stream 原生），支持按地区配置语言版本
+- 上传格式：SRT / VTT（SRT 上传后服务端自动转 VTT）
+- 播放加载：Video.js `<track>` 元素加载 VTT 文件
+- 数据结构：`subtitles: [{ language, label, src, regions }]`
 
 ### 播放规则
 
-- 前几集免费
-- 后续集数需金币解锁
+- 前几集免费，后续集数需金币解锁
+- 付费内容使用签名 Token 鉴权（1小时有效期）
+- 未付费用户可预览前 N 秒，到时弹出付费墙
+- 支持剧集自动连播
+
+### 视频相关 API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/episodes/:id/stream | 获取播放流地址 + 签名 Token |
+| GET | /api/episodes/:id/access | 检查播放权限 |
+| POST | /api/episodes/:id/progress | 上报播放进度 |
+| POST | /api/admin/upload/video | 获取 TUS 直传 URL |
+| PUT | /api/admin/episodes/:id/video | 替换视频 |
+| POST | /api/admin/episodes/:id/subtitles | 上传字幕（SRT/VTT） |
+| DELETE | /api/admin/episodes/:id/subtitles/:lang | 删除字幕 |
+
+### 环境变量
+
+```
+CF_ACCOUNT_ID=         # Cloudflare 账户 ID
+CF_API_TOKEN=          # API Token（Stream:Edit 权限）
+CF_STREAM_SUBDOMAIN=   # 播放地址前缀 customer-xxxxx
+CF_STREAM_SIGNING_KEY_ID=    # 签名 Key ID（付费鉴权）
+CF_STREAM_SIGNING_KEY_JWK=   # 签名私钥 JWK（付费鉴权）
+```
 
 ---
 

@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { useToast } from "@/components/ui/Toast";
 import { coinsApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
+import { Footer } from "@/components/features/Footer";
 
 interface CoinPackage {
   _id: string;
@@ -20,25 +22,26 @@ type PaymentMethod = "stripe" | "paypal" | "apple_pay";
 
 export default function CoinsPage() {
   const { user, token, updateUser } = useAuth();
-  const router = useRouter();
+  const { loading: authLoading } = useAuthGuard();
+  const { toast } = useToast();
   const [packages, setPackages] = useState<CoinPackage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFallback, setIsFallback] = useState(false);
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
-  const [processing, setProcessing] = useState(false);
   const [redeemCode, setRedeemCode] = useState("");
   const [showRedeem, setShowRedeem] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [balance, setBalance] = useState(0);
 
   useEffect(() => {
-    if (!user) { router.push("/auth/login"); return; }
+    if (!user) return;
     setBalance(user.coins || 0);
     const load = async () => {
       try {
         const res = await coinsApi.getPackages();
         const pkgs = res.data || [];
         setPackages(pkgs);
+        setIsFallback(false);
         if (pkgs.length > 0) setSelectedPkg(pkgs[1]?._id || pkgs[0]._id);
       } catch {
         setPackages([
@@ -49,32 +52,20 @@ export default function CoinsPage() {
           { _id: "p5", coins: 5500, price: 49.99, bonus: 1000, tag: null, originalPrice: 59.99 },
           { _id: "p6", coins: 12000, price: 99.99, bonus: 3000, tag: null, originalPrice: 129.99 },
         ]);
+        setIsFallback(true);
         setSelectedPkg("p2");
       } finally { setLoading(false); }
     };
     load();
-  }, [user, router]);
+  }, [user]);
 
   const selected = packages.find(p => p._id === selectedPkg);
 
-  const showMsg = (type: "success" | "error", text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 4000);
-  };
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  const handlePay = async () => {
-    if (!token || !selectedPkg) return;
-    setProcessing(true);
-    try {
-      const res = await coinsApi.createOrder(token, selectedPkg, paymentMethod);
-      const d = res.data;
-      const newBal = d.balance || (balance + (selected?.coins || 0) + (selected?.bonus || 0));
-      setBalance(newBal);
-      if (user) updateUser({ ...user, coins: newBal });
-      showMsg("success", `Successfully purchased ${selected?.coins || 0} coins!`);
-    } catch (err: any) {
-      showMsg("error", err.message || "Payment failed. Please try again.");
-    } finally { setProcessing(false); }
+  const handlePay = () => {
+    if (!selected) return;
+    setShowPaymentModal(true);
   };
 
   const handleRedeem = async () => {
@@ -85,15 +76,16 @@ export default function CoinsPage() {
       const newBal = balance + (d.coins || 0);
       setBalance(newBal);
       if (user) updateUser({ ...user, coins: newBal });
-      showMsg("success", d.message || `Redeemed ${d.coins} coins!`);
+      toast(d.message || `Redeemed ${d.coins} coins!`, "success");
       setRedeemCode("");
       setShowRedeem(false);
-    } catch (err: any) {
-      showMsg("error", err.message || "Invalid or expired code");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      toast(message || "Invalid or expired code", "error");
     }
   };
 
-  if (!user || loading) {
+  if (authLoading || !user || loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
@@ -103,45 +95,13 @@ export default function CoinsPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <style jsx>{`
-        @keyframes shine {
-          0% { background-position: -200% center; }
-          100% { background-position: 200% center; }
-        }
-        .gold-shine {
-          background: linear-gradient(90deg, #FFD700 0%, #FFF8DC 25%, #FFD700 50%, #FFF8DC 75%, #FFD700 100%);
-          background-size: 200% auto;
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          animation: shine 3s linear infinite;
-        }
-        .card-shine::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          border-radius: inherit;
-          padding: 1px;
-          background: linear-gradient(135deg, rgba(255,215,0,0.4), transparent 50%, rgba(255,215,0,0.2));
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          pointer-events: none;
-        }
-      `}</style>
       <Navbar />
-
-      {/* Toast */}
-      {message && (
-        <div className={`fixed top-20 right-6 z-50 px-5 py-3 rounded-lg text-sm font-medium shadow-lg transition-all ${message.type === "success" ? "bg-green-600" : "bg-red-600"}`}>
-          {message.text}
-        </div>
-      )}
 
       <div className="max-w-6xl mx-auto px-4 pt-24 pb-16">
         {/* Page Title */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold">
-            <span className="gold-shine">Gold Recharge</span>
+            <span className="bg-clip-text text-transparent bg-[length:200%_auto] animate-shine bg-[linear-gradient(90deg,#FFD700_0%,#FFF8DC_25%,#FFD700_50%,#FFF8DC_75%,#FFD700_100%)]">Gold Recharge</span>
           </h1>
           <p className="text-gray-400 mt-2">Purchase gold coins to unlock premium episodes and exclusive content</p>
         </div>
@@ -154,7 +114,7 @@ export default function CoinsPage() {
               <p className="text-sm text-yellow-200/70 mb-1">Current Balance</p>
               <div className="flex items-center gap-3">
                 <svg className="w-10 h-10 text-yellow-400 drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="url(#coinGrad)" /><text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text><defs><linearGradient id="coinGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFD700" /><stop offset="100%" stopColor="#F59E0B" /></linearGradient></defs></svg>
-                <span className="text-4xl font-bold gold-shine">{balance.toLocaleString()}</span>
+                <span className="text-4xl font-bold bg-clip-text text-transparent bg-[length:200%_auto] animate-shine bg-[linear-gradient(90deg,#FFD700_0%,#FFF8DC_25%,#FFD700_50%,#FFF8DC_75%,#FFD700_100%)]">{balance.toLocaleString()}</span>
                 <span className="text-yellow-300/60 text-lg">coins</span>
               </div>
             </div>
@@ -165,17 +125,18 @@ export default function CoinsPage() {
           </div>
         </div>
 
-        <div className="flex gap-8">
+        <div className="flex flex-col lg:flex-row gap-8">
           {/* Left: Package Grid */}
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <h2 className="text-xl font-semibold mb-5">Select a Package</h2>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {packages.map(pkg => {
                 const isSelected = selectedPkg === pkg._id;
                 return (
                   <button
                     key={pkg._id}
                     onClick={() => setSelectedPkg(pkg._id)}
+                    aria-pressed={isSelected}
                     className={`relative rounded-xl p-5 text-left transition-all duration-200 hover:-translate-y-1 ${
                       isSelected
                         ? "bg-gradient-to-b from-yellow-900/30 to-yellow-950/20 border-2 border-yellow-500/60 shadow-[0_0_20px_rgba(255,215,0,0.15)]"
@@ -229,10 +190,10 @@ export default function CoinsPage() {
           </div>
 
           {/* Right: Order Summary Sidebar */}
-          <aside className="w-80 shrink-0">
+          <aside className="w-full lg:w-80 shrink-0">
             <div className="sticky top-24 space-y-5">
               {/* Order Summary Card */}
-              <div className="bg-zinc-900/60 rounded-xl border border-white/10 p-6 card-shine relative">
+              <div className="bg-zinc-900/60 rounded-xl border border-yellow-500/20 p-6 relative shadow-[inset_0_1px_0_rgba(255,215,0,0.15)]">
                 <h3 className="text-lg font-semibold mb-5">Order Summary</h3>
                 {selected ? (
                   <div className="space-y-4">
@@ -271,6 +232,7 @@ export default function CoinsPage() {
                     <button
                       key={id}
                       onClick={() => setPaymentMethod(id)}
+                      aria-pressed={paymentMethod === id}
                       className={`w-full flex items-center gap-3 p-3.5 rounded-lg border transition ${
                         paymentMethod === id
                           ? "border-yellow-500/60 bg-yellow-500/10"
@@ -290,11 +252,11 @@ export default function CoinsPage() {
               {/* Pay Button */}
               <button
                 onClick={handlePay}
-                disabled={!selected || processing}
+                disabled={!selected || isFallback}
                 className="w-full py-3.5 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,215,0,0.2)]"
               >
-                {processing ? (
-                  <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                {isFallback ? (
+                  "Unavailable"
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
@@ -316,6 +278,7 @@ export default function CoinsPage() {
                       value={redeemCode}
                       onChange={e => setRedeemCode(e.target.value.toUpperCase())}
                       placeholder="Enter code"
+                      aria-label="Redeem code"
                       className="flex-1 bg-zinc-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-yellow-500 focus:outline-none"
                     />
                     <button onClick={handleRedeem} disabled={!redeemCode.trim()} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-black text-sm font-medium rounded-lg transition disabled:opacity-50">Redeem</button>
@@ -333,42 +296,28 @@ export default function CoinsPage() {
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="border-t border-white/10 bg-zinc-950">
-        <div className="max-w-6xl mx-auto px-4 py-12">
-          <div className="grid grid-cols-4 gap-8">
-            <div>
-              <h3 className="text-red-500 font-bold text-lg mb-4">TinyTale</h3>
-              <p className="text-sm text-gray-400">Your destination for premium short dramas.</p>
+      <Footer />
+
+      {/* Payment Unavailable Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowPaymentModal(false)}>
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
+            <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-yellow-500/10 flex items-center justify-center">
+              <svg className="w-8 h-8 text-yellow-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
             </div>
-            <div>
-              <h4 className="text-sm font-semibold mb-3">Discover</h4>
-              <div className="space-y-2 text-sm text-gray-400">
-                <Link href="/" className="block hover:text-white transition">Home</Link>
-                <Link href="/dramas" className="block hover:text-white transition">Browse</Link>
-                <Link href="/search" className="block hover:text-white transition">Search</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold mb-3">Account</h4>
-              <div className="space-y-2 text-sm text-gray-400">
-                <Link href="/user/profile" className="block hover:text-white transition">Profile</Link>
-                <Link href="/user/settings" className="block hover:text-white transition">Settings</Link>
-                <Link href="/user/favorites" className="block hover:text-white transition">Watchlist</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold mb-3">Support</h4>
-              <div className="space-y-2 text-sm text-gray-400">
-                <Link href="/help" className="block hover:text-white transition">Help Center</Link>
-                <Link href="/terms" className="block hover:text-white transition">Terms of Service</Link>
-                <Link href="/privacy" className="block hover:text-white transition">Privacy Policy</Link>
-              </div>
-            </div>
+            <h3 id="payment-modal-title" className="text-xl font-bold text-white mb-3">Payment Not Available</h3>
+            <p className="text-gray-400 text-sm leading-relaxed mb-6">
+              Third-party payment services (Stripe, PayPal, Apple Pay) have not been integrated yet. This feature will be available once the payment gateway is configured.
+            </p>
+            <button
+              onClick={() => setShowPaymentModal(false)}
+              className="px-8 py-2.5 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-semibold rounded-xl transition"
+            >
+              Got it
+            </button>
           </div>
-          <div className="mt-8 pt-8 border-t border-white/10 text-center text-sm text-gray-500">&copy; 2026 TinyTale. All rights reserved.</div>
         </div>
-      </footer>
+      )}
     </div>
   );
 }

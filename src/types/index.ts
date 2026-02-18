@@ -26,6 +26,29 @@ export interface Drama {
   updatedAt?: string;
 }
 
+export interface SubtitleTrack {
+  language: string;    // e.g. 'en', 'zh', 'es'
+  label: string;       // e.g. 'English', '中文', 'Español'
+  src: string;         // VTT file URL
+  regions?: string[];  // Available regions, e.g. ['US', 'CN', 'SG']
+}
+
+export interface StreamPlaybackInfo {
+  videoUid: string;
+  playbackUrl: string;        // HLS manifest URL
+  signedToken?: string;       // Signed token for paid content
+  thumbnailUrl?: string;
+  duration?: number;
+  subtitles: SubtitleTrack[];
+}
+
+export interface PlaybackProgress {
+  episodeId: string;
+  currentTime: number;
+  duration: number;
+  completed: boolean;
+}
+
 export interface Episode {
   _id: string;
   dramaId: string | Drama;
@@ -41,6 +64,9 @@ export interface Episode {
   videoQuality?: '480p' | '720p' | '1080p';
   previewUrl?: string;
   viewCount?: number;
+  streamVideoId?: string;      // Cloudflare Stream video UID
+  previewSeconds?: number;     // Preview duration for paid episodes (seconds)
+  subtitles?: SubtitleTrack[]; // Subtitle tracks
 }
 
 // User Types
@@ -64,6 +90,19 @@ export interface Category {
   slug: string;
   icon?: string;
   sortOrder?: number;
+}
+
+// Review Types
+export interface Review {
+  _id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  dramaId: string;
+  rating: number; // 1-5
+  content: string;
+  likes?: number;
+  createdAt?: string;
 }
 
 // Comment Types

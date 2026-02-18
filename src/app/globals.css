@@ -53,6 +53,20 @@ body {
   border-color: #D4AF37;
 }
 
+/* Gold shine animation for help page hero */
+@keyframes goldShine {
+  0% { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+.gold-text {
+  background: linear-gradient(90deg, #FFD700, #FFF8DC, #FFD700, #B8860B, #FFD700);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: goldShine 4s linear infinite;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

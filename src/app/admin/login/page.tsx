@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -42,16 +43,20 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md rounded-2xl bg-gray-900 p-8 shadow-2xl ring-1 ring-white/10">
         {/* Logo */}
         <div className="mb-8 flex flex-col items-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-red-600">
-            <span className="text-2xl font-bold text-white">T</span>
-          </div>
-          <h1 className="mt-4 text-2xl font-bold text-white">TinyTale</h1>
-          <p className="mt-1 text-sm text-gray-400">Admin Panel Login</p>
+          <Image
+            src="/logo.png"
+            alt="TinyTale"
+            width={540}
+            height={140}
+            className="h-[140px] w-auto"
+            priority
+          />
+          <p className="mt-3 text-sm text-gray-400">Admin Panel Login</p>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          <div role="alert" className="mb-4 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-400">
             {error}
           </div>
         )}

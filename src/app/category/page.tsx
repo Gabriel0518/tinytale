@@ -1,15 +1,17 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { dramasApi, categoriesApi } from '@/lib/api';
 import { Drama, Category } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
+import { Footer } from '@/components/features/Footer';
 import { DramaCard } from '@/components/features/DramaCard';
 
 function CategoryContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const categoryParam = searchParams.get('category');
 
   const [dramas, setDramas] = useState<Drama[]>([]);
@@ -18,11 +20,34 @@ function CategoryContent() {
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(categoryParam || 'all');
   const [sortBy, setSortBy] = useState('newest');
+  const [retryCount, setRetryCount] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(12);
+
+  const ITEMS_PER_PAGE = 12;
+
+  /* Sync selectedCategory from URL search params */
+  useEffect(() => {
+    const cat = searchParams.get('category');
+    if (cat && cat !== selectedCategory) {
+      setSelectedCategory(cat);
+    }
+  }, [searchParams]);
+
+  /* Update URL when category changes */
+  const handleCategoryChange = useCallback((category: string) => {
+    setSelectedCategory(category);
+    setVisibleCount(ITEMS_PER_PAGE);
+    if (category === 'all') {
+      router.push('/category');
+    } else {
+      router.push(`/category?category=${category}`);
+    }
+  }, [router]);
 
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res: any = await categoriesApi.getAll();
+        const res = await categoriesApi.getAll();
         setCategories(res.data || []);
       } catch (err) {
         console.error('Failed to fetch categories:', err);
@@ -36,13 +61,13 @@ function CategoryContent() {
       setLoading(true);
       setError(null);
       try {
-        const params: any = { limit: 50 };
+        const params: { category?: string; sort?: string; limit?: number } = { limit: 50 };
         if (selectedCategory !== 'all') {
           params.category = selectedCategory;
         }
         params.sort = sortBy;
 
-        const res: any = await dramasApi.getAll(params);
+        const res = await dramasApi.getAll(params);
         setDramas(res.data?.dramas || []);
       } catch (err) {
         console.error('Failed to fetch dramas:', err);
@@ -52,7 +77,7 @@ function CategoryContent() {
       }
     };
     fetchDramas();
-  }, [selectedCategory, sortBy]);
+  }, [selectedCategory, sortBy, retryCount]);
 
   const currentCategory = categories.find((c) => c.slug === selectedCategory);
 
@@ -68,7 +93,8 @@ function CategoryContent() {
               <h3 className="mb-4 text-sm font-semibold text-text-tertiary uppercase">Categories</h3>
               <nav className="space-y-1">
                 <button
-                  onClick={() => setSelectedCategory('all')}
+                  onClick={() => handleCategoryChange('all')}
+                  aria-pressed={selectedCategory === 'all'}
                   className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition ${
                     selectedCategory === 'all'
                       ? 'bg-accent-primary text-white'
@@ -80,7 +106,8 @@ function CategoryContent() {
                 {categories.map((category) => (
                   <button
                     key={category._id}
-                    onClick={() => setSelectedCategory(category.slug)}
+                    onClick={() => handleCategoryChange(category.slug)}
+                    aria-pressed={selectedCategory === category.slug}
                     className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition ${
                       selectedCategory === category.slug
                         ? 'bg-accent-primary text-white'
@@ -103,6 +130,7 @@ function CategoryContent() {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
+                  aria-label="Sort dramas by"
                   className="rounded-lg border border-bg-elevated bg-bg-secondary px-3 py-2 text-sm text-text-primary"
                 >
                   <option value="newest">Newest</option>
@@ -113,7 +141,8 @@ function CategoryContent() {
               {/* Mobile Categories */}
               <div className="mb-6 flex gap-2 overflow-x-auto pb-2 md:hidden">
                 <button
-                  onClick={() => setSelectedCategory('all')}
+                  onClick={() => handleCategoryChange('all')}
+                  aria-pressed={selectedCategory === 'all'}
                   className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
                     selectedCategory === 'all'
                       ? 'bg-accent-primary text-white'
@@ -125,7 +154,8 @@ function CategoryContent() {
                 {categories.map((category) => (
                   <button
                     key={category._id}
-                    onClick={() => setSelectedCategory(category.slug)}
+                    onClick={() => handleCategoryChange(category.slug)}
+                    aria-pressed={selectedCategory === category.slug}
                     className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition ${
                       selectedCategory === category.slug
                         ? 'bg-accent-primary text-white'
@@ -146,9 +176,9 @@ function CategoryContent() {
                 </div>
               ) : error ? (
                 <div className="py-12 text-center">
-                  <p className="text-red-400">{error}</p>
+                  <p role="alert" className="text-red-400">{error}</p>
                   <button
-                    onClick={() => setSelectedCategory(selectedCategory)}
+                    onClick={() => setRetryCount((c) => c + 1)}
                     className="mt-4 rounded bg-accent-primary px-4 py-2 text-sm text-white hover:opacity-90"
                   >
                     Retry
@@ -159,25 +189,70 @@ function CategoryContent() {
                   <p className="text-text-tertiary">No dramas found in this category</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                  {dramas.map((drama) => (
-                    <Link key={drama._id} href={`/drama/${drama._id}`}>
-                      <DramaCard drama={drama} />
-                    </Link>
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                    {dramas.slice(0, visibleCount).map((drama) => (
+                      <Link key={drama._id} href={`/drama/${drama._id}`}>
+                        <DramaCard drama={drama} />
+                      </Link>
+                    ))}
+                  </div>
+                  {visibleCount < dramas.length && (
+                    <div className="mt-8 text-center">
+                      <button
+                        onClick={() => setVisibleCount((c) => c + ITEMS_PER_PAGE)}
+                        className="rounded-lg border border-bg-elevated bg-bg-secondary px-6 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-elevated"
+                      >
+                        Load More ({dramas.length - visibleCount} remaining)
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
 
 export default function CategoryPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-bg-primary" />}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-bg-primary">
+          <Navbar />
+          <main className="pt-20 pb-12">
+            <div className="mx-auto max-w-7xl px-4">
+              <div className="flex gap-8">
+                <aside className="hidden w-48 flex-shrink-0 md:block">
+                  <div className="mb-4 h-4 w-24 animate-pulse rounded bg-bg-elevated" />
+                  <div className="space-y-2">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="h-9 animate-pulse rounded-lg bg-bg-elevated" />
+                    ))}
+                  </div>
+                </aside>
+                <div className="flex-1">
+                  <div className="mb-6 flex items-center justify-between">
+                    <div className="h-8 w-40 animate-pulse rounded bg-bg-elevated" />
+                    <div className="h-9 w-28 animate-pulse rounded-lg bg-bg-elevated" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                    {[...Array(10)].map((_, i) => (
+                      <div key={i} className="aspect-[9/16] animate-pulse rounded-lg bg-bg-elevated" />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </main>
+        </div>
+      }
+    >
       <CategoryContent />
     </Suspense>
   );

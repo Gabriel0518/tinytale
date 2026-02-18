@@ -32,7 +32,7 @@ export function Modal({ open, onClose, title, children, className, size = "md" }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/70" onClick={onClose} />
       <div className={cn(
         "relative w-full mx-4 rounded-xl bg-bg-secondary p-6",
@@ -42,7 +42,7 @@ export function Modal({ open, onClose, title, children, className, size = "md" }
         {title && (
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-white">{title}</h2>
-            <button onClick={onClose} className="text-text-tertiary hover:text-white transition-colors">
+            <button onClick={onClose} className="text-text-tertiary hover:text-white transition-colors" aria-label="Close dialog">
               <X size={20} />
             </button>
           </div>

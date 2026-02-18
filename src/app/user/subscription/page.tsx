@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
-import { subscriptionApi, dramasApi } from "@/lib/api";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { useToast } from "@/components/ui/Toast";
+import { subscriptionApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
+import { Footer } from "@/components/features/Footer";
 
 interface Plan {
   _id: string;
@@ -32,26 +34,20 @@ const PERKS = [
 
 export default function SubscriptionPage() {
   const { user, token, updateUser } = useAuth();
-  const router = useRouter();
+  const { loading: authLoading } = useAuthGuard();
+  const { toast } = useToast();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState("sp2");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
   const [processing, setProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [bgCovers, setBgCovers] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!user) { router.push("/auth/login"); return; }
+    if (!user) return;
     const load = async () => {
       try {
-        const [plansRes, dramasRes] = await Promise.all([
-          subscriptionApi.getPlans(),
-          dramasApi.getAll({ limit: 12 }),
-        ]);
+        const plansRes = await subscriptionApi.getPlans();
         setPlans(plansRes.data || []);
-        const dramas = dramasRes.data?.dramas || dramasRes.data || [];
-        setBgCovers(dramas.slice(0, 12).map((d: any) => d.coverImage || d.cover));
         if (plansRes.data?.length) {
           const rec = plansRes.data.find((p: Plan) => p.recommended);
           if (rec) setSelectedPlan(rec._id);
@@ -64,29 +60,26 @@ export default function SubscriptionPage() {
       } finally { setLoading(false); }
     };
     load();
-  }, [user, router]);
-
-  const showMsg = (type: "success" | "error", text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 4000);
-  };
+  }, [user]);
 
   const handleSubscribe = async () => {
     if (!token || !selectedPlan) return;
     setProcessing(true);
     try {
-      await subscriptionApi.subscribe(token, selectedPlan);
-      if (user) updateUser({ ...user, vipStatus: "active", vipExpireDate: new Date(Date.now() + 365 * 86400000).toISOString() });
-      showMsg("success", "Welcome to TinyTale Premium! Enjoy your VIP benefits.");
-    } catch (err: any) {
-      showMsg("error", err.message || "Subscription failed. Please try again.");
+      await subscriptionApi.subscribe(token, selectedPlan, paymentMethod);
+      const durationDays = selected?.duration || 30;
+      if (user) updateUser({ ...user, vipStatus: "active", vipExpireDate: new Date(Date.now() + durationDays * 86400000).toISOString() });
+      toast("Welcome to TinyTale Premium! Enjoy your VIP benefits.", "success");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      toast(message || "Subscription failed. Please try again.", "error");
     } finally { setProcessing(false); }
   };
 
   const isVip = user?.vipStatus === "active";
   const selected = plans.find(p => p._id === selectedPlan);
 
-  if (!user || loading) {
+  if (authLoading || !user || loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
@@ -109,25 +102,6 @@ export default function SubscriptionPage() {
         .gold-glow { box-shadow: 0 0 30px rgba(212,175,55,0.2), 0 0 60px rgba(212,175,55,0.1); }
       `}</style>
       <Navbar />
-
-      {/* Background Poster Grid */}
-      <div className="absolute inset-0 z-0 overflow-hidden">
-        <div className="grid grid-cols-4 gap-2 p-2 opacity-[0.07] grayscale">
-          {(bgCovers.length > 0 ? bgCovers : Array(12).fill(null)).map((cover, i) => (
-            <div key={i} className="aspect-[2/3] rounded-lg bg-zinc-800 overflow-hidden">
-              {cover && <img src={cover} alt="" className="w-full h-full object-cover" />}
-            </div>
-          ))}
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-b from-black via-black/90 to-black" />
-      </div>
-
-      {/* Toast */}
-      {message && (
-        <div className={`fixed top-20 right-6 z-50 px-5 py-3 rounded-lg text-sm font-medium shadow-lg ${message.type === "success" ? "bg-green-600" : "bg-red-600"}`}>
-          {message.text}
-        </div>
-      )}
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 pt-28 pb-20">
         {/* Hero */}
@@ -163,7 +137,28 @@ export default function SubscriptionPage() {
           ))}
         </div>
 
-        {/* Pricing Cards */}
+        {/* Current Plan Info (VIP users) */}
+        {isVip && (
+          <div className="mb-14 max-w-2xl mx-auto">
+            <div className="rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-900/20 to-yellow-950/10 p-8 text-center">
+              <div className="inline-flex items-center gap-2 mb-4">
+                <svg className="w-6 h-6 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" /></svg>
+                <span className="text-lg font-bold text-yellow-400">Active VIP Membership</span>
+              </div>
+              <p className="text-sm text-gray-400 mb-2">
+                Your VIP membership is active{user.vipExpireDate ? ` until ${new Date(user.vipExpireDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : ""}.
+              </p>
+              <p className="text-xs text-gray-500">You have access to all premium features listed above.</p>
+              <Link href="/user/settings" className="mt-6 inline-block rounded-lg border border-white/10 bg-white/5 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-white/10">
+                Manage Subscription
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Pricing Cards (non-VIP) */}
+        {!isVip && (
+          <>
         <div className="mb-10">
           <h2 className="text-xl font-bold text-center mb-6">Choose Your Plan</h2>
           <div className="grid grid-cols-2 gap-5 max-w-2xl mx-auto">
@@ -174,6 +169,7 @@ export default function SubscriptionPage() {
                 <button
                   key={plan._id}
                   onClick={() => setSelectedPlan(plan._id)}
+                  aria-pressed={selectedPlan === plan._id}
                   className={`relative rounded-2xl p-6 text-left transition-all duration-200 ${
                     isSelected && isRec
                       ? "border-2 border-yellow-500/60 bg-gradient-to-b from-yellow-900/20 to-yellow-950/10 gold-glow"
@@ -241,7 +237,7 @@ export default function SubscriptionPage() {
               ["paypal", <svg key="pp" className="w-10 h-5" viewBox="0 0 60 18" fill="currentColor" opacity="0.7"><path d="M22.2 3.7h-5.3c-.4 0-.7.3-.7.6L14 16.5c0 .3.2.5.4.5h2.5c.4 0 .7-.3.7-.6l.6-3.6c0-.3.3-.6.7-.6h1.6c3.4 0 5.4-1.6 5.9-4.9.2-1.4 0-2.5-.7-3.3-.7-.8-2-1.3-3.5-1.3zm.6 4.8c-.3 1.8-1.7 1.8-3 1.8h-.8l.5-3.4c0-.2.2-.3.4-.3h.4c.9 0 1.8 0 2.2.5.3.3.4.8.3 1.4z" /><path d="M39.2 8.4h-2.5c-.2 0-.4.1-.4.3l-.1.7-.2-.2c-.5-.8-1.7-1-2.9-1-2.7 0-5 2-5.5 4.9-.2 1.4.1 2.8.9 3.7.7.9 1.8 1.2 3 1.2 2.1 0 3.3-1.4 3.3-1.4l-.1.7c0 .3.2.5.4.5h2.3c.4 0 .7-.3.7-.6l1.4-8.2c.1-.3-.1-.6-.3-.6zm-3.3 4.8c-.3 1.4-1.4 2.3-2.8 2.3-.7 0-1.3-.2-1.6-.6-.4-.4-.5-1-.4-1.7.2-1.4 1.4-2.3 2.8-2.3.7 0 1.3.2 1.6.6.4.5.5 1 .4 1.7z" /><path d="M50.5 8.4h-2.6c-.2 0-.4.1-.5.3l-3 4.4-1.3-4.2c-.1-.3-.4-.5-.7-.5h-2.5c-.3 0-.5.3-.4.6l2.4 7-2.2 3.2c-.2.3 0 .7.4.7h2.5c.2 0 .4-.1.5-.3l7.2-10.4c.2-.3 0-.8-.4-.8z" /></svg>],
               ["apple_pay", <svg key="ap" className="w-10 h-5" viewBox="0 0 60 25" fill="currentColor"><path d="M11.2 3.5c-.7.8-1.8 1.5-2.9 1.4-.1-1.2.4-2.4 1.1-3.2C10.1.9 11.3.2 12.3.1c.1 1.2-.4 2.4-1.1 3.4zm1.1 1.7c-1.6-.1-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.3 2.5 1.3-.1 1.8-.8 3.4-.8 1.5 0 2 .8 3.4.8 1.4 0 2.3-1.2 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4 0-2.5 2.1-3.7 2.2-3.8-1.2-1.8-3.1-2-3.8-2z" /><path d="M25.6 1.2c4.6 0 7.8 3.2 7.8 7.8s-3.3 7.9-7.9 7.9h-5.1v8.2h-3.7V1.2h8.9zm-5.2 12.5h4.2c3.2 0 5-1.7 5-4.7s-1.8-4.7-5-4.7h-4.2v9.4z" /><path d="M34.8 18.8c0-2.8 2.1-4.5 5.9-4.7l4.4-.3v-1.2c0-1.8-1.2-2.8-3.2-2.8-1.9 0-3.1.9-3.4 2.3h-3.4c.2-3 2.8-5.3 6.9-5.3 4.1 0 6.7 2.2 6.7 5.6v11.7h-3.4v-2.8h-.1c-1 1.9-3.2 3.1-5.4 3.1-3.4 0-5.7-2.1-5.7-5.3v-.3zm10.3-1.4v-1.3l-3.9.2c-2 .1-3.1 1-3.1 2.4 0 1.4 1.2 2.4 3 2.4 2.4 0 4-1.6 4-3.7z" /><path d="M52.3 28.5v-2.9c.3.1.9.1 1.1.1 1.6 0 2.5-.7 3-2.4l.3-1.1-6.1-16.9h3.9l4.2 13.3h.1l4.2-13.3H67l-6.4 17.8c-1.5 4.1-3.1 5.4-6.6 5.4-.3 0-.9 0-1.2-.1h-.5z" /></svg>],
             ] as [PaymentMethod, React.ReactNode][]).map(([id, icon]) => (
-              <button key={id} onClick={() => setPaymentMethod(id)} className={`p-2 rounded-lg transition ${paymentMethod === id ? "text-white bg-white/10" : "text-gray-600 hover:text-gray-400"}`}>
+              <button key={id} onClick={() => setPaymentMethod(id)} aria-pressed={paymentMethod === id} aria-label={`Pay with ${id === 'apple_pay' ? 'Apple Pay' : id.charAt(0).toUpperCase() + id.slice(1)}`} className={`p-2 rounded-lg transition ${paymentMethod === id ? "text-white bg-white/10" : "text-gray-600 hover:text-gray-400"}`}>
                 {icon}
               </button>
             ))}
@@ -254,44 +250,11 @@ export default function SubscriptionPage() {
             You can manage or cancel your subscription anytime from <Link href="/user/settings" className="text-gray-400 hover:text-white underline">Account Settings</Link>.
           </p>
         </div>
+          </>
+        )}
       </div>
 
-      {/* Footer */}
-      <footer className="relative z-10 border-t border-white/10 bg-zinc-950">
-        <div className="max-w-6xl mx-auto px-4 py-12">
-          <div className="grid grid-cols-4 gap-8">
-            <div>
-              <h3 className="text-red-500 font-bold text-lg mb-4">TinyTale</h3>
-              <p className="text-sm text-gray-400">Your destination for premium short dramas.</p>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold mb-3">Discover</h4>
-              <div className="space-y-2 text-sm text-gray-400">
-                <Link href="/" className="block hover:text-white transition">Home</Link>
-                <Link href="/dramas" className="block hover:text-white transition">Browse</Link>
-                <Link href="/search" className="block hover:text-white transition">Search</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold mb-3">Account</h4>
-              <div className="space-y-2 text-sm text-gray-400">
-                <Link href="/user/profile" className="block hover:text-white transition">Profile</Link>
-                <Link href="/user/settings" className="block hover:text-white transition">Settings</Link>
-                <Link href="/user/coins" className="block hover:text-white transition">Recharge</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="text-sm font-semibold mb-3">Support</h4>
-              <div className="space-y-2 text-sm text-gray-400">
-                <Link href="/help" className="block hover:text-white transition">Help Center</Link>
-                <Link href="/terms" className="block hover:text-white transition">Terms of Service</Link>
-                <Link href="/privacy" className="block hover:text-white transition">Privacy Policy</Link>
-              </div>
-            </div>
-          </div>
-          <div className="mt-8 pt-8 border-t border-white/10 text-center text-sm text-gray-500">&copy; 2026 TinyTale. All rights reserved.</div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

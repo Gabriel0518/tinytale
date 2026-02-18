@@ -37,7 +37,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           </select>
           <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none" />
         </div>
-        {error && <p className="mt-1 text-sm text-accent-error">{error}</p>}
+        {error && <p role="alert" className="mt-1 text-sm text-accent-error">{error}</p>}
       </div>
     );
   }

@@ -2,13 +2,26 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
-import { userApi, coinsApi, profileApi } from "@/lib/api";
-import { Drama } from "@/types";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { userApi, profileApi } from "@/lib/api";
+import { Drama, User } from "@/types";
 import { Navbar } from "@/components/features/Navbar";
+import { Footer } from "@/components/features/Footer";
 
 type Tab = "library" | "wallet";
+
+interface WatchHistoryItem {
+  _id?: string;
+  dramaId?: string;
+  title?: string;
+  cover?: string;
+  lastEpisode?: number;
+  drama?: { title?: string; cover?: string };
+  episode?: { episodeNumber?: number };
+}
 
 const TOPUP_PACKAGES = [
   { id: "pkg-500", coins: 500, price: 4.99, label: "500" },
@@ -27,18 +40,13 @@ const MOCK_TRANSACTIONS = [
 
 export default function ProfilePage() {
   const { user, logout, token } = useAuth();
+  const { loading: authLoading } = useAuthGuard();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("library");
   const [favorites, setFavorites] = useState<Drama[]>([]);
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<WatchHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [customAmount, setCustomAmount] = useState("");
-
-  useEffect(() => {
-    if (!user && !loading) {
-      router.push("/auth/login");
-    }
-  }, [user, loading, router]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -69,7 +77,7 @@ export default function ProfilePage() {
     router.push("/");
   };
 
-  if (!user || loading) {
+  if (authLoading || !user || loading) {
     return (
       <div className="min-h-screen bg-[#0F1014] flex items-center justify-center">
         <div className="text-gray-400">Loading...</div>
@@ -93,7 +101,7 @@ export default function ProfilePage() {
                 <div className={`flex h-28 w-28 items-center justify-center rounded-full text-4xl font-bold text-white ${isVip ? "ring-2 ring-yellow-500 ring-offset-2 ring-offset-[#141519]" : "bg-gray-700"}`}
                   style={{ background: "linear-gradient(135deg, #374151, #1f2937)" }}>
                   {user.avatar ? (
-                    <img src={user.avatar} alt={user.nickname} className="h-full w-full rounded-full object-cover" />
+                    <Image src={user.avatar} alt={user.nickname} fill className="rounded-full object-cover" />
                   ) : (
                     user.nickname?.charAt(0).toUpperCase() || "U"
                   )}
@@ -136,11 +144,13 @@ export default function ProfilePage() {
         {/* Tabs */}
         <div className="border-b border-white/5">
           <div className="mx-auto max-w-7xl px-4">
-            <div className="flex gap-8">
+            <div className="flex gap-8" role="tablist">
               {(["library", "wallet"] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
+                  aria-selected={activeTab === tab}
+                  role="tab"
                   className={`relative py-4 text-sm font-medium transition ${
                     activeTab === tab ? "text-white" : "text-gray-500 hover:text-gray-300"
                   }`}
@@ -158,84 +168,26 @@ export default function ProfilePage() {
         {/* Tab Content */}
         <div className="mx-auto max-w-7xl px-4 mt-8">
           {activeTab === "library" && <LibraryTab favorites={favorites} history={history} />}
-          {activeTab === "wallet" && <WalletTab user={user} isVip={isVip} customAmount={customAmount} setCustomAmount={setCustomAmount} />}
+          {activeTab === "wallet" && <WalletTab user={user} isVip={isVip} customAmount={customAmount} setCustomAmount={setCustomAmount} token={token} />}
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 bg-[#0a0b0e] py-10">
-        <div className="mx-auto max-w-7xl px-4">
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
-            <div className="col-span-2 md:col-span-1">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded bg-red-600 text-sm font-bold text-white">T</div>
-                <span className="text-lg font-bold text-white">TinyTale</span>
-              </div>
-              <p className="mt-3 text-xs text-gray-500">Premium short drama streaming platform</p>
-            </div>
-            <div>
-              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Discover</h4>
-              <div className="space-y-2">
-                <Link href="/browse" className="block text-sm text-gray-500 hover:text-white transition">Browse</Link>
-                <Link href="/rankings" className="block text-sm text-gray-500 hover:text-white transition">Rankings</Link>
-                <Link href="/category" className="block text-sm text-gray-500 hover:text-white transition">Categories</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Genres</h4>
-              <div className="space-y-2">
-                <Link href="/browse?category=romance" className="block text-sm text-gray-500 hover:text-white transition">Romance</Link>
-                <Link href="/browse?category=thriller" className="block text-sm text-gray-500 hover:text-white transition">Thriller</Link>
-                <Link href="/browse?category=fantasy" className="block text-sm text-gray-500 hover:text-white transition">Fantasy</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Support</h4>
-              <div className="space-y-2">
-                <Link href="/help" className="block text-sm text-gray-500 hover:text-white transition">Help Center</Link>
-                <Link href="/help" className="block text-sm text-gray-500 hover:text-white transition">Contact Us</Link>
-                <Link href="/help" className="block text-sm text-gray-500 hover:text-white transition">FAQ</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Get the App</h4>
-              <div className="space-y-2">
-                <button className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white transition hover:bg-white/10">
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
-                  App Store
-                </button>
-                <button className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white transition hover:bg-white/10">
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.199l2.302 2.302a1 1 0 010 1.38l-2.302 2.302L15.396 13l2.302-2.492zM5.864 1.469L16.8 7.802l-2.302 2.302L5.864 1.47z"/></svg>
-                  Google Play
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-white/5 pt-6 md:flex-row">
-            <p className="text-xs text-gray-600">&copy; 2025 TinyTale. All rights reserved.</p>
-            <div className="flex gap-4">
-              <Link href="/help" className="text-xs text-gray-600 hover:text-white transition">Privacy Policy</Link>
-              <Link href="/help" className="text-xs text-gray-600 hover:text-white transition">Terms of Service</Link>
-              <Link href="/help" className="text-xs text-gray-600 hover:text-white transition">Cookies</Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
 
 /* ─── Library Tab ─── */
-function LibraryTab({ favorites, history }: { favorites: Drama[]; history: any[] }) {
+function LibraryTab({ favorites, history }: { favorites: Drama[]; history: WatchHistoryItem[] }) {
   const [sub, setSub] = useState<"favorites" | "history">("favorites");
 
   return (
     <div>
       <div className="mb-6 flex gap-4">
-        <button onClick={() => setSub("favorites")} className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${sub === "favorites" ? "bg-red-600 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
+        <button onClick={() => setSub("favorites")} aria-pressed={sub === "favorites"} className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${sub === "favorites" ? "bg-red-600 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
           Favorites ({favorites.length})
         </button>
-        <button onClick={() => setSub("history")} className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${sub === "history" ? "bg-red-600 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
+        <button onClick={() => setSub("history")} aria-pressed={sub === "history"} className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${sub === "history" ? "bg-red-600 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
           History ({history.length})
         </button>
       </div>
@@ -246,7 +198,7 @@ function LibraryTab({ favorites, history }: { favorites: Drama[]; history: any[]
             {favorites.map((drama) => (
               <Link key={drama._id} href={`/drama/${drama._id}`}>
                 <div className="group relative aspect-[2/3] overflow-hidden rounded-lg">
-                  <img src={drama.cover} alt={drama.title} className="h-full w-full object-cover transition group-hover:scale-105" />
+                  <Image src={drama.cover} alt={drama.title} fill className="object-cover transition group-hover:scale-105" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 transition group-hover:opacity-100" />
                   <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 transition group-hover:opacity-100">
                     <p className="text-sm font-medium text-white truncate">{drama.title}</p>
@@ -266,9 +218,9 @@ function LibraryTab({ favorites, history }: { favorites: Drama[]; history: any[]
       {sub === "history" && (
         history.length > 0 ? (
           <div className="space-y-3">
-            {history.map((item: any, i: number) => (
+            {history.map((item, i) => (
               <Link key={i} href={`/drama/${item._id || item.dramaId}`} className="flex gap-4 rounded-xl bg-white/[0.03] border border-white/5 p-4 transition hover:bg-white/[0.06]">
-                <img src={item.cover || item.drama?.cover || "https://picsum.photos/seed/drama/200/300"} alt={item.title || item.drama?.title} className="h-20 w-14 rounded-lg object-cover" />
+                <Image src={item.cover || item.drama?.cover || "https://picsum.photos/seed/drama/200/300"} alt={item.title || item.drama?.title || "Drama"} width={56} height={80} className="h-20 w-14 rounded-lg object-cover" />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-medium text-white truncate">{item.title || item.drama?.title || "Unknown"}</h3>
                   <p className="mt-1 text-sm text-gray-500">Episode {item.lastEpisode || item.episode?.episodeNumber || "-"}</p>
@@ -289,7 +241,31 @@ function LibraryTab({ favorites, history }: { favorites: Drama[]; history: any[]
 }
 
 /* ─── Wallet Tab ─── */
-function WalletTab({ user, isVip, customAmount, setCustomAmount }: { user: any; isVip: boolean; customAmount: string; setCustomAmount: (v: string) => void }) {
+function WalletTab({ user, isVip, customAmount, setCustomAmount, token }: { user: User; isVip: boolean; customAmount: string; setCustomAmount: (v: string) => void; token: string | null }) {
+  const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
+
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      if (!token) return;
+      try {
+        const res = await profileApi.getPurchases(token);
+        const data = (res as { data?: { purchases?: unknown[] } }).data?.purchases || (res as { data?: unknown[] }).data || [];
+        if (Array.isArray(data) && data.length > 0) {
+          setTransactions((data as Record<string, string | number | undefined>[]).slice(0, 4).map((tx) => ({
+            id: String(tx._id || tx.id || ""),
+            date: String(tx.date || tx.createdAt || ""),
+            desc: String(tx.itemName || tx.description || tx.desc || "Transaction"),
+            type: tx.type === "purchase" ? "topup" : tx.type === "unlock" ? "spend" : String(tx.type || "spend"),
+            amount: Number(tx.amountCoins || tx.amount || 0),
+          })));
+        }
+      } catch {
+        // Keep mock data as fallback
+      }
+    };
+    fetchTransactions();
+  }, [token]);
+
   return (
     <div>
       {/* Balance + VIP Row */}
@@ -305,9 +281,9 @@ function WalletTab({ user, isVip, customAmount, setCustomAmount }: { user: any; 
             <Link href="/user/coins" className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700">
               Top Up Now
             </Link>
-            <button className="rounded-lg border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/10">
+            <Link href="/user/coins" className="rounded-lg border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/10">
               Redeem Code
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -408,7 +384,7 @@ function WalletTab({ user, isVip, customAmount, setCustomAmount }: { user: any; 
                 </tr>
               </thead>
               <tbody>
-                {MOCK_TRANSACTIONS.map((tx) => (
+                {transactions.map((tx) => (
                   <tr key={tx.id} className="border-b border-white/5 last:border-0">
                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{tx.date}</td>
                     <td className="px-4 py-3 text-gray-300 truncate max-w-[200px]">{tx.desc}</td>

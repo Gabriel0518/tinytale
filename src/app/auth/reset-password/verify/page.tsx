@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AuthLayout } from "@/components/auth/AuthLayout";
@@ -71,12 +71,22 @@ function NewPasswordContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
 
+  const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const storedCode = sessionStorage.getItem('resetCode') || '';
+    if (!email || !storedCode) {
+      router.push('/auth/reset-password');
+      return;
+    }
+    setCode(storedCode);
+  }, [email, router]);
 
   const strength = getPasswordStrength(newPassword);
   const { label: strengthLabel } = getStrengthLabel(strength);
@@ -96,10 +106,12 @@ function NewPasswordContent() {
 
     setIsLoading(true);
     try {
-      await passwordApi.resetPassword(email, "", newPassword);
-      router.push("/auth/login");
-    } catch (err: any) {
-      setError(err?.message || "Failed to reset password. Please try again.");
+      await passwordApi.resetPassword(email, code, newPassword);
+      sessionStorage.removeItem('resetCode');
+      router.push("/auth/login?reset=success");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      setError(message || "Failed to reset password. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -117,8 +129,8 @@ function NewPasswordContent() {
         <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-8">
           {/* Lock Icon */}
           <div className="flex justify-center mb-6">
-            <div className="h-16 w-16 rounded-full bg-red-500/20 flex items-center justify-center">
-              <LockIcon className="h-8 w-8 text-red-500" />
+            <div className="h-16 w-16 rounded-full bg-amber-500/20 flex items-center justify-center">
+              <LockIcon className="h-8 w-8 text-amber-500" />
             </div>
           </div>
 
@@ -132,7 +144,7 @@ function NewPasswordContent() {
 
           {/* Error */}
           {error && (
-            <div className="mb-4 rounded-lg bg-red-900/50 border border-red-700 p-3 text-red-200 text-sm">
+            <div role="alert" className="mb-4 rounded-lg bg-red-900/50 border border-red-700 p-3 text-red-200 text-sm">
               {error}
             </div>
           )}
@@ -140,25 +152,26 @@ function NewPasswordContent() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* New Password */}
             <div>
-              <label className="block uppercase text-xs tracking-wider text-gray-500 mb-2">
-                New Password
+              <label htmlFor="verify-new-password" className="block uppercase text-xs tracking-wider text-gray-500 mb-2">
               </label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
                   <LockIcon className="h-4 w-4" />
                 </div>
                 <input
+                  id="verify-new-password"
                   type={showNewPassword ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="Enter new password"
-                  className="w-full bg-[#1a1c23] border border-white/10 rounded-lg py-3 pl-10 pr-10 text-white placeholder-gray-600 focus:border-red-500 focus:outline-none transition"
+                  className="w-full bg-[#1a1c23] border border-white/10 rounded-lg py-3 pl-10 pr-10 text-white placeholder-gray-600 focus:border-amber-500 focus:outline-none transition"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition"
+                  aria-label={showNewPassword ? "Hide new password" : "Show new password"}
                 >
                   {showNewPassword ? (
                     <EyeOffIcon className="h-4 w-4" />
@@ -192,7 +205,7 @@ function NewPasswordContent() {
 
             {/* Confirm Password */}
             <div>
-              <label className="block uppercase text-xs tracking-wider text-gray-500 mb-2">
+              <label htmlFor="verify-confirm-password" className="block uppercase text-xs tracking-wider text-gray-500 mb-2">
                 Confirm New Password
               </label>
               <div className="relative">
@@ -200,17 +213,19 @@ function NewPasswordContent() {
                   <LockIcon className="h-4 w-4" />
                 </div>
                 <input
+                  id="verify-confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Confirm new password"
-                  className="w-full bg-[#1a1c23] border border-white/10 rounded-lg py-3 pl-10 pr-10 text-white placeholder-gray-600 focus:border-red-500 focus:outline-none transition"
+                  className="w-full bg-[#1a1c23] border border-white/10 rounded-lg py-3 pl-10 pr-10 text-white placeholder-gray-600 focus:border-amber-500 focus:outline-none transition"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition"
+                  aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                 >
                   {showConfirmPassword ? (
                     <EyeOffIcon className="h-4 w-4" />
@@ -225,7 +240,7 @@ function NewPasswordContent() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-red-600 hover:bg-red-700 rounded-lg py-3 font-medium text-white transition disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 rounded-lg py-3 font-medium text-white transition disabled:opacity-50"
             >
               {isLoading ? "Resetting..." : "Reset Password"}
             </button>

@@ -39,8 +39,9 @@ export default function ResetPasswordPage() {
     try {
       await passwordApi.sendResetCode(email);
       setCountdown(60);
-    } catch (err: any) {
-      setError(err?.message || "Failed to send verification code.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      setError(message || "Failed to send verification code.");
     } finally {
       setIsSending(false);
     }
@@ -56,9 +57,11 @@ export default function ResetPasswordPage() {
     setError("");
     try {
       await passwordApi.verifyCode(email, code);
+      sessionStorage.setItem('resetCode', code);
       router.push(`/auth/reset-password/verify?email=${encodeURIComponent(email)}`);
-    } catch (err: any) {
-      setError(err?.message || "Verification failed. Please try again.");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An error occurred';
+      setError(message || "Verification failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -84,7 +87,7 @@ export default function ResetPasswordPage() {
 
         {/* Error */}
         {error && (
-          <div className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+          <div role="alert" className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
             {error}
           </div>
         )}
@@ -92,14 +95,14 @@ export default function ResetPasswordPage() {
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Email Field */}
           <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">
-              Email Address
+            <label htmlFor="reset-email" className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">
             </label>
             <div className="relative">
               <svg className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
               </svg>
               <input
+                id="reset-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -112,7 +115,7 @@ export default function ResetPasswordPage() {
 
           {/* Verification Code Field */}
           <div>
-            <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">
+            <label htmlFor="reset-code" className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">
               Verification Code
             </label>
             <div className="relative">
@@ -120,11 +123,14 @@ export default function ResetPasswordPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
               </svg>
               <input
+                id="reset-code"
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="Enter code"
                 className="w-full rounded-lg border border-white/10 bg-[#1a1c23] py-3 pl-10 pr-24 text-white placeholder-gray-600 focus:border-amber-500 focus:outline-none"
+                maxLength={6}
+                inputMode="numeric"
               />
               <button
                 type="button"

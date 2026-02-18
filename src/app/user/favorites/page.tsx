@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { useAuth } from "@/lib/authContext";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
+import { useToast } from "@/components/ui/Toast";
 import { userApi, dramasApi } from "@/lib/api";
 import { Drama } from "@/types";
 import { Navbar } from "@/components/features/Navbar";
+import { Footer } from "@/components/features/Footer";
 
 type SortOption = "newest" | "oldest" | "title-az" | "title-za";
 
@@ -31,29 +34,26 @@ function timeAgo(dateStr?: string) {
 
 export default function FavoritesPage() {
   const { user, token } = useAuth();
-  const router = useRouter();
+  const { loading: authLoading } = useAuthGuard();
+  const { toast } = useToast();
   const [favorites, setFavorites] = useState<Drama[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortOption>("newest");
   const [visibleCount, setVisibleCount] = useState(10);
 
   useEffect(() => {
-    if (!user && !loading) router.push("/auth/login");
-  }, [user, loading, router]);
-
-  useEffect(() => {
     const fetchFavorites = async () => {
       if (!token) return;
       try {
-        const res: any = await userApi.getFavorites(token);
+        const res = await userApi.getFavorites(token);
         const favData = res.data;
         if (Array.isArray(favData)) {
           setFavorites(favData);
         } else if (favData?.favorites) {
           const dramaResults = await Promise.all(
-            favData.favorites.map((fav: any) => dramasApi.getById(fav.dramaId))
+            favData.favorites.map((fav: { dramaId: string }) => dramasApi.getById(fav.dramaId))
           );
-          setFavorites(dramaResults.map((r: any) => r.data?.drama).filter(Boolean));
+          setFavorites(dramaResults.map((r: { data?: { drama?: Drama } }) => r.data?.drama).filter((d): d is Drama => Boolean(d)));
         }
       } catch (err) {
         console.error("Failed to fetch favorites:", err);
@@ -67,9 +67,26 @@ export default function FavoritesPage() {
 
   const handleRemove = async (dramaId: string) => {
     if (!token) return;
+    const removedDrama = favorites.find((d) => d._id === dramaId);
     try {
       await userApi.removeFavorite(token, dramaId);
       setFavorites((prev) => prev.filter((d) => d._id !== dramaId));
+      toast("Removed from favorites", "success");
+      // Store undo data so user can re-add if needed
+      if (removedDrama) {
+        (window as any).__lastRemovedFavorite = {
+          drama: removedDrama,
+          restore: async () => {
+            try {
+              await userApi.addFavorite(token, dramaId);
+              setFavorites((prev) => [...prev, removedDrama]);
+              toast("Restored to favorites", "success");
+            } catch {
+              toast("Failed to restore favorite", "error");
+            }
+          },
+        };
+      }
     } catch (err) {
       console.error("Failed to remove favorite:", err);
     }
@@ -78,8 +95,8 @@ export default function FavoritesPage() {
   const sorted = useMemo(() => {
     const arr = [...favorites];
     switch (sort) {
-      case "newest": return arr.reverse();
-      case "oldest": return arr;
+      case "newest": return arr.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      case "oldest": return arr.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
       case "title-az": return arr.sort((a, b) => a.title.localeCompare(b.title));
       case "title-za": return arr.sort((a, b) => b.title.localeCompare(a.title));
       default: return arr;
@@ -137,10 +154,11 @@ export default function FavoritesPage() {
                   <div key={drama._id} className="group relative">
                     <Link href={`/drama/${drama._id}`}>
                       <div className="relative aspect-[2/3] overflow-hidden rounded-xl">
-                        <img
+                        <Image
                           src={drama.cover}
                           alt={drama.title}
-                          loading="lazy"
+                          fill
+                          sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 20vw"
                           className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
@@ -214,56 +232,7 @@ export default function FavoritesPage() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 bg-[#0a0b0e] py-10">
-        <div className="mx-auto max-w-7xl px-4">
-          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded bg-red-600 text-xs font-bold text-white">T</div>
-                <span className="text-base font-bold text-white">TinyTale</span>
-              </div>
-              <p className="mt-3 text-xs text-gray-600 leading-relaxed">
-                Your go-to platform for the hottest short dramas from around the world.
-              </p>
-            </div>
-            <div>
-              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Discover</h4>
-              <div className="space-y-2">
-                <Link href="/" className="block text-sm text-gray-500 hover:text-white transition">Trending Now</Link>
-                <Link href="/rankings" className="block text-sm text-gray-500 hover:text-white transition">Top Rankings</Link>
-                <Link href="/browse" className="block text-sm text-gray-500 hover:text-white transition">Editor&apos;s Choice</Link>
-                <Link href="/browse" className="block text-sm text-gray-500 hover:text-white transition">Coming Soon</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Support</h4>
-              <div className="space-y-2">
-                <Link href="/help" className="block text-sm text-gray-500 hover:text-white transition">Help Center</Link>
-                <Link href="/help" className="block text-sm text-gray-500 hover:text-white transition">Terms of Service</Link>
-                <Link href="/help" className="block text-sm text-gray-500 hover:text-white transition">Privacy Policy</Link>
-                <Link href="/help" className="block text-sm text-gray-500 hover:text-white transition">Contact Us</Link>
-              </div>
-            </div>
-            <div>
-              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">Get the App</h4>
-              <div className="space-y-2">
-                <button className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white transition hover:bg-white/10">
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
-                  App Store
-                </button>
-                <button className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white transition hover:bg-white/10">
-                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.199l2.302 2.302a1 1 0 010 1.38l-2.302 2.302L15.396 13l2.302-2.492zM5.864 1.469L16.8 7.802l-2.302 2.302L5.864 1.47z"/></svg>
-                  Google Play
-                </button>
-              </div>
-            </div>
-          </div>
-          <div className="mt-8 border-t border-white/5 pt-6 text-center">
-            <p className="text-xs text-gray-600">&copy; 2025 TinyTale. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

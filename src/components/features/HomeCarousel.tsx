@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Drama } from "@/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -83,6 +84,7 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
           <button
             onClick={() => scroll("left")}
             className="absolute -left-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/90 md:flex"
+            aria-label="Scroll left"
           >
             <ChevronLeft size={20} />
           </button>
@@ -113,10 +115,11 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
               }}
             >
               <div className="group relative aspect-[2/3] overflow-hidden rounded-lg">
-                <img
+                <Image
                   src={drama.cover}
                   alt={drama.title}
-                  className="h-full w-full object-cover transition group-hover:scale-105"
+                  fill
+                  className="object-cover transition group-hover:scale-105"
                   draggable={false}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 transition group-hover:opacity-100" />
@@ -149,6 +152,7 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
           <button
             onClick={() => scroll("right")}
             className="absolute -right-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/90 md:flex"
+            aria-label="Scroll right"
           >
             <ChevronRight size={20} />
           </button>

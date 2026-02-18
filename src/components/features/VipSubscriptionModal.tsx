@@ -87,6 +87,7 @@ export function VipSubscriptionModal({ open, onClose, onSubscribe }: VipSubscrip
           <button
             key={plan.id}
             onClick={() => setSelected(plan.id)}
+            aria-pressed={selected === plan.id}
             className={cn(
               "relative w-full rounded-xl border p-4 text-left transition",
               selected === plan.id
