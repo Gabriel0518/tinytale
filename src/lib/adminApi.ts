@@ -166,6 +166,9 @@ export const adminApi = {
     return api.get(`/api/admin/transactions${query ? `?${query}` : ''}`, { token });
   },
 
+  refundOrder: (id: string, data: { refundAmount: number; coinHandling: string; reason: string; details: string }, token = ADMIN_TOKEN) =>
+    api.post(`/api/admin/transactions/${id}/refund`, data, { token }),
+
   // Comments
   getComments: (params?: { dramaId?: string; status?: string; page?: number; limit?: number }, token = ADMIN_TOKEN) => {
     const query = params ? new URLSearchParams(params as any).toString() : '';
