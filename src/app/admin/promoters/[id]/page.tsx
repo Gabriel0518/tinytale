@@ -1,246 +1,528 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import AdminLayout from "../../layout";
+import { api } from "@/lib/adminApi";
+import AdjustLevelModal from "@/components/admin/AdjustLevelModal";
 
-type Level = "Standard" | "Pro" | "Elite";
-type Tab = "referred" | "commissions" | "withdrawals" | "links";
+// ─── Types ───────────────────────────────────────────────
+type Tab = "promoted" | "commissions" | "withdrawals" | "links";
 
-const promoter = {
-  id: "P001",
-  name: "Alice Wang",
-  avatar: "AW",
-  level: "Elite" as Level,
-  status: "Active" as "Active" | "Banned",
-  commissionRate: 15,
-  joinedAt: "2024-03-12",
-  email: "alice@example.com",
-  lifetimeEarnings: 8640,
-  totalReferrals: 342,
-  activeReferrals: 218,
-  conversionRate: 63.7,
+interface PromoterData {
+  id: string;
+  name: string;
+  initials: string;
+  email: string;
+  joinedDate: string;
+  level: string;
+  commissionRate: number;
+  totalEarned: number;
+  earnedChange: string;
+  totalReferrals: number;
+  referralsChange: string;
+}
+
+interface PromotedUser {
+  id: string;
+  name: string;
+  avatarInitials: string;
+  regDate: string;
+  firstRecharge: boolean;
+  rechargeAmount: number | null;
+  totalVolume: number;
+  commission: number;
+}
+
+interface CommissionRecord {
+  date: string;
+  sourceUser: string;
+  type: string;
+  amount: number;
+  status: string;
+}
+
+interface WithdrawalRecord {
+  requestId: string;
+  amount: number;
+  method: string;
+  status: string;
+  date: string;
+}
+
+interface PromotionLink {
+  code: string;
+  url: string;
+  clicks: number;
+  conversions: number;
+}
+
+// ─── Mock Data ───────────────────────────────────────────
+const MOCK_PROMOTER: PromoterData = {
+  id: "#88293",
+  name: "Alex Johnson",
+  initials: "AJ",
+  email: "alex@example.com",
+  joinedDate: "Oct 2022",
+  level: "Gold Tier",
+  commissionRate: 10,
+  totalEarned: 45231.50,
+  earnedChange: "+12.3%",
+  totalReferrals: 1248,
+  referralsChange: "+8 this week",
 };
 
-const referredUsers = [
-  { name: "John Doe", joinDate: "2024-06-01", firstRecharge: true, totalVolume: 120, commission: 18 },
-  { name: "Jane Smith", joinDate: "2024-07-15", firstRecharge: true, totalVolume: 340, commission: 51 },
-  { name: "Mike Lee", joinDate: "2024-08-20", firstRecharge: false, totalVolume: 0, commission: 0 },
-  { name: "Sara Kim", joinDate: "2024-09-03", firstRecharge: true, totalVolume: 85, commission: 12.75 },
+const MOCK_PROMOTED_USERS: PromotedUser[] = [
+  { id: "U-10021", name: "Emma Wilson", avatarInitials: "EW", regDate: "Jan 15, 2025", firstRecharge: true, rechargeAmount: 10.00, totalVolume: 2450.00, commission: 245.00 },
+  { id: "U-10034", name: "James Chen", avatarInitials: "JC", regDate: "Jan 12, 2025", firstRecharge: true, rechargeAmount: 25.00, totalVolume: 1820.00, commission: 182.00 },
+  { id: "U-10045", name: "Sofia Martinez", avatarInitials: "SM", regDate: "Jan 10, 2025", firstRecharge: false, rechargeAmount: null, totalVolume: 0, commission: 0 },
+  { id: "U-10052", name: "Liam O'Brien", avatarInitials: "LO", regDate: "Jan 8, 2025", firstRecharge: true, rechargeAmount: 50.00, totalVolume: 5200.00, commission: 520.00 },
+  { id: "U-10068", name: "Mia Tanaka", avatarInitials: "MT", regDate: "Jan 5, 2025", firstRecharge: true, rechargeAmount: 10.00, totalVolume: 980.00, commission: 98.00 },
+  { id: "U-10079", name: "Noah Davis", avatarInitials: "ND", regDate: "Jan 2, 2025", firstRecharge: false, rechargeAmount: null, totalVolume: 0, commission: 0 },
 ];
 
-const commissions = [
-  { date: "2024-12-01", source: "John Doe", amount: 18, type: "Recharge", status: "Paid" },
-  { date: "2024-12-03", source: "Jane Smith", amount: 51, type: "Recharge", status: "Paid" },
-  { date: "2024-12-10", source: "Sara Kim", amount: 12.75, type: "Recharge", status: "Pending" },
-  { date: "2024-12-15", source: "Jane Smith", amount: 24, type: "Subscription", status: "Pending" },
+const MOCK_COMMISSIONS: CommissionRecord[] = [
+  { date: "Jan 15, 2025", sourceUser: "Emma Wilson", type: "Recharge", amount: 245.00, status: "Paid" },
+  { date: "Jan 14, 2025", sourceUser: "James Chen", type: "Subscription", amount: 182.00, status: "Paid" },
+  { date: "Jan 12, 2025", sourceUser: "Liam O'Brien", type: "Recharge", amount: 520.00, status: "Pending" },
+  { date: "Jan 10, 2025", sourceUser: "Mia Tanaka", type: "Recharge", amount: 98.00, status: "Paid" },
+  { date: "Jan 8, 2025", sourceUser: "Emma Wilson", type: "Subscription", amount: 120.00, status: "Pending" },
 ];
 
-const withdrawals = [
-  { id: "W001", amount: 500, method: "PayPal", status: "Completed", date: "2024-11-01" },
-  { id: "W002", amount: 1200, method: "Bank Transfer", status: "Completed", date: "2024-11-15" },
-  { id: "W003", amount: 800, method: "PayPal", status: "Processing", date: "2024-12-01" },
-  { id: "W004", amount: 300, method: "PayPal", status: "Rejected", date: "2024-12-10" },
+const MOCK_WITHDRAWALS: WithdrawalRecord[] = [
+  { requestId: "WD-20250110", amount: 2500.00, method: "PayPal", status: "Completed", date: "Jan 10, 2025" },
+  { requestId: "WD-20250105", amount: 1800.00, method: "Bank Transfer", status: "Completed", date: "Jan 5, 2025" },
+  { requestId: "WD-20250103", amount: 950.00, method: "PayPal", status: "Processing", date: "Jan 3, 2025" },
+  { requestId: "WD-20241228", amount: 500.00, method: "Crypto (USDT)", status: "Rejected", date: "Dec 28, 2024" },
 ];
 
-const referralLinks = [
-  { code: "ALICE2024", url: "https://tinytale.com/r/ALICE2024", clicks: 1240, conversions: 186 },
-  { code: "ALICE-VIP", url: "https://tinytale.com/r/ALICE-VIP", clicks: 530, conversions: 92 },
-  { code: "ALICE-SUMMER", url: "https://tinytale.com/r/ALICE-SUMMER", clicks: 310, conversions: 64 },
+const MOCK_LINKS: PromotionLink[] = [
+  { code: "ALEX2025", url: "https://tinytale.com/r/ALEX2025", clicks: 3420, conversions: 512 },
+  { code: "ALEX-VIP", url: "https://tinytale.com/r/ALEX-VIP", clicks: 1860, conversions: 298 },
+  { code: "ALEX-WINTER", url: "https://tinytale.com/r/ALEX-WINTER", clicks: 940, conversions: 138 },
 ];
 
-const levelStyles: Record<Level, string> = {
-  Standard: "bg-gray-100 text-gray-700",
-  Pro: "bg-blue-100 text-blue-700",
-  Elite: "bg-purple-100 text-purple-700 ring-1 ring-yellow-400",
-};
-
-const wdStatusStyles: Record<string, string> = {
-  Completed: "bg-green-100 text-green-700",
-  Processing: "bg-yellow-100 text-yellow-700",
-  Rejected: "bg-red-100 text-red-700",
-};
-
+// ═══════════════════════════════════════════════════════════
+// MAIN COMPONENT
+// ═══════════════════════════════════════════════════════════
 export default function PromoterDetailPage() {
   const { id } = useParams();
-  const [tab, setTab] = useState<Tab>("referred");
+  const [tab, setTab] = useState<Tab>("promoted");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
   const [copied, setCopied] = useState<string | null>(null);
-  const p = { ...promoter, id: id as string };
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [adjustModalOpen, setAdjustModalOpen] = useState(false);
 
-  const copyLink = (url: string) => {
-    navigator.clipboard.writeText(url);
-    setCopied(url);
-    setTimeout(() => setCopied(null), 1500);
+  const [promoter, setPromoter] = useState<PromoterData>(MOCK_PROMOTER);
+  const [promotedUsers, setPromotedUsers] = useState<PromotedUser[]>(MOCK_PROMOTED_USERS);
+  const [commissions, setCommissions] = useState<CommissionRecord[]>(MOCK_COMMISSIONS);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>(MOCK_WITHDRAWALS);
+  const [links, setLinks] = useState<PromotionLink[]>(MOCK_LINKS);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await api.get<{ success: boolean; data: any }>(`/api/promoter/admin/${id}`);
+        if (res.success && res.data) {
+          setPromoter(res.data.promoter || MOCK_PROMOTER);
+          setPromotedUsers(res.data.promotedUsers || MOCK_PROMOTED_USERS);
+          setCommissions(res.data.commissions || MOCK_COMMISSIONS);
+          setWithdrawals(res.data.withdrawals || MOCK_WITHDRAWALS);
+          setLinks(res.data.links || MOCK_LINKS);
+        }
+      } catch {
+        // API not available — keep mock data
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [id]);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(text);
+    setTimeout(() => setCopied(null), 2000);
   };
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "referred", label: "Referred Users" },
-    { key: "commissions", label: "Commission History" },
+  const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: "promoted", label: "Promoted Users", count: promoter.totalReferrals },
+    { key: "commissions", label: "Commission Records" },
     { key: "withdrawals", label: "Withdrawal History" },
-    { key: "links", label: "Referral Links" },
+    { key: "links", label: "Promotion Links" },
   ];
 
-  return (
-    <AdminLayout>
-      <div>
-        <Link href="/admin/promoters" className="text-sm text-gray-500 hover:text-gray-700">← Back to Promoters</Link>
+  const totalPages = 5; // mock pagination
 
-        {/* Profile Header */}
-        <div className="mt-4 flex flex-wrap items-center gap-6 rounded-xl bg-white p-6 shadow-sm">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-indigo-100 text-2xl font-bold text-indigo-600">{p.avatar}</div>
-          <div className="flex-1">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold text-gray-900">{p.name}</h1>
-              <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${levelStyles[p.level]}`}>{p.level}</span>
-              <span className="flex items-center gap-1.5 text-sm">
-                <span className={`inline-block h-2 w-2 rounded-full ${p.status === "Active" ? "bg-green-500" : "bg-red-500"}`} />
-                {p.status}
-              </span>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0f0f17] flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0f0f17] p-6 space-y-6">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 text-sm text-gray-500">
+        <Link href="/admin" className="hover:text-gray-300 transition-colors">Home</Link>
+        <span>/</span>
+        <Link href="/admin/promoters" className="hover:text-gray-300 transition-colors">Promotions</Link>
+        <span>/</span>
+        <Link href="/admin/promoters" className="hover:text-gray-300 transition-colors">Promoter List</Link>
+        <span>/</span>
+        <span className="text-gray-200">{promoter.name}</span>
+      </nav>
+
+      {/* Profile Header Card */}
+      <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-6">
+        <div className="flex flex-wrap items-start justify-between gap-6">
+          <div className="flex items-start gap-5">
+            {/* Avatar */}
+            <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-2xl font-bold text-white">
+              {promoter.initials}
             </div>
-            <p className="mt-1 text-sm text-gray-500">{p.email} &middot; Joined {p.joinedAt}</p>
-            <p className="mt-1 text-sm text-gray-600">Commission Rate: <span className="font-semibold text-gray-900">{p.commissionRate}%</span></p>
+            {/* Info */}
+            <div>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold text-gray-200">{promoter.name}</h1>
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                ID: {promoter.id} &middot; {promoter.email} &middot; Joined {promoter.joinedDate}
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-400 ring-1 ring-yellow-500/20">
+                  {promoter.level}
+                </span>
+                <span className="inline-flex items-center rounded-full bg-green-500/10 px-3 py-1 text-xs font-medium text-green-400 ring-1 ring-green-500/20">
+                  {promoter.commissionRate}% Commission
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Adjust Level</button>
-            <button className={`rounded-lg px-4 py-2 text-sm font-medium ${p.status === "Active" ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-green-50 text-green-700 hover:bg-green-100"}`}>
-              {p.status === "Active" ? "Ban Promoter" : "Unban Promoter"}
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setAdjustModalOpen(true)}
+              className="rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-[#1a1a2e]"
+            >
+              Adjust Level
+            </button>
+            <button className="rounded-lg border border-red-500/50 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10">
+              Ban Promoter
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Stat Cards */}
-        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {[
-            { label: "Lifetime Earnings", value: `$${p.lifetimeEarnings.toLocaleString()}`, color: "text-green-600" },
-            { label: "Total Referrals", value: p.totalReferrals, color: "text-blue-600" },
-            { label: "Active Referrals", value: p.activeReferrals, color: "text-indigo-600" },
-            { label: "Conversion Rate", value: `${p.conversionRate}%`, color: "text-orange-600" },
-          ].map((s) => (
-            <div key={s.label} className="rounded-xl bg-white p-5 shadow-sm">
-              <p className="text-xs text-gray-500">{s.label}</p>
-              <p className={`mt-1 text-2xl font-bold ${s.color}`}>{s.value}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Tabs */}
-        <div className="mt-6 border-b border-gray-200">
-          <div className="flex gap-6">
-            {tabs.map((t) => (
-              <button key={t.key} onClick={() => setTab(t.key)} className={`pb-3 text-sm font-medium ${tab === t.key ? "border-b-2 border-gray-900 text-gray-900" : "text-gray-500 hover:text-gray-700"}`}>
-                {t.label}
-              </button>
-            ))}
+      {/* Stat Cards */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-5">
+          <p className="text-sm text-gray-400">Total Earned</p>
+          <div className="mt-1 flex items-center gap-3">
+            <p className="text-2xl font-bold text-gray-200">${promoter.totalEarned.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+            <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-400">
+              {promoter.earnedChange}
+            </span>
           </div>
+          <p className="mt-1 text-xs text-gray-500">Lifetime commission generated</p>
         </div>
-
-        {/* Tab Content */}
-        <div className="mt-4 overflow-x-auto rounded-xl bg-white shadow-sm">
-          {tab === "referred" && (
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  {["User", "Join Date", "First Recharge", "Total Volume", "Commission Earned"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {referredUsers.map((u) => (
-                  <tr key={u.name} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{u.name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{u.joinDate}</td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${u.firstRecharge ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                        {u.firstRecharge ? "Yes" : "No"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">${u.totalVolume}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">${u.commission}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {tab === "commissions" && (
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  {["Date", "Source User", "Amount", "Type", "Status"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {commissions.map((c, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-600">{c.date}</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{c.source}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">${c.amount}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{c.type}</td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.status === "Paid" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>{c.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {tab === "withdrawals" && (
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  {["Request ID", "Amount", "Method", "Status", "Date"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {withdrawals.map((w) => (
-                  <tr key={w.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">{w.id}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">${w.amount}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{w.method}</td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${wdStatusStyles[w.status] || "bg-gray-100 text-gray-700"}`}>{w.status}</span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{w.date}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-
-          {tab === "links" && (
-            <div className="divide-y divide-gray-100 p-4">
-              {referralLinks.map((l) => (
-                <div key={l.code} className="flex flex-wrap items-center justify-between gap-4 py-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{l.code}</p>
-                    <p className="text-xs text-gray-500">{l.url}</p>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-center">
-                      <p className="text-lg font-semibold text-gray-900">{l.clicks}</p>
-                      <p className="text-xs text-gray-500">Clicks</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-lg font-semibold text-gray-900">{l.conversions}</p>
-                      <p className="text-xs text-gray-500">Conversions</p>
-                    </div>
-                    <button onClick={() => copyLink(l.url)} className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                      {copied === l.url ? "Copied!" : "Copy Link"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-5">
+          <p className="text-sm text-gray-400">Total Referrals</p>
+          <div className="mt-1 flex items-center gap-3">
+            <p className="text-2xl font-bold text-gray-200">{promoter.totalReferrals.toLocaleString()}</p>
+            <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-400">
+              {promoter.referralsChange}
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-gray-500">Users registered via link</p>
         </div>
       </div>
-    </AdminLayout>
+
+      {/* Tabs */}
+      <div className="border-b border-gray-700/50">
+        <div className="flex gap-6">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => { setTab(t.key); setCurrentPage(1); }}
+              className={`relative pb-3 text-sm font-medium transition-colors ${
+                tab === t.key
+                  ? "text-indigo-400 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-indigo-500"
+                  : "text-gray-500 hover:text-gray-300"
+              }`}
+            >
+              {t.label}
+              {t.count !== undefined && (
+                <span className="ml-2 inline-flex items-center rounded-full bg-indigo-500/10 px-2 py-0.5 text-xs font-medium text-indigo-400">
+                  {t.count.toLocaleString()}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Search & Filter Bar */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[200px]">
+          <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] py-2 pl-10 pr-4 text-sm text-gray-200 placeholder-gray-500 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-2 text-sm text-gray-300 outline-none focus:border-indigo-500"
+        >
+          <option value="All">Status: All</option>
+          <option value="Active">Active</option>
+          <option value="Inactive">Inactive</option>
+        </select>
+        <button className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-[#252540]">
+          Filter
+        </button>
+        <button className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:bg-[#252540]">
+          Export
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      <div className="overflow-hidden rounded-xl border border-gray-700/50 bg-[#13131d]">
+        {/* ── Promoted Users Tab ── */}
+        {tab === "promoted" && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-700/50">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">User Details</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Reg. Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">First Recharge</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Total Volume</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Commission</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700/30">
+                {promotedUsers.map((u) => (
+                  <tr key={u.id} className="transition-colors hover:bg-[#1a1a2e]">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600/20 text-xs font-medium text-indigo-400">
+                          {u.avatarInitials}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-200">{u.name}</p>
+                          <p className="text-xs text-gray-500">{u.id}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-400">{u.regDate}</td>
+                    <td className="px-4 py-3">
+                      {u.firstRecharge ? (
+                        <span className="inline-flex items-center rounded-full bg-green-500/10 px-2.5 py-0.5 text-xs font-medium text-green-400">
+                          Yes (${u.rechargeAmount?.toFixed(2)})
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-400">
+                          No
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-300">${u.totalVolume.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300">${u.commission.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/admin/users/${u.id}`} className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
+                        Details
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ── Commission Records Tab ── */}
+        {tab === "commissions" && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-700/50">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Source User</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700/30">
+                {commissions.map((c, i) => (
+                  <tr key={i} className="transition-colors hover:bg-[#1a1a2e]">
+                    <td className="px-4 py-3 text-sm text-gray-400">{c.date}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-200">{c.sourceUser}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        c.type === "Recharge"
+                          ? "bg-blue-500/10 text-blue-400"
+                          : "bg-purple-500/10 text-purple-400"
+                      }`}>
+                        {c.type}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-300">${c.amount.toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        c.status === "Paid"
+                          ? "bg-green-500/10 text-green-400"
+                          : "bg-yellow-500/10 text-yellow-400"
+                      }`}>
+                        {c.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ── Withdrawal History Tab ── */}
+        {tab === "withdrawals" && (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-700/50">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Request ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Method</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700/30">
+                {withdrawals.map((w) => (
+                  <tr key={w.requestId} className="transition-colors hover:bg-[#1a1a2e]">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-200">{w.requestId}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300">${w.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 text-sm text-gray-400">{w.method}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                        w.status === "Completed"
+                          ? "bg-green-500/10 text-green-400"
+                          : w.status === "Processing"
+                          ? "bg-yellow-500/10 text-yellow-400"
+                          : "bg-red-500/10 text-red-400"
+                      }`}>
+                        {w.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-400">{w.date}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* ── Promotion Links Tab ── */}
+        {tab === "links" && (
+          <div className="divide-y divide-gray-700/30 p-4">
+            {links.map((l) => (
+              <div key={l.code} className="flex flex-wrap items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                <div>
+                  <p className="text-sm font-medium text-gray-200">{l.code}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">{l.url}</p>
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="text-center">
+                    <p className="text-lg font-semibold text-gray-200">{l.clicks.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">Clicks</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-semibold text-gray-200">{l.conversions.toLocaleString()}</p>
+                    <p className="text-xs text-gray-500">Conversions</p>
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard(l.url)}
+                    className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:bg-[#252540]"
+                  >
+                    {copied === l.url ? "Copied!" : "Copy Link"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-500">
+          Showing page {currentPage} of {totalPages}
+        </p>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="rounded-lg border border-gray-700/50 px-3 py-1.5 text-sm text-gray-400 transition-colors hover:bg-[#1a1a2e] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                currentPage === page
+                  ? "bg-indigo-600 text-white"
+                  : "border border-gray-700/50 text-gray-400 hover:bg-[#1a1a2e]"
+              }`}
+            >
+              {page}
+            </button>
+          ))}
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="rounded-lg border border-gray-700/50 px-3 py-1.5 text-sm text-gray-400 transition-colors hover:bg-[#1a1a2e] disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+      {/* Adjust Level Modal */}
+      <AdjustLevelModal
+        open={adjustModalOpen}
+        onClose={() => setAdjustModalOpen(false)}
+        onConfirm={(data) => {
+          setPromoter((prev) => ({
+            ...prev,
+            level: data.level.charAt(0).toUpperCase() + data.level.slice(1),
+            commissionRate: data.commissionRate,
+          }));
+          setAdjustModalOpen(false);
+        }}
+        promoter={{
+          id: String(id),
+          name: promoter.name,
+          initials: promoter.initials,
+          joinedDate: promoter.joinedDate,
+          currentLevel: promoter.level,
+          totalUsers: promoter.totalReferrals,
+          earnings: promoter.totalEarned,
+        }}
+      />
+    </div>
   );
 }
