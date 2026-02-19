@@ -44,7 +44,8 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      await register(email, password, nickname);
+      const refCode = typeof window !== 'undefined' ? localStorage.getItem('ref_code') || '' : '';
+      await register(email, password, nickname, refCode || undefined);
       router.push("/user/profile");
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An error occurred';

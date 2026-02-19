@@ -21,6 +21,7 @@ const navLinks = [
   { href: "/browse", label: "Browse" },
   { href: "/rankings", label: "Rankings" },
   { href: "/user/favorites", label: "My List" },
+  { href: "/affiliate", label: "Affiliate" },
 ];
 
 export function Navbar({

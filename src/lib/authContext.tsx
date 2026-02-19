@@ -9,7 +9,7 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, nickname: string) => Promise<void>;
+  register: (email: string, password: string, nickname: string, referredBy?: string) => Promise<void>;
   googleLogin: (credential: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: User) => void;
@@ -51,8 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (email: string, password: string, nickname: string) => {
-    const response = await authApi.register(email, password, nickname);
+  const register = async (email: string, password: string, nickname: string, referredBy?: string) => {
+    const response = await authApi.register(email, password, nickname, referredBy);
     if (response.success && response.data) {
       const { user: userData, token: authToken } = response.data;
       setUser(userData);

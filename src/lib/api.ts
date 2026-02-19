@@ -91,8 +91,8 @@ export const authApi = {
   login: (email: string, password: string) =>
     api.post('/api/auth/login', { email, password }),
 
-  register: (email: string, password: string, nickname: string) =>
-    api.post('/api/auth/register', { email, password, nickname }),
+  register: (email: string, password: string, nickname: string, referredBy?: string) =>
+    api.post('/api/auth/register', { email, password, nickname, referredBy }),
 
   googleLogin: (credential: string) =>
     api.post('/api/auth/google', { credential }),
@@ -299,4 +299,66 @@ export const subscriptionApi = {
 export const contactApi = {
   submitInquiry: (data: { name: string; email: string; subject: string; message: string; type?: string }) =>
     api.post('/api/v1/contact/inquiry', data),
+};
+
+// Promoter / Affiliate API
+export const promoterApi = {
+  apply: (token: string, data: { fullName: string; businessEmail: string; country: string; promotionChannels: string; paymentMethod?: any }) =>
+    api.post('/api/promoter/apply', data, { token }),
+
+  getProfile: (token: string) =>
+    api.get('/api/promoter/profile', { token }),
+
+  getDashboard: (token: string) =>
+    api.get('/api/promoter/dashboard', { token }),
+
+  getCommissions: (token: string, params?: { page?: number; limit?: number; status?: string; search?: string; startDate?: string; endDate?: string }) => {
+    const query = params ? new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])).toString() : '';
+    return api.get(`/api/promoter/commissions${query ? `?${query}` : ''}`, { token });
+  },
+
+  exportCommissions: (token: string, params?: { status?: string; startDate?: string; endDate?: string }) => {
+    const query = params ? new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])).toString() : '';
+    return `${API_URL}/api/promoter/commissions/export${query ? `?${query}` : ''}`;
+  },
+
+  getCreatives: (token: string, params?: { dramaId?: string; type?: string }) => {
+    const query = params ? new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])).toString() : '';
+    return api.get(`/api/promoter/creatives${query ? `?${query}` : ''}`, { token });
+  },
+
+  getPaymentMethods: (token: string) =>
+    api.get('/api/promoter/payment-methods', { token }),
+
+  addPaymentMethod: (token: string, data: any) =>
+    api.post('/api/promoter/payment-methods', data, { token }),
+
+  updatePaymentMethod: (token: string, id: string, data: any) =>
+    api.put(`/api/promoter/payment-methods/${id}`, data, { token }),
+
+  deletePaymentMethod: (token: string, id: string) =>
+    api.delete(`/api/promoter/payment-methods/${id}`, { token }),
+
+  setDefaultPaymentMethod: (token: string, id: string) =>
+    api.put(`/api/promoter/payment-methods/${id}/default`, {}, { token }),
+
+  withdraw: (token: string, data: { amount: number; paymentMethodId?: string }) =>
+    api.post('/api/promoter/withdraw', data, { token }),
+
+  getWithdrawals: (token: string, params?: { page?: number; limit?: number }) => {
+    const query = params ? new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])).toString() : '';
+    return api.get(`/api/promoter/withdrawals${query ? `?${query}` : ''}`, { token });
+  },
+
+  getReferralLink: (token: string) =>
+    api.get('/api/promoter/referral-link', { token }),
+
+  trackClick: (referralCode: string) =>
+    api.post('/api/promoter/track-click', { referralCode }),
+
+  getNotifications: (token: string) =>
+    api.get('/api/promoter/notifications', { token }),
+
+  getSettings: () =>
+    api.get('/api/promoter/settings'),
 };
