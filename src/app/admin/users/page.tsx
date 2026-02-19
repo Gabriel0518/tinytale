@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { adminApi } from "@/lib/adminApi";
 
 // --- Types ---
 interface User {
@@ -34,7 +35,6 @@ const mockUsers: User[] = [
   { id: "#89030", name: "Ava Thompson", avatar: "https://i.pravatar.cc/40?u=user10", email: "ava.t@gmail.com", maskedEmail: "a***@gmail.com", status: "Standard", coins: 20, recharge: 0.0, regTime: "2025-01-05", lastLogin: "2025-01-20 10:00", tag: "Banned", regMethod: "Apple" },
 ];
 
-const TOTAL_USERS = 12458;
 const PAGE_SIZE = 10;
 
 export default function AdminUsersPage() {
@@ -57,24 +57,47 @@ export default function AdminUsersPage() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
 
-  const filteredUsers = useMemo(() => {
-    return mockUsers.filter((u) => {
-      if (appliedFilters.userId && !u.id.toLowerCase().includes(appliedFilters.userId.toLowerCase())) return false;
-      if (appliedFilters.email && !u.email.toLowerCase().includes(appliedFilters.email.toLowerCase())) return false;
-      if (appliedFilters.nickname && !u.name.toLowerCase().includes(appliedFilters.nickname.toLowerCase())) return false;
-      if (appliedFilters.dateFrom && u.regTime < appliedFilters.dateFrom) return false;
-      if (appliedFilters.dateTo && u.regTime > appliedFilters.dateTo) return false;
-      if (appliedFilters.memberStatus && appliedFilters.memberStatus !== "all" && u.status.toLowerCase() !== appliedFilters.memberStatus.toLowerCase()) return false;
-      if (appliedFilters.rechargeMin && u.recharge < parseFloat(appliedFilters.rechargeMin)) return false;
-      if (appliedFilters.rechargeMax && u.recharge > parseFloat(appliedFilters.rechargeMax)) return false;
-      if (appliedFilters.regMethod && appliedFilters.regMethod !== "all" && u.regMethod.toLowerCase() !== appliedFilters.regMethod.toLowerCase()) return false;
-      if (appliedFilters.accountStatus && appliedFilters.accountStatus !== "all" && u.tag.toLowerCase() !== appliedFilters.accountStatus.toLowerCase()) return false;
-      return true;
-    });
-  }, [appliedFilters]);
+  // API data
+  const [users, setUsers] = useState<User[]>([]);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [loading, setLoading] = useState(true);
 
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
-  const paginatedUsers = filteredUsers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params: Record<string, any> = { page: currentPage, limit: PAGE_SIZE };
+      if (appliedFilters.nickname) params.search = appliedFilters.nickname;
+      if (appliedFilters.accountStatus && appliedFilters.accountStatus !== "all") params.status = appliedFilters.accountStatus;
+      const res: any = await adminApi.getUsers(params);
+      const data = res.data || res;
+      const rawUsers = data.users || data.items || [];
+      setUsers(rawUsers.map((u: any) => ({
+        id: `#${u._id || u.userId || u.id}`,
+        name: u.nickname || u.name || "Unknown",
+        avatar: u.avatar || `https://i.pravatar.cc/40?u=${u._id || u.id}`,
+        email: u.email || "",
+        maskedEmail: u.email ? u.email.charAt(0) + "***@" + u.email.split("@")[1] : "",
+        status: u.vipStatus === "vip" ? "VIP" as const : "Standard" as const,
+        coins: u.coins || 0,
+        recharge: u.totalRecharge || 0,
+        regTime: u.createdAt ? u.createdAt.split("T")[0] : "",
+        lastLogin: u.lastLogin || u.updatedAt || "",
+        tag: u.status === "banned" ? "Banned" as const : "Active" as const,
+        regMethod: (u.registrationMethod === "google" ? "Google" : u.registrationMethod === "apple" ? "Apple" : "Email") as "Email" | "Google" | "Apple",
+      })));
+      setTotalUsers(data.total || data.totalCount || rawUsers.length);
+    } catch {
+      setUsers([]);
+      setTotalUsers(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, appliedFilters]);
+
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
+  const paginatedUsers = users;
 
   const handleApplyFilters = () => {
     setAppliedFilters({
@@ -107,13 +130,13 @@ export default function AdminUsersPage() {
     setCurrentPage(1);
   };
 
-  const displayTotal = Object.keys(appliedFilters).length > 0 ? filteredUsers.length : TOTAL_USERS;
+  const displayTotal = totalUsers;
   const displayTotalFormatted = displayTotal.toLocaleString();
 
   // Pagination range
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
-    const total = Object.keys(appliedFilters).length > 0 ? totalPages : Math.ceil(TOTAL_USERS / PAGE_SIZE);
+    const total = Object.keys(appliedFilters).length > 0 ? totalPages : Math.ceil(totalUsers / PAGE_SIZE);
     if (total <= 7) {
       for (let i = 1; i <= total; i++) pages.push(i);
     } else {
@@ -318,8 +341,8 @@ export default function AdminUsersPage() {
         {/* Pagination */}
         <div className="flex items-center justify-between border-t border-gray-700/50 px-5 py-4">
           <span className="text-sm text-gray-400">
-            Showing {filteredUsers.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1} to{" "}
-            {Math.min(currentPage * PAGE_SIZE, filteredUsers.length)} of {displayTotalFormatted} results
+            Showing {users.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1} to{" "}
+            {Math.min(currentPage * PAGE_SIZE, users.length)} of {displayTotalFormatted} results
           </span>
           <div className="flex items-center gap-1">
             <button

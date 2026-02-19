@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { adminApi } from "@/lib/adminApi";
 import EditDramaModal from "./components/EditDramaModal";
 
 // ── Types ──────────────────────────────────────────────
@@ -157,12 +158,38 @@ export default function DramaManagementPage() {
   const [genreFilter, setGenreFilter] = useState<string>("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [dramas, setDramas] = useState(MOCK_DRAMAS);
+  const [dramas, setDramas] = useState<Drama[]>([]);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [editingDrama, setEditingDrama] = useState<Drama | null>(null);
   const [deletingDrama, setDeletingDrama] = useState<Drama | null>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+
+  const fetchDramas = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res: any = await adminApi.getDramas({ page: 1, limit: 100 });
+      const items = res.data?.dramas || res.data || [];
+      setDramas(items.map((d: any) => ({
+        id: d._id || d.id,
+        code: d.code || `DR-${(d._id || d.id || "").slice(-6)}`,
+        title: d.title || "",
+        cover: d.cover || `https://picsum.photos/seed/${d._id || d.id}/200/300`,
+        genre: (d.categories && d.categories[0]) || d.genre || "Other",
+        episodes: d.totalEpisodes || d.episodes || 0,
+        status: d.status === "published" ? "Published" : d.status === "suspended" ? "Suspended" : "Draft",
+        totalViews: d.viewCount || d.totalViews || 0,
+        lastUpdated: d.updatedAt ? new Date(d.updatedAt).toISOString().slice(0, 10) : "",
+      })));
+    } catch {
+      setDramas(MOCK_DRAMAS);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchDramas(); }, [fetchDramas]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -174,22 +201,33 @@ export default function DramaManagementPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const togglePublish = useCallback((drama: Drama) => {
-    setDramas((prev) =>
-      prev.map((d) =>
-        d.id === drama.id
-          ? { ...d, status: (d.status === "Published" ? "Draft" : "Published") as DramaStatus }
-          : d
-      )
-    );
+  const togglePublish = useCallback(async (drama: Drama) => {
+    const newStatus = drama.status === "Published" ? "draft" : "published";
+    try {
+      await adminApi.updateDrama(drama.id, { status: newStatus });
+      fetchDramas();
+    } catch {
+      setDramas((prev) =>
+        prev.map((d) =>
+          d.id === drama.id
+            ? { ...d, status: (d.status === "Published" ? "Draft" : "Published") as DramaStatus }
+            : d
+        )
+      );
+    }
     setActionMenuId(null);
-  }, []);
+  }, [fetchDramas]);
 
-  const handleDelete = useCallback(() => {
+  const handleDelete = useCallback(async () => {
     if (!deletingDrama) return;
-    setDramas((prev) => prev.filter((d) => d.id !== deletingDrama.id));
+    try {
+      await adminApi.deleteDrama(deletingDrama.id);
+      fetchDramas();
+    } catch {
+      setDramas((prev) => prev.filter((d) => d.id !== deletingDrama.id));
+    }
     setDeletingDrama(null);
-  }, [deletingDrama]);
+  }, [deletingDrama, fetchDramas]);
 
   const filtered = useMemo(() => {
     return dramas.filter((d) => {
@@ -593,10 +631,15 @@ export default function DramaManagementPage() {
         <EditDramaModal
           drama={editingDrama}
           onClose={() => setEditingDrama(null)}
-          onSave={(updated) => {
-            setDramas((prev) =>
-              prev.map((d) => (d.id === updated.id ? updated : d))
-            );
+          onSave={async (updated) => {
+            try {
+              await adminApi.updateDrama(updated.id, updated);
+              fetchDramas();
+            } catch {
+              setDramas((prev) =>
+                prev.map((d) => (d.id === updated.id ? updated : d))
+              );
+            }
             setEditingDrama(null);
           }}
         />

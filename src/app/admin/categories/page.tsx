@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { adminApi } from "@/lib/adminApi";
 
 // ── Types ──────────────────────────────────────────────
 type TabKey = "genres" | "regions" | "tags";
@@ -209,12 +210,38 @@ function CountrySelect({ selected, onChange }: { selected: string[]; onChange: (
 // ── Component ──────────────────────────────────────────
 export default function AdminCategoriesPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("genres");
-  const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CategoryFormData>(EMPTY_FORM);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res: any = await adminApi.getCategories();
+      const items = res.data?.categories || res.data || [];
+      setCategories(items.map((c: any) => ({
+        id: c._id || c.id,
+        name: c.name || "",
+        icon: c.icon || "star",
+        iconColor: c.iconColor || "#6366f1",
+        type: c.type || "genres",
+        countries: c.countries || [],
+        linkedDramas: c.linkedDramas || 0,
+        status: c.status === "Disabled" ? "Disabled" : "Active",
+        weight: c.weight || c.sortOrder || 0,
+      })));
+    } catch {
+      setCategories(MOCK_CATEGORIES);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
   // ── Derived data ──
   const filtered = useMemo(() => {
@@ -241,37 +268,52 @@ export default function AdminCategoriesPage() {
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim()) return;
-    if (editingId) {
-      setCategories((prev) =>
-        prev.map((c) => (c.id === editingId ? { ...c, ...form } : c))
-      );
-    } else {
-      const newCat: Category = {
-        id: `new-${Date.now()}`,
-        name: form.name,
-        icon: form.icon || "star",
-        iconColor: "#6366f1",
-        type: form.type,
-        countries: form.countries,
-        linkedDramas: 0,
-        status: form.status,
-        weight: form.weight,
-      };
-      setCategories((prev) => [...prev, newCat]);
+    try {
+      if (editingId) {
+        await adminApi.updateCategory(editingId, form);
+      } else {
+        await adminApi.createCategory({ ...form, icon: form.icon || "star", iconColor: "#6366f1" });
+      }
+      fetchCategories();
+    } catch {
+      // fallback: apply locally
+      if (editingId) {
+        setCategories((prev) =>
+          prev.map((c) => (c.id === editingId ? { ...c, ...form } : c))
+        );
+      } else {
+        const newCat: Category = {
+          id: `new-${Date.now()}`,
+          name: form.name,
+          icon: form.icon || "star",
+          iconColor: "#6366f1",
+          type: form.type,
+          countries: form.countries,
+          linkedDramas: 0,
+          status: form.status,
+          weight: form.weight,
+        };
+        setCategories((prev) => [...prev, newCat]);
+      }
     }
     setShowModal(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const cat = categories.find((c) => c.id === id);
     if (cat && cat.linkedDramas > 0) {
       alert(`Cannot delete "${cat.name}" because it has ${cat.linkedDramas} linked dramas. Unlink them first.`);
       setDeleteConfirm(null);
       return;
     }
-    setCategories((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await adminApi.deleteCategory(id);
+      fetchCategories();
+    } catch {
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+    }
     setDeleteConfirm(null);
   };
 

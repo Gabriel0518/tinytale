@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 
@@ -244,9 +245,9 @@ export default function AffiliateApplyPage() {
             />
             <span className="text-sm text-gray-400">
               I agree to the{" "}
-              <span className="text-purple-400 underline">
+              <Link href="/help?tab=terms" className="text-purple-400 underline hover:text-purple-300">
                 Affiliate Terms of Service
-              </span>
+              </Link>
             </span>
           </label>
 

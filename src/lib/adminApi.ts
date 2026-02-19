@@ -252,4 +252,95 @@ export const adminApi = {
     ).toString() : '';
     return api.get(`/api/admin/settings/logs${query ? `?${query}` : ''}`, { token });
   },
+
+  // Single Transaction
+  getTransaction: (id: string, token = ADMIN_TOKEN) =>
+    api.get(`/api/admin/transactions/${id}`, { token }),
+
+  // Promoter management
+  getPromoters: (params?: Record<string, any>, token = ADMIN_TOKEN) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/promoter/admin/list${query ? `?${query}` : ''}`, { token });
+  },
+
+  getPromoter: (id: string, token = ADMIN_TOKEN) =>
+    api.get(`/api/promoter/admin/${id}`, { token }),
+
+  updatePromoter: (id: string, data: any, token = ADMIN_TOKEN) =>
+    api.put(`/api/promoter/admin/${id}`, data, { token }),
+
+  reviewPromoter: (id: string, data: any, token = ADMIN_TOKEN) =>
+    api.post(`/api/promoter/admin/${id}/review`, data, { token }),
+
+  // Withdrawal management
+  getWithdrawals: (params?: Record<string, any>, token = ADMIN_TOKEN) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/promoter/admin/withdrawals${query ? `?${query}` : ''}`, { token });
+  },
+
+  reviewWithdrawal: (id: string, data: any, token = ADMIN_TOKEN) =>
+    api.post(`/api/promoter/admin/withdrawals/${id}/review`, data, { token }),
+
+  confirmWithdrawalPayment: (id: string, data: any, token = ADMIN_TOKEN) =>
+    api.post(`/api/promoter/admin/withdrawals/${id}/confirm-payment`, data, { token }),
+
+  // Rankings
+  getRankings: (params?: Record<string, any>, token = ADMIN_TOKEN) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/rankings${query ? `?${query}` : ''}`, { token });
+  },
+
+  createRanking: (data: any, token = ADMIN_TOKEN) =>
+    api.post('/api/admin/rankings', data, { token }),
+
+  updateRanking: (id: string, data: any, token = ADMIN_TOKEN) =>
+    api.put(`/api/admin/rankings/${id}`, data, { token }),
+
+  deleteRanking: (id: string, token = ADMIN_TOKEN) =>
+    api.delete(`/api/admin/rankings/${id}`, { token }),
+
+  reorderRankings: (data: any, token = ADMIN_TOKEN) =>
+    api.post('/api/admin/rankings/reorder', data, { token }),
+
+  // Activities (checkin, tasks, campaigns)
+  getCheckinConfig: (token = ADMIN_TOKEN) =>
+    api.get('/api/admin/activities/checkin', { token }),
+
+  updateCheckinConfig: (data: any, token = ADMIN_TOKEN) =>
+    api.put('/api/admin/activities/checkin', data, { token }),
+
+  getTasksConfig: (token = ADMIN_TOKEN) =>
+    api.get('/api/admin/activities/tasks', { token }),
+
+  updateTasksConfig: (data: any, token = ADMIN_TOKEN) =>
+    api.put('/api/admin/activities/tasks', data, { token }),
+
+  getCampaigns: (params?: Record<string, any>, token = ADMIN_TOKEN) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/activities/campaigns${query ? `?${query}` : ''}`, { token });
+  },
+
+  createCampaign: (data: any, token = ADMIN_TOKEN) =>
+    api.post('/api/admin/activities/campaigns', data, { token }),
+
+  updateCampaign: (id: string, data: any, token = ADMIN_TOKEN) =>
+    api.put(`/api/admin/activities/campaigns/${id}`, data, { token }),
+
+  deleteCampaign: (id: string, token = ADMIN_TOKEN) =>
+    api.delete(`/api/admin/activities/campaigns/${id}`, { token }),
+
+  // Bulk comment operations
+  bulkApproveComments: (ids: string[], token = ADMIN_TOKEN) =>
+    api.post('/api/admin/comments/bulk/approve', { ids }, { token }),
+
+  bulkRejectComments: (ids: string[], token = ADMIN_TOKEN) =>
+    api.post('/api/admin/comments/bulk/reject', { ids }, { token }),
 };

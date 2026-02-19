@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { api } from "@/lib/adminApi";
+import { adminApi } from "@/lib/adminApi";
 import ReviewWithdrawalModal from "@/components/admin/ReviewWithdrawalModal";
 import ConfirmPaymentModal from "@/components/admin/ConfirmPaymentModal";
 
@@ -80,7 +80,7 @@ export default function WithdrawalsPage() {
     let cancelled = false;
     (async () => {
       try {
-        const res: any = await api.get("/api/promoter/admin/withdrawals");
+        const res: any = await adminApi.getWithdrawals();
         if (!cancelled && res?.data) {
           const list = res.data.withdrawals ?? res.data ?? [];
           setWithdrawals(

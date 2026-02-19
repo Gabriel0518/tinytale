@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
@@ -260,9 +260,34 @@ export default function UserDetailPage() {
     if (id) fetchUser();
   }, [id]);
 
-  // ─── Filtered Recharge Data ────────────────────────────
+  // ─── Recharge data from API ───────────────────────────
+  const [rechargeData, setRechargeData] = useState<RechargeRow[]>([]);
+  const [totalRechargeItems, setTotalRechargeItems] = useState(0);
+
+  const fetchRecharge = useCallback(async () => {
+    try {
+      const res: any = await adminApi.getTransactions({ page: currentPage, limit: pageSize, type: "recharge" });
+      const items = res.data?.transactions || res.data || [];
+      setRechargeData(items.map((t: any) => ({
+        orderId: t._id || t.orderId || "",
+        product: t.description || t.product || `${t.coinAmount || 0} Coins`,
+        amount: t.amount ? `$${t.amount.toFixed(2)}` : "$0.00",
+        coinsReceived: t.coinAmount ? t.coinAmount.toLocaleString() : "-",
+        channel: t.paymentMethod || "Stripe",
+        status: t.status === "completed" ? "Paid" : t.status === "failed" ? "Failed" : "Pending",
+        date: t.createdAt ? new Date(t.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+      })));
+      setTotalRechargeItems(res.data?.total || items.length);
+    } catch {
+      setRechargeData(MOCK_RECHARGE);
+      setTotalRechargeItems(MOCK_RECHARGE.length);
+    }
+  }, [currentPage]);
+
+  useEffect(() => { fetchRecharge(); }, [fetchRecharge]);
+
   const filteredRecharge = useMemo(() => {
-    let data = MOCK_RECHARGE;
+    let data = rechargeData;
     if (searchOrder) {
       data = data.filter((r) => r.orderId.toLowerCase().includes(searchOrder.toLowerCase()));
     }
@@ -273,7 +298,6 @@ export default function UserDetailPage() {
   }, [searchOrder, statusFilter]);
 
   const pageSize = 5;
-  const totalRechargeItems = 28;
   const totalPages = Math.ceil(totalRechargeItems / pageSize);
 
   // ─── Handlers ──────────────────────────────────────────

@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { adminApi } from "@/lib/adminApi";
 
 // ── Types ──────────────────────────────────────────────
 interface Episode {
@@ -149,6 +151,37 @@ export default function CreateDramaPage() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [categoryInput, setCategoryInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const router = useRouter();
+
+  const handlePublish = async (status: "published" | "draft") => {
+    setSaving(true);
+    try {
+      await adminApi.createDrama({
+        title: form.dramaName,
+        description: form.synopsis,
+        categories: form.categories,
+        regions: form.regions,
+        tags: form.tags ? form.tags.split(",").map((t: string) => t.trim()) : [],
+        status,
+        cover: form.verticalCover || "",
+        horizontalCover: form.horizontalCover || "",
+        monetizationModel: form.monetizationModel,
+        freeEpisodeCount: form.freeEpisodeCount,
+        defaultPrice: form.defaultPrice,
+        seoTitle: form.seoTitle,
+        seoDescription: form.seoDescription,
+        seoKeywords: form.seoKeywords,
+        publishOption: form.publishOption,
+        scheduleDate: form.scheduleDate,
+      });
+      router.push("/admin/dramas");
+    } catch (err: any) {
+      alert(err.message || "Failed to create drama");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const updateForm = useCallback(
     <K extends keyof FormData>(key: K, value: FormData[K]) => {
@@ -243,8 +276,8 @@ export default function CreateDramaPage() {
               Create New Drama
             </h1>
           </div>
-          <button className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors">
-            Save as Draft
+          <button onClick={() => handlePublish("draft")} disabled={saving} className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50">
+            {saving ? "Saving..." : "Save as Draft"}
           </button>
         </div>
       </header>
@@ -358,8 +391,8 @@ export default function CreateDramaPage() {
                 Next Step &rarr;
               </button>
             ) : (
-              <button className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700">
-                Publish
+              <button onClick={() => handlePublish("published")} disabled={saving} className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50">
+                {saving ? "Publishing..." : "Publish"}
               </button>
             )}
           </div>

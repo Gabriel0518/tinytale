@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { adminApi } from "@/lib/adminApi";
 
 // ── Types ──────────────────────────────────────────────
 type RecommendationStatus = "Active" | "Scheduled" | "Expired";
@@ -195,16 +196,48 @@ const PAGE_SIZE = 5;
 export default function AdminRankingsPage() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const res: any = await adminApi.getFeatured();
+      const items = res.data?.featured || res.data || [];
+      setRecommendations(items.map((f: any) => ({
+        id: f._id || f.id,
+        spotName: f.type || "Homepage Banner",
+        drama: {
+          title: f.dramaId?.title || f.drama?.title || "Unknown",
+          thumbnail: (f.dramaId?.title || f.drama?.title || "??").slice(0, 2).toUpperCase(),
+        },
+        startDate: f.startDate ? new Date(f.startDate).toISOString().slice(0, 10) : "",
+        endDate: f.endDate ? new Date(f.endDate).toISOString().slice(0, 10) : "",
+        status: f.endDate && new Date(f.endDate) < new Date() ? "Expired"
+          : f.startDate && new Date(f.startDate) > new Date() ? "Scheduled" : "Active",
+      })));
+    } catch {
+      setRecommendations([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleDelete = async (id: string) => {
+    try { await adminApi.deleteFeatured(id); fetchData(); } catch { /* ignore */ }
+  };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    if (!q) return MOCK_RECOMMENDATIONS;
-    return MOCK_RECOMMENDATIONS.filter(
+    if (!q) return recommendations;
+    return recommendations.filter(
       (r) =>
         r.spotName.toLowerCase().includes(q) ||
         r.drama.title.toLowerCase().includes(q)
     );
-  }, [search]);
+  }, [search, recommendations]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = filtered.slice(
@@ -352,6 +385,7 @@ export default function AdminRankingsPage() {
                         <button
                           className="rounded-md p-1.5 text-gray-400 hover:bg-red-500/20 hover:text-red-400 transition-colors"
                           title="Remove"
+                          onClick={() => handleDelete(item.id)}
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>

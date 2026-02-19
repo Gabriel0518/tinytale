@@ -179,7 +179,7 @@ export const userApi = {
     api.delete(`/api/user/history/${id}`, { token }),
 
   checkUnlocked: (token: string, episodeId: string) =>
-    api.get(`/api/user/unlocked/${episodeId}`, { token }),
+    api.get(`/api/user/episodes/${episodeId}/unlocked`, { token }),
 
   getNotifications: (token: string) =>
     api.get('/api/user/notifications', { token }),
@@ -224,13 +224,13 @@ export const coinsApi = {
     api.post('/api/coins/unlock', { episodeId }, { token }),
 
   getPackages: () =>
-    api.get('/api/coins/packages'),
+    api.get('/api/payment/packages'),
 
   recharge: (token: string, packageId: string) =>
-    api.post('/api/coins/recharge', { packageId }, { token }),
+    api.post('/api/coins/recharge', { amount: packageId }, { token }),
 
   createOrder: (token: string, packageId: string, paymentMethod: string) =>
-    api.post('/api/coins/create-order', { packageId, paymentMethod }, { token }),
+    api.post('/api/payment/create-order', { packageId, paymentMethod }, { token }),
 
   redeem: (token: string, code: string) =>
     api.post('/api/coins/redeem', { code }, { token }),
@@ -286,10 +286,10 @@ export const settingsApi = {
 // Subscription API
 export const subscriptionApi = {
   getPlans: () =>
-    api.get('/api/subscriptions/plans'),
+    api.get('/api/payment/vip/plans'),
 
   subscribe: (token: string, planId: string, paymentMethod?: string) =>
-    api.post('/api/subscriptions/subscribe', { planId, paymentMethod }, { token }),
+    api.post('/api/payment/vip/subscribe', { planId, paymentMethod }, { token }),
 
   getStatus: (token: string) =>
     api.get('/api/subscriptions/status', { token }),
@@ -298,7 +298,7 @@ export const subscriptionApi = {
 // Contact / Help Center API
 export const contactApi = {
   submitInquiry: (data: { name: string; email: string; subject: string; message: string; type?: string }) =>
-    api.post('/api/v1/contact/inquiry', data),
+    api.post('/api/contact/inquiry', data),
 };
 
 // Promoter / Affiliate API

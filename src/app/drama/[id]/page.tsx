@@ -354,7 +354,7 @@ function DramaDetailContent() {
           <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-gray-400">
             <Link href="/" className="hover:text-white transition">Home</Link>
             <span>/</span>
-            <Link href={`/category?cat=${primaryCategory}`} className="hover:text-white transition">{primaryCategory}</Link>
+            <Link href={`/category?category=${primaryCategory}`} className="hover:text-white transition">{primaryCategory}</Link>
             <span>/</span>
             <span className="text-white truncate max-w-[200px]">{drama.title}</span>
           </nav>
@@ -470,7 +470,7 @@ function DramaDetailContent() {
             {drama.categories?.map((cat) => (
               <Link
                 key={cat}
-                href={`/category?cat=${cat}`}
+                href={`/category?category=${cat}`}
                 className="rounded-full bg-gray-800 px-3 py-1 text-xs text-gray-300 transition hover:bg-gray-700 hover:text-white"
               >
                 {cat}

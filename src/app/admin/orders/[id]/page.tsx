@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { adminApi, api } from "@/lib/adminApi";
+import { adminApi } from "@/lib/adminApi";
 
 // ─── Types ───────────────────────────────────────────────
 interface OrderData {
@@ -87,13 +87,19 @@ export default function OrderDetailPage() {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        const res: any = await adminApi.getTransactions({ page: 1, limit: 1 });
-        const txn = res?.data?.transactions?.[0] || res?.data?.[0];
+        const res: any = await adminApi.getTransaction(id as string);
+        const txn = res?.data || res;
         if (txn) {
           setOrder({
             ...MOCK_ORDER,
-            orderId: txn.orderId || MOCK_ORDER.orderId,
+            orderId: txn.orderId || txn._id || MOCK_ORDER.orderId,
             status: txn.status || MOCK_ORDER.status,
+            createdAt: txn.createdAt ? new Date(txn.createdAt).toLocaleString() : MOCK_ORDER.createdAt,
+            paidAt: txn.paidAt ? new Date(txn.paidAt).toLocaleString() : MOCK_ORDER.paidAt,
+            price: txn.amount ? `$${txn.amount}` : MOCK_ORDER.price,
+            baseCoins: txn.coinAmount || MOCK_ORDER.baseCoins,
+            bonusCoins: txn.bonusCoins || MOCK_ORDER.bonusCoins,
+            totalReceived: (txn.coinAmount || MOCK_ORDER.baseCoins) + (txn.bonusCoins || MOCK_ORDER.bonusCoins),
           });
         } else {
           setOrder(MOCK_ORDER);
@@ -134,7 +140,7 @@ export default function OrderDetailPage() {
     if (!order || !refundReason) return;
     setRefundLoading(true);
     try {
-      await api.post(`/api/admin/transactions/${id}/refund`, {
+      await adminApi.refundOrder(id as string, {
         refundAmount: Number(refundAmount),
         coinHandling,
         reason: refundReason,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { api } from "@/lib/adminApi";
+import { adminApi } from "@/lib/adminApi";
 
 interface ConfirmPaymentModalProps {
   open: boolean;
@@ -87,7 +87,7 @@ export default function ConfirmPaymentModal({
 
     setSubmitting(true);
     try {
-      await api.post(`/api/promoter/admin/withdrawals/${withdrawal.id}/confirm-payment`, {
+      await adminApi.confirmWithdrawalPayment(withdrawal.id, {
         paymentTime,
         paymentProof,
         remark,

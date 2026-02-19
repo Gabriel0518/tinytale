@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 import AffiliateSidebar from "@/components/affiliate/AffiliateSidebar";
@@ -13,7 +14,7 @@ const sidebarPages = ["/affiliate/dashboard", "/affiliate/reports", "/affiliate/
 export default function AffiliateLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -82,6 +83,13 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
       <div className="min-h-screen bg-[#0f0f17]">
         <AffiliateSidebar />
         <div className="ml-60">
+          <header className="flex items-center justify-between px-6 py-3 bg-[#13131d] border-b border-gray-800/50">
+            <Link href="/" className="text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+              Back to TinyTale
+            </Link>
+            <span className="text-sm text-gray-400">{user?.nickname || user?.email || "Promoter"}</span>
+          </header>
           <main className="p-6">{children}</main>
         </div>
       </div>

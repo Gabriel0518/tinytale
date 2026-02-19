@@ -42,6 +42,8 @@ export default function SubscriptionPage() {
   const [processing, setProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const selected = plans.find(p => p._id === selectedPlan);
+
   useEffect(() => {
     if (!user) return;
     const load = async () => {
@@ -77,7 +79,6 @@ export default function SubscriptionPage() {
   };
 
   const isVip = user?.vipStatus === "active";
-  const selected = plans.find(p => p._id === selectedPlan);
 
   if (authLoading || !user || loading) {
     return (
@@ -245,7 +246,7 @@ export default function SubscriptionPage() {
 
           {/* Disclaimer */}
           <p className="mt-6 text-xs text-gray-600 leading-relaxed">
-            By subscribing, you agree to our <Link href="/terms" className="text-gray-400 hover:text-white underline">Terms of Service</Link> and <Link href="/privacy" className="text-gray-400 hover:text-white underline">Privacy Policy</Link>.
+            By subscribing, you agree to our <Link href="/help?tab=terms" className="text-gray-400 hover:text-white underline">Terms of Service</Link> and <Link href="/help?tab=privacy" className="text-gray-400 hover:text-white underline">Privacy Policy</Link>.
             Subscription automatically renews unless cancelled at least 24 hours before the end of the current period.
             You can manage or cancel your subscription anytime from <Link href="/user/settings" className="text-gray-400 hover:text-white underline">Account Settings</Link>.
           </p>

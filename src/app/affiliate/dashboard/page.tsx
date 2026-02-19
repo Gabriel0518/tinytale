@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 import { Line } from "react-chartjs-2";
@@ -276,12 +277,12 @@ export default function AffiliateDashboardPage() {
         <div className="bg-[#13131d] border border-gray-800/50 rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-white">Latest Notifications</h2>
-            <a
-              href="/affiliate/notifications"
+            <Link
+              href="/user/notifications"
               className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
             >
               View All
-            </a>
+            </Link>
           </div>
           {loading ? (
             <div className="space-y-3">

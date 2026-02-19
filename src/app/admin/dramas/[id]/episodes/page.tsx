@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { adminApi } from "@/lib/adminApi";
 
 type ModalType = "editInfo" | "editCategories" | "editRankings" | "editComments" | null;
 
@@ -476,9 +477,32 @@ export default function EpisodesPage() {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
   const [errTip, setErrTip] = useState<string | null>(null);
-  const [episodes, setEpisodes] = useState(MOCK_EPISODES);
+  const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
+
+  const fetchEpisodes = useCallback(async () => {
+    try {
+      const res: any = await adminApi.getEpisodes(dramaId as string);
+      const items = res.data?.episodes || res.data || [];
+      setEpisodes(items.map((ep: any) => ({
+        id: ep._id || ep.id,
+        episodeNumber: ep.episodeNumber || 0,
+        title: ep.title || "",
+        cover: ep.thumbnail || ep.cover || "",
+        duration: ep.duration || 0,
+        status: ep.status === "published" ? "Published" : ep.status === "processing" ? "Processing" : ep.status === "failed" ? "Failed" : "Draft",
+        errorMessage: ep.errorMessage,
+        plays: ep.plays || ep.viewCount || 0,
+        monetization: ep.isFree ? { type: "free" } : { type: "paid", price: ep.unlockPrice || 30 },
+        createdAt: ep.createdAt ? new Date(ep.createdAt).toISOString().slice(0, 10) : "",
+      })));
+    } catch {
+      setEpisodes(MOCK_EPISODES);
+    }
+  }, [dramaId]);
+
+  useEffect(() => { fetchEpisodes(); }, [fetchEpisodes]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -491,16 +515,24 @@ export default function EpisodesPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const togglePublish = useCallback((id: string) => {
-    setEpisodes((prev) =>
-      prev.map((ep) =>
-        ep.id === id
-          ? { ...ep, status: (ep.status === "Published" ? "Draft" : "Published") as EpisodeStatus }
-          : ep
-      )
-    );
+  const togglePublish = useCallback(async (id: string) => {
+    const ep = episodes.find((e) => e.id === id);
+    if (!ep) return;
+    const newStatus = ep.status === "Published" ? "draft" : "published";
+    try {
+      await adminApi.updateEpisode(id, { status: newStatus });
+      fetchEpisodes();
+    } catch {
+      setEpisodes((prev) =>
+        prev.map((e) =>
+          e.id === id
+            ? { ...e, status: (e.status === "Published" ? "Draft" : "Published") as EpisodeStatus }
+            : e
+        )
+      );
+    }
     setActionMenuId(null);
-  }, []);
+  }, [episodes, fetchEpisodes]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return episodes;

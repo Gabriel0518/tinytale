@@ -59,7 +59,31 @@ export default function CoinRecordsPage() {
     adminApi
       .getTransactions()
       .then((res: any) => {
-        if (res?.data?.length) setRecords(res.data);
+        const list = res?.data?.transactions || res?.data || [];
+        if (list.length) {
+          setRecords(
+            list.map((t: any) => ({
+              id: t._id || t.id || t.orderId || "",
+              userName: t.userName || t.user?.nickname || t.user?.email || "Unknown",
+              userId: t.userId || t.user?._id || "",
+              type: t.type === "unlock" || t.type === "episode_unlock"
+                ? "episode_unlock"
+                : t.type === "vip" || t.type === "vip_purchase"
+                ? "vip_purchase"
+                : t.type === "gift"
+                ? "gift"
+                : t.type === "subscription"
+                ? "subscription"
+                : "episode_unlock",
+              dramaTitle: t.dramaTitle || t.drama?.title || "-",
+              episodeLabel: t.episodeNumber ? `Ep ${t.episodeNumber}` : t.episodeLabel || "-",
+              coins: t.coinAmount || t.coins || t.amount || 0,
+              time: t.createdAt
+                ? new Date(t.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                : t.time || "",
+            }))
+          );
+        }
       })
       .catch(() => {});
   }, []);

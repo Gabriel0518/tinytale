@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import Link from "next/link";
 import { adminApi } from "@/lib/adminApi";
 
 type Plan = "Monthly" | "Quarterly" | "Yearly";
@@ -350,13 +349,12 @@ export default function SubscriptionsPage() {
                     </button>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
-                    <Link
-                      href={`/admin/subscriptions/${s.id}`}
-                      className="text-gray-400 hover:text-indigo-400 transition-colors"
+                    <span
+                      className="text-gray-400 hover:text-indigo-400 transition-colors cursor-default"
                       title="View details"
                     >
                       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                    </Link>
+                    </span>
                   </td>
                 </tr>
               ))

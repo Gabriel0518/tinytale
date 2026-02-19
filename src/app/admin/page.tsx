@@ -14,10 +14,9 @@ import {
   Legend,
 } from "chart.js";
 import { Line, Bar, Doughnut } from "react-chartjs-2";
+import { adminApi } from "@/lib/adminApi";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Filler, Tooltip, Legend);
-
-const ADMIN_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7002";
 
 interface StatCard {
   label: string;
@@ -35,11 +34,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const token = localStorage.getItem("admin_token") || "demo-token";
-        const res = await fetch(`${ADMIN_API_URL}/api/admin/stats`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json();
+        const data: any = await adminApi.getStats();
         if (data.success) {
           setStats(data.data);
           return;

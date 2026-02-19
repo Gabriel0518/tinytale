@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { adminApi } from "@/lib/adminApi";
 
 // ── Types ──────────────────────────────────────────────
 type CommentStatus = "Visible" | "Pending" | "Hidden";
@@ -20,99 +21,10 @@ interface Comment {
   createdAt: string;
 }
 
-// ── Mock Data ──────────────────────────────────────────
-const MOCK_COMMENTS: Comment[] = [
-  {
-    id: "c1",
-    user: { displayName: "Sophia Chen", handle: "@sophiac", avatarColor: "bg-pink-500", initials: "SC" },
-    content: "This drama is absolutely amazing! The plot twists keep me on the edge of my seat every single episode. Can't wait for the next season!",
-    drama: "Love in the Moonlight",
-    likes: 128,
-    status: "Visible",
-    createdAt: "2026-02-18T09:30:00Z",
-  },
-  {
-    id: "c2",
-    user: { displayName: "Marcus Lee", handle: "@marcusl", avatarColor: "bg-blue-500", initials: "ML" },
-    content: "Episode 12 was a masterpiece. The acting is top-notch.",
-    drama: "CEO's Secret Wife",
-    likes: 64,
-    status: "Visible",
-    createdAt: "2026-02-17T14:20:00Z",
-  },
-  {
-    id: "c3",
-    user: { displayName: "Emily Wang", handle: "@emilyw", avatarColor: "bg-purple-500", initials: "EW" },
-    content: "I think this show is overrated. The storyline doesn't make sense after episode 5 and the characters feel flat and one-dimensional.",
-    drama: "Revenge of the Heiress",
-    likes: 12,
-    status: "Pending",
-    createdAt: "2026-02-17T11:45:00Z",
-  },
-  {
-    id: "c4",
-    user: { displayName: "Jake Rivera", handle: "@jaker", avatarColor: "bg-emerald-500", initials: "JR" },
-    content: "Best drama on the platform hands down!",
-    drama: "Love in the Moonlight",
-    likes: 89,
-    status: "Visible",
-    createdAt: "2026-02-16T22:10:00Z",
-  },
-  {
-    id: "c5",
-    user: { displayName: "Aisha Patel", handle: "@aishap", avatarColor: "bg-orange-500", initials: "AP" },
-    content: "Spam link removed by moderator",
-    drama: "CEO's Secret Wife",
-    likes: 0,
-    status: "Hidden",
-    createdAt: "2026-02-16T08:30:00Z",
-  },
-  {
-    id: "c6",
-    user: { displayName: "David Kim", handle: "@davidk", avatarColor: "bg-cyan-500", initials: "DK" },
-    content: "The chemistry between the leads is incredible. Every scene they share together is pure magic. This is what good storytelling looks like.",
-    drama: "Midnight Romance",
-    likes: 203,
-    status: "Visible",
-    createdAt: "2026-02-15T16:55:00Z",
-  },
-  {
-    id: "c7",
-    user: { displayName: "Luna Torres", handle: "@lunat", avatarColor: "bg-rose-500", initials: "LT" },
-    content: "New episode when?? I've been waiting for a week already!",
-    drama: "Revenge of the Heiress",
-    likes: 34,
-    status: "Pending",
-    createdAt: "2026-02-15T10:20:00Z",
-  },
-  {
-    id: "c8",
-    user: { displayName: "Ryan Nguyen", handle: "@ryann", avatarColor: "bg-indigo-500", initials: "RN" },
-    content: "Inappropriate content flagged by community",
-    drama: "Love in the Moonlight",
-    likes: 2,
-    status: "Hidden",
-    createdAt: "2026-02-14T19:40:00Z",
-  },
-  {
-    id: "c9",
-    user: { displayName: "Mia Johnson", handle: "@miaj", avatarColor: "bg-amber-500", initials: "MJ" },
-    content: "Just binged all 24 episodes in one sitting. No regrets whatsoever. This is peak entertainment!",
-    drama: "Midnight Romance",
-    likes: 156,
-    status: "Visible",
-    createdAt: "2026-02-14T07:15:00Z",
-  },
-  {
-    id: "c10",
-    user: { displayName: "Tyler Brooks", handle: "@tylerb", avatarColor: "bg-teal-500", initials: "TB" },
-    content: "The ending of season 1 left me speechless. Absolutely need a season 2.",
-    drama: "CEO's Secret Wife",
-    likes: 77,
-    status: "Pending",
-    createdAt: "2026-02-13T13:00:00Z",
-  },
-];
+// ── Avatar color helper ──────────────────────────────────
+const AVATAR_COLORS = ["bg-pink-500", "bg-blue-500", "bg-purple-500", "bg-emerald-500", "bg-orange-500", "bg-cyan-500", "bg-rose-500", "bg-indigo-500", "bg-amber-500", "bg-teal-500"];
+function getAvatarColor(id: string) { return AVATAR_COLORS[id.charCodeAt(0) % AVATAR_COLORS.length]; }
+function getInitials(name: string) { return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2); }
 
 const DRAMA_OPTIONS = ["All Dramas", "Love in the Moonlight", "CEO's Secret Wife", "Revenge of the Heiress", "Midnight Romance"];
 const STATUS_OPTIONS: ("All Status" | CommentStatus)[] = ["All Status", "Visible", "Pending", "Hidden"];
@@ -197,10 +109,45 @@ export default function CommentsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // ── Fetch comments from API ──
+  const fetchComments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params: any = { page: 1, limit: 200 };
+      if (statusFilter === "Pending") params.status = "pending";
+      else if (statusFilter === "Visible") params.status = "approved";
+      else if (statusFilter === "Hidden") params.status = "rejected";
+      const res: any = await adminApi.getComments(params);
+      const items = res.data?.comments || res.data || [];
+      setComments(items.map((c: any) => ({
+        id: c._id || c.id,
+        user: {
+          displayName: c.userId?.nickname || c.user?.displayName || "User",
+          handle: c.userId?.email || c.user?.handle || "",
+          avatarColor: getAvatarColor(c._id || c.id || "x"),
+          initials: getInitials(c.userId?.nickname || c.user?.displayName || "U"),
+        },
+        content: c.content || "",
+        drama: c.dramaId?.title || c.drama || "Unknown",
+        likes: c.likes || 0,
+        status: c.status === "approved" ? "Visible" : c.status === "rejected" ? "Hidden" : "Pending",
+        createdAt: c.createdAt || new Date().toISOString(),
+      })));
+    } catch {
+      setComments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
+
+  useEffect(() => { fetchComments(); }, [fetchComments]);
 
   // ── Filtering ──
   const filtered = useMemo(() => {
-    return MOCK_COMMENTS.filter((c) => {
+    return comments.filter((c) => {
       if (keyword) {
         const q = keyword.toLowerCase();
         const matchesKeyword =
@@ -219,7 +166,7 @@ export default function CommentsPage() {
       }
       return true;
     });
-  }, [keyword, dramaFilter, statusFilter, startDate, endDate]);
+  }, [keyword, dramaFilter, statusFilter, startDate, endDate, comments]);
 
   // ── Pagination ──
   const totalResults = filtered.length;
@@ -248,11 +195,27 @@ export default function CommentsPage() {
     setSelectedIds(next);
   };
 
-  // ── Actions (mock) ──
-  const handleBulkAction = () => {
+  // ── Actions ──
+  const handleBulkAction = async () => {
     if (selectedIds.size === 0) return;
-    alert(`Bulk action on ${selectedIds.size} comment(s)`);
-    setSelectedIds(new Set());
+    const ids = Array.from(selectedIds);
+    try {
+      await adminApi.bulkRejectComments(ids);
+      setSelectedIds(new Set());
+      fetchComments();
+    } catch {
+      alert("Bulk action failed");
+    }
+  };
+
+  const handleApprove = async (commentId: string) => {
+    try { await adminApi.approveComment(commentId); fetchComments(); } catch { /* ignore */ }
+  };
+  const handleReject = async (commentId: string) => {
+    try { await adminApi.rejectComment(commentId); fetchComments(); } catch { /* ignore */ }
+  };
+  const handleDeleteComment = async (commentId: string) => {
+    try { await adminApi.deleteComment(commentId); fetchComments(); } catch { /* ignore */ }
   };
 
   const selectClasses =
@@ -448,18 +411,21 @@ export default function CommentsPage() {
                         </button>
                         <button
                           title="Approve"
+                          onClick={() => handleApprove(comment.id)}
                           className="rounded-lg p-1.5 text-gray-400 transition hover:bg-emerald-500/10 hover:text-emerald-400"
                         >
                           <CheckIcon />
                         </button>
                         <button
                           title="Hide"
+                          onClick={() => handleReject(comment.id)}
                           className="rounded-lg p-1.5 text-gray-400 transition hover:bg-yellow-500/10 hover:text-yellow-400"
                         >
                           <EyeOffIcon />
                         </button>
                         <button
                           title="Delete"
+                          onClick={() => handleDeleteComment(comment.id)}
                           className="rounded-lg p-1.5 text-gray-400 transition hover:bg-red-500/10 hover:text-red-400"
                         >
                           <TrashIcon />

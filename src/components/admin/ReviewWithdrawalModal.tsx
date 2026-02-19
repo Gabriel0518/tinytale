@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { api } from "@/lib/adminApi";
+import { adminApi } from "@/lib/adminApi";
 
 interface ReviewWithdrawalModalProps {
   open: boolean;
@@ -54,7 +54,7 @@ export default function ReviewWithdrawalModal({
 
     setSubmitting(true);
     try {
-      await api.post(`/api/promoter/admin/withdrawals/${withdrawal.id}/review`, {
+      await adminApi.reviewWithdrawal(withdrawal.id, {
         action,
         remark,
       });
