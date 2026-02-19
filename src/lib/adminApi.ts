@@ -183,4 +183,73 @@ export const adminApi = {
 
   deleteComment: (id: string, token = ADMIN_TOKEN) =>
     api.delete(`/api/admin/comments/${id}`, { token }),
+
+  // Settings - Roles
+  getRoles: (token = ADMIN_TOKEN) =>
+    api.get('/api/admin/settings/roles', { token }),
+
+  createRole: (data: any, token = ADMIN_TOKEN) =>
+    api.post('/api/admin/settings/roles', data, { token }),
+
+  updateRole: (id: string, data: any, token = ADMIN_TOKEN) =>
+    api.put(`/api/admin/settings/roles/${id}`, data, { token }),
+
+  deleteRole: (id: string, token = ADMIN_TOKEN) =>
+    api.delete(`/api/admin/settings/roles/${id}`, { token }),
+
+  // Settings - Admins
+  getAdmins: (params?: { search?: string; roleId?: string; status?: string; page?: number; limit?: number }, token = ADMIN_TOKEN) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(params)
+          .filter(([, v]) => v !== undefined && v !== '')
+          .map(([k, v]) => [k, String(v)])
+      )
+    ).toString() : '';
+    return api.get(`/api/admin/settings/admins${query ? `?${query}` : ''}`, { token });
+  },
+
+  createAdmin: (data: any, token = ADMIN_TOKEN) =>
+    api.post('/api/admin/settings/admins', data, { token }),
+
+  updateAdmin: (id: string, data: any, token = ADMIN_TOKEN) =>
+    api.put(`/api/admin/settings/admins/${id}`, data, { token }),
+
+  deleteAdmin: (id: string, token = ADMIN_TOKEN) =>
+    api.delete(`/api/admin/settings/admins/${id}`, { token }),
+
+  resetAdminPassword: (id: string, token = ADMIN_TOKEN) =>
+    api.post(`/api/admin/settings/admins/${id}/reset-password`, {}, { token }),
+
+  // Settings - System Settings
+  getSettings: (category?: string, token = ADMIN_TOKEN) =>
+    api.get(`/api/admin/settings/settings${category ? `?category=${category}` : ''}`, { token }),
+
+  saveSettings: (settings: Array<{ key: string; value: any; category?: string }>, token = ADMIN_TOKEN) =>
+    api.put('/api/admin/settings/settings', { settings }, { token }),
+
+  // Settings - VIP Plans
+  getVipPlans: (token = ADMIN_TOKEN) =>
+    api.get('/api/admin/settings/vip-plans', { token }),
+
+  createVipPlan: (data: any, token = ADMIN_TOKEN) =>
+    api.post('/api/admin/settings/vip-plans', data, { token }),
+
+  updateVipPlan: (id: string, data: any, token = ADMIN_TOKEN) =>
+    api.put(`/api/admin/settings/vip-plans/${id}`, data, { token }),
+
+  deleteVipPlan: (id: string, token = ADMIN_TOKEN) =>
+    api.delete(`/api/admin/settings/vip-plans/${id}`, { token }),
+
+  // Settings - Logs
+  getLogs: (params?: { page?: number; limit?: number; adminId?: string; action?: string; targetType?: string; search?: string; dateFrom?: string; dateTo?: string }, token = ADMIN_TOKEN) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(
+        Object.entries(params)
+          .filter(([, v]) => v !== undefined && v !== '')
+          .map(([k, v]) => [k, String(v)])
+      )
+    ).toString() : '';
+    return api.get(`/api/admin/settings/logs${query ? `?${query}` : ''}`, { token });
+  },
 };
