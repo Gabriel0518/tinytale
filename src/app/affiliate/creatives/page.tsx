@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/authContext";
-import { promoterApi } from "@/lib/api";
+import { promoterApi, dramasApi } from "@/lib/api";
 
 interface Creative {
   _id: string;
@@ -25,11 +25,21 @@ export default function CreativesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedDrama, setSelectedDrama] = useState("");
   const [activeTab, setActiveTab] = useState("All");
-  const [dramas, setDramas] = useState<{ _id: string; title: string }[]>([]);
+  const [dramas, setDramas] = useState<{ _id: string; title: string; cover?: string; horizontalCover?: string }[]>([]);
   const [referralCode, setReferralCode] = useState("");
   const [linkDrama, setLinkDrama] = useState("");
   const [linkSource, setLinkSource] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // Fetch dramas list from public API
+  useEffect(() => {
+    dramasApi.getAll({ limit: 100 }).then((res: any) => {
+      if (res.success) {
+        const list = res.data?.dramas || res.data || [];
+        setDramas(list.map((d: any) => ({ _id: d._id, title: d.title, cover: d.cover, horizontalCover: d.horizontalCover })));
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -41,27 +51,77 @@ export default function CreativesPage() {
     }).catch(() => {});
   }, [token]);
 
+  // Build creatives from selected drama's covers + any API creatives
+  const [apiCreatives, setApiCreatives] = useState<Creative[]>([]);
+
   useEffect(() => {
     if (!token) return;
-    fetchCreatives();
+    const params: { dramaId?: string; type?: string } = {};
+    if (selectedDrama) params.dramaId = selectedDrama;
+    if (activeTab !== "All") params.type = activeTab.toLowerCase();
+    promoterApi.getCreatives(token, params).then((res: any) => {
+      if (res.success) {
+        setApiCreatives(res.data?.creatives || []);
+      }
+    }).catch(() => setApiCreatives([]));
   }, [token, selectedDrama, activeTab]);
 
-  const fetchCreatives = async () => {
-    if (!token) return;
-    setLoading(true);
-    try {
-      const params: { dramaId?: string; type?: string } = {};
-      if (selectedDrama) params.dramaId = selectedDrama;
-      if (activeTab !== "All") params.type = activeTab.toLowerCase();
-      const res: any = await promoterApi.getCreatives(token, params);
-      if (res.success) {
-        setCreatives(res.data?.creatives || res.data || []);
-        if (res.data?.dramas) setDramas(res.data.dramas);
-      }
-    } catch {
-      setCreatives([]);
-    } finally {
+  // Derive display creatives: API creatives + drama cover fallback
+  useEffect(() => {
+    if (!selectedDrama) {
+      setCreatives(apiCreatives);
       setLoading(false);
+      return;
+    }
+    const drama = dramas.find((d) => d._id === selectedDrama);
+    const coverItems: Creative[] = [];
+    if (drama?.cover && (activeTab === "All" || activeTab === "Posters")) {
+      coverItems.push({
+        _id: `cover-${drama._id}`,
+        title: `${drama.title} - Cover`,
+        type: "posters",
+        thumbnail: drama.cover,
+        width: 400,
+        height: 600,
+        fileSize: "Cover Image",
+        dramaId: drama._id,
+        downloadUrl: drama.cover,
+      });
+    }
+    if (drama?.horizontalCover && (activeTab === "All" || activeTab === "Banners")) {
+      coverItems.push({
+        _id: `hcover-${drama._id}`,
+        title: `${drama.title} - Banner`,
+        type: "banners",
+        thumbnail: drama.horizontalCover,
+        width: 1920,
+        height: 1080,
+        fileSize: "Cover Image",
+        dramaId: drama._id,
+        downloadUrl: drama.horizontalCover,
+      });
+    }
+    // Merge: cover items first, then any API creatives (deduplicated)
+    const apiIds = new Set(apiCreatives.map((c) => c._id));
+    const merged = [...coverItems.filter((c) => !apiIds.has(c._id)), ...apiCreatives];
+    setCreatives(merged);
+    setLoading(false);
+  }, [selectedDrama, activeTab, dramas, apiCreatives]);
+
+  const handleDownload = async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(blobUrl);
+    } catch {
+      window.open(url, "_blank");
     }
   };
 
@@ -129,34 +189,37 @@ export default function CreativesPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z" />
                 </svg>
                 <p className="text-gray-500 text-sm">No creatives found</p>
-                <p className="text-gray-600 text-xs mt-1">Try selecting a different drama or type</p>
+                <p className="text-gray-600 text-xs mt-1">{selectedDrama ? "Try selecting a different type" : "Select a drama above to view its creative assets"}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {creatives.map((c) => (
                   <div key={c._id} className="bg-[#1a1a2e] border border-gray-800/30 rounded-lg overflow-hidden group">
-                    {/* Thumbnail placeholder */}
-                    <div
-                      className="h-36 w-full"
-                      style={{
-                        background: c.thumbnail
-                          ? `url(${c.thumbnail}) center/cover`
-                          : "linear-gradient(135deg, #6b21a8 0%, #312e81 50%, #0f172a 100%)",
-                      }}
-                    />
+                    {/* Thumbnail */}
+                    {c.thumbnail ? (
+                      <img
+                        src={c.thumbnail}
+                        alt={c.title}
+                        className="w-full aspect-[2/3] object-cover"
+                      />
+                    ) : (
+                      <div
+                        className="w-full aspect-[2/3]"
+                        style={{ background: "linear-gradient(135deg, #6b21a8 0%, #312e81 50%, #0f172a 100%)" }}
+                      />
+                    )}
                     <div className="p-3">
                       <h3 className="text-sm font-medium text-gray-200 truncate">{c.title}</h3>
                       <p className="text-xs text-gray-500 mt-1">
                         {c.width}x{c.height} &middot; {c.fileSize}
                       </p>
                       <div className="flex gap-2 mt-3">
-                        <a
-                          href={c.downloadUrl}
-                          download
+                        <button
+                          onClick={() => handleDownload(c.downloadUrl, `${c.title.replace(/\s+/g, "_")}.jpg`)}
                           className="flex-1 text-center text-xs font-medium py-1.5 rounded-md bg-purple-600 hover:bg-purple-700 text-white transition-colors"
                         >
                           Download
-                        </a>
+                        </button>
                         <button className="flex-1 text-xs font-medium py-1.5 rounded-md border border-gray-700/50 text-gray-300 hover:bg-[#13131d] transition-colors">
                           Save
                         </button>

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { adminApi } from "@/lib/adminApi";
+import { useToast } from "@/components/ui/Toast";
 
 // ── Types ──────────────────────────────────────────────
 type TabKey = "genres" | "regions" | "tags";
@@ -217,6 +218,7 @@ export default function AdminCategoriesPage() {
   const [form, setForm] = useState<CategoryFormData>(EMPTY_FORM);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -277,7 +279,9 @@ export default function AdminCategoriesPage() {
         await adminApi.createCategory({ ...form, icon: form.icon || "star", iconColor: "#6366f1" });
       }
       fetchCategories();
+      toast(editingId ? "Category updated successfully" : "Category created successfully", "success");
     } catch {
+      toast("Failed to save category, applied locally", "error");
       // fallback: apply locally
       if (editingId) {
         setCategories((prev) =>
@@ -304,14 +308,16 @@ export default function AdminCategoriesPage() {
   const handleDelete = async (id: string) => {
     const cat = categories.find((c) => c.id === id);
     if (cat && cat.linkedDramas > 0) {
-      alert(`Cannot delete "${cat.name}" because it has ${cat.linkedDramas} linked dramas. Unlink them first.`);
+      toast(`Cannot delete "${cat.name}" because it has ${cat.linkedDramas} linked dramas. Unlink them first.`, "error");
       setDeleteConfirm(null);
       return;
     }
     try {
       await adminApi.deleteCategory(id);
       fetchCategories();
+      toast("Category deleted successfully", "success");
     } catch {
+      toast("Failed to delete category", "error");
       setCategories((prev) => prev.filter((c) => c.id !== id));
     }
     setDeleteConfirm(null);

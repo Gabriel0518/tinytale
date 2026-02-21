@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { adminApi } from "@/lib/adminApi";
+import { useToast } from "@/components/ui/Toast";
 
 // ── Types ──────────────────────────────────────────────
 type CommentStatus = "Visible" | "Pending" | "Hidden";
@@ -111,6 +112,7 @@ export default function CommentsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   // ── Fetch comments from API ──
   const fetchComments = useCallback(async () => {
@@ -203,19 +205,20 @@ export default function CommentsPage() {
       await adminApi.bulkRejectComments(ids);
       setSelectedIds(new Set());
       fetchComments();
+      toast("Bulk action completed successfully", "success");
     } catch {
-      alert("Bulk action failed");
+      toast("Bulk action failed", "error");
     }
   };
 
   const handleApprove = async (commentId: string) => {
-    try { await adminApi.approveComment(commentId); fetchComments(); } catch { /* ignore */ }
+    try { await adminApi.approveComment(commentId); fetchComments(); toast("Comment approved", "success"); } catch { toast("Failed to approve comment", "error"); }
   };
   const handleReject = async (commentId: string) => {
-    try { await adminApi.rejectComment(commentId); fetchComments(); } catch { /* ignore */ }
+    try { await adminApi.rejectComment(commentId); fetchComments(); toast("Comment rejected", "success"); } catch { toast("Failed to reject comment", "error"); }
   };
   const handleDeleteComment = async (commentId: string) => {
-    try { await adminApi.deleteComment(commentId); fetchComments(); } catch { /* ignore */ }
+    try { await adminApi.deleteComment(commentId); fetchComments(); toast("Comment deleted", "success"); } catch { toast("Failed to delete comment", "error"); }
   };
 
   const selectClasses =

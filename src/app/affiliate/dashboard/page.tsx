@@ -84,7 +84,24 @@ export default function AffiliateDashboardPage() {
     promoterApi
       .getDashboard(token)
       .then((res: any) => {
-        setData(res.data);
+        const d = res.data;
+        const labels = (d.earningsTrend || []).map((e: any) => e._id);
+        const values = (d.earningsTrend || []).map((e: any) => e.amount);
+        setData({
+          stats: {
+            totalClicks: d.totalClicks || 0,
+            clicksChange: d.changePercent || 0,
+            totalRegistrations: d.totalRegistrations || 0,
+            registrationsChange: d.changePercent || 0,
+            paidUsers: d.totalPaidUsers || 0,
+            paidUsersChange: d.changePercent || 0,
+            totalCommission: d.totalCommission || 0,
+            commissionChange: d.changePercent || 0,
+          },
+          earningsTrend: { labels, data: values },
+          referralLink: d.referralLink || "",
+          notifications: [],
+        });
       })
       .catch(() => {})
       .finally(() => setLoading(false));

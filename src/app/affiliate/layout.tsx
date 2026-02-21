@@ -19,8 +19,24 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     async function checkStatus() {
-      // Landing page is always accessible
+      // Landing page: if logged in, check status and redirect accordingly
       if (pathname === "/affiliate") {
+        if (token) {
+          try {
+            const res = await promoterApi.getProfile(token);
+            const status = res.data?.applicationStatus;
+            if (status === 'approved') {
+              router.push("/affiliate/dashboard");
+              return;
+            }
+            if (status === 'pending') {
+              router.push("/affiliate/pending");
+              return;
+            }
+          } catch {
+            // No promoter record — show landing page
+          }
+        }
         setChecking(false);
         return;
       }

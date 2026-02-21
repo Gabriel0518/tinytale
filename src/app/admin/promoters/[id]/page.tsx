@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/adminApi";
 import AdjustLevelModal from "@/components/admin/AdjustLevelModal";
+import BanPromoterModal from "@/components/admin/BanPromoterModal";
+import { useToast } from "@/components/ui/Toast";
 
 // ─── Types ───────────────────────────────────────────────
 type Tab = "promoted" | "commissions" | "withdrawals" | "links";
@@ -21,6 +23,7 @@ interface PromoterData {
   earnedChange: string;
   totalReferrals: number;
   referralsChange: string;
+  status: string;
 }
 
 interface PromotedUser {
@@ -70,6 +73,7 @@ const MOCK_PROMOTER: PromoterData = {
   earnedChange: "+12.3%",
   totalReferrals: 1248,
   referralsChange: "+8 this week",
+  status: "Active",
 };
 
 const MOCK_PROMOTED_USERS: PromotedUser[] = [
@@ -107,6 +111,7 @@ const MOCK_LINKS: PromotionLink[] = [
 // ═══════════════════════════════════════════════════════════
 export default function PromoterDetailPage() {
   const { id } = useParams();
+  const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("promoted");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -114,6 +119,7 @@ export default function PromoterDetailPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
+  const [banModalOpen, setBanModalOpen] = useState(false);
 
   const [promoter, setPromoter] = useState<PromoterData>(MOCK_PROMOTER);
   const [promotedUsers, setPromotedUsers] = useState<PromotedUser[]>(MOCK_PROMOTED_USERS);
@@ -126,7 +132,30 @@ export default function PromoterDetailPage() {
       try {
         const res = await api.get<{ success: boolean; data: any }>(`/api/promoter/admin/${id}`);
         if (res.success && res.data) {
-          setPromoter(res.data.promoter || MOCK_PROMOTER);
+          const raw = res.data.promoter || res.data;
+          if (raw && (raw._id || raw.id)) {
+            const user = raw.user || (typeof raw.userId === 'object' ? raw.userId : null);
+            const name = user?.nickname ?? raw.name ?? MOCK_PROMOTER.name;
+            setPromoter({
+              id: raw._id ?? raw.id ?? MOCK_PROMOTER.id,
+              name,
+              initials: name.slice(0, 2).toUpperCase(),
+              email: user?.email ?? raw.email ?? MOCK_PROMOTER.email,
+              joinedDate: raw.createdAt ?? raw.joinedDate ?? MOCK_PROMOTER.joinedDate,
+              level: typeof raw.level === 'number'
+                ? (raw.level >= 3 ? "Elite" : raw.level >= 2 ? "Professional" : "Standard")
+                : (raw.level ?? MOCK_PROMOTER.level),
+              commissionRate: raw.commissionRate ?? MOCK_PROMOTER.commissionRate,
+              totalEarned: raw.totalRevenue ?? raw.totalEarned ?? MOCK_PROMOTER.totalEarned,
+              earnedChange: raw.earnedChange ?? MOCK_PROMOTER.earnedChange,
+              totalReferrals: raw.referredUsers ?? raw.totalReferrals ?? MOCK_PROMOTER.totalReferrals,
+              referralsChange: raw.referralsChange ?? MOCK_PROMOTER.referralsChange,
+              status: raw.applicationStatus === 'pending' ? 'Applying'
+                : raw.status === 'banned' ? 'Banned'
+                : raw.status === 'suspended' ? 'Suspended'
+                : 'Active',
+            });
+          }
           setPromotedUsers(res.data.promotedUsers || MOCK_PROMOTED_USERS);
           setCommissions(res.data.commissions || MOCK_COMMISSIONS);
           setWithdrawals(res.data.withdrawals || MOCK_WITHDRAWALS);
@@ -211,8 +240,11 @@ export default function PromoterDetailPage() {
             >
               Adjust Level
             </button>
-            <button className="rounded-lg border border-red-500/50 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10">
-              Ban Promoter
+            <button
+              onClick={() => setBanModalOpen(true)}
+              className="rounded-lg border border-red-500/50 px-4 py-2 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
+            >
+              {promoter.status === "Banned" ? "Unban Promoter" : "Ban Promoter"}
             </button>
           </div>
         </div>
@@ -511,6 +543,7 @@ export default function PromoterDetailPage() {
             level: data.level.charAt(0).toUpperCase() + data.level.slice(1),
             commissionRate: data.commissionRate,
           }));
+          toast(`Level updated to ${data.level} successfully`, "success");
           setAdjustModalOpen(false);
         }}
         promoter={{
@@ -521,6 +554,33 @@ export default function PromoterDetailPage() {
           currentLevel: promoter.level,
           totalUsers: promoter.totalReferrals,
           earnings: promoter.totalEarned,
+        }}
+      />
+      {/* Ban Promoter Modal */}
+      <BanPromoterModal
+        open={banModalOpen}
+        onClose={() => setBanModalOpen(false)}
+        onConfirm={async (data) => {
+          const isBanned = promoter.status === "Banned";
+          const newStatus = isBanned ? "active" : "banned";
+          try {
+            const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") || "demo-token" : "demo-token";
+            await api.put(`/api/promoter/admin/${id}`, { status: newStatus, reason: data.reason }, { token });
+            toast(isBanned ? "Promoter unbanned successfully" : "Promoter banned successfully", "success");
+          } catch {
+            toast("Failed to update promoter status", "error");
+          }
+          setPromoter((prev) => ({
+            ...prev,
+            status: prev.status === "Banned" ? "Active" : "Banned",
+          }));
+          setBanModalOpen(false);
+        }}
+        promoter={{
+          id: String(id),
+          name: promoter.name,
+          initials: promoter.initials,
+          status: promoter.status,
         }}
       />
     </div>

@@ -38,6 +38,7 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
+      // Try admin-specific auth endpoint first
       const res = await fetch(`${ADMIN_API_URL}/api/admin/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -46,6 +47,35 @@ export default function AdminLoginPage() {
       const data = await res.json();
 
       if (data.success && data.data?.token) {
+        localStorage.setItem("admin_token", data.data.token);
+        if (remember) {
+          localStorage.setItem("admin_remember", username);
+        } else {
+          localStorage.removeItem("admin_remember");
+        }
+        router.push("/admin");
+        return;
+      }
+      // Don't show error here — fall through to regular auth
+    } catch {
+      // Admin auth endpoint not available — try regular user auth
+    }
+
+    // Fallback: use regular user login (email + password) for admin users
+    try {
+      const res = await fetch(`${ADMIN_API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: username, password }),
+      });
+      const data = await res.json();
+
+      if (data.success && data.data?.token) {
+        if (data.data.user?.role !== "admin") {
+          setError("Access denied. Admin privileges required.");
+          setLoading(false);
+          return;
+        }
         localStorage.setItem("admin_token", data.data.token);
         if (remember) {
           localStorage.setItem("admin_remember", username);

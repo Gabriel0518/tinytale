@@ -1,33 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/authContext';
-import { promoterApi } from '@/lib/api';
+import Link from 'next/link';
 
 export default function AffiliatePendingPage() {
-  const router = useRouter();
-  const { token } = useAuth();
-  const [checking, setChecking] = useState(false);
-
-  const handleCheckStatus = async () => {
-    if (!token) return;
-    setChecking(true);
-    try {
-      const res = await promoterApi.getProfile(token);
-      const status = res?.data?.status;
-      if (status === 'active') {
-        router.push('/affiliate/dashboard');
-      } else if (status === 'rejected') {
-        router.push('/affiliate/apply');
-      }
-    } catch {
-      // still pending or error — stay on page
-    } finally {
-      setChecking(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#0a0a12] flex items-center justify-center px-4">
       <div className="max-w-lg w-full text-center">
@@ -56,7 +31,6 @@ export default function AffiliatePendingPage() {
             While You Wait
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            {/* Pre-study Documentation Card */}
             <a
               href="/affiliate"
               className="block rounded-xl bg-[#13131d] border border-gray-800/50 p-5 text-left transition hover:border-purple-500/40 hover:bg-[#1a1a2e]"
@@ -70,7 +44,6 @@ export default function AffiliatePendingPage() {
               <p className="text-xs text-gray-500">Review the affiliate program details and commission structure.</p>
             </a>
 
-            {/* Join Our Community Card */}
             <div className="rounded-xl bg-[#13131d] border border-gray-800/50 p-5 text-left">
               <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-purple-500/10">
                 <svg className="h-5 w-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -79,16 +52,10 @@ export default function AffiliatePendingPage() {
               </div>
               <h3 className="text-sm font-semibold text-white mb-2">Join Our Community</h3>
               <div className="flex gap-3">
-                <a
-                  href="#"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 py-1.5 text-xs text-gray-300 transition hover:text-white"
-                >
+                <a href="#" className="inline-flex items-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 py-1.5 text-xs text-gray-300 transition hover:text-white">
                   Telegram
                 </a>
-                <a
-                  href="#"
-                  className="inline-flex items-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 py-1.5 text-xs text-gray-300 transition hover:text-white"
-                >
+                <a href="#" className="inline-flex items-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 py-1.5 text-xs text-gray-300 transition hover:text-white">
                   Discord
                 </a>
               </div>
@@ -96,24 +63,10 @@ export default function AffiliatePendingPage() {
           </div>
         </div>
 
-        {/* Check Status Button */}
-        <button
-          onClick={handleCheckStatus}
-          disabled={checking}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-purple-600 px-8 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {checking ? (
-            <>
-              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              Checking...
-            </>
-          ) : (
-            'Check Status'
-          )}
-        </button>
+        {/* Back to Home */}
+        <Link href="/" className="text-sm text-gray-500 hover:text-gray-300 transition">
+          &larr; Back to Home
+        </Link>
       </div>
     </div>
   );

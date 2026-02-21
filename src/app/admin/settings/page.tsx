@@ -26,6 +26,8 @@ interface VipPrivileges {
   highQuality: boolean;
   earlyAccess: boolean;
   coinDiscount: number;
+  freeMonthlyDramas: number;
+  overLimitDiscount: number;
   termsUrl: string;
 }
 
@@ -230,11 +232,13 @@ export default function AdminSettingsPage() {
   const [exchangeRate, setExchangeRate] = useState(100);
   const [termsUrl, setTermsUrl] = useState("");
   const [tiers, setTiers] = useState<RechargeTier[]>(DEFAULT_TIERS);
+  const [editingTier, setEditingTier] = useState<RechargeTier | null>(null);
 
   /* ── VIP state ── */
   const [vipPlans, setVipPlans] = useState<VipPlan[]>([]);
+  const [editingPlan, setEditingPlan] = useState<VipPlan | null>(null);
   const [vipPrivileges, setVipPrivileges] = useState<VipPrivileges>({
-    adFree: true, highQuality: true, earlyAccess: false, coinDiscount: 10, termsUrl: "",
+    adFree: true, highQuality: true, earlyAccess: false, coinDiscount: 10, freeMonthlyDramas: 30, overLimitDiscount: 50, termsUrl: "",
   });
 
   /* ── Playback state ── */
@@ -447,6 +451,14 @@ export default function AdminSettingsPage() {
 
     const removeTier = (id: number) => setTiers(tiers.filter((t) => t.id !== id));
 
+    const handleEditTier = (tier: RechargeTier) => setEditingTier({ ...tier });
+
+    const handleSaveEdit = () => {
+      if (!editingTier) return;
+      setTiers(tiers.map((t) => (t.id === editingTier.id ? editingTier : t)));
+      setEditingTier(null);
+    };
+
     return (
       <>
         <SectionCard
@@ -533,7 +545,7 @@ export default function AdminSettingsPage() {
                     </td>
                     <td className="py-3">
                       <div className="flex gap-2">
-                        <button className="text-xs text-indigo-400 hover:text-indigo-300">Edit</button>
+                        <button onClick={() => handleEditTier(tier)} className="text-xs text-indigo-400 hover:text-indigo-300">Edit</button>
                         <button onClick={() => removeTier(tier.id)} className="text-xs text-red-400 hover:text-red-300">Delete</button>
                       </div>
                     </td>
@@ -546,6 +558,46 @@ export default function AdminSettingsPage() {
             <PrimaryBtn onClick={handleSaveTiers} disabled={saving}>{saving ? "Saving..." : "Save Tiers"}</PrimaryBtn>
           </div>
         </SectionCard>
+
+        {/* Edit Tier Modal */}
+        {editingTier && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-xl border border-gray-700/50 bg-[#13131d] p-6 shadow-2xl">
+              <h3 className="text-lg font-semibold text-gray-200 mb-5">Edit Tier #{editingTier.id}</h3>
+              <div className="space-y-4">
+                <div>
+                  <FieldLabel>Amount (USD)</FieldLabel>
+                  <NumberInput value={editingTier.amount} onChange={(v) => setEditingTier({ ...editingTier, amount: v })} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <FieldLabel>Coins</FieldLabel>
+                    <NumberInput value={editingTier.coins} onChange={(v) => setEditingTier({ ...editingTier, coins: v })} />
+                  </div>
+                  <div>
+                    <FieldLabel>Bonus Coins</FieldLabel>
+                    <NumberInput value={editingTier.bonus} onChange={(v) => setEditingTier({ ...editingTier, bonus: v })} />
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>Label</FieldLabel>
+                  <TextInput value={editingTier.label} onChange={(v) => setEditingTier({ ...editingTier, label: v })} placeholder="e.g. Popular, Best Value" />
+                </div>
+                <div>
+                  <FieldLabel>Status</FieldLabel>
+                  <SelectInput value={editingTier.status} onChange={(v) => setEditingTier({ ...editingTier, status: v as "active" | "hidden" })} options={[
+                    { value: "active", label: "Active" },
+                    { value: "hidden", label: "Hidden" },
+                  ]} />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <SecondaryBtn onClick={() => setEditingTier(null)}>Cancel</SecondaryBtn>
+                <PrimaryBtn onClick={handleSaveEdit}>Save Changes</PrimaryBtn>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
   }
@@ -566,6 +618,23 @@ export default function AdminSettingsPage() {
         loadVipPlans();
         showToast("Plan deleted");
       } catch { showToast("Failed to delete plan"); }
+    };
+
+    const handleEditPlan = (plan: VipPlan) => setEditingPlan({ ...plan });
+
+    const handleSaveEditPlan = async () => {
+      if (!editingPlan || !editingPlan._id) return;
+      try {
+        await adminApi.updateVipPlan(editingPlan._id, {
+          name: editingPlan.name,
+          price: editingPlan.price,
+          durationDays: editingPlan.durationDays,
+          status: editingPlan.status,
+        });
+        loadVipPlans();
+        setEditingPlan(null);
+        showToast("Plan updated");
+      } catch { showToast("Failed to update plan"); }
     };
 
     const handleSavePerks = () =>
@@ -611,7 +680,7 @@ export default function AdminSettingsPage() {
                     </td>
                     <td className="py-3">
                       <div className="flex gap-2">
-                        <button className="text-xs text-indigo-400 hover:text-indigo-300">Edit</button>
+                        <button onClick={() => handleEditPlan(plan)} className="text-xs text-indigo-400 hover:text-indigo-300">Edit</button>
                         <button onClick={() => plan._id && deletePlan(plan._id)} className="text-xs text-red-400 hover:text-red-300">Delete</button>
                       </div>
                     </td>
@@ -659,12 +728,64 @@ export default function AdminSettingsPage() {
                 <NumberInput value={vipPrivileges.coinDiscount} onChange={(v) => setVipPrivileges({ ...vipPrivileges, coinDiscount: v })} suffix="%" />
               </div>
             </div>
+            {/* Monthly Free Dramas */}
+            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+              <p className="text-sm font-medium text-gray-200">Monthly Free Dramas</p>
+              <p className="mt-1 text-xs text-gray-500">Number of dramas VIP members can watch for free each month.</p>
+              <div className="mt-3">
+                <NumberInput value={vipPrivileges.freeMonthlyDramas} onChange={(v) => setVipPrivileges({ ...vipPrivileges, freeMonthlyDramas: v })} suffix="dramas" />
+              </div>
+            </div>
+            {/* Over-Limit Discount */}
+            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+              <p className="text-sm font-medium text-gray-200">Over-Limit Discount</p>
+              <p className="mt-1 text-xs text-gray-500">VIP discount on episodes beyond the free monthly limit (% of normal price).</p>
+              <div className="mt-3">
+                <NumberInput value={vipPrivileges.overLimitDiscount} onChange={(v) => setVipPrivileges({ ...vipPrivileges, overLimitDiscount: v })} suffix="%" />
+              </div>
+            </div>
           </div>
           <div className="mt-5">
             <FieldLabel>VIP Terms of Service URL</FieldLabel>
             <TextInput value={vipPrivileges.termsUrl} onChange={(v) => setVipPrivileges({ ...vipPrivileges, termsUrl: v })} placeholder="https://example.com/vip-terms" />
           </div>
         </SectionCard>
+
+        {/* Edit Plan Modal */}
+        {editingPlan && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-xl border border-gray-700/50 bg-[#13131d] p-6 shadow-2xl">
+              <h3 className="text-lg font-semibold text-gray-200 mb-5">Edit Plan</h3>
+              <div className="space-y-4">
+                <div>
+                  <FieldLabel>Plan Name</FieldLabel>
+                  <TextInput value={editingPlan.name} onChange={(v) => setEditingPlan({ ...editingPlan, name: v })} placeholder="e.g. Monthly, Quarterly" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <FieldLabel>Price (USD)</FieldLabel>
+                    <NumberInput value={editingPlan.price} onChange={(v) => setEditingPlan({ ...editingPlan, price: v })} />
+                  </div>
+                  <div>
+                    <FieldLabel>Duration (Days)</FieldLabel>
+                    <NumberInput value={editingPlan.durationDays} onChange={(v) => setEditingPlan({ ...editingPlan, durationDays: v })} />
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>Status</FieldLabel>
+                  <SelectInput value={editingPlan.status} onChange={(v) => setEditingPlan({ ...editingPlan, status: v as "active" | "inactive" })} options={[
+                    { value: "active", label: "Active" },
+                    { value: "inactive", label: "Inactive" },
+                  ]} />
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <SecondaryBtn onClick={() => setEditingPlan(null)}>Cancel</SecondaryBtn>
+                <PrimaryBtn onClick={handleSaveEditPlan}>Save Changes</PrimaryBtn>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
   }

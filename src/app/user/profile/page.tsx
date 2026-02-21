@@ -23,30 +23,21 @@ interface WatchHistoryItem {
   episode?: { episodeNumber?: number };
 }
 
-const TOPUP_PACKAGES = [
-  { id: "pkg-500", coins: 500, price: 4.99, label: "500" },
-  { id: "pkg-1000", coins: 1000, price: 9.99, label: "1,000", best: true },
-  { id: "pkg-2500", coins: 2500, price: 24.99, label: "2,500" },
-  { id: "pkg-5000", coins: 5000, price: 49.99, label: "5,000" },
-  { id: "pkg-10000", coins: 10000, price: 99.99, label: "10,000" },
-];
-
 const MOCK_TRANSACTIONS = [
-  { id: "tx1", date: "2025-01-15", desc: "Infinite Rebirth - C87 x Reborn...", type: "spend", amount: -30 },
-  { id: "tx2", date: "2025-01-14", desc: "Top Up 1000 Coins Recharge", type: "topup", amount: 1000 },
-  { id: "tx3", date: "2025-01-13", desc: "Daily Login Reward", type: "earn", amount: 10 },
-  { id: "tx4", date: "2025-01-12", desc: "Exiled Episode - Alpha x...", type: "spend", amount: -30 },
+  { id: "tx1", date: "Oct 24, 2023", desc: "Unlock Episode: CEO's Secret...", type: "spend", amount: -50, status: "Success" },
+  { id: "tx2", date: "Oct 23, 2023", desc: "Top Up 1000 Coins + Bonus", type: "topup", amount: 1200, status: "Success" },
+  { id: "tx3", date: "Oct 22, 2023", desc: "Daily Login Reward", type: "earn", amount: 30, status: "Success" },
+  { id: "tx4", date: "Oct 20, 2023", desc: "Unlock Episode: Alpha's...", type: "spend", amount: -50, status: "Success" },
 ];
 
 export default function ProfilePage() {
   const { user, logout, token } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>("library");
+  const [activeTab, setActiveTab] = useState<Tab>("wallet");
   const [favorites, setFavorites] = useState<Drama[]>([]);
   const [history, setHistory] = useState<WatchHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [customAmount, setCustomAmount] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -118,23 +109,27 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-center gap-2 md:justify-start">
                   <h1 className="text-2xl font-bold text-white">{user.nickname}</h1>
                   {isVip && (
-                    <span className="rounded bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-500">VIP</span>
+                    <span className="rounded bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-500">VIP Member</span>
                   )}
                 </div>
-                <p className="mt-1 text-sm text-gray-500">ID: {user._id?.slice(-8).toUpperCase()}</p>
-                <p className="mt-1 text-sm text-gray-400">{user.email}</p>
+                <p className="mt-1 text-sm text-gray-500">ID: {user._id?.slice(-6).toUpperCase()}</p>
+                <p className="mt-1 text-sm text-gray-400">Short drama enthusiast. Currently watching: The CEO&apos;s Secret Contract...</p>
               </div>
 
               {/* Actions */}
               <div className="flex gap-3">
-                <Link href="/user/settings" className="rounded-lg border border-white/10 bg-white/5 px-5 py-2 text-sm font-medium text-white transition hover:bg-white/10">
+                <Link href="/user/settings" className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-5 py-2 text-sm font-medium text-white transition hover:bg-white/10">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
+                  </svg>
                   Edit Profile
                 </Link>
-                <Link href="/user/settings" className="rounded-lg border border-white/10 bg-white/5 px-5 py-2 text-sm font-medium text-white transition hover:bg-white/10">
-                  <svg className="inline-block h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <Link href="/user/settings" className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-5 py-2 text-sm font-medium text-white transition hover:bg-white/10">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
+                  Settings
                 </Link>
               </div>
             </div>
@@ -157,7 +152,7 @@ export default function ProfilePage() {
                 >
                   {tab === "library" ? "My Library" : "My Wallet"}
                   {activeTab === tab && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-500" />
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-500" />
                   )}
                 </button>
               ))}
@@ -168,7 +163,7 @@ export default function ProfilePage() {
         {/* Tab Content */}
         <div className="mx-auto max-w-7xl px-4 mt-8">
           {activeTab === "library" && <LibraryTab favorites={favorites} history={history} />}
-          {activeTab === "wallet" && <WalletTab user={user} isVip={isVip} customAmount={customAmount} setCustomAmount={setCustomAmount} token={token} />}
+          {activeTab === "wallet" && <WalletTab user={user} isVip={isVip} token={token} />}
         </div>
       </main>
 
@@ -241,7 +236,7 @@ function LibraryTab({ favorites, history }: { favorites: Drama[]; history: Watch
 }
 
 /* ─── Wallet Tab ─── */
-function WalletTab({ user, isVip, customAmount, setCustomAmount, token }: { user: User; isVip: boolean; customAmount: string; setCustomAmount: (v: string) => void; token: string | null }) {
+function WalletTab({ user, isVip, token }: { user: User; isVip: boolean; token: string | null }) {
   const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
 
   useEffect(() => {
@@ -257,6 +252,7 @@ function WalletTab({ user, isVip, customAmount, setCustomAmount, token }: { user
             desc: String(tx.itemName || tx.description || tx.desc || "Transaction"),
             type: tx.type === "purchase" ? "topup" : tx.type === "unlock" ? "spend" : String(tx.type || "spend"),
             amount: Number(tx.amountCoins || tx.amount || 0),
+            status: "Success",
           })));
         }
       } catch {
@@ -266,28 +262,79 @@ function WalletTab({ user, isVip, customAmount, setCustomAmount, token }: { user
     fetchTransactions();
   }, [token]);
 
+  // Calculate VIP expiry days
+  const vipDaysLeft = user.vipExpireDate
+    ? Math.max(0, Math.ceil((new Date(user.vipExpireDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const vipProgress = user.vipExpireDate ? Math.min(100, Math.max(0, (vipDaysLeft / 30) * 100)) : 0;
+
   return (
-    <div>
-      {/* Balance + VIP Row */}
-      <div className="grid gap-6 md:grid-cols-3">
+    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      {/* Left Column */}
+      <div className="space-y-8">
         {/* Balance Card */}
-        <div className="md:col-span-2 rounded-2xl bg-gradient-to-br from-[#1a1c23] to-[#141519] border border-white/5 p-6">
+        <div className="rounded-2xl bg-gradient-to-br from-[#1a1c23] to-[#141519] border border-white/5 p-6">
           <p className="text-xs uppercase tracking-wider text-gray-500">Total Balance</p>
-          <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-4xl font-bold text-white">{(user.coins || 0).toLocaleString()}</span>
-            <span className="rounded-full bg-yellow-500/20 px-3 py-0.5 text-sm font-semibold text-yellow-500">Coins</span>
+          <div className="mt-3 flex items-center gap-4">
+            <div className="flex items-baseline gap-2 flex-1">
+              <span className="text-4xl font-bold text-white">{(user.coins || 0).toLocaleString()}</span>
+              <span className="rounded-full bg-yellow-500/20 px-3 py-0.5 text-sm font-semibold text-yellow-500">Coins</span>
+            </div>
+            {/* Green $ circle icon */}
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-green-500/20 border border-green-500/30">
+              <svg className="h-7 w-7 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
           </div>
-          <div className="mt-6 flex gap-3">
+          <div className="mt-5 flex gap-3">
             <Link href="/user/coins" className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700">
               Top Up Now
             </Link>
-            <Link href="/user/coins" className="rounded-lg border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/10">
+            <button className="rounded-lg border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/10">
               Redeem Code
-            </Link>
+            </button>
           </div>
         </div>
 
-        {/* VIP Card */}
+        {/* Transaction History */}
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white">Transaction History</h2>
+            <Link href="/user/purchases" className="text-xs text-yellow-500 hover:text-yellow-400 transition">View All →</Link>
+          </div>
+          <div className="rounded-xl border border-white/5 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/5 bg-white/[0.02]">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Description</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Amount</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((tx) => (
+                  <tr key={tx.id} className="border-b border-white/5 last:border-0">
+                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{tx.date}</td>
+                    <td className="px-4 py-3 text-gray-300 truncate max-w-[200px]">{tx.desc}</td>
+                    <td className={`px-4 py-3 text-right font-medium whitespace-nowrap ${tx.amount < 0 ? "text-red-400" : "text-green-400"}`}>
+                      {tx.amount > 0 ? "+" : ""}{tx.amount} Coins
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-xs text-green-400">{tx.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Column */}
+      <div className="space-y-6">
+        {/* VIP Membership Card */}
         <div className="rounded-2xl border border-yellow-500/30 bg-gradient-to-br from-yellow-900/20 to-yellow-800/10 p-6">
           <div className="flex items-center gap-2">
             <svg className="h-5 w-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/></svg>
@@ -295,55 +342,25 @@ function WalletTab({ user, isVip, customAmount, setCustomAmount, token }: { user
           </div>
           <p className="mt-3 text-xs text-gray-400">
             {isVip
-              ? `Active until ${user.vipExpireDate ? new Date(user.vipExpireDate).toLocaleDateString() : "N/A"}`
+              ? "Enjoy ad-free viewing, early access to episodes, and daily bonus coins."
               : "Enjoy ad-free streaming, exclusive content, and bonus coins every month."}
           </p>
-          <Link href="/user/subscription" className="mt-4 block rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-600 py-2 text-center text-sm font-bold text-black transition hover:from-yellow-600 hover:to-yellow-700">
+          {isVip && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-[11px] text-gray-500 mb-1.5">
+                <span>Current Plan</span>
+                <span>Expires in {vipDaysLeft} days</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                <div className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-yellow-600 transition-all" style={{ width: `${vipProgress}%` }} />
+              </div>
+            </div>
+          )}
+          <Link href="/user/subscription" className="mt-4 block rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-600 py-2.5 text-center text-sm font-bold text-black transition hover:from-yellow-600 hover:to-yellow-700">
             {isVip ? "Renew Membership" : "Become a Member"}
           </Link>
         </div>
-      </div>
 
-      {/* Top Up Packages */}
-      <div className="mt-10">
-        <div className="flex items-center gap-2 mb-5">
-          <svg className="h-5 w-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
-          <h2 className="text-lg font-bold text-white">Top Up Packages</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-          {TOPUP_PACKAGES.map((pkg) => (
-            <Link
-              key={pkg.id}
-              href={`/user/coins?package=${pkg.coins}`}
-              className={`relative flex flex-col items-center rounded-xl border p-5 transition hover:scale-[1.02] ${
-                pkg.best
-                  ? "border-red-500 bg-red-500/10"
-                  : "border-white/10 bg-white/[0.03] hover:border-white/20"
-              }`}
-            >
-              {pkg.best && (
-                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-red-500 px-2.5 py-0.5 text-[10px] font-bold text-white whitespace-nowrap">
-                  BEST VALUE
-                </div>
-              )}
-              <span className="text-xl font-bold text-white">{pkg.label}</span>
-              <span className="mt-1 text-xs text-gray-500">Coins</span>
-              <span className="mt-3 text-sm font-semibold text-green-400">${pkg.price}</span>
-            </Link>
-          ))}
-          {/* Custom Amount */}
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-5">
-            <svg className="mb-2 h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
-            </svg>
-            <span className="text-xs text-gray-500">Custom</span>
-            <span className="text-xs text-gray-600">Amount</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Support & More + Transaction History Row */}
-      <div className="mt-10 grid gap-6 md:grid-cols-3">
         {/* Support & More */}
         <div>
           <h2 className="mb-4 text-lg font-bold text-white">Support & More</h2>
@@ -367,48 +384,19 @@ function WalletTab({ user, isVip, customAmount, setCustomAmount, token }: { user
           </div>
         </div>
 
-        {/* Transaction History */}
-        <div className="md:col-span-2">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">Transaction History</h2>
-            <Link href="/user/purchases" className="text-xs text-gray-500 hover:text-white transition">View All →</Link>
-          </div>
-          <div className="rounded-xl border border-white/5 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-white/5 bg-white/[0.02]">
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">Description</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Amount</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="border-b border-white/5 last:border-0">
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{tx.date}</td>
-                    <td className="px-4 py-3 text-gray-300 truncate max-w-[200px]">{tx.desc}</td>
-                    <td className={`px-4 py-3 text-right font-medium whitespace-nowrap ${tx.amount < 0 ? "text-red-400" : "text-green-400"}`}>
-                      {tx.amount > 0 ? "+" : ""}{tx.amount}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span className="rounded-full bg-green-500/10 px-2 py-0.5 text-xs text-green-400">Completed</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Promo Banner */}
-          <div className="mt-6 rounded-xl border border-yellow-500/20 bg-gradient-to-r from-yellow-900/10 to-transparent p-5 flex items-center gap-4">
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-yellow-500">Watch & Win: Get 500 Free Coins!</p>
-              <p className="mt-1 text-xs text-gray-500">Complete daily challenges and earn bonus coins every week.</p>
+        {/* Event Banner */}
+        <div className="rounded-xl border border-yellow-500/20 bg-gradient-to-br from-yellow-900/10 to-transparent overflow-hidden">
+          <div className="relative h-36 w-full bg-gradient-to-br from-[#2a1f0a] to-[#1a1519]">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="h-20 w-20 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                <svg className="h-10 w-10 text-yellow-500/60" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
             </div>
-            <Link href="/browse" className="shrink-0 rounded-lg bg-yellow-500 px-4 py-2 text-xs font-bold text-black transition hover:bg-yellow-600">
-              Join Now
-            </Link>
+          </div>
+          <div className="p-4">
+            <p className="text-sm font-semibold text-yellow-500">Watch & Win: Get 500 Free Coins this weekend!</p>
           </div>
         </div>
       </div>

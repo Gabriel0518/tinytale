@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
+import { useToast } from "@/components/ui/Toast";
 
 // ── Types ──────────────────────────────────────────────
 interface Episode {
@@ -153,6 +154,7 @@ export default function CreateDramaPage() {
   const [categoryInput, setCategoryInput] = useState("");
   const [saving, setSaving] = useState(false);
   const router = useRouter();
+  const { toast } = useToast();
 
   const handlePublish = async (status: "published" | "draft") => {
     setSaving(true);
@@ -175,9 +177,10 @@ export default function CreateDramaPage() {
         publishOption: form.publishOption,
         scheduleDate: form.scheduleDate,
       });
+      toast("Drama created successfully", "success");
       router.push("/admin/dramas");
     } catch (err: any) {
-      alert(err.message || "Failed to create drama");
+      toast(err.message || "Failed to create drama", "error");
     } finally {
       setSaving(false);
     }

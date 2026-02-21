@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { adminApi } from "@/lib/adminApi";
+import { useToast } from "@/components/ui/Toast";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Order {
@@ -75,6 +76,7 @@ export default function OrdersPage() {
   const [refundReason, setRefundReason] = useState("");
   const [refundDetails, setRefundDetails] = useState("");
   const [refundLoading, setRefundLoading] = useState(false);
+  const { toast } = useToast();
 
   // Fetch orders (fall back to mock)
   useEffect(() => {
@@ -176,8 +178,9 @@ export default function OrdersPage() {
       });
       setOrders((prev) => prev.map((o) => (o.id === refundOrder.id ? { ...o, status: "Refunded" as const } : o)));
       closeRefundModal();
+      toast("Refund processed successfully", "success");
     } catch (err: any) {
-      alert(err?.message || "Refund failed. Please try again.");
+      toast(err?.message || "Refund failed. Please try again.", "error");
     } finally {
       setRefundLoading(false);
     }

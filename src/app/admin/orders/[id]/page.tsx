@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
+import { useToast } from "@/components/ui/Toast";
 
 // ─── Types ───────────────────────────────────────────────
 interface OrderData {
@@ -82,6 +83,7 @@ export default function OrderDetailPage() {
   const [refundReason, setRefundReason] = useState("");
   const [refundDetails, setRefundDetails] = useState("");
   const [refundLoading, setRefundLoading] = useState(false);
+  const { toast } = useToast();
 
   // ─── Fetch Order ────────────────────────────────────────
   useEffect(() => {
@@ -148,8 +150,9 @@ export default function OrderDetailPage() {
       });
       setOrder((prev) => (prev ? { ...prev, status: "Refunded" } : prev));
       closeRefundModal();
+      toast("Refund processed successfully", "success");
     } catch (err: any) {
-      alert(err?.message || "Refund failed. Please try again.");
+      toast(err?.message || "Refund failed. Please try again.", "error");
     } finally {
       setRefundLoading(false);
     }

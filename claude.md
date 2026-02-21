@@ -154,26 +154,41 @@
 
 ## 5. 项目结构
 
+### 仓库与文件夹
+
+| 仓库 | 本地路径 | GitHub | 说明 |
+|------|----------|--------|------|
+| **tinytale-1** | `/Users/gabriel/tinytale-1/` | `Gabriel0518/tinytale` | Next.js 项目（前端 7001 + 后台 7003 共用） |
+| **tinytale-api** | `/Users/gabriel/tinytale-api/` | `Gabriel0518/tinytale-api` | Express 后端 API（7002） |
+
+> 前端和后台共用同一个 Next.js 项目，通过 App Router 路由区分。后端 API 是独立的 Express 项目，独立部署。
+
 ```
-/tinytale-frontend/     # 前端项目 (Port 7001)
+/tinytale-1/              # Next.js 项目 (前端 Port 7001 + 后台 Port 7003)
   /src
-    /app              # Next.js页面
-    /components       # 组件
-    /lib              # 工具/API
-    /types            # 类型定义
+    /app                  # Next.js App Router
+      /admin              # 后台管理系统页面
+      /auth               # 认证页面
+      /browse             # 浏览页面
+      /drama              # 短剧详情/播放
+      /user               # 用户中心
+    /components           # 共享组件
+      /ui                 # 基础UI组件
+      /admin              # 后台专用组件 (AdminSidebar, AdminHeader, etc.)
+      /features           # 功能组件 (DramaCard, Navbar, etc.)
+      /player             # 播放器组件 (CloudflarePlayer, Controls, etc.)
+      /auth               # 认证组件
+    /lib                  # 工具/API (adminApi.ts)
+    /types                # TypeScript类型定义
+    /hooks                # 自定义Hooks
 
-/tinytale-admin/       # 后台管理项目 (Port 7002)
+/tinytale-api/            # 后端API项目 (Port 7002)
   /src
-    /app/admin       # 管理后台页面
-    /components       # 组件
-    /lib              # 工具/API
-
-/tinytale-api/        # 后端API项目 (Port 7003)
-  /src
-    /config          # 配置
-    /models          # MongoDB模型
-    /routes          # API路由
-    /middleware      # 中间件
+    /config               # 配置
+    /models               # MongoDB模型 (20个)
+    /routes               # API路由
+      /admin              # 后台管理子路由 (episodes, comments, rankings, dashboard)
+    /middleware            # 中间件 (auth: authenticate, requireAdmin)
 ```
 
 ### 后台管理系统页面架构
@@ -189,6 +204,7 @@
 │
 ├── 📺 内容管理 Content
 │   ├── /admin/dramas ──────────────── 短剧列表管理
+│   │   ├── /admin/dramas/create ──── 创建短剧向导（不显示侧边栏）
 │   │   └── /admin/dramas/[id] ────── 短剧详情编辑
 │   │       └── /admin/dramas/[id]/episodes ── 分集管理与编辑
 │   ├── /admin/categories ─────────── 分类管理
@@ -196,13 +212,14 @@
 │   └── /admin/comments ───────────── 评论审核
 │
 ├── 👥 用户管理 Users
-│   ├── /admin/users ──────────────── 用户列表
-│   └── /admin/users/[id] ─────────── 用户详情与编辑
+│   ├── /admin/users ──────────────── 用户列表（筛选、搜索、状态管理）
+│   └── /admin/users/[id] ─────────── 用户详情（资料、统计、7个Tab、3个弹窗）
 │
 ├── 💰 财务管理 Finance
-│   ├── /admin/orders ─────────────── 订单管理
+│   ├── /admin/orders ─────────────── 充值订单管理（含退款弹窗 M4-01）
+│   │   └── /admin/orders/[id] ────── 订单详情（双栏布局、支付时间线、退款弹窗）
 │   ├── /admin/subscriptions ──────── VIP 订阅管理
-│   ├── /admin/coin-records ───────── 金币交易记录
+│   ├── /admin/coin-records ───────── 金币消费记录
 │   └── /admin/finance ────────────── 财务报表与概览
 │
 ├── 📢 推广管理 Promoters
@@ -223,9 +240,9 @@
     └── /admin/logs ───────────────── 审计日志
 ```
 
-> 共 7 大模块、19 个导航项 + 1 个登录页 + 5 个子页面，总计 25 个页面。
-> 布局：固定左侧边栏（dark gray-900），当前路由高亮 red-600，登录页不显示侧边栏。
-> 关键文件：`src/app/admin/layout.tsx`（布局）、`src/lib/adminApi.ts`（API 客户端）
+> 共 7 大模块、19 个导航项 + 1 个登录页 + 7 个子页面，总计 27 个后台页面 + 22 个前台页面。
+> 布局：固定左侧边栏（240px, dark gray-900），当前路由高亮 indigo-600，登录页和创建短剧页不显示侧边栏。
+> 关键文件：`src/app/admin/layout.tsx`（布局）、`src/components/admin/AdminSidebar.tsx`（侧边栏）、`src/lib/adminApi.ts`（API 客户端）
 
 ---
 
@@ -274,41 +291,205 @@
 - 色彩系统：主色、强调色、背景色、文字色
 - 响应式断点：`sm:`, `md:`, `lg:`, `xlg:`
 
+### 后台管理系统主题
+
+- 背景色：`bg-[#0f0f17]`（页面）、`bg-[#13131d]`（卡片）、`bg-[#1a1a2e]`（输入框/hover）
+- 主色：`indigo-600`（按钮、高亮、选中状态）
+- 边框：`border-gray-700/50`
+- 文字：`text-gray-200`（正文）、`text-gray-400`（次要）、`text-gray-500`（辅助）
+- 状态色：绿色(成功)、黄色(警告)、红色(错误/危险)、紫色(VIP)
+
+### 核心前端依赖
+
+| 包 | 用途 |
+|---|---|
+| `next` 14.2.35 | React 框架 |
+| `tailwindcss` ^3.4.1 | CSS 工具类 |
+| `chart.js` + `react-chartjs-2` | 仪表盘图表 |
+| `react-hook-form` + `zod` | 表单验证 |
+| `framer-motion` | 动画 |
+| `lucide-react` | 图标 |
+| `swiper` | 轮播 |
+| `video.js` | 视频播放器 |
+| `tus-js-client` | 视频分片上传 |
+
+### 核心后端依赖
+
+| 包 | 用途 |
+|---|---|
+| `express` ^4.18.2 | Web 框架 |
+| `mongoose` ^8.0.3 | MongoDB ODM |
+| `jsonwebtoken` ^9.0.2 | JWT 认证 |
+| `bcryptjs` ^2.4.3 | 密码哈希 |
+| `redis` ^4.6.12 | Redis 客户端 |
+| `cors` ^2.8.5 | 跨域 |
+
 ---
 
 ## 7. API接口
+
+### 认证接口 (/api/auth)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /api/auth/register | 用户注册 |
+| POST | /api/auth/register | 用户注册 (email, password, nickname) |
 | POST | /api/auth/login | 用户登录 |
-| GET | /api/auth/me | 获取当前用户 |
+| GET | /api/auth/me | 获取当前用户 [Auth] |
 
-### 短剧接口
+### 短剧接口 (/api/dramas)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /api/dramas | 获取短剧列表 |
-| GET | /api/dramas/:id | 获取短剧详情 |
+| GET | /api/dramas | 获取短剧列表 (category, sort, limit, page) |
+| GET | /api/dramas/:id | 获取短剧详情（含剧集） |
+| GET | /api/dramas/:id/related | 获取相关短剧 |
+| GET | /api/dramas/:id/reviews | 获取短剧评论 |
+| POST | /api/dramas | 创建短剧 [Admin] |
+| PUT | /api/dramas/:id | 更新短剧 [Admin] |
+| DELETE | /api/dramas/:id | 删除短剧 [Admin] |
 
-### 用户接口
+### 用户接口 (/api/user)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET/POST/DELETE | /api/user/favorites | 收藏管理 |
-| GET/POST/DELETE | /api/user/history | 观看历史 |
+| GET | /api/user/favorites | 获取收藏列表 [Auth] |
+| POST | /api/user/favorites | 添加收藏 [Auth] |
+| DELETE | /api/user/favorites/:dramaId | 取消收藏 [Auth] |
+| GET | /api/user/history | 获取观看历史 [Auth] |
+| POST | /api/user/history | 更新观看进度 [Auth] |
+| DELETE | /api/user/history | 清空观看历史 [Auth] |
+| GET | /api/user/episodes/:episodeId/unlocked | 检查剧集是否已解锁 [Auth] |
 
-### 金币接口
+### 金币接口 (/api/coins)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /api/coins/balance | 获取余额 |
-| POST | /api/coins/recharge | 金币充值 |
-| POST | /api/coins/unlock | 解锁剧集 |
+| GET | /api/coins/balance | 获取余额 [Auth] |
+| POST | /api/coins/recharge | 金币充值（模拟）[Auth] |
+| POST | /api/coins/unlock | 解锁剧集 [Auth] |
+| GET | /api/coins/transactions | 获取交易历史 [Auth] |
 
-### 管理后台接口
+### 评论接口 (/api/comments)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /api/admin/stats | 统计数据 |
-| GET | /api/admin/users | 用户管理 |
-| GET | /api/admin/dramas | 短剧管理 |
-| GET | /api/admin/transactions | 交易记录 |
+| GET | /api/comments | 获取评论列表 (dramaId, episodeId, page, limit) |
+| POST | /api/comments | 发表评论 [Auth] |
+| POST | /api/comments/:id/like | 点赞评论 [Auth] |
+| DELETE | /api/comments/:id | 删除评论 [Auth] |
+
+### 分类接口 (/api/categories)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/categories | 获取所有分类 |
+
+### 推荐/排行接口 (/api/featured)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/featured | 获取推荐内容 (type) |
+| GET | /api/featured/rankings | 获取排行榜 (type=rating\|views\|newest) |
+| GET | /api/featured/trending | 获取热门短剧 |
+
+### 支付接口 (/api/payment)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/payment/packages | 获取金币套餐 |
+| POST | /api/payment/create-order | 创建支付订单 [Auth] |
+| GET | /api/payment/vip/plans | 获取VIP套餐 |
+| POST | /api/payment/vip/subscribe | 订阅VIP [Auth] |
+| GET | /api/payment/transactions | 获取用户交易记录 [Auth] |
+
+### 推广员接口 (/api/promoter)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/promoter/apply | 申请成为推广员 [Auth] |
+| GET | /api/promoter/profile | 获取推广员资料 [Auth] |
+| GET | /api/promoter/stats | 获取推广统计 [Auth] |
+| POST | /api/promoter/withdraw | 申请提现 [Auth] |
+| GET | /api/promoter/referral-link | 获取推广链接 [Auth] |
+| GET | /api/promoter/admin/list | 获取推广员列表 [Admin] |
+| GET | /api/promoter/admin/withdrawals | 获取提现列表 [Admin] |
+| POST | /api/promoter/admin/withdrawals/:id/review | 审核提现 [Admin] |
+
+### 管理后台接口 (/api/admin) [全部需要 Admin 权限]
+
+**仪表盘**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/admin/stats | 统计数据概览 |
+| GET | /api/admin/stats/charts | 图表数据 (period=7d\|30d) |
+
+**用户管理**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/admin/users | 用户列表 (search, status, page, limit) |
+| PUT | /api/admin/users/:id | 更新用户 (coins, status) |
+
+**短剧管理**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/admin/dramas | 短剧列表 (search, status, page, limit) |
+| POST | /api/admin/dramas | 创建短剧 |
+| PUT | /api/admin/dramas/:id | 更新短剧 |
+| DELETE | /api/admin/dramas/:id | 删除短剧（含剧集） |
+
+**剧集管理**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/admin/episodes | 获取剧集 (dramaId) |
+| GET | /api/admin/episodes/:id | 获取单个剧集 |
+| POST | /api/admin/episodes | 创建剧集 |
+| POST | /api/admin/episodes/bulk | 批量创建剧集 |
+| PUT | /api/admin/episodes/:id | 更新剧集 |
+| DELETE | /api/admin/episodes/:id | 删除剧集 |
+
+**分类管理**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/admin/categories | 获取分类 |
+| POST | /api/admin/categories | 创建分类 |
+| PUT | /api/admin/categories/:id | 更新分类 |
+| DELETE | /api/admin/categories/:id | 删除分类 |
+
+**交易/订单管理**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/admin/transactions | 交易列表 (page, limit, type, status) |
+| POST | /api/admin/transactions/:id/refund | 处理退款（含金币回收） |
+
+**评论管理**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/admin/comments | 评论列表 (dramaId, status, page, limit) |
+| GET | /api/admin/comments/:id | 获取单条评论 |
+| POST | /api/admin/comments/:id/approve | 审核通过 |
+| POST | /api/admin/comments/:id/reject | 审核拒绝 |
+| POST | /api/admin/comments/bulk/approve | 批量通过 |
+| POST | /api/admin/comments/bulk/reject | 批量拒绝 |
+| DELETE | /api/admin/comments/:id | 删除评论 |
+
+**推荐/排行管理**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/admin/featured | 获取推荐项 (type) |
+| POST | /api/admin/featured | 创建推荐项 |
+| PUT | /api/admin/featured/:id | 更新推荐项 |
+| DELETE | /api/admin/featured/:id | 删除推荐项 |
+| GET | /api/admin/rankings | 获取排行项 |
+| POST | /api/admin/rankings | 创建排行项 |
+| PUT | /api/admin/rankings/:id | 更新排行项 |
+| DELETE | /api/admin/rankings/:id | 删除排行项 |
+| POST | /api/admin/rankings/reorder | 重新排序 |
+
+**系统管理 (/api/admin/settings)**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/admin/settings/roles | 获取角色列表 |
+| POST | /api/admin/settings/roles | 创建角色 |
+| PUT | /api/admin/settings/roles/:id | 更新角色 |
+| DELETE | /api/admin/settings/roles/:id | 删除角色 |
+| GET | /api/admin/settings/admins | 获取管理员列表 |
+| POST | /api/admin/settings/admins | 创建管理员 |
+| PUT | /api/admin/settings/admins/:id | 更新管理员 |
+| DELETE | /api/admin/settings/admins/:id | 删除管理员 |
+| GET | /api/admin/settings/logs | 获取系统日志 |
+| GET | /api/admin/settings/settings | 获取系统设置 |
+| PUT | /api/admin/settings/settings | 更新系统设置 |
 
 ---
 
@@ -349,18 +530,30 @@
 
 ## 9. 数据库设计 (MongoDB)
 
-### 核心 Collections
+### Collections 总览 (20个模型)
 
-| Collection | 说明 |
-|------------|------|
-| **users** | 用户信息 |
-| **dramas** | 短剧元数据 |
-| **episodes** | 剧集信息 |
-| **favorites** | 用户收藏 |
-| **watch_history** | 观看历史 |
-| **unlocked_episodes** | 用户解锁记录 |
-| **transactions** | 交易记录 |
-| **categories** | 分类 |
+| Collection | 说明 | 关键字段 |
+|------------|------|----------|
+| **users** | 用户信息 | email, password, nickname, avatar, role(user/admin), coins, status(active/banned), vipStatus, vipExpireDate |
+| **dramas** | 短剧元数据 | title, cover, description, categories[], actors[], rating, isCompleted, status(draft/published), viewCount, totalEpisodes, country, language |
+| **episodes** | 剧集信息 | dramaId, title, episodeNumber, videoUrl, thumbnail, duration, isFree, unlockPrice, subtitleUrl, videoQuality(480p/720p/1080p) |
+| **categories** | 分类 | name, slug, icon, sortOrder |
+| **comments** | 评论 | userId, dramaId, episodeId, content, status(pending/approved/rejected), replyTo, likes |
+| **transactions** | 交易记录 | userId, type(recharge/unlock/refund/vip/task_reward/promotion), amount, status(pending/completed/failed/refunded), paymentMethod, coinAmount, bonusCoins, refundAmount, refundReason, coinHandling(auto_deduct/manual_deduct/no_deduct), coinClawbackAmount |
+| **favorites** | 用户收藏 | userId, dramaId (unique: userId+dramaId) |
+| **watch_histories** | 观看历史 | userId, dramaId, episodeId, progress |
+| **unlocked_episodes** | 解锁记录 | userId, episodeId, price (unique: userId+episodeId) |
+| **vip_plans** | VIP套餐 | name, price, durationDays, coins, features[], isActive, sortOrder |
+| **vip_subscriptions** | VIP订阅 | userId, planId, startDate, endDate, status(active/expired/cancelled), autoRenew |
+| **promoters** | 推广员 | userId, level, totalRevenue, pendingWithdrawal, referralCode, parentPromoterId, status(active/suspended) |
+| **withdrawals** | 提现记录 | promoterId, amount, status(pending/approved/rejected/paid), bankName, bankAccount, reviewedBy, reviewedAt |
+| **featured** | 推荐/排行 | dramaId, type(rankings/featured/trending/new), position, startDate, endDate |
+| **admins** | 管理员 | username, password, roleId, lastLogin, status(active/inactive) |
+| **admin_roles** | 管理员角色 | name, permissions[], description |
+| **system_logs** | 系统日志 | adminId, action, targetType, targetId, details, ip |
+| **settings** | 系统设置 | key, value, category, description |
+| **activities** | 营销活动 | type(signin/task/recharge_bonus), name, config, startDate, endDate, status(draft/active/ended) |
+| **user_activities** | 用户活动记录 | userId, activityId, type, completedAt, reward |
 
 ### Redis 缓存
 

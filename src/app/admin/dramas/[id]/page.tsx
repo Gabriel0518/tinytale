@@ -4,11 +4,13 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
+import { useToast } from "@/components/ui/Toast";
 
 type TabId = "basic" | "payment" | "seo";
 
 export default function DramaDetailPage() {
   const { id } = useParams();
+  const { toast } = useToast();
   const [drama, setDrama] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -58,9 +60,10 @@ export default function DramaDetailPage() {
     setSaving(true);
     try {
       await adminApi.updateDrama(id as string, form);
-      alert("Saved successfully");
+      toast("Saved successfully", "success");
     } catch (err) {
       console.error("Failed to save:", err);
+      toast("Failed to save changes", "error");
     } finally {
       setSaving(false);
     }

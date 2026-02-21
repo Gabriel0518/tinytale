@@ -4,10 +4,13 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { api } from "@/lib/adminApi";
 import AdjustLevelModal from "@/components/admin/AdjustLevelModal";
+import BanPromoterModal from "@/components/admin/BanPromoterModal";
+import ReviewPromoterModal from "@/components/admin/ReviewPromoterModal";
+import { useToast } from "@/components/ui/Toast";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Level = "Standard" | "Professional" | "Elite";
-type Status = "Active" | "Suspended" | "Banned";
+type Status = "Active" | "Suspended" | "Banned" | "Applying";
 
 interface Promoter {
   id: string;
@@ -43,6 +46,8 @@ const MOCK_PROMOTERS: Promoter[] = [
   { id: "AP-0026", userId: "U-10026", userName: "Frank Liu", userEmail: "frank.liu@email.com", avatar: "FL", level: "Standard", totalPromoted: 28, effectiveUsers: 9, totalCommission: 270, withdrawn: 200, pending: 70, status: "Active", joinDate: "2025-01-18" },
   { id: "AP-0027", userId: "U-10027", userName: "Grace Park", userEmail: "grace.p@email.com", avatar: "GP", level: "Professional", totalPromoted: 156, effectiveUsers: 88, totalCommission: 4120, withdrawn: 3600, pending: 520, status: "Banned", joinDate: "2024-11-30" },
   { id: "AP-0028", userId: "U-10028", userName: "Henry Zhao", userEmail: "henry.z@email.com", avatar: "HZ", level: "Elite", totalPromoted: 410, effectiveUsers: 295, totalCommission: 11800, withdrawn: 10200, pending: 1600, status: "Active", joinDate: "2024-05-12" },
+  { id: "AP-0029", userId: "U-10029", userName: "Iris Lee", userEmail: "iris.lee@email.com", avatar: "IL", level: "Standard", totalPromoted: 0, effectiveUsers: 0, totalCommission: 0, withdrawn: 0, pending: 0, status: "Applying", joinDate: "2025-02-18" },
+  { id: "AP-0030", userId: "U-10030", userName: "Jack Wilson", userEmail: "jack.w@email.com", avatar: "JW", level: "Standard", totalPromoted: 0, effectiveUsers: 0, totalCommission: 0, withdrawn: 0, pending: 0, status: "Applying", joinDate: "2025-02-20" },
 ];
 
 const PAGE_SIZE = 10;
@@ -57,6 +62,7 @@ const levelStyles: Record<Level, string> = {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function PromoterManagementPage() {
+  const { toast } = useToast();
   const [promoters, setPromoters] = useState<Promoter[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -65,6 +71,19 @@ export default function PromoterManagementPage() {
   const [adjustTarget, setAdjustTarget] = useState<{
     id: string; name: string; initials: string; joinedDate: string;
     currentLevel: string; totalUsers: number; earnings: number;
+  } | null>(null);
+
+  // Ban modal state
+  const [banModalOpen, setBanModalOpen] = useState(false);
+  const [banTarget, setBanTarget] = useState<{
+    id: string; name: string; initials: string; status: string;
+  } | null>(null);
+
+  // Review modal state (for Applying promoters)
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewTarget, setReviewTarget] = useState<{
+    id: string; name: string; initials: string; email: string;
+    joinDate: string; totalPromoted: number; effectiveUsers: number; totalCommission: number;
   } | null>(null);
 
   // Fetch promoters on mount, fall back to mock data
@@ -78,21 +97,25 @@ export default function PromoterManagementPage() {
         if (!cancelled) {
           const list = res.data?.promoters ?? res.data ?? [];
           setPromoters(
-            list.map((p: any) => ({
-              id: p.promoterId ?? p._id ?? p.id,
-              userId: p.userId ?? "",
-              userName: p.user?.nickname ?? p.userName ?? "Unknown",
-              userEmail: p.user?.email ?? p.userEmail ?? "",
-              avatar: (p.user?.nickname ?? p.userName ?? "U").slice(0, 2).toUpperCase(),
-              level: capitalize(p.level ?? "Standard") as Level,
-              totalPromoted: p.totalPromoted ?? p.referredUsers ?? 0,
-              effectiveUsers: p.effectiveUsers ?? p.effectiveRecharges ?? 0,
-              totalCommission: p.totalCommission ?? p.totalRevenue ?? 0,
-              withdrawn: p.withdrawn ?? p.withdrawnAmount ?? 0,
-              pending: p.pending ?? p.pendingWithdrawal ?? 0,
-              status: capitalize(p.status ?? "Active") as Status,
-              joinDate: p.joinDate ?? p.createdAt ?? "",
-            }))
+            list.map((p: any) => {
+              const user = p.user || (typeof p.userId === 'object' ? p.userId : null);
+              const name = user?.nickname ?? p.userName ?? "Unknown";
+              return {
+                id: p._id ?? p.promoterId ?? p.id,
+                userId: typeof p.userId === 'string' ? p.userId : (p.userId?._id ?? ""),
+                userName: name,
+                userEmail: user?.email ?? p.userEmail ?? "",
+                avatar: name.slice(0, 2).toUpperCase(),
+                level: mapLevel(p.level) as Level,
+                totalPromoted: p.totalPromoted ?? p.referredUsers ?? 0,
+                effectiveUsers: p.effectiveUsers ?? p.effectiveRecharges ?? 0,
+                totalCommission: p.totalCommission ?? p.totalRevenue ?? 0,
+                withdrawn: p.withdrawn ?? p.withdrawnAmount ?? 0,
+                pending: p.pending ?? p.pendingWithdrawal ?? 0,
+                status: deriveStatus(p),
+                joinDate: p.joinDate ?? p.createdAt ?? "",
+              };
+            })
           );
         }
       } catch {
@@ -202,6 +225,7 @@ export default function PromoterManagementPage() {
               onChange={(e) => { setFilters({ ...filters, status: e.target.value }); setCurrentPage(1); }}
             >
               <option value="All">All Statuses</option>
+              <option value="Applying">Applying</option>
               <option value="Active">Active</option>
               <option value="Suspended">Suspended</option>
               <option value="Banned">Banned</option>
@@ -258,16 +282,17 @@ export default function PromoterManagementPage() {
               <th className="px-4 py-3 text-right">Total Comm.</th>
               <th className="px-4 py-3 text-right">Withdrawn</th>
               <th className="px-4 py-3 text-right">Pend</th>
+              <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-700/30">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}><td colSpan={9} className="px-4 py-4"><div className="h-4 w-full animate-pulse rounded bg-gray-700/40" /></td></tr>
+                <tr key={i}><td colSpan={10} className="px-4 py-4"><div className="h-4 w-full animate-pulse rounded bg-gray-700/40" /></td></tr>
               ))
             ) : paginated.length === 0 ? (
-              <tr><td colSpan={9} className="px-4 py-16 text-center text-gray-500">No promoters found</td></tr>
+              <tr><td colSpan={10} className="px-4 py-16 text-center text-gray-500">No promoters found</td></tr>
             ) : (
               paginated.map((p) => (
                 <tr key={p.id} className="hover:bg-[#1a1a2e]/60 transition-colors">
@@ -290,31 +315,64 @@ export default function PromoterManagementPage() {
                   <td className="whitespace-nowrap px-4 py-3 text-right text-gray-300">${p.withdrawn.toLocaleString()}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-right text-gray-300">${p.pending.toLocaleString()}</td>
                   <td className="whitespace-nowrap px-4 py-3">
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                      p.status === "Active" ? "bg-green-500/10 text-green-400" :
+                      p.status === "Applying" ? "bg-orange-500/10 text-orange-400" :
+                      p.status === "Suspended" ? "bg-yellow-500/10 text-yellow-400" :
+                      "bg-red-500/10 text-red-400"
+                    }`}>{p.status}</span>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
                     <div className="flex items-center gap-2">
                       {/* View */}
                       <Link href={`/admin/promoters/${p.id}`} className="rounded p-1 text-gray-400 hover:bg-gray-700/40 hover:text-indigo-400 transition" title="View">
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                       </Link>
-                      {/* Edit */}
+                      {/* Edit / Review */}
                       <button
                         onClick={() => {
-                          setAdjustTarget({
-                            id: p.id,
-                            name: p.userName,
-                            initials: p.avatar,
-                            joinedDate: p.joinDate,
-                            currentLevel: p.level,
-                            totalUsers: p.totalPromoted,
-                            earnings: p.totalCommission,
-                          });
-                          setAdjustModalOpen(true);
+                          if (p.status === "Applying") {
+                            setReviewTarget({
+                              id: p.id,
+                              name: p.userName,
+                              initials: p.avatar,
+                              email: p.userEmail,
+                              joinDate: p.joinDate,
+                              totalPromoted: p.totalPromoted,
+                              effectiveUsers: p.effectiveUsers,
+                              totalCommission: p.totalCommission,
+                            });
+                            setReviewModalOpen(true);
+                          } else {
+                            setAdjustTarget({
+                              id: p.id,
+                              name: p.userName,
+                              initials: p.avatar,
+                              joinedDate: p.joinDate,
+                              currentLevel: p.level,
+                              totalUsers: p.totalPromoted,
+                              earnings: p.totalCommission,
+                            });
+                            setAdjustModalOpen(true);
+                          }
                         }}
-                        className="rounded p-1 text-gray-400 hover:bg-gray-700/40 hover:text-indigo-400 transition" title="Edit"
+                        className="rounded p-1 text-gray-400 hover:bg-gray-700/40 hover:text-indigo-400 transition" title={p.status === "Applying" ? "Review" : "Edit"}
                       >
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       </button>
                       {/* Ban / Unban toggle */}
-                      <button className={`rounded p-1 transition ${p.status === "Banned" ? "text-green-400 hover:bg-green-500/10" : "text-gray-400 hover:bg-red-500/10 hover:text-red-400"}`} title={p.status === "Banned" ? "Unban" : "Ban"}>
+                      <button
+                        onClick={() => {
+                          setBanTarget({
+                            id: p.id,
+                            name: p.userName,
+                            initials: p.avatar,
+                            status: p.status,
+                          });
+                          setBanModalOpen(true);
+                        }}
+                        className={`rounded p-1 transition ${p.status === "Banned" ? "text-green-400 hover:bg-green-500/10" : "text-gray-400 hover:bg-red-500/10 hover:text-red-400"}`} title={p.status === "Banned" ? "Unban" : "Ban"}
+                      >
                         {p.status === "Banned" ? (
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         ) : (
@@ -359,10 +417,65 @@ export default function PromoterManagementPage() {
               p.id === adjustTarget?.id ? { ...p, level: capitalize(data.level) as Level } : p
             )
           );
+          toast(`Level updated to ${data.level} successfully`, "success");
           setAdjustModalOpen(false);
           setAdjustTarget(null);
         }}
         promoter={adjustTarget}
+      />
+      {/* Ban Promoter Modal */}
+      <BanPromoterModal
+        open={banModalOpen}
+        onClose={() => { setBanModalOpen(false); setBanTarget(null); }}
+        onConfirm={async (data) => {
+          if (banTarget) {
+            const isBanned = banTarget.status === "Banned";
+            const newStatus = isBanned ? "active" : "banned";
+            try {
+              const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") || "demo-token" : "demo-token";
+              await api.put(`/api/promoter/admin/${banTarget.id}`, { status: newStatus, reason: data.reason }, { token });
+              toast(isBanned ? "Promoter unbanned successfully" : "Promoter banned successfully", "success");
+            } catch {
+              toast("Failed to update promoter status", "error");
+            }
+            setPromoters((prev) =>
+              prev.map((p) =>
+                p.id === banTarget.id
+                  ? { ...p, status: p.status === "Banned" ? "Active" as Status : "Banned" as Status }
+                  : p
+              )
+            );
+          }
+          setBanModalOpen(false);
+          setBanTarget(null);
+        }}
+        promoter={banTarget}
+      />
+      {/* Review Promoter Modal */}
+      <ReviewPromoterModal
+        open={reviewModalOpen}
+        onClose={() => { setReviewModalOpen(false); setReviewTarget(null); }}
+        onConfirm={async (data) => {
+          if (reviewTarget) {
+            try {
+              const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") || "demo-token" : "demo-token";
+              await api.post(`/api/promoter/admin/${reviewTarget.id}/review`, { action: data.action, reason: data.reason }, { token });
+              toast(data.action === "approve" ? "Application approved successfully" : "Application rejected", "success");
+            } catch {
+              toast("Failed to review application", "error");
+            }
+            setPromoters((prev) =>
+              prev.map((p) =>
+                p.id === reviewTarget.id
+                  ? { ...p, status: data.action === "approve" ? "Active" as Status : "Banned" as Status }
+                  : p
+              )
+            );
+          }
+          setReviewModalOpen(false);
+          setReviewTarget(null);
+        }}
+        promoter={reviewTarget}
       />
     </div>
   );
@@ -371,6 +484,24 @@ export default function PromoterManagementPage() {
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+}
+
+function deriveStatus(p: any): Status {
+  // applicationStatus: 'pending' | 'approved' | 'rejected'
+  // status: 'active' | 'suspended' | 'banned'
+  if (p.applicationStatus === "pending") return "Applying";
+  if (p.status === "banned") return "Banned";
+  if (p.status === "suspended") return "Suspended";
+  return "Active";
+}
+
+function mapLevel(level: any): string {
+  if (typeof level === "number") {
+    if (level >= 3) return "Elite";
+    if (level >= 2) return "Professional";
+    return "Standard";
+  }
+  return capitalize(String(level ?? "Standard"));
 }
 
 function pageNumbers(current: number, total: number): (number | string)[] {
