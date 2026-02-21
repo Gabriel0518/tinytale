@@ -96,23 +96,6 @@ const TABS = [
 type TabName = (typeof TABS)[number];
 
 // ─── Mock Data ───────────────────────────────────────────
-const MOCK_USER: UserData = {
-  _id: "88293012",
-  nickname: "Sarah Jenkins",
-  email: "sarah.j@example.com",
-  avatar: "",
-  coins: 2450,
-  status: "active",
-  vipStatus: "vip",
-  vipExpiry: "2023-12-12",
-  registrationMethod: "google",
-  createdAt: "2023-10-24",
-  userId: "88293012",
-  totalRecharge: 458.0,
-  coinsSpent: 15800,
-  unlockedDramas: 24,
-  referrer: { name: "Michael K.", id: "9921" },
-};
 
 const MOCK_RECHARGE: RechargeRow[] = [
   { orderId: "ORD-20230927-001", product: "1000 Coins + 200 Bonus", amount: "$9.99", coinsReceived: "1,200", channel: "Stripe", status: "Paid", date: "Sep 27, 2023" },
@@ -120,52 +103,6 @@ const MOCK_RECHARGE: RechargeRow[] = [
   { orderId: "ORD-20230920-113", product: "500 Coins", amount: "$4.99", coinsReceived: "500", channel: "Stripe", status: "Pending", date: "Sep 20, 2023" },
   { orderId: "ORD-20230915-003", product: "5000 Coins + 1500 Bonus", amount: "$49.99", coinsReceived: "6,500", channel: "Airwallex", status: "Paid", date: "Sep 15, 2023" },
   { orderId: "ORD-20230910-044", product: "100 Coins", amount: "$0.99", coinsReceived: "100", channel: "Stripe", status: "Pending", date: "Sep 10, 2023" },
-];
-
-const MOCK_CONSUMPTION: ConsumptionRow[] = [
-  { date: "Sep 27, 2023", type: "Unlock", drama: "Love in Seoul", episode: "Ep 12", coins: 30, balanceAfter: 2450 },
-  { date: "Sep 26, 2023", type: "Gift", drama: "Dark Secrets", episode: "Ep 5", coins: 50, balanceAfter: 2480 },
-  { date: "Sep 25, 2023", type: "Unlock", drama: "CEO's Heart", episode: "Ep 8", coins: 30, balanceAfter: 2530 },
-  { date: "Sep 24, 2023", type: "Unlock", drama: "Midnight Romance", episode: "Ep 3", coins: 30, balanceAfter: 2560 },
-  { date: "Sep 23, 2023", type: "Unlock", drama: "Love in Seoul", episode: "Ep 11", coins: 30, balanceAfter: 2590 },
-];
-
-const MOCK_PLAYBACK: PlaybackRow[] = [
-  { drama: "Love in Seoul", episode: "Ep 12", progress: "100%", duration: "2m 45s", lastWatched: "Sep 27, 2023" },
-  { drama: "Dark Secrets", episode: "Ep 5", progress: "67%", duration: "1m 30s", lastWatched: "Sep 26, 2023" },
-  { drama: "CEO's Heart", episode: "Ep 8", progress: "100%", duration: "3m 10s", lastWatched: "Sep 25, 2023" },
-  { drama: "Midnight Romance", episode: "Ep 3", progress: "45%", duration: "1m 05s", lastWatched: "Sep 24, 2023" },
-  { drama: "Love in Seoul", episode: "Ep 11", progress: "100%", duration: "2m 50s", lastWatched: "Sep 23, 2023" },
-];
-
-const MOCK_WATCHLIST: WatchlistRow[] = [
-  { drama: "Love in Seoul", addedDate: "Sep 20, 2023", episodes: 24, status: "Watching" },
-  { drama: "Dark Secrets", addedDate: "Sep 18, 2023", episodes: 30, status: "Watching" },
-  { drama: "CEO's Heart", addedDate: "Sep 15, 2023", episodes: 20, status: "Completed" },
-  { drama: "Midnight Romance", addedDate: "Sep 10, 2023", episodes: 16, status: "Watching" },
-  { drama: "The Last Promise", addedDate: "Sep 05, 2023", episodes: 18, status: "Plan to Watch" },
-];
-
-const MOCK_COMMENTS: CommentRow[] = [
-  { drama: "Love in Seoul", comment: "Amazing episode! The plot twist was unexpected.", rating: 5, date: "Sep 27, 2023", status: "Approved" },
-  { drama: "Dark Secrets", comment: "Good but a bit slow paced.", rating: 3, date: "Sep 26, 2023", status: "Approved" },
-  { drama: "CEO's Heart", comment: "Best drama on the platform!", rating: 5, date: "Sep 25, 2023", status: "Pending" },
-  { drama: "Midnight Romance", comment: "Nice cinematography.", rating: 4, date: "Sep 24, 2023", status: "Approved" },
-];
-
-const MOCK_LOGIN_LOGS: LoginLogRow[] = [
-  { date: "Sep 27, 2023 14:32", ip: "192.168.1.105", device: "iPhone 14 Pro", browser: "Safari 17", location: "New York, US", status: "Success" },
-  { date: "Sep 26, 2023 09:15", ip: "192.168.1.105", device: "MacBook Pro", browser: "Chrome 117", location: "New York, US", status: "Success" },
-  { date: "Sep 25, 2023 22:08", ip: "10.0.0.42", device: "iPhone 14 Pro", browser: "Safari 17", location: "Boston, US", status: "Success" },
-  { date: "Sep 24, 2023 11:45", ip: "192.168.1.105", device: "iPad Air", browser: "Safari 17", location: "New York, US", status: "Success" },
-  { date: "Sep 20, 2023 08:30", ip: "203.0.113.50", device: "Unknown", browser: "Firefox 118", location: "London, UK", status: "Failed" },
-];
-
-const MOCK_OPERATION_LOGS: OperationLogRow[] = [
-  { date: "Sep 27, 2023 15:00", action: "Coin Adjustment", details: "+500 coins (Compensation)", operator: "admin@tinytale.com", ip: "10.0.0.1" },
-  { date: "Sep 20, 2023 10:30", action: "VIP Activated", details: "1 Month VIP Plan", operator: "admin@tinytale.com", ip: "10.0.0.1" },
-  { date: "Sep 15, 2023 09:00", action: "Profile Updated", details: "Email verified", operator: "system", ip: "-" },
-  { date: "Oct 24, 2023 00:00", action: "Account Created", details: "Registered via Google", operator: "system", ip: "192.168.1.105" },
 ];
 
 // ─── Status Badge Helper ─────────────────────────────────
@@ -238,6 +175,15 @@ export default function UserDetailPage() {
   const [banReason, setBanReason] = useState("");
   const [clearSessions, setClearSessions] = useState(true);
 
+  // Tab data states
+  const [consumptionData, setConsumptionData] = useState<ConsumptionRow[]>([]);
+  const [playbackData, setPlaybackData] = useState<PlaybackRow[]>([]);
+  const [watchlistData, setWatchlistData] = useState<WatchlistRow[]>([]);
+  const [commentsData, setCommentsData] = useState<CommentRow[]>([]);
+  const [loginLogsData, setLoginLogsData] = useState<LoginLogRow[]>([]);
+  const [operationLogsData, setOperationLogsData] = useState<OperationLogRow[]>([]);
+  const [tabLoading, setTabLoading] = useState(false);
+
   // ─── Fetch User ────────────────────────────────────────
   useEffect(() => {
     const fetchUser = async () => {
@@ -251,18 +197,18 @@ export default function UserDetailPage() {
           avatar: u.avatar || "",
           coins: u.coins || 0,
           status: u.status || "active",
-          vipStatus: u.vipStatus === "active" ? "vip" : u.vipStatus || "none",
+          vipStatus: u.vipStatus === "active" ? "vip" : u.vipStatus === "expired" ? "none" : u.vipStatus || "none",
           vipExpiry: u.vipExpireDate || u.vipExpiry || null,
-          registrationMethod: u.registrationMethod || "email",
+          registrationMethod: u.registrationMethod || (u.googleId ? "google" : u.facebookId ? "apple" : "email"),
           createdAt: u.createdAt ? u.createdAt.split("T")[0] : "",
           userId: u._id || u.userId || id as string,
-          totalRecharge: u.totalRecharge || 0,
-          coinsSpent: u.coinsSpent || 0,
-          unlockedDramas: u.unlockedDramas || 0,
+          totalRecharge: u.totalRecharge ?? 0,
+          coinsSpent: u.coinsSpent ?? 0,
+          unlockedDramas: u.unlockedDramas ?? 0,
           referrer: u.referrer || null,
         });
       } catch {
-        setUser(MOCK_USER);
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -276,7 +222,7 @@ export default function UserDetailPage() {
 
   const fetchRecharge = useCallback(async () => {
     try {
-      const res: any = await adminApi.getTransactions({ page: currentPage, limit: pageSize, type: "recharge" });
+      const res: any = await adminApi.getUserTransactions(id as string, { page: currentPage, limit: pageSize, type: "recharge" });
       const items = res.data?.transactions || res.data || [];
       setRechargeData(items.map((t: any) => ({
         orderId: t._id || t.orderId || "",
@@ -295,6 +241,90 @@ export default function UserDetailPage() {
   }, [currentPage]);
 
   useEffect(() => { fetchRecharge(); }, [fetchRecharge]);
+
+  const fetchTabData = useCallback(async (tab: TabName) => {
+    if (!id) return;
+    setTabLoading(true);
+    try {
+      switch (tab) {
+        case "Consumption History": {
+          const res: any = await adminApi.getUserConsumption(id as string, { page: 1, limit: 50 });
+          const items = res.data?.consumption || res.data?.records || res.data || [];
+          setConsumptionData(items.map((r: any) => ({
+            date: (r.unlockedAt || r.createdAt) ? new Date(r.unlockedAt || r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+            type: r.type || "Unlock",
+            drama: r.dramaTitle || "Unknown",
+            episode: r.episodeTitle || `Ep ${r.episodeNumber || "?"}`,
+            coins: r.price || r.coins || 0,
+            balanceAfter: r.balanceAfter || 0,
+          })));
+          break;
+        }
+        case "Playback History": {
+          const res: any = await adminApi.getUserPlayback(id as string, { page: 1, limit: 50 });
+          const items = res.data?.playback || res.data?.records || res.data || [];
+          setPlaybackData(items.map((r: any) => ({
+            drama: r.dramaTitle || "Unknown",
+            episode: r.episodeTitle || `Ep ${r.episodeNumber || "?"}`,
+            progress: r.progress ? `${Math.round(r.progress)}%` : "0%",
+            duration: r.duration || "N/A",
+            lastWatched: (r.lastWatched || r.updatedAt) ? new Date(r.lastWatched || r.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+          })));
+          break;
+        }
+        case "Watchlist": {
+          const res: any = await adminApi.getUserWatchlist(id as string, { page: 1, limit: 50 });
+          const items = res.data?.watchlist || res.data?.records || res.data || [];
+          setWatchlistData(items.map((r: any) => ({
+            drama: r.dramaTitle || "Unknown",
+            addedDate: (r.addedAt || r.createdAt) ? new Date(r.addedAt || r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+            episodes: r.totalEpisodes || 0,
+            status: r.status || "Watching",
+          })));
+          break;
+        }
+        case "Comments": {
+          const res: any = await adminApi.getUserComments(id as string, { page: 1, limit: 50 });
+          const items = res.data?.comments || res.data?.records || res.data || [];
+          setCommentsData(items.map((r: any) => ({
+            drama: r.dramaTitle || "Unknown",
+            comment: r.content || "",
+            rating: r.rating || 0,
+            date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+            status: r.status === "approved" ? "Approved" : r.status === "rejected" ? "Rejected" : "Pending",
+          })));
+          break;
+        }
+        case "Login Logs": {
+          // Login logs aren't tracked in the current backend, show empty state
+          setLoginLogsData([]);
+          break;
+        }
+        case "Operation Logs": {
+          const res: any = await adminApi.getUserOperationLogs(id as string, { page: 1, limit: 50 });
+          const items = res.data?.logs || res.data?.records || res.data || [];
+          setOperationLogsData(items.map((r: any) => ({
+            date: r.createdAt ? new Date(r.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "",
+            action: r.action || "",
+            details: typeof r.details === "object" ? JSON.stringify(r.details) : (r.details || ""),
+            operator: r.admin?.name || r.adminName || r.operator || "system",
+            ip: r.ip || "-",
+          })));
+          break;
+        }
+      }
+    } catch {
+      // Keep empty data on error - no mock fallback
+    } finally {
+      setTabLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab !== "Recharge History") {
+      fetchTabData(activeTab);
+    }
+  }, [activeTab, fetchTabData]);
 
   const filteredRecharge = useMemo(() => {
     let data = rechargeData;
@@ -719,7 +749,7 @@ export default function UserDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/30">
-                  {MOCK_CONSUMPTION.map((row, i) => (
+                  {consumptionData.map((row, i) => (
                     <tr key={i} className="text-gray-300 hover:bg-[#1a1a2e]/50">
                       <td className="px-4 py-3 text-gray-500">{row.date}</td>
                       <td className="px-4 py-3">
@@ -735,6 +765,9 @@ export default function UserDetailPage() {
                       <td className="px-4 py-3">{row.balanceAfter.toLocaleString()}</td>
                     </tr>
                   ))}
+                  {consumptionData.length === 0 && !tabLoading && (
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">No consumption records found</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -754,7 +787,7 @@ export default function UserDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/30">
-                  {MOCK_PLAYBACK.map((row, i) => (
+                  {playbackData.map((row, i) => (
                     <tr key={i} className="text-gray-300 hover:bg-[#1a1a2e]/50">
                       <td className="px-4 py-3">{row.drama}</td>
                       <td className="px-4 py-3">{row.episode}</td>
@@ -770,6 +803,9 @@ export default function UserDetailPage() {
                       <td className="px-4 py-3 text-gray-500">{row.lastWatched}</td>
                     </tr>
                   ))}
+                  {playbackData.length === 0 && !tabLoading && (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">No playback records found</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -789,7 +825,7 @@ export default function UserDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/30">
-                  {MOCK_WATCHLIST.map((row, i) => (
+                  {watchlistData.map((row, i) => (
                     <tr key={i} className="text-gray-300 hover:bg-[#1a1a2e]/50">
                       <td className="px-4 py-3">{row.drama}</td>
                       <td className="px-4 py-3 text-gray-500">{row.addedDate}</td>
@@ -800,6 +836,9 @@ export default function UserDetailPage() {
                       </td>
                     </tr>
                   ))}
+                  {watchlistData.length === 0 && !tabLoading && (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">No watchlist items found</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -820,7 +859,7 @@ export default function UserDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/30">
-                  {MOCK_COMMENTS.map((row, i) => (
+                  {commentsData.map((row, i) => (
                     <tr key={i} className="text-gray-300 hover:bg-[#1a1a2e]/50">
                       <td className="px-4 py-3">{row.drama}</td>
                       <td className="px-4 py-3 max-w-xs truncate">{row.comment}</td>
@@ -832,6 +871,9 @@ export default function UserDetailPage() {
                       </td>
                     </tr>
                   ))}
+                  {commentsData.length === 0 && !tabLoading && (
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">No comments found</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -852,7 +894,7 @@ export default function UserDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/30">
-                  {MOCK_LOGIN_LOGS.map((row, i) => (
+                  {loginLogsData.map((row, i) => (
                     <tr key={i} className="text-gray-300 hover:bg-[#1a1a2e]/50">
                       <td className="px-4 py-3 text-gray-500">{row.date}</td>
                       <td className="px-4 py-3 font-mono text-xs">{row.ip}</td>
@@ -862,6 +904,9 @@ export default function UserDetailPage() {
                       <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
                     </tr>
                   ))}
+                  {loginLogsData.length === 0 && !tabLoading && (
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-500">No login logs found</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -881,7 +926,7 @@ export default function UserDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/30">
-                  {MOCK_OPERATION_LOGS.map((row, i) => (
+                  {operationLogsData.map((row, i) => (
                     <tr key={i} className="text-gray-300 hover:bg-[#1a1a2e]/50">
                       <td className="px-4 py-3 text-gray-500">{row.date}</td>
                       <td className="px-4 py-3">{row.action}</td>
@@ -890,6 +935,9 @@ export default function UserDetailPage() {
                       <td className="px-4 py-3 font-mono text-xs text-gray-500">{row.ip}</td>
                     </tr>
                   ))}
+                  {operationLogsData.length === 0 && !tabLoading && (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">No operation logs found</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
