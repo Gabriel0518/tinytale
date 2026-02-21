@@ -119,7 +119,7 @@ export function Navbar({
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <circle cx="12" cy="12" r="10" />
                 </svg>
-                <span className="font-medium">{user.coins || 0}</span>
+                <span className="font-medium">{Number(user.coins || 0).toFixed(2)}</span>
                 <span className="text-xs font-semibold text-yellow-400">ADD</span>
               </Link>
               <Link href="/user/notifications" className="relative text-gray-300 transition hover:text-white" aria-label="Notifications">

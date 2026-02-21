@@ -16,6 +16,7 @@ interface Plan {
   price: number;
   period: string;
   duration: number;
+  durationDays?: number;
   features: string[];
   recommended: boolean;
   savings: string | null;
@@ -33,7 +34,7 @@ const PERKS = [
 ];
 
 export default function SubscriptionPage() {
-  const { user, token, updateUser } = useAuth();
+  const { user, token } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const { toast } = useToast();
   const router = useRouter();
@@ -41,18 +42,41 @@ export default function SubscriptionPage() {
   const [selectedPlan, setSelectedPlan] = useState("sp2");
   const [processing, setProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [apiAvailable, setApiAvailable] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
       try {
         const plansRes = await subscriptionApi.getPlans();
-        setPlans(plansRes.data || []);
-        if (plansRes.data?.length) {
-          const rec = plansRes.data.find((p: Plan) => p.recommended);
+        const rawPlans = plansRes.data || [];
+        // Normalize API data to match the Plan interface
+        const normalized: Plan[] = rawPlans.map((p: any) => {
+          const days = p.durationDays || p.duration || 30;
+          const isYearly = days >= 365;
+          return {
+            _id: p._id,
+            name: p.name,
+            price: p.price,
+            period: p.period || (isYearly ? "year" : "month"),
+            duration: days,
+            durationDays: days,
+            features: p.features?.length ? p.features : (isYearly
+              ? ["All Standard features", "Early Access (48h prior)", "4K Ultra HD & HDR", "30 Free Dramas / Month", "50% Off Over Limit"]
+              : ["Full HD Streaming", "No advertisements", "Cancel anytime"]),
+            recommended: p.recommended ?? isYearly,
+            savings: p.savings ?? (isYearly ? "Save 16%" : null),
+            monthlyEquivalent: p.monthlyEquivalent ?? (isYearly ? `$${(p.price / 12).toFixed(2)}/month` : null),
+          };
+        });
+        setPlans(normalized);
+        setApiAvailable(true);
+        if (normalized.length) {
+          const rec = normalized.find((p: Plan) => p.recommended);
           if (rec) setSelectedPlan(rec._id);
         }
       } catch {
+        setApiAvailable(false);
         setPlans([
           { _id: "sp1", name: "Standard", price: 9.99, period: "month", duration: 30, features: ["Full HD Streaming", "No advertisements", "Cancel anytime"], recommended: false, savings: null, monthlyEquivalent: null },
           { _id: "sp2", name: "Pro Annual", price: 99.99, period: "year", duration: 365, features: ["All Standard features", "Early Access (48h prior)", "4K Ultra HD & HDR"], recommended: true, savings: "Save 16%", monthlyEquivalent: "$8.33/month" },
@@ -64,17 +88,26 @@ export default function SubscriptionPage() {
 
   const handleSubscribe = async (planId: string) => {
     if (!token) return;
+    if (!apiAvailable) {
+      toast("Service is temporarily unavailable. Please try again later.", "error");
+      return;
+    }
     setSelectedPlan(planId);
     setProcessing(true);
     try {
-      await subscriptionApi.subscribe(token, planId, "stripe");
-      const plan = plans.find(p => p._id === planId);
-      const durationDays = plan?.duration || 30;
-      if (user) updateUser({ ...user, vipStatus: "active", vipExpireDate: new Date(Date.now() + durationDays * 86400000).toISOString() });
-      toast("Welcome to TinyTale Premium! Enjoy your VIP benefits.", "success");
+      const res = await subscriptionApi.subscribe(token, planId, "stripe");
+      const checkoutUrl = res.data?.checkoutUrl;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      } else {
+        toast("Failed to create checkout session", "error");
+      }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "An error occurred";
-      toast(message || "Subscription failed. Please try again.", "error");
+      const raw = err instanceof Error ? err.message : "An error occurred";
+      const message = raw === "Failed to fetch"
+        ? "Unable to connect to the server. Please check your network and try again."
+        : raw || "Subscription failed. Please try again.";
+      toast(message, "error");
     } finally { setProcessing(false); }
   };
 
@@ -150,6 +183,14 @@ export default function SubscriptionPage() {
                 Manage Subscription
               </Link>
             </div>
+          </div>
+        )}
+
+        {/* API unavailable banner */}
+        {!apiAvailable && !isVip && (
+          <div className="mb-8 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-6 py-4 text-center">
+            <p className="text-sm text-yellow-400 font-medium">Service is temporarily unavailable. Prices shown are for reference only.</p>
+            <p className="text-xs text-gray-400 mt-1">Please try again later or contact support if the issue persists.</p>
           </div>
         )}
 

@@ -61,11 +61,25 @@ export default function CoinsPage() {
 
   const selected = packages.find(p => p._id === selectedPkg);
 
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paying, setPaying] = useState(false);
 
-  const handlePay = () => {
-    if (!selected) return;
-    setShowPaymentModal(true);
+  const handlePay = async () => {
+    if (!selected || !token) return;
+    setPaying(true);
+    try {
+      const res = await coinsApi.createOrder(token, selected._id, paymentMethod);
+      const checkoutUrl = res.data?.checkoutUrl;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      } else {
+        toast("Failed to create checkout session", "error");
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Payment failed";
+      toast(message, "error");
+    } finally {
+      setPaying(false);
+    }
   };
 
   const handleRedeem = async () => {
@@ -252,11 +266,11 @@ export default function CoinsPage() {
               {/* Pay Button */}
               <button
                 onClick={handlePay}
-                disabled={!selected || isFallback}
+                disabled={!selected || paying}
                 className="w-full py-3.5 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,215,0,0.2)]"
               >
-                {isFallback ? (
-                  "Unavailable"
+                {paying ? (
+                  <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
@@ -297,27 +311,6 @@ export default function CoinsPage() {
       </div>
 
       <Footer />
-
-      {/* Payment Unavailable Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowPaymentModal(false)}>
-          <div className="bg-zinc-900 border border-white/10 rounded-2xl p-8 max-w-md mx-4 text-center shadow-2xl" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
-            <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-yellow-500/10 flex items-center justify-center">
-              <svg className="w-8 h-8 text-yellow-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
-            </div>
-            <h3 id="payment-modal-title" className="text-xl font-bold text-white mb-3">Payment Not Available</h3>
-            <p className="text-gray-400 text-sm leading-relaxed mb-6">
-              Third-party payment services (Stripe, PayPal, Apple Pay) have not been integrated yet. This feature will be available once the payment gateway is configured.
-            </p>
-            <button
-              onClick={() => setShowPaymentModal(false)}
-              className="px-8 py-2.5 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-semibold rounded-xl transition"
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

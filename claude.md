@@ -144,11 +144,18 @@
 4. 财务系统（收入统计、结算报表）
 5. BI系统（用户数据、播放数据、付费转化）
 
+**第三阶段：扩展功能（已完成）**
+1. VIP订阅（Stripe Subscription 模式、套餐管理、自动续费）
+2. 推广员/Affiliate系统（申请、佣金、提现、素材）
+3. 密码重置流程（邮箱验证码）
+4. 用户中心完善（个人资料、设置、通知、购买记录）
+5. 营销活动（签到、任务、充值活动）
+6. 评论/评分系统
+
 **后期迭代**
-- 评论/评分
 - 推荐优化
 - 多语言
-- VIP订阅
+- Google OAuth 完善
 
 ---
 
@@ -167,27 +174,34 @@
 /tinytale-1/              # Next.js 项目 (前端 Port 7001 + 后台 Port 7003)
   /src
     /app                  # Next.js App Router
-      /admin              # 后台管理系统页面
-      /auth               # 认证页面
+      /admin              # 后台管理系统页面 (27个)
+      /affiliate          # 推广员门户 (7个: index, apply, pending, dashboard, reports, payments, creatives)
+      /auth               # 认证页面 (login, register, reset-password, reset-password/verify)
       /browse             # 浏览页面
+      /category           # 分类页面
       /drama              # 短剧详情/播放
-      /user               # 用户中心
+      /help               # 帮助中心
+      /rankings           # 排行榜
+      /ref                # 推广深链接 (/ref/[code]/[[...params]])
+      /search             # 搜索页面
+      /user               # 用户中心 (profile, settings, notifications, purchases, coins, subscription, favorites, history)
     /components           # 共享组件
-      /ui                 # 基础UI组件
-      /admin              # 后台专用组件 (AdminSidebar, AdminHeader, etc.)
-      /features           # 功能组件 (DramaCard, Navbar, etc.)
+      /admin              # 后台专用组件 (AdminSidebar, AdminHeader, DashboardCharts, VideoUploader, 各种Modal)
+      /affiliate          # 推广员组件 (AffiliateSidebar, AffiliateHeader)
+      /auth               # 认证组件 (AuthLayout)
+      /features           # 功能组件 (DramaCard, Navbar, Footer, VipSubscriptionModal, PaymentSuccessModal, etc.)
       /player             # 播放器组件 (CloudflarePlayer, Controls, etc.)
-      /auth               # 认证组件
-    /lib                  # 工具/API (adminApi.ts)
+      /ui                 # 基础UI组件 (Button, Input, Select, Modal, Toast, Tabs, Badge, EmptyState)
+    /lib                  # 工具/API (api.ts, adminApi.ts, authContext.tsx, utils.ts)
     /types                # TypeScript类型定义
-    /hooks                # 自定义Hooks
+    /hooks                # 自定义Hooks (useAuthGuard)
 
 /tinytale-api/            # 后端API项目 (Port 7002)
   /src
-    /config               # 配置
-    /models               # MongoDB模型 (20个)
+    /config               # 配置 (index.ts: port, mongodbUri, redisUrl, jwt, frontendUrl, adminUrl)
+    /models               # MongoDB模型 (24个)
     /routes               # API路由
-      /admin              # 后台管理子路由 (episodes, comments, rankings, dashboard)
+      /admin              # 后台管理子路由 (episodes, comments, rankings, dashboard, activities)
     /middleware            # 中间件 (auth: authenticate, requireAdmin)
 ```
 
@@ -240,9 +254,59 @@
     └── /admin/logs ───────────────── 审计日志
 ```
 
-> 共 7 大模块、19 个导航项 + 1 个登录页 + 7 个子页面，总计 27 个后台页面 + 22 个前台页面。
+> 共 7 大模块、19 个导航项 + 1 个登录页 + 7 个子页面，总计 27 个后台页面 + 30 个前台页面 = 57 个页面。
 > 布局：固定左侧边栏（240px, dark gray-900），当前路由高亮 indigo-600，登录页和创建短剧页不显示侧边栏。
 > 关键文件：`src/app/admin/layout.tsx`（布局）、`src/components/admin/AdminSidebar.tsx`（侧边栏）、`src/lib/adminApi.ts`（API 客户端）
+
+### 前台页面架构
+
+```
+前台用户端 (/)
+│
+├── 🏠 首页
+│   └── / ────────────────────── 推荐轮播、热门短剧、分类入口
+│
+├── 🔍 浏览与发现
+│   ├── /browse ──────────────── 全部短剧列表（分类筛选、排序）
+│   ├── /search ──────────────── 搜索页面
+│   ├── /rankings ────────────── 排行榜
+│   ├── /category ────────────── 分类详情页
+│   └── /help ────────────────── 帮助中心（FAQ、条款、隐私）
+│
+├── 🎬 短剧详情与播放
+│   ├── /drama/[id] ──────────── 短剧详情（简介、剧集列表、评论、评分）
+│   └── /drama/[id]/play/[episodeId] ── 播放页面（竖屏播放器）
+│
+├── 🔐 认证
+│   ├── /auth/login ──────────── 登录
+│   ├── /auth/register ───────── 注册
+│   ├── /auth/reset-password ─── 忘记密码（输入邮箱）
+│   └── /auth/reset-password/verify ── 验证码验证 + 重置密码
+│
+├── 👤 用户中心
+│   ├── /user/profile ────────── 个人资料（头像、昵称、VIP状态、交易记录）
+│   ├── /user/favorites ──────── 收藏列表
+│   ├── /user/history ────────── 观看历史
+│   ├── /user/notifications ──── 通知中心
+│   ├── /user/purchases ──────── 购买/消费记录
+│   ├── /user/settings ───────── 账号设置（密码、安全、社交绑定）
+│   ├── /user/coins ──────────── 金币充值（Stripe Checkout）
+│   ├── /user/coins/success ──── 充值成功回调页
+│   ├── /user/subscription ───── VIP订阅页面
+│   └── /user/subscription/success ── VIP订阅成功回调页
+│
+├── 🤝 推广员门户
+│   ├── /affiliate ───────────── 推广员首页（介绍、CTA）
+│   ├── /affiliate/apply ─────── 申请成为推广员
+│   ├── /affiliate/pending ───── 申请审核中等待页
+│   ├── /affiliate/dashboard ─── 推广数据面板
+│   ├── /affiliate/reports ───── 佣金报表
+│   ├── /affiliate/payments ──── 提现管理
+│   └── /affiliate/creatives ─── 推广素材库
+│
+└── 🔗 推广深链接
+    └── /ref/[code]/[[...params]] ── 推广链接落地页（跳转+追踪）
+```
 
 ---
 
@@ -331,9 +395,13 @@
 ### 认证接口 (/api/auth)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /api/auth/register | 用户注册 (email, password, nickname) |
+| POST | /api/auth/register | 用户注册 (email, password, nickname, referredBy?) |
 | POST | /api/auth/login | 用户登录 |
+| POST | /api/auth/google | Google OAuth 登录 (credential) |
 | GET | /api/auth/me | 获取当前用户 [Auth] |
+| POST | /api/auth/reset-password | 发送密码重置验证码 (email) |
+| POST | /api/auth/verify-code | 验证重置码 (email, code) |
+| POST | /api/auth/reset-password/confirm | 确认重置密码 (email, code, newPassword) |
 
 ### 短剧接口 (/api/dramas)
 | Method | Endpoint | Description |
@@ -355,7 +423,20 @@
 | GET | /api/user/history | 获取观看历史 [Auth] |
 | POST | /api/user/history | 更新观看进度 [Auth] |
 | DELETE | /api/user/history | 清空观看历史 [Auth] |
+| DELETE | /api/user/history/:id | 删除单条历史 [Auth] |
 | GET | /api/user/episodes/:episodeId/unlocked | 检查剧集是否已解锁 [Auth] |
+| PUT | /api/user/profile | 更新个人资料 (nickname, avatar) [Auth] |
+| PUT | /api/user/password | 修改密码 (oldPassword, newPassword) [Auth] |
+| GET | /api/user/purchases | 获取购买记录 (page, type) [Auth] |
+| DELETE | /api/user/account | 注销账号（软删除）[Auth] |
+| GET | /api/user/notifications | 获取通知列表 [Auth] |
+| PUT | /api/user/notifications/:id/read | 标记通知已读 [Auth] |
+| PUT | /api/user/notifications/read-all | 标记全部已读 [Auth] |
+| GET | /api/user/settings | 获取用户设置 [Auth] |
+| PUT | /api/user/settings | 更新用户设置 [Auth] |
+| GET | /api/user/security | 获取安全信息（会话等）[Auth] |
+| DELETE | /api/user/sessions/:id | 移除登录会话 [Auth] |
+| POST | /api/user/sessions/logout-all | 登出所有会话 [Auth] |
 
 ### 金币接口 (/api/coins)
 | Method | Endpoint | Description |
@@ -364,6 +445,7 @@
 | POST | /api/coins/recharge | 金币充值（模拟）[Auth] |
 | POST | /api/coins/unlock | 解锁剧集 [Auth] |
 | GET | /api/coins/transactions | 获取交易历史 [Auth] |
+| POST | /api/coins/redeem | 兑换码兑换金币 [Auth] |
 
 ### 评论接口 (/api/comments)
 | Method | Endpoint | Description |
@@ -388,23 +470,64 @@
 ### 支付接口 (/api/payment)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | /api/payment/packages | 获取金币套餐 |
-| POST | /api/payment/create-order | 创建支付订单 [Auth] |
+| GET | /api/payment/packages | 获取金币套餐（从 Settings DB 读取或使用默认值）|
+| POST | /api/payment/create-order | 创建 Stripe Checkout（payment 模式）[Auth] |
+| POST | /api/payment/webhook | Stripe Webhook 处理（checkout.session.completed, invoice.paid, customer.subscription.deleted, checkout.session.expired）|
+| GET | /api/payment/verify-session/:sessionId | 验证 Stripe 会话 + 备用履约 [Auth] |
 | GET | /api/payment/vip/plans | 获取VIP套餐 |
-| POST | /api/payment/vip/subscribe | 订阅VIP [Auth] |
-| GET | /api/payment/transactions | 获取用户交易记录 [Auth] |
+| POST | /api/payment/vip/subscribe | 订阅VIP（Stripe Subscription 模式）[Auth] |
+| GET | /api/payment/vip/status | 获取VIP订阅状态 [Auth] |
+| GET | /api/payment/transactions | 获取用户交易记录 (page, limit) [Auth] |
+
+### 剧集播放接口 (/api/episodes)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/episodes/:id/stream | 获取播放流地址 + 签名 Token（VIP检查）|
+| GET | /api/episodes/:id/access | 检查播放权限 (free/vip/unlocked/locked) [Auth] |
+| POST | /api/episodes/:id/progress | 上报播放进度 (currentTime, duration) [Auth] |
+
+### 联系/帮助接口 (/api/contact)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/contact/inquiry | 提交联系表单 (name, email, subject, message, type?) |
 
 ### 推广员接口 (/api/promoter)
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | /api/promoter/apply | 申请成为推广员 [Auth] |
+| POST | /api/promoter/apply | 申请成为推广员 (fullName, businessEmail, country, promotionChannels, paymentMethod) [Auth] |
 | GET | /api/promoter/profile | 获取推广员资料 [Auth] |
-| GET | /api/promoter/stats | 获取推广统计 [Auth] |
-| POST | /api/promoter/withdraw | 申请提现 [Auth] |
+| GET | /api/promoter/dashboard | 推广数据面板（收益趋势、余额）[Auth] |
+| GET | /api/promoter/commissions | 佣金列表（分页、筛选）[Auth] |
+| GET | /api/promoter/commissions/export | 导出佣金CSV [Auth] |
+| GET | /api/promoter/creatives | 获取推广素材 (dramaId?, type?) [Auth] |
+| GET | /api/promoter/payment-methods | 获取收款方式列表 [Auth] |
+| POST | /api/promoter/payment-methods | 添加收款方式 [Auth] |
+| PUT | /api/promoter/payment-methods/:id | 更新收款方式 [Auth] |
+| DELETE | /api/promoter/payment-methods/:id | 删除收款方式 [Auth] |
+| PUT | /api/promoter/payment-methods/:id/default | 设为默认收款方式 [Auth] |
+| POST | /api/promoter/withdraw | 申请提现（最低$50，2%手续费）[Auth] |
+| GET | /api/promoter/withdrawals | 获取提现记录 [Auth] |
 | GET | /api/promoter/referral-link | 获取推广链接 [Auth] |
+| POST | /api/promoter/track-click | 追踪推广链接点击 |
+| GET | /api/promoter/notifications | 获取推广员通知 [Auth] |
+| GET | /api/promoter/settings | 获取推广设置（公开）|
+
+**推广员管理（Admin 子路由）**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | GET | /api/promoter/admin/list | 获取推广员列表 [Admin] |
+| GET | /api/promoter/admin/:id | 获取推广员详情 [Admin] |
+| POST | /api/promoter/admin/:id/review | 审核推广员申请 [Admin] |
+| PUT | /api/promoter/admin/:id/level | 调整推广员等级 [Admin] |
+| PUT | /api/promoter/admin/:id/status | 更新推广员状态 [Admin] |
 | GET | /api/promoter/admin/withdrawals | 获取提现列表 [Admin] |
 | POST | /api/promoter/admin/withdrawals/:id/review | 审核提现 [Admin] |
+| POST | /api/promoter/admin/withdrawals/:id/confirm-payment | 确认打款 [Admin] |
+| POST | /api/promoter/admin/creatives | 上传推广素材 [Admin] |
+| PUT | /api/promoter/admin/creatives/:id | 更新推广素材 [Admin] |
+| DELETE | /api/promoter/admin/creatives/:id | 删除推广素材 [Admin] |
+| GET | /api/promoter/admin/settings | 获取推广设置 [Admin] |
+| PUT | /api/promoter/admin/settings | 更新推广设置 [Admin] |
 
 ### 管理后台接口 (/api/admin) [全部需要 Admin 权限]
 
@@ -487,9 +610,28 @@
 | POST | /api/admin/settings/admins | 创建管理员 |
 | PUT | /api/admin/settings/admins/:id | 更新管理员 |
 | DELETE | /api/admin/settings/admins/:id | 删除管理员 |
+| POST | /api/admin/settings/admins/:id/reset-password | 重置管理员密码 |
 | GET | /api/admin/settings/logs | 获取系统日志 |
 | GET | /api/admin/settings/settings | 获取系统设置 |
 | PUT | /api/admin/settings/settings | 更新系统设置 |
+| GET | /api/admin/settings/vip-plans | 获取VIP套餐列表 |
+| POST | /api/admin/settings/vip-plans | 创建VIP套餐 |
+| PUT | /api/admin/settings/vip-plans/:id | 更新VIP套餐 |
+| DELETE | /api/admin/settings/vip-plans/:id | 删除VIP套餐 |
+
+**营销活动管理 (/api/admin/activities)**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/admin/activities/checkin | 获取签到配置 |
+| PUT | /api/admin/activities/checkin | 更新签到配置 |
+| GET | /api/admin/activities/tasks | 获取任务列表 |
+| POST | /api/admin/activities/tasks | 创建任务 |
+| PUT | /api/admin/activities/tasks/:id | 更新任务 |
+| DELETE | /api/admin/activities/tasks/:id | 删除任务 |
+| GET | /api/admin/activities/campaigns | 获取营销活动 |
+| POST | /api/admin/activities/campaigns | 创建营销活动 |
+| PUT | /api/admin/activities/campaigns/:id | 更新营销活动 |
+| DELETE | /api/admin/activities/campaigns/:id | 删除营销活动 |
 
 ---
 
@@ -530,30 +672,34 @@
 
 ## 9. 数据库设计 (MongoDB)
 
-### Collections 总览 (20个模型)
+### Collections 总览 (24个模型)
 
 | Collection | 说明 | 关键字段 |
 |------------|------|----------|
-| **users** | 用户信息 | email, password, nickname, avatar, role(user/admin), coins, status(active/banned), vipStatus, vipExpireDate |
+| **users** | 用户信息 | email, password, nickname, avatar, googleId, role(user/admin), coins, status(active/banned), vipStatus, vipExpireDate, stripeCustomerId, referredBy, registeredFrom, lastLoginAt |
 | **dramas** | 短剧元数据 | title, cover, description, categories[], actors[], rating, isCompleted, status(draft/published), viewCount, totalEpisodes, country, language |
-| **episodes** | 剧集信息 | dramaId, title, episodeNumber, videoUrl, thumbnail, duration, isFree, unlockPrice, subtitleUrl, videoQuality(480p/720p/1080p) |
+| **episodes** | 剧集信息 | dramaId, title, episodeNumber, videoUrl, thumbnail, duration, isFree, unlockPrice, subtitleUrl, videoQuality(480p/720p/1080p), streamVideoId |
 | **categories** | 分类 | name, slug, icon, sortOrder |
 | **comments** | 评论 | userId, dramaId, episodeId, content, status(pending/approved/rejected), replyTo, likes |
-| **transactions** | 交易记录 | userId, type(recharge/unlock/refund/vip/task_reward/promotion), amount, status(pending/completed/failed/refunded), paymentMethod, coinAmount, bonusCoins, refundAmount, refundReason, coinHandling(auto_deduct/manual_deduct/no_deduct), coinClawbackAmount |
+| **transactions** | 交易记录 | userId, type(recharge/unlock/refund/vip/task_reward/promotion), amount, status(pending/completed/failed/refunded), paymentMethod, stripeSessionId, stripePaymentIntentId, coinAmount, bonusCoins, refundAmount, refundReason, coinHandling, coinClawbackAmount |
 | **favorites** | 用户收藏 | userId, dramaId (unique: userId+dramaId) |
 | **watch_histories** | 观看历史 | userId, dramaId, episodeId, progress |
 | **unlocked_episodes** | 解锁记录 | userId, episodeId, price (unique: userId+episodeId) |
 | **vip_plans** | VIP套餐 | name, price, durationDays, coins, features[], isActive, sortOrder |
-| **vip_subscriptions** | VIP订阅 | userId, planId, startDate, endDate, status(active/expired/cancelled), autoRenew |
-| **promoters** | 推广员 | userId, level, totalRevenue, pendingWithdrawal, referralCode, parentPromoterId, status(active/suspended) |
-| **withdrawals** | 提现记录 | promoterId, amount, status(pending/approved/rejected/paid), bankName, bankAccount, reviewedBy, reviewedAt |
+| **vip_subscriptions** | VIP订阅 | userId, planId, startDate, endDate, status(active/expired/cancelled), autoRenew, stripeSubscriptionId |
+| **promoters** | 推广员 | userId, level, totalRevenue, pendingWithdrawal, referralCode, parentPromoterId, status(active/suspended), applicationStatus(pending/approved/rejected), commissionRate, fullName, businessEmail, country, promotionChannels, totalClicks, totalRegistrations, totalPaidUsers, effectiveUsers, withdrawnAmount |
+| **withdrawals** | 提现记录 | promoterId, amount, status(pending/approved/rejected/paid), paymentMethodId, transactionFee, feeRate, netAmount, bankName, bankAccount, reviewedBy, reviewedAt, paidAt, paidBy, paymentProof |
+| **commissions** | 佣金记录 | promoterId, referralCode, userId, dramaId, dramaTitle, orderId, orderAmount, commissionRate, commissionAmount, status(pending/confirmed/rejected), freezeUntil, confirmedAt, referralLink |
+| **payment_methods** | 推广员收款方式 | promoterId, type(paypal/bank_transfer/usdt), isDefault, paypalEmail, bankName, bankAccount, usdtAddress, usdtNetwork |
+| **creative_assets** | 推广素材 | dramaId, type(clip/poster/banner/video), title, url, thumbnailUrl, dimensions, fileSize, status |
 | **featured** | 推荐/排行 | dramaId, type(rankings/featured/trending/new), position, startDate, endDate |
 | **admins** | 管理员 | username, password, roleId, lastLogin, status(active/inactive) |
 | **admin_roles** | 管理员角色 | name, permissions[], description |
 | **system_logs** | 系统日志 | adminId, action, targetType, targetId, details, ip |
 | **settings** | 系统设置 | key, value, category, description |
-| **activities** | 营销活动 | type(signin/task/recharge_bonus), name, config, startDate, endDate, status(draft/active/ended) |
+| **activities** | 营销活动 | type(signin/task/recharge_bonus), name, config, startDate, endDate, status(draft/active/ended), targetTiers, promotionType, bonusValue, limitPerUser |
 | **user_activities** | 用户活动记录 | userId, activityId, type, completedAt, reward |
+| **tasks** | 任务配置 | name, description, type(daily/newbie/achievement), triggerEvent, completionTarget, reward, sortOrder, active |
 
 ### Redis 缓存
 
@@ -571,17 +717,41 @@ MongoDB: mongodb://localhost:27017/tinytale (Docker)
 
 ## 10. 支付流程
 
-### 金币模式
+### 金币充值模式
 
-1. 用户充值金币 → Stripe Checkout
-2. 金币到账 → 更新用户余额
-3. 解锁剧集 → 扣除金币 → 记录解锁记录
+1. 用户选择金币套餐 → `POST /api/payment/create-order`
+2. 后端创建 pending Transaction + Stripe Checkout Session（payment 模式）
+3. 用户跳转 Stripe Checkout 完成支付
+4. 履约路径（二选一）：
+   - **Webhook**：`checkout.session.completed` → 标记 Transaction 完成 → 增加用户金币余额 → 生成推广佣金
+   - **verify-session 备用**：`GET /api/payment/verify-session/:sessionId` → 如果 Webhook 未触发则执行相同履约
+5. 解锁剧集 → 扣除金币 → 记录 UnlockedEpisode
+
+### VIP订阅模式
+
+1. 用户选择VIP套餐 → `POST /api/payment/vip/subscribe`
+2. 后端获取/创建 Stripe Customer（存储 `user.stripeCustomerId`）
+3. 创建 pending Transaction + Stripe Checkout Session（**subscription 模式**，recurring interval: month/year）
+4. 用户跳转 Stripe Checkout 完成支付
+5. 履约：创建 VIPSubscription 记录 → 设置 `user.vipStatus='active'` + `user.vipExpireDate`
+6. **自动续费**：Webhook 处理 `invoice.paid`（billing_reason=subscription_cycle）→ 延长 VIPSubscription endDate
+7. **取消订阅**：Webhook 处理 `customer.subscription.deleted` → 标记 VIPSubscription 为 cancelled
+8. VIP 用户可免费观看所有付费剧集
 
 ### Stripe集成
 
-- Checkout Session (充值)
-- Webhook (支付回调)
-- Refund (退款)
+- **Checkout Session**：金币充值（payment 模式）+ VIP订阅（subscription 模式）
+- **Webhook**：处理 `checkout.session.completed`、`invoice.paid`、`customer.subscription.deleted`、`checkout.session.expired`
+- **Refund**：管理后台退款（含金币回收）
+- **Customer**：VIP 订阅用户自动创建 Stripe Customer
+
+### 推广佣金
+
+- 被推荐用户每次付款自动生成佣金记录
+- Level 1 推广员：5% 佣金率
+- Level 2+ 推广员：8% 佣金率
+- 佣金有 30 天冻结期，冻结期后可提现
+- 提现最低 $50，手续费 2%
 
 ---
 
@@ -692,7 +862,82 @@ CF_STREAM_SIGNING_KEY_JWK=   # 签名私钥 JWK（付费鉴权）
 
 ---
 
-## 12. 验收标准
+## 12. 环境变量
+
+### 后端 (/tinytale-api/.env)
+
+```
+PORT=7002
+MONGODB_URI=mongodb://localhost:27017/tinytale
+REDIS_URL=redis://localhost:6379
+JWT_SECRET=tinytale-secret-key-2024
+JWT_EXPIRES_IN=7d
+FRONTEND_URL=http://localhost:7001
+ADMIN_URL=http://localhost:7003
+
+# Stripe (Test Mode)
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=
+
+# Cloudflare Stream (视频托管)
+CF_ACCOUNT_ID=
+CF_API_TOKEN=
+CF_STREAM_SUBDOMAIN=
+CF_STREAM_SIGNING_KEY_ID=
+CF_STREAM_SIGNING_KEY_JWK=
+```
+
+### 前端 (/tinytale-1)
+
+- 无 `.env` 文件，API URL 默认值：`NEXT_PUBLIC_API_URL=http://localhost:7002`（在 `src/lib/api.ts` 中定义）
+
+### 本地开发启动
+
+```bash
+# 方式1：使用启动脚本（同时启动所有服务）
+cd /Users/gabriel/tinytale-1 && bash start-local.sh
+
+# 方式2：分别启动
+# 后端 API (Port 7002)
+cd /Users/gabriel/tinytale-api && npm run dev
+
+# 前端 (Port 7001)
+cd /Users/gabriel/tinytale-1 && npx next dev -p 7001
+
+# 后台管理 (Port 7003)
+cd /Users/gabriel/tinytale-1 && npx next dev -p 7003
+```
+
+> **注意**：前端和后台共用同一个 Next.js 项目，无法同时用 `next dev` 运行两个端口。`start-local.sh` 通过后台进程实现，但可能存在冲突。生产环境通过 Vercel 分别部署。
+
+---
+
+## 13. 前端API客户端模块
+
+所有前端 API 调用封装在 `src/lib/api.ts`，通过 `ApiClient` 类统一管理：
+
+| 模块 | 说明 |
+|------|------|
+| `authApi` | 登录、注册、Google OAuth、获取当前用户 |
+| `dramasApi` | 短剧列表、详情、推荐、排行、相关推荐 |
+| `episodesApi` | 播放流获取、权限检查、进度上报 |
+| `categoriesApi` | 分类列表 |
+| `userApi` | 收藏、历史、解锁检查、通知 |
+| `commentsApi` | 评论列表、发表、点赞 |
+| `reviewsApi` | 评分/评论 |
+| `coinsApi` | 余额、解锁、充值套餐、Stripe 创建订单、验证会话、兑换码 |
+| `passwordApi` | 发送重置码、验证码、重置密码 |
+| `profileApi` | 更新资料、修改密码、购买记录、注销账号 |
+| `settingsApi` | 用户设置、安全信息、会话管理 |
+| `subscriptionApi` | VIP套餐、订阅、订阅状态 |
+| `contactApi` | 提交联系表单 |
+| `promoterApi` | 推广员申请、资料、面板、佣金、素材、收款方式、提现、推广链接、通知 |
+
+后台管理 API 封装在 `src/lib/adminApi.ts`。
+
+---
+
+## 14. 验收标准
 
 ### 功能验收
 

@@ -245,11 +245,21 @@ export default function UserDetailPage() {
         const res: any = await adminApi.getUser(id as string);
         const u = res.data?.user || res.data;
         setUser({
-          ...MOCK_USER,
-          ...u,
-          userId: u._id || u.userId || MOCK_USER.userId,
-          nickname: u.nickname || MOCK_USER.nickname,
-          email: u.email || MOCK_USER.email,
+          _id: u._id || id as string,
+          nickname: u.nickname || u.name || "Unknown",
+          email: u.email || "",
+          avatar: u.avatar || "",
+          coins: u.coins || 0,
+          status: u.status || "active",
+          vipStatus: u.vipStatus === "active" ? "vip" : u.vipStatus || "none",
+          vipExpiry: u.vipExpireDate || u.vipExpiry || null,
+          registrationMethod: u.registrationMethod || "email",
+          createdAt: u.createdAt ? u.createdAt.split("T")[0] : "",
+          userId: u._id || u.userId || id as string,
+          totalRecharge: u.totalRecharge || 0,
+          coinsSpent: u.coinsSpent || 0,
+          unlockedDramas: u.unlockedDramas || 0,
+          referrer: u.referrer || null,
         });
       } catch {
         setUser(MOCK_USER);

@@ -34,6 +34,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
+
+      // Refresh user data from server to get latest state (e.g. VIP status changes)
+      authApi.getMe(storedToken).then(res => {
+        if (res.success && res.data) {
+          setUser(res.data);
+          localStorage.setItem('user', JSON.stringify(res.data));
+        }
+      }).catch(() => {
+        // Silently fail - use cached data
+      });
     }
     setLoading(false);
   }, []);

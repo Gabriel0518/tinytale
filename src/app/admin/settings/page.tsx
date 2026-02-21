@@ -979,11 +979,11 @@ export default function AdminSettingsPage() {
           <div className="space-y-4">
             <div>
               <FieldLabel>Publishable API Key</FieldLabel>
-              <TextInput value={stripePk} onChange={setStripePk} placeholder="pk_test_..." icon={<KeyIcon />} />
+              <TextInput value={stripePk} onChange={setStripePk} placeholder="pk_live_..." icon={<KeyIcon />} />
             </div>
             <div>
               <FieldLabel>Secret Key</FieldLabel>
-              <TextInput value={stripeSk} onChange={setStripeSk} placeholder="sk_test_..." icon={<LockIcon />} showToggle />
+              <TextInput value={stripeSk} onChange={setStripeSk} placeholder="sk_live_..." icon={<LockIcon />} showToggle />
             </div>
             <div>
               <FieldLabel>Webhook Signing Secret</FieldLabel>

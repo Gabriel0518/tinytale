@@ -230,7 +230,10 @@ export const coinsApi = {
     api.post('/api/coins/recharge', { amount: packageId }, { token }),
 
   createOrder: (token: string, packageId: string, paymentMethod: string) =>
-    api.post('/api/payment/create-order', { packageId, paymentMethod }, { token }),
+    api.post<{ success: boolean; data: { checkoutUrl: string; sessionId: string; transactionId: string } }>('/api/payment/create-order', { packageId, paymentMethod }, { token }),
+
+  verifySession: (token: string, sessionId: string) =>
+    api.get('/api/payment/verify-session/' + sessionId, { token }),
 
   redeem: (token: string, code: string) =>
     api.post('/api/coins/redeem', { code }, { token }),
@@ -289,10 +292,10 @@ export const subscriptionApi = {
     api.get('/api/payment/vip/plans'),
 
   subscribe: (token: string, planId: string, paymentMethod?: string) =>
-    api.post('/api/payment/vip/subscribe', { planId, paymentMethod }, { token }),
+    api.post<{ success: boolean; data: { checkoutUrl: string; sessionId: string; transactionId: string } }>('/api/payment/vip/subscribe', { planId, paymentMethod }, { token }),
 
   getStatus: (token: string) =>
-    api.get('/api/subscriptions/status', { token }),
+    api.get('/api/payment/vip/status', { token }),
 };
 
 // Contact / Help Center API

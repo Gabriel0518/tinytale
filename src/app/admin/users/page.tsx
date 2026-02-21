@@ -77,7 +77,7 @@ export default function AdminUsersPage() {
         avatar: u.avatar || `https://i.pravatar.cc/40?u=${u._id || u.id}`,
         email: u.email || "",
         maskedEmail: u.email ? u.email.charAt(0) + "***@" + u.email.split("@")[1] : "",
-        status: u.vipStatus === "vip" ? "VIP" as const : "Standard" as const,
+        status: u.vipStatus === "active" ? "VIP" as const : "Standard" as const,
         coins: u.coins || 0,
         recharge: u.totalRecharge || 0,
         regTime: u.createdAt ? u.createdAt.split("T")[0] : "",
