@@ -31,7 +31,7 @@ interface VipPrivileges {
   termsUrl: string;
 }
 
-type TabKey = "recharge" | "vip" | "playback" | "promotion" | "email" | "payment";
+type TabKey = "recharge" | "vip" | "playback" | "promotion" | "email" | "payment" | "social";
 
 const CONFIG_GROUPS: { key: TabKey; label: string; icon: JSX.Element }[] = [
   {
@@ -86,6 +86,15 @@ const CONFIG_GROUPS: { key: TabKey; label: string; icon: JSX.Element }[] = [
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+      </svg>
+    ),
+  },
+  {
+    key: "social",
+    label: "Social Accounts",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5a17.92 17.92 0 01-8.716-2.247m0 0A8.966 8.966 0 013 12c0-1.777.514-3.434 1.4-4.832" />
       </svg>
     ),
   },
@@ -208,14 +217,6 @@ function LockIcon() {
   return <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>;
 }
 
-/* ───────── default mock data ───────── */
-const DEFAULT_TIERS: RechargeTier[] = [
-  { id: 1, amount: 0.99, coins: 100, bonus: 0, label: "Standard", status: "active" },
-  { id: 2, amount: 4.99, coins: 550, bonus: 50, label: "Popular", status: "active" },
-  { id: 3, amount: 19.99, coins: 2200, bonus: 200, label: "Best Value", status: "active" },
-  { id: 4, amount: 49.99, coins: 5500, bonus: 500, label: "Whale", status: "hidden" },
-];
-
 /* ═══════════════════════════════════════════════════════════
    MAIN PAGE COMPONENT
    ═══════════════════════════════════════════════════════════ */
@@ -231,7 +232,7 @@ export default function AdminSettingsPage() {
   const [baseCurrency, setBaseCurrency] = useState("USD");
   const [exchangeRate, setExchangeRate] = useState(100);
   const [termsUrl, setTermsUrl] = useState("");
-  const [tiers, setTiers] = useState<RechargeTier[]>(DEFAULT_TIERS);
+  const [tiers, setTiers] = useState<RechargeTier[]>([]);
   const [editingTier, setEditingTier] = useState<RechargeTier | null>(null);
 
   /* ── VIP state ── */
@@ -273,6 +274,14 @@ export default function AdminSettingsPage() {
   const [defaultCurrency, setDefaultCurrency] = useState("USD");
   const [paymentLocale, setPaymentLocale] = useState("auto");
   const [enable3ds, setEnable3ds] = useState(true);
+
+  /* ── Social state ── */
+  const [socialWhatsapp, setSocialWhatsapp] = useState("");
+  const [socialTelegram, setSocialTelegram] = useState("");
+  const [socialDiscord, setSocialDiscord] = useState("");
+  const [socialX, setSocialX] = useState("");
+  const [socialInstagram, setSocialInstagram] = useState("");
+  const [socialYoutube, setSocialYoutube] = useState("");
 
   /* ── toast helper ── */
   const showToast = (msg: string) => {
@@ -331,6 +340,13 @@ export default function AdminSettingsPage() {
         if (map.has("default_currency")) setDefaultCurrency(map.get("default_currency") as string);
         if (map.has("payment_locale")) setPaymentLocale(map.get("payment_locale") as string);
         if (map.has("enable_3ds")) setEnable3ds(map.get("enable_3ds") === "true" || map.get("enable_3ds") === true);
+      } else if (category === "social") {
+        if (map.has("social_whatsapp")) setSocialWhatsapp(map.get("social_whatsapp") as string);
+        if (map.has("social_telegram")) setSocialTelegram(map.get("social_telegram") as string);
+        if (map.has("social_discord")) setSocialDiscord(map.get("social_discord") as string);
+        if (map.has("social_x")) setSocialX(map.get("social_x") as string);
+        if (map.has("social_instagram")) setSocialInstagram(map.get("social_instagram") as string);
+        if (map.has("social_youtube")) setSocialYoutube(map.get("social_youtube") as string);
       }
     } catch (err) {
       console.error("Failed to load settings:", err);
@@ -427,6 +443,7 @@ export default function AdminSettingsPage() {
           {!loading && activeTab === "promotion" && renderPromotion()}
           {!loading && activeTab === "email" && renderEmail()}
           {!loading && activeTab === "payment" && renderPayment()}
+          {!loading && activeTab === "social" && renderSocial()}
         </div>
       </div>
     </div>
@@ -1068,6 +1085,59 @@ export default function AdminSettingsPage() {
           </div>
         </SectionCard>
       </>
+    );
+  }
+
+  /* ───────── Tab 7: Social Accounts ───────── */
+  function renderSocial() {
+    const handleSave = () =>
+      saveSettings([
+        { key: "social_whatsapp", value: socialWhatsapp, category: "social" },
+        { key: "social_telegram", value: socialTelegram, category: "social" },
+        { key: "social_discord", value: socialDiscord, category: "social" },
+        { key: "social_x", value: socialX, category: "social" },
+        { key: "social_instagram", value: socialInstagram, category: "social" },
+        { key: "social_youtube", value: socialYoutube, category: "social" },
+      ]);
+
+    return (
+      <SectionCard
+        title="Social Accounts"
+        action={<PrimaryBtn onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save Settings"}</PrimaryBtn>}
+      >
+        <div className="space-y-5">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <FieldLabel>WhatsApp</FieldLabel>
+              <TextInput value={socialWhatsapp} onChange={setSocialWhatsapp} placeholder="https://wa.me/1234567890" />
+            </div>
+            <div>
+              <FieldLabel>Telegram</FieldLabel>
+              <TextInput value={socialTelegram} onChange={setSocialTelegram} placeholder="https://t.me/yourchannel" />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <FieldLabel>Discord</FieldLabel>
+              <TextInput value={socialDiscord} onChange={setSocialDiscord} placeholder="https://discord.gg/invite-code" />
+            </div>
+            <div>
+              <FieldLabel>X (Twitter)</FieldLabel>
+              <TextInput value={socialX} onChange={setSocialX} placeholder="https://x.com/yourhandle" />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <FieldLabel>Instagram</FieldLabel>
+              <TextInput value={socialInstagram} onChange={setSocialInstagram} placeholder="https://instagram.com/yourhandle" />
+            </div>
+            <div>
+              <FieldLabel>YouTube</FieldLabel>
+              <TextInput value={socialYoutube} onChange={setSocialYoutube} placeholder="https://youtube.com/@yourchannel" />
+            </div>
+          </div>
+        </div>
+      </SectionCard>
     );
   }
 }
