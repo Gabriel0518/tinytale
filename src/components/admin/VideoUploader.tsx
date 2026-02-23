@@ -98,9 +98,13 @@ export default function VideoUploader({
 
     try {
       // Request TUS upload URL from backend
+      const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
       const res = await fetch(`${API_BASE}/api/admin/upload/video`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ filename: file.name, filesize: file.size }),
       });
 
