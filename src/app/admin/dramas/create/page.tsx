@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
 import { useToast } from "@/components/ui/Toast";
+import VideoUploader from "@/components/admin/VideoUploader";
 
 // ── Types ──────────────────────────────────────────────
 interface Episode {
@@ -19,6 +20,7 @@ interface Episode {
   duration: string;
   status: "uploading" | "processing" | "ready";
   uploadProgress: number;
+  videoUid?: string;
 }
 
 interface FormData {
@@ -800,6 +802,9 @@ function StepVideoSubtitles({
   const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
   const [uploadFileProgress, setUploadFileProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [autoSplitLoading, setAutoSplitLoading] = useState(false);
+  const [splitProgress, setSplitProgress] = useState<{ total: number; ready: number } | null>(null);
+  const [sourceVideoUid, setSourceVideoUid] = useState<string | null>(null);
 
   // Simulate sequential upload for episode mode
   useEffect(() => {
@@ -842,47 +847,80 @@ function StepVideoSubtitles({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadQueue, isUploading]);
 
-  const handleFullUpload = () => {
-    // Simulate file upload with progress
-    setUploadingFileName("series_pilot_raw.mp4");
-    setUploadFileProgress(0);
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 8 + 3;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-        setUploadFileProgress(100);
-        // After upload completes, generate split episodes
-        setTimeout(() => {
-          const totalMinutes = Math.floor(Math.random() * 60 + 60);
-          const count = Math.ceil(totalMinutes / splitDuration);
-          const episodes: Episode[] = [];
-          for (let i = 0; i < count; i++) {
-            const dur = i === count - 1
-              ? totalMinutes - splitDuration * i
-              : splitDuration;
-            episodes.push({
-              id: `ep-${Date.now()}-${i}`,
-              name: `Episode ${i + 1}`,
-              fileName: `episode_${i + 1}.mp4`,
-              size: `${(Math.random() * 150 + 30).toFixed(0)} MB`,
-              subtitleFile: null,
-              price: null,
-              cover: null,
-              description: "",
-              duration: `${dur}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
-              status: i < count - 1 ? "ready" : "processing",
-              uploadProgress: i < count - 1 ? 100 : Math.floor(Math.random() * 60 + 20),
-            });
-          }
-          updateForm("episodes", episodes);
-          setUploadingFileName(null);
-        }, 500);
-      } else {
-        setUploadFileProgress(progress);
+  const handleAutoSplitUpload = async (videoUid: string) => {
+    setSourceVideoUid(videoUid);
+    setAutoSplitLoading(true);
+
+    try {
+      const res = await adminApi.autoSplit({
+        sourceVideoUid: videoUid,
+        episodeDuration: splitDuration * 60,
+        dramaId: 'pending',
+      }) as any;
+
+      if (res.success && res.data) {
+        const { episodes: splitEpisodes, totalClips } = res.data;
+
+        const newEpisodes: Episode[] = splitEpisodes.map((ep: any, index: number) => ({
+          id: ep.episodeId || `ep-${Date.now()}-${index}`,
+          name: `第${ep.episodeNumber}集`,
+          fileName: `episode_${ep.episodeNumber}.mp4`,
+          size: '',
+          subtitleFile: null,
+          price: null,
+          cover: null,
+          description: '',
+          duration: `${Math.floor(ep.duration / 60)}:${String(Math.floor(ep.duration % 60)).padStart(2, '0')}`,
+          status: 'processing' as const,
+          uploadProgress: 0,
+          videoUid: ep.streamVideoId,
+        }));
+
+        updateForm('episodes', newEpisodes);
+
+        const clipUids = splitEpisodes.map((ep: any) => ep.streamVideoId).filter(Boolean);
+        if (clipUids.length > 0) {
+          setSplitProgress({ total: clipUids.length, ready: 0 });
+          pollClipStatus(clipUids, newEpisodes);
+        }
       }
-    }, 200);
+    } catch (err) {
+      console.error('Auto-split failed:', err);
+    } finally {
+      setAutoSplitLoading(false);
+    }
+  };
+
+  const pollClipStatus = (clipUids: string[], currentEpisodes: Episode[]) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await adminApi.getClipStatus(clipUids) as any;
+        if (res.success && res.data) {
+          const { clips, allReady } = res.data;
+          const readyCount = clips.filter((c: any) => c.readyToStream).length;
+          setSplitProgress({ total: clips.length, ready: readyCount });
+
+          const updatedEpisodes = currentEpisodes.map(ep => {
+            const clipInfo = clips.find((c: any) => c.uid === ep.videoUid);
+            if (clipInfo?.readyToStream) {
+              return { ...ep, status: 'ready' as const };
+            }
+            return ep;
+          });
+          updateForm('episodes', updatedEpisodes);
+
+          if (allReady) {
+            clearInterval(interval);
+            setSplitProgress(null);
+          }
+        }
+      } catch (err) {
+        console.error('Clip status poll error:', err);
+      }
+    }, 5000);
+
+    // Cleanup after 10 minutes max
+    setTimeout(() => clearInterval(interval), 600000);
   };
 
   const handleEpisodeFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1002,34 +1040,61 @@ function StepVideoSubtitles({
         )}
 
         {/* Upload Area */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="video/*"
-          multiple={uploadMode === "episode"}
-          className="hidden"
-          onChange={uploadMode === "episode" ? handleEpisodeFiles : () => {
-            handleFullUpload();
-            if (fileInputRef.current) fileInputRef.current.value = "";
-          }}
-        />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-700 py-12 transition-colors hover:border-indigo-600/50 hover:bg-indigo-600/5"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-indigo-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <p className="mt-3 text-sm font-medium text-gray-300">
-            Drag & drop video{uploadMode === "episode" ? "s" : ""} here
-          </p>
-          <p className="mt-1 text-xs text-gray-500">
-            or <span className="text-indigo-400">browse</span> from your computer
-          </p>
-          <p className="mt-2 text-xs text-gray-600">
-            MP4, MOV, MKV (Max {uploadMode === "full" ? "10GB" : "2GB per file"}). SRT, VTT supported.
-          </p>
-        </button>
+        {uploadMode === "full" && !autoSplitLoading && form.episodes.length === 0 && (
+          <VideoUploader onUploadComplete={handleAutoSplitUpload} maxSizeMB={10240} />
+        )}
+
+        {uploadMode === "full" && autoSplitLoading && (
+          <div className="flex items-center justify-center p-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500 mr-3"></div>
+            <span className="text-sm text-gray-300">正在切片中...</span>
+          </div>
+        )}
+
+        {splitProgress && (
+          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-4 mt-4">
+            <div className="flex justify-between mb-2">
+              <span className="text-sm text-purple-400">切片处理进度</span>
+              <span className="text-sm text-purple-400">{splitProgress.ready}/{splitProgress.total}</span>
+            </div>
+            <div className="w-full bg-purple-900/30 rounded-full h-2">
+              <div
+                className="bg-purple-600 h-2 rounded-full transition-all"
+                style={{ width: `${(splitProgress.ready / splitProgress.total) * 100}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+
+        {uploadMode === "episode" && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              multiple
+              className="hidden"
+              onChange={handleEpisodeFiles}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-700 py-12 transition-colors hover:border-indigo-600/50 hover:bg-indigo-600/5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-indigo-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <p className="mt-3 text-sm font-medium text-gray-300">
+                Drag & drop videos here
+              </p>
+              <p className="mt-1 text-xs text-gray-500">
+                or <span className="text-indigo-400">browse</span> from your computer
+              </p>
+              <p className="mt-2 text-xs text-gray-600">
+                MP4, MOV, MKV (Max 2GB per file). SRT, VTT supported.
+              </p>
+            </button>
+          </>
+        )}
 
         {/* File Upload Progress */}
         {uploadingFileName && (
