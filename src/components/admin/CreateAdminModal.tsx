@@ -37,6 +37,7 @@ export default function CreateAdminModal({ open, onClose, onConfirm, roles }: Pr
   const [roleId, setRoleId] = useState("");
   const [status, setStatus] = useState("active");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -48,6 +49,7 @@ export default function CreateAdminModal({ open, onClose, onConfirm, roles }: Pr
       setRoleId("");
       setStatus("active");
       setSubmitting(false);
+      setError("");
     }
   }, [open]);
 
@@ -68,6 +70,7 @@ export default function CreateAdminModal({ open, onClose, onConfirm, roles }: Pr
   const handleSubmit = async () => {
     if (!username || !fullName || !email || !password || !roleId) return;
     setSubmitting(true);
+    setError("");
     try {
       const token =
         typeof window !== "undefined"
@@ -78,11 +81,11 @@ export default function CreateAdminModal({ open, onClose, onConfirm, roles }: Pr
         { username, fullName, email, password, roleId, status },
         { token }
       );
-    } catch (error) {
-      console.error("Failed to create admin:", error);
+      onConfirm();
+    } catch (err: any) {
+      setError(err?.message || "Failed to create admin");
     } finally {
       setSubmitting(false);
-      onConfirm();
     }
   };
 
@@ -116,6 +119,11 @@ export default function CreateAdminModal({ open, onClose, onConfirm, roles }: Pr
 
         {/* Form */}
         <div className="space-y-5 p-6">
+          {error && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {error}
+            </div>
+          )}
           {/* Row 1: Username + Full Name */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>

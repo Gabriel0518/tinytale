@@ -223,8 +223,8 @@ export const adminApi = {
   deleteAdmin: (id: string, token = getAdminToken()) =>
     api.delete(`/api/admin/settings/admins/${id}`, { token }),
 
-  resetAdminPassword: (id: string, token = getAdminToken()) =>
-    api.post(`/api/admin/settings/admins/${id}/reset-password`, {}, { token }),
+  resetAdminPassword: (id: string, password: string, token = getAdminToken()) =>
+    api.post(`/api/admin/settings/admins/${id}/reset-password`, { password }, { token }),
 
   // Settings - System Settings
   getSettings: (category?: string, token = getAdminToken()) =>

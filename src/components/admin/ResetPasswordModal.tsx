@@ -55,6 +55,7 @@ export default function ResetPasswordModal({ open, onClose, onConfirm, admin }: 
   const [showConfirm, setShowConfirm] = useState(false);
   const [sendEmail, setSendEmail] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -64,6 +65,7 @@ export default function ResetPasswordModal({ open, onClose, onConfirm, admin }: 
       setShowConfirm(false);
       setSendEmail(true);
       setSubmitting(false);
+      setError("");
     }
   }, [open]);
 
@@ -84,6 +86,7 @@ export default function ResetPasswordModal({ open, onClose, onConfirm, admin }: 
   const handleSubmit = async () => {
     if (!admin || !password || password !== confirmPassword) return;
     setSubmitting(true);
+    setError("");
     try {
       const token =
         typeof window !== "undefined"
@@ -94,11 +97,11 @@ export default function ResetPasswordModal({ open, onClose, onConfirm, admin }: 
         { password },
         { token }
       );
-    } catch (error) {
-      console.error("Failed to reset password:", error);
+      onConfirm();
+    } catch (err: any) {
+      setError(err?.message || "Failed to reset password");
     } finally {
       setSubmitting(false);
-      onConfirm();
     }
   };
 
@@ -146,6 +149,11 @@ export default function ResetPasswordModal({ open, onClose, onConfirm, admin }: 
 
         {/* Body */}
         <div className="space-y-5 p-6">
+          {error && (
+            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              {error}
+            </div>
+          )}
           {/* Target Admin Info */}
           <div className="rounded-lg border border-gray-700/50 bg-[#13131d] p-4">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">Target Administrator</p>

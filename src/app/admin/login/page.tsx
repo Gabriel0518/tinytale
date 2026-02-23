@@ -56,7 +56,13 @@ export default function AdminLoginPage() {
         router.push("/admin");
         return;
       }
-      // Don't show error here — fall through to regular auth
+
+      // Admin endpoint responded but auth failed — show its error directly
+      if (res.status === 401 || res.status === 400) {
+        setError(data.error?.message || "Invalid username or password");
+        setLoading(false);
+        return;
+      }
     } catch {
       // Admin auth endpoint not available — try regular user auth
     }
