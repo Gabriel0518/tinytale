@@ -92,24 +92,11 @@ export default function AdminLoginPage() {
         return;
       }
     } catch {
-      // API not available — fall back to mock login
+      // API not available
     }
 
-    // Mock login fallback
-    await new Promise((r) => setTimeout(r, 800));
-    if (password.length < 6) {
-      setError("Invalid credentials. Please try again.");
-      setLoading(false);
-      return;
-    }
-
-    localStorage.setItem("admin_token", "mock-admin-token-" + Date.now());
-    if (remember) {
-      localStorage.setItem("admin_remember", username);
-    } else {
-      localStorage.removeItem("admin_remember");
-    }
-    router.push("/admin");
+    setError("Login failed. Please check your credentials.");
+    setLoading(false);
   };
 
   return (
