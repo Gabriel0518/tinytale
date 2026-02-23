@@ -13,7 +13,7 @@ interface OrderData {
   createdAt: string;
   paidAt: string;
   product: string;
-  tier: string;
+  type: string;
   price: string;
   baseCoins: number;
   bonusCoins: number;
@@ -30,42 +30,9 @@ interface OrderData {
     channel: string;
     method: string;
     transactionId: string;
-    timeline: { label: string; time: string }[];
+    timeline: { label: string; time: string; status?: string }[];
   };
 }
-
-// ─── Mock Data ───────────────────────────────────────────
-const MOCK_ORDER: OrderData = {
-  orderId: "ORD-20231024-8842",
-  status: "Payment Successful",
-  createdAt: "Oct 24, 2023 14:32:15",
-  paidAt: "Oct 24, 2023 14:32:18",
-  product: "1000 Coins + 200 Bonus",
-  tier: "VIP Gold",
-  price: "$9.99",
-  baseCoins: 1000,
-  bonusCoins: 200,
-  totalReceived: 1200,
-  user: {
-    id: "88293012",
-    name: "Sarah Jenkins",
-    email: "sarah.j@example.com",
-    region: "United States",
-    coinBalance: 2450,
-    isVip: true,
-  },
-  payment: {
-    channel: "Stripe",
-    method: "Credit Card",
-    transactionId: "txn_3O2kJQRtV8mBpL1c0a9bXyZw",
-    timeline: [
-      { label: "Order Created", time: "Oct 24, 2023 14:32:15" },
-      { label: "Payment Initiated", time: "Oct 24, 2023 14:32:16" },
-      { label: "Payment Confirmed", time: "Oct 24, 2023 14:32:18" },
-      { label: "Coins Credited", time: "Oct 24, 2023 14:32:18" },
-    ],
-  },
-};
 
 // ═══════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -93,21 +60,39 @@ export default function OrderDetailPage() {
         const txn = res?.data || res;
         if (txn) {
           setOrder({
-            ...MOCK_ORDER,
-            orderId: txn.orderId || txn._id || MOCK_ORDER.orderId,
-            status: txn.status || MOCK_ORDER.status,
-            createdAt: txn.createdAt ? new Date(txn.createdAt).toLocaleString() : MOCK_ORDER.createdAt,
-            paidAt: txn.paidAt ? new Date(txn.paidAt).toLocaleString() : MOCK_ORDER.paidAt,
-            price: txn.amount ? `$${txn.amount}` : MOCK_ORDER.price,
-            baseCoins: txn.coinAmount || MOCK_ORDER.baseCoins,
-            bonusCoins: txn.bonusCoins || MOCK_ORDER.bonusCoins,
-            totalReceived: (txn.coinAmount || MOCK_ORDER.baseCoins) + (txn.bonusCoins || MOCK_ORDER.bonusCoins),
+            orderId: txn.orderId || txn._id || (id as string),
+            status: txn.status || "Unknown",
+            createdAt: txn.createdAt ? new Date(txn.createdAt).toLocaleString() : "",
+            paidAt: txn.paidAt ? new Date(txn.paidAt).toLocaleString() : "",
+            product: txn.description || txn.product || "",
+            type: capitalize(txn.type || "recharge"),
+            price: txn.amount ? `$${txn.amount}` : "$0.00",
+            baseCoins: txn.coinAmount || 0,
+            bonusCoins: txn.bonusCoins || 0,
+            totalReceived: (txn.coinAmount || 0) + (txn.bonusCoins || 0),
+            user: {
+              id: typeof txn.userId === "object" ? txn.userId?._id : txn.userId || "",
+              name: txn.userId?.nickname || txn.user?.nickname || txn.userName || "Unknown",
+              email: txn.userId?.email || txn.user?.email || txn.userEmail || "",
+              region: txn.userId?.region || txn.user?.region || "",
+              coinBalance: txn.userId?.coins || txn.user?.coins || 0,
+              isVip: txn.userId?.vipStatus === "active" || txn.user?.vipStatus === "active" || false,
+            },
+            payment: {
+              channel: formatPaymentMethod(txn.paymentMethod || "stripe"),
+              method: txn.paymentType || txn.paymentMethod || "Credit Card",
+              transactionId: txn.stripePaymentIntentId || txn.transactionId || "",
+              timeline: (txn.timeline || []).map((t: any) => ({
+                ...t,
+                time: t.time ? new Date(t.time).toLocaleString() : "",
+              })),
+            },
           });
         } else {
-          setOrder(MOCK_ORDER);
+          setOrder(null);
         }
       } catch {
-        setOrder(MOCK_ORDER);
+        setOrder(null);
       } finally {
         setLoading(false);
       }
@@ -219,7 +204,7 @@ export default function OrderDetailPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={openRefundModal}
-            disabled={order.status === "Refunded"}
+            disabled={order.status.toLowerCase() === "refunded"}
             className="rounded-lg border border-red-500/50 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             Refund
@@ -247,8 +232,8 @@ export default function OrderDetailPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Status</span>
-                <span className="inline-flex items-center rounded-full bg-green-500/20 px-2.5 py-0.5 text-xs font-medium text-green-400">
-                  {order.status}
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${getStatusBadge(order.status)}`}>
+                  {capitalize(order.status)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -271,9 +256,9 @@ export default function OrderDetailPage() {
                 <span className="text-sm text-white">{order.product}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-400">Tier</span>
+                <span className="text-sm text-gray-400">Type</span>
                 <span className="inline-flex items-center rounded-full bg-purple-500/20 px-2.5 py-0.5 text-xs font-medium text-purple-400">
-                  {order.tier}
+                  {order.type}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -385,7 +370,11 @@ export default function OrderDetailPage() {
                 <div className="absolute left-[7px] top-1 bottom-1 w-px bg-gray-700/50" />
                 {order.payment.timeline.map((step, idx) => (
                   <div key={idx} className="relative flex items-start gap-3">
-                    <div className="absolute -left-6 top-1 h-3.5 w-3.5 rounded-full border-2 border-green-500 bg-green-500/30" />
+                    <div className={`absolute -left-6 top-1 h-3.5 w-3.5 rounded-full border-2 ${
+                      step.status === 'failed' ? 'border-red-500 bg-red-500/30' :
+                      step.status === 'completed' ? 'border-green-500 bg-green-500/30' :
+                      'border-yellow-500 bg-yellow-500/30'
+                    }`} />
                     <div className="flex flex-1 items-center justify-between">
                       <span className="text-sm text-gray-300">{step.label}</span>
                       <span className="text-xs text-gray-500">{step.time}</span>
@@ -529,4 +518,31 @@ export default function OrderDetailPage() {
       )}
     </div>
   );
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────────
+function capitalize(s: string) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
+}
+
+function getStatusBadge(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "completed") return "bg-green-500/20 text-green-400";
+  if (s === "pending") return "bg-yellow-500/20 text-yellow-400";
+  if (s === "failed") return "bg-red-500/20 text-red-400";
+  if (s === "refunded") return "bg-gray-500/20 text-gray-400";
+  return "bg-gray-500/20 text-gray-400";
+}
+
+function formatPaymentMethod(method: string): string {
+  const map: Record<string, string> = {
+    stripe: "Stripe",
+    credit_card: "Credit Card",
+    paypal: "PayPal",
+    apple_pay: "Apple Pay",
+    google_pay: "Google Pay",
+    coins: "Coins",
+    system: "System",
+  };
+  return map[method] || (method ? method.charAt(0).toUpperCase() + method.slice(1) : "Unknown");
 }

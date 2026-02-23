@@ -95,16 +95,6 @@ const TABS = [
 ] as const;
 type TabName = (typeof TABS)[number];
 
-// ─── Mock Data ───────────────────────────────────────────
-
-const MOCK_RECHARGE: RechargeRow[] = [
-  { orderId: "ORD-20230927-001", product: "1000 Coins + 200 Bonus", amount: "$9.99", coinsReceived: "1,200", channel: "Stripe", status: "Paid", date: "Sep 27, 2023" },
-  { orderId: "ORD-20230925-082", product: "VIP Monthly Subscription", amount: "$19.99", coinsReceived: "-", channel: "Google Pay", status: "Paid", date: "Sep 25, 2023" },
-  { orderId: "ORD-20230920-113", product: "500 Coins", amount: "$4.99", coinsReceived: "500", channel: "Stripe", status: "Pending", date: "Sep 20, 2023" },
-  { orderId: "ORD-20230915-003", product: "5000 Coins + 1500 Bonus", amount: "$49.99", coinsReceived: "6,500", channel: "Airwallex", status: "Paid", date: "Sep 15, 2023" },
-  { orderId: "ORD-20230910-044", product: "100 Coins", amount: "$0.99", coinsReceived: "100", channel: "Stripe", status: "Pending", date: "Sep 10, 2023" },
-];
-
 // ─── Status Badge Helper ─────────────────────────────────
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
@@ -221,8 +211,9 @@ export default function UserDetailPage() {
   const [totalRechargeItems, setTotalRechargeItems] = useState(0);
 
   const fetchRecharge = useCallback(async () => {
+    if (!id) return;
     try {
-      const res: any = await adminApi.getUserTransactions(id as string, { page: currentPage, limit: pageSize, type: "recharge" });
+      const res: any = await adminApi.getUserTransactions(id as string, { page: currentPage, limit: 5, type: "recharge" });
       const items = res.data?.transactions || res.data || [];
       setRechargeData(items.map((t: any) => ({
         orderId: t._id || t.orderId || "",
@@ -235,10 +226,10 @@ export default function UserDetailPage() {
       })));
       setTotalRechargeItems(res.data?.total || items.length);
     } catch {
-      setRechargeData(MOCK_RECHARGE);
-      setTotalRechargeItems(MOCK_RECHARGE.length);
+      setRechargeData([]);
+      setTotalRechargeItems(0);
     }
-  }, [currentPage]);
+  }, [id, currentPage]);
 
   useEffect(() => { fetchRecharge(); }, [fetchRecharge]);
 
@@ -335,7 +326,7 @@ export default function UserDetailPage() {
       data = data.filter((r) => r.status === statusFilter);
     }
     return data;
-  }, [searchOrder, statusFilter]);
+  }, [rechargeData, searchOrder, statusFilter]);
 
   const pageSize = 5;
   const totalPages = Math.ceil(totalRechargeItems / pageSize);

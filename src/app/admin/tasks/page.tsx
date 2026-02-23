@@ -40,29 +40,6 @@ const conditionBadge: Record<string, string> = {
 
 const iconColors = ["bg-blue-500", "bg-green-500", "bg-pink-500", "bg-purple-500", "bg-amber-500", "bg-cyan-500"];
 
-// ── Mock data ────────────────────────────────────────────────────────────────
-const MOCK_TASKS: Task[] = [
-  { id: 1001, name: "Casual Viewer", subtitle: "Basic engagement", condition: "watch", conditionLabel: "Watch 1 Episode", reward: 20, sortOrder: 1, active: true, tab: "daily", iconColor: "bg-blue-500" },
-  { id: 1002, name: "Binge Master", subtitle: "Extended viewing", condition: "watch", conditionLabel: "Watch 60 Mins", reward: 50, sortOrder: 2, active: true, tab: "daily", iconColor: "bg-purple-500" },
-  { id: 1003, name: "Social Butterfly", subtitle: "Community sharing", condition: "share", conditionLabel: "Share 1 Story", reward: 100, sortOrder: 3, active: true, tab: "daily", iconColor: "bg-green-500" },
-  { id: 1004, name: "Reviewer", subtitle: "Content feedback", condition: "rate", conditionLabel: "Rate 3 Stories", reward: 30, sortOrder: 4, active: false, tab: "daily", iconColor: "bg-pink-500" },
-  { id: 1005, name: "Daily Explorer", subtitle: "Browse content", condition: "watch", conditionLabel: "Watch 3 Episodes", reward: 25, sortOrder: 5, active: true, tab: "daily", iconColor: "bg-cyan-500" },
-  { id: 1006, name: "Daily Sharer", subtitle: "Share daily", condition: "share", conditionLabel: "Share 2 Stories", reward: 40, sortOrder: 6, active: true, tab: "daily", iconColor: "bg-amber-500" },
-  { id: 1007, name: "Quick Rater", subtitle: "Rate content", condition: "rate", conditionLabel: "Rate 1 Story", reward: 15, sortOrder: 7, active: true, tab: "daily", iconColor: "bg-pink-500" },
-  { id: 1008, name: "Binge Watcher", subtitle: "Watch marathon", condition: "watch", conditionLabel: "Watch 90 Mins", reward: 60, sortOrder: 8, active: true, tab: "daily", iconColor: "bg-blue-500" },
-  { id: 1009, name: "Super Sharer", subtitle: "Share widely", condition: "share", conditionLabel: "Share 5 Stories", reward: 80, sortOrder: 9, active: false, tab: "daily", iconColor: "bg-green-500" },
-  { id: 1010, name: "Critic", subtitle: "Detailed reviews", condition: "rate", conditionLabel: "Rate 5 Stories", reward: 45, sortOrder: 10, active: true, tab: "daily", iconColor: "bg-pink-500" },
-  { id: 1011, name: "Night Owl", subtitle: "Late viewing", condition: "watch", conditionLabel: "Watch 2 Episodes", reward: 20, sortOrder: 11, active: true, tab: "daily", iconColor: "bg-purple-500" },
-  { id: 1012, name: "Trend Setter", subtitle: "Share trending", condition: "share", conditionLabel: "Share 3 Stories", reward: 55, sortOrder: 12, active: true, tab: "daily", iconColor: "bg-green-500" },
-  // Newbie tasks
-  { id: 2001, name: "First Watch", subtitle: "Start your journey", condition: "watch", conditionLabel: "Watch 1 Episode", reward: 30, sortOrder: 1, active: true, tab: "newbie", iconColor: "bg-blue-500" },
-  { id: 2002, name: "Profile Setup", subtitle: "Complete your profile", condition: "complete_profile", conditionLabel: "Complete Profile", reward: 50, sortOrder: 2, active: true, tab: "newbie", iconColor: "bg-purple-500" },
-  { id: 2003, name: "First Share", subtitle: "Share with friends", condition: "share", conditionLabel: "Share 1 Story", reward: 40, sortOrder: 3, active: true, tab: "newbie", iconColor: "bg-green-500" },
-  // Achievement tasks
-  { id: 3001, name: "Marathon Viewer", subtitle: "Dedicated watcher", condition: "watch", conditionLabel: "Watch 50 Episodes", reward: 200, sortOrder: 1, active: true, tab: "achievement", iconColor: "bg-blue-500" },
-  { id: 3002, name: "Social Star", subtitle: "Sharing champion", condition: "share", conditionLabel: "Share 20 Stories", reward: 150, sortOrder: 2, active: true, tab: "achievement", iconColor: "bg-green-500" },
-];
-
 const tabs: { key: TabType; label: string; icon: JSX.Element }[] = [
   {
     key: "daily",
@@ -98,7 +75,7 @@ const PAGE_SIZE = 4;
 // ── Component ────────────────────────────────────────────────────────────────
 export default function AdminTasksPage() {
   const [activeTab, setActiveTab] = useState<TabType>("daily");
-  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [search, setSearch] = useState("");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [currentPage, setCurrentPage] = useState(1);
@@ -142,7 +119,7 @@ export default function AdminTasksPage() {
           }
         }
       } catch {
-        // keep mock data
+        // keep existing data on error
       } finally {
         if (!cancelled) setLoading(false);
       }

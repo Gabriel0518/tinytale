@@ -50,19 +50,6 @@ const actionCheckboxColor: Record<string, string> = {
   Login: "accent-purple-500",
 };
 
-const MOCK_LOGS: LogEntry[] = [
-  { _id: "40324", adminId: { username: "admin_sarah", fullName: "Sarah" }, action: "Edit", targetType: "Drama", targetId: "D-101", details: { summary: "Updated visibility settings for drama" }, ip: "192.168.1.42", createdAt: "2023-10-18T14:45:00Z" },
-  { _id: "40323", adminId: { username: "admin_mike", fullName: "Mike" }, action: "Create", targetType: "Comment", targetId: "A8821", details: { summary: "Approved batch of 12 pending comments" }, ip: "10.0.0.55", createdAt: "2023-10-18T13:30:00Z" },
-  { _id: "40322", adminId: { username: "admin_sarah", fullName: "Sarah" }, action: "Delete", targetType: "User", targetId: "U507", details: { summary: "Banned user for policy violation" }, ip: "192.168.1.42", createdAt: "2023-10-18T12:15:00Z" },
-  { _id: "40321", adminId: { username: "admin_root", fullName: "Root" }, action: "Login", targetType: "Admin", targetId: "Portal", details: { summary: "Admin login from new device" }, ip: "203.0.113.42", createdAt: "2023-10-18T11:00:00Z" },
-  { _id: "40320", adminId: { username: "admin_mike", fullName: "Mike" }, action: "Edit", targetType: "Config", targetId: "TaxRate", details: { summary: "Changed tax rate from 8% to 10%" }, ip: "10.0.0.55", createdAt: "2023-10-18T10:20:00Z" },
-  { _id: "40319", adminId: { username: "admin_sarah", fullName: "Sarah" }, action: "Create", targetType: "Ticket", targetId: "#424", details: { summary: "Created support ticket for refund request" }, ip: "192.168.1.42", createdAt: "2023-10-18T09:45:00Z" },
-  { _id: "40318", adminId: { username: "admin_root", fullName: "Root" }, action: "Delete", targetType: "Cache", targetId: "76", details: { summary: "Purged CDN cache for drama thumbnails" }, ip: "203.0.113.42", createdAt: "2023-10-17T22:30:00Z" },
-  { _id: "40317", adminId: { username: "admin_mike", fullName: "Mike" }, action: "Edit", targetType: "Asset", targetId: "image/bg.png", details: { summary: "Replaced homepage background image" }, ip: "10.0.0.55", createdAt: "2023-10-17T20:10:00Z" },
-  { _id: "40316", adminId: { username: "admin_sarah", fullName: "Sarah" }, action: "Edit", targetType: "Role", targetId: "Moderator", details: { summary: "Updated moderator permissions" }, ip: "192.168.1.42", createdAt: "2023-10-17T18:00:00Z" },
-  { _id: "40315", adminId: { username: "admin_root", fullName: "Root" }, action: "Login", targetType: "Admin", targetId: "Portal", details: { summary: "Routine morning login" }, ip: "203.0.113.42", createdAt: "2023-10-17T08:00:00Z" },
-];
-
 const emptyFilters: Filters = {
   search: "",
   adminId: "",
@@ -154,16 +141,16 @@ export default function OperationLogsPage() {
             setTotal(data.total ?? list.length);
             setTotalPages(data.totalPages ?? Math.ceil((data.total ?? list.length) / limit));
           } else {
-            setLogs(MOCK_LOGS);
-            setTotal(1248);
-            setTotalPages(Math.ceil(1248 / limit));
+            setLogs([]);
+            setTotal(0);
+            setTotalPages(1);
           }
         }
       } catch {
         if (!cancelled) {
-          setLogs(MOCK_LOGS);
-          setTotal(1248);
-          setTotalPages(Math.ceil(1248 / limit));
+          setLogs([]);
+          setTotal(0);
+          setTotalPages(1);
         }
       } finally {
         if (!cancelled) setLoading(false);

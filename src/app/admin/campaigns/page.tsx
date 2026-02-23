@@ -18,59 +18,6 @@ interface Activity {
   targetTiers: string;
 }
 
-const MOCK_ACTIVITIES: Activity[] = [
-  {
-    id: "ACT-892",
-    name: "Summer Kickoff Bonus",
-    description: "Get 20% bonus gems on any recharge over $49.99 duri...",
-    type: "Rebate",
-    status: "Active",
-    startDate: "Oct 24, 2023",
-    endDate: "Nov 05, 2023",
-    targetTiers: "All Users",
-  },
-  {
-    id: "ACT-895",
-    name: "New User Flash Sale",
-    description: "Limited time offer for first-time purchasers. 500 Gems to...",
-    type: "Flash Sale",
-    status: "Upcoming",
-    startDate: "Nov 10, 2023",
-    endDate: "Nov 12, 2023",
-    targetTiers: "VIP 0 Only",
-  },
-  {
-    id: "ACT-799",
-    name: "Autumn Moon Festival",
-    description: "Double rewards on all rebate packs for the festival.",
-    type: "First Recharge",
-    status: "Ended",
-    startDate: "Sep 15, 2023",
-    endDate: "Sep 25, 2023",
-    targetTiers: "VIP 1+",
-  },
-  {
-    id: "ACT-893",
-    name: "Whale Tier Appreciation",
-    description: "Exclusive rebate for high tier VIPs. 10% instant cashback.",
-    type: "Rebate",
-    status: "Active",
-    startDate: "Oct 20, 2023",
-    endDate: "Nov 30, 2023",
-    targetTiers: "VIP 8-10",
-  },
-  {
-    id: "ACT-894",
-    name: "Weekend Warrior Pack",
-    description: "Special items included in the $20 pack this weekend only.",
-    type: "Flash Sale",
-    status: "Active",
-    startDate: "Oct 27, 2023",
-    endDate: "Oct 29, 2023",
-    targetTiers: "All Users",
-  },
-];
-
 const TYPE_BADGE: Record<ActivityType, string> = {
   Rebate: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
   "Flash Sale": "bg-orange-500/10 text-orange-400 border border-orange-500/20",
@@ -93,10 +40,9 @@ const STATUS_CONFIG: Record<ActivityStatus, { dot: string; badge: string }> = {
 };
 
 const PAGE_SIZE = 5;
-const TOTAL_MOCK = 42;
 
 export default function CampaignsPage() {
-  const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [typeFilter, setTypeFilter] = useState("All");
@@ -109,7 +55,7 @@ export default function CampaignsPage() {
       const res = await api.get<{ data: Activity[] }>("/api/admin/activities/campaigns");
       if (res?.data?.length) setActivities(res.data);
     } catch {
-      setActivities(MOCK_ACTIVITIES);
+      setActivities([]);
     }
   }, []);
 
@@ -129,7 +75,7 @@ export default function CampaignsPage() {
     return true;
   });
 
-  const totalResults = Math.max(filtered.length, TOTAL_MOCK);
+  const totalResults = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalResults / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 

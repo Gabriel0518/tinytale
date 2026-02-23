@@ -167,7 +167,7 @@ function PlayerSection({
 export default function VideoPlayerPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, token, updateUser } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const { toast } = useToast();
 
   const dramaId = params.id as string;
@@ -259,9 +259,7 @@ export default function VideoPlayerPage() {
         setIsLocked(false);
         setUnlockedEpisodes((prev) => [...prev, currentEpisode._id]);
         toast("Episode unlocked!", "success");
-        if (user) {
-          updateUser({ ...user, coins: (user.coins || 0) - currentEpisode.unlockPrice });
-        }
+        await refreshUser();
       }
     } catch (error: unknown) {
       toast(error instanceof Error ? error.message : 'Failed to unlock episode. Please check your coin balance.', 'error');

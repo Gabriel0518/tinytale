@@ -22,120 +22,6 @@ interface Drama {
   lastUpdated: string;
 }
 
-// ── Mock Data ──────────────────────────────────────────
-const MOCK_DRAMAS: Drama[] = [
-  {
-    id: "1",
-    code: "DR-2023-001",
-    title: "Love in the Moonlight",
-    cover: "https://picsum.photos/seed/drama1/200/300",
-    genre: "Romance",
-    episodes: 24,
-    status: "Published",
-    totalViews: 1_280_000,
-    lastUpdated: "2025-12-15",
-  },
-  {
-    id: "2",
-    code: "DR-2023-002",
-    title: "CEO's Secret Wife",
-    cover: "https://picsum.photos/seed/drama2/200/300",
-    genre: "Romance",
-    episodes: 36,
-    status: "Published",
-    totalViews: 2_450_000,
-    lastUpdated: "2025-11-28",
-  },
-  {
-    id: "3",
-    code: "DR-2023-003",
-    title: "Revenge of the Heiress",
-    cover: "https://picsum.photos/seed/drama3/200/300",
-    genre: "Thriller",
-    episodes: 18,
-    status: "Draft",
-    totalViews: 0,
-    lastUpdated: "2025-12-20",
-  },
-  {
-    id: "4",
-    code: "DR-2024-004",
-    title: "My Billionaire Husband",
-    cover: "https://picsum.photos/seed/drama4/200/300",
-    genre: "Romance",
-    episodes: 42,
-    status: "Published",
-    totalViews: 5_120_000,
-    lastUpdated: "2026-01-05",
-  },
-  {
-    id: "5",
-    code: "DR-2024-005",
-    title: "The Alpha's Mate",
-    cover: "https://picsum.photos/seed/drama5/200/300",
-    genre: "Fantasy",
-    episodes: 30,
-    status: "Suspended",
-    totalViews: 890_000,
-    lastUpdated: "2025-10-12",
-  },
-  {
-    id: "6",
-    code: "DR-2024-006",
-    title: "Trapped with the Mafia Boss",
-    cover: "https://picsum.photos/seed/drama6/200/300",
-    genre: "Thriller",
-    episodes: 20,
-    status: "Published",
-    totalViews: 1_750_000,
-    lastUpdated: "2026-01-18",
-  },
-  {
-    id: "7",
-    code: "DR-2024-007",
-    title: "Back to the Past",
-    cover: "https://picsum.photos/seed/drama7/200/300",
-    genre: "Sci-Fi",
-    episodes: 12,
-    status: "Draft",
-    totalViews: 0,
-    lastUpdated: "2026-02-01",
-  },
-  {
-    id: "8",
-    code: "DR-2024-008",
-    title: "The Forgotten Princess",
-    cover: "https://picsum.photos/seed/drama8/200/300",
-    genre: "Fantasy",
-    episodes: 28,
-    status: "Published",
-    totalViews: 3_340_000,
-    lastUpdated: "2025-12-30",
-  },
-  {
-    id: "9",
-    code: "DR-2024-009",
-    title: "Office Romance",
-    cover: "https://picsum.photos/seed/drama9/200/300",
-    genre: "Romance",
-    episodes: 16,
-    status: "Published",
-    totalViews: 960_000,
-    lastUpdated: "2026-01-22",
-  },
-  {
-    id: "10",
-    code: "DR-2024-010",
-    title: "Werewolf Academy",
-    cover: "https://picsum.photos/seed/drama10/200/300",
-    genre: "Fantasy",
-    episodes: 22,
-    status: "Draft",
-    totalViews: 0,
-    lastUpdated: "2026-02-10",
-  },
-];
-
 const ALL_GENRES = ["Romance", "Thriller", "Fantasy", "Sci-Fi"];
 const ROWS_PER_PAGE_OPTIONS = [5, 10, 20];
 
@@ -183,7 +69,7 @@ export default function DramaManagementPage() {
         lastUpdated: d.updatedAt ? new Date(d.updatedAt).toISOString().slice(0, 10) : "",
       })));
     } catch {
-      setDramas(MOCK_DRAMAS);
+      setDramas([]);
     } finally {
       setLoading(false);
     }

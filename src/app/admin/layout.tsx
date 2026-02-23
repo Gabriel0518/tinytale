@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import AdminSidebar from "@/components/admin/AdminSidebar";
 import AdminHeader from "@/components/admin/AdminHeader";
 
@@ -26,12 +27,60 @@ const pageTitles: Record<string, string> = {
   "/admin/logs": "Audit Logs",
 };
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7002";
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Login page and create-drama wizard render without sidebar/header
-  if (pathname === "/admin/login" || pathname === "/admin/dramas/create") {
+  // Login page and create-drama wizard render without sidebar/header and skip auth
+  const skipAuth = pathname === "/admin/login" || pathname === "/admin/dramas/create";
+
+  useEffect(() => {
+    if (skipAuth) {
+      setAuthChecked(true);
+      return;
+    }
+
+    const token = localStorage.getItem("admin_token");
+    if (!token) {
+      router.replace("/admin/login");
+      return;
+    }
+
+    // Validate token against backend
+    fetch(`${API_URL}/api/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Invalid token");
+        return res.json();
+      })
+      .then((data) => {
+        if (data.data?.role !== "admin" && data.data?.user?.role !== "admin") {
+          localStorage.removeItem("admin_token");
+          router.replace("/admin/login");
+          return;
+        }
+        setAuthChecked(true);
+      })
+      .catch(() => {
+        localStorage.removeItem("admin_token");
+        router.replace("/admin/login");
+      });
+  }, [pathname, router, skipAuth]);
+
+  if (skipAuth) {
     return <>{children}</>;
+  }
+
+  if (!authChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#13131d]">
+        <div className="text-gray-400 text-sm">Verifying authentication...</div>
+      </div>
+    );
   }
 
   const title = pageTitles[pathname || ""] || "Admin";

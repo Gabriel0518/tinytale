@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
-import { userApi, profileApi } from "@/lib/api";
+import { userApi, profileApi, coinsApi } from "@/lib/api";
 import { Drama, User } from "@/types";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
@@ -23,12 +23,14 @@ interface WatchHistoryItem {
   episode?: { episodeNumber?: number };
 }
 
-const MOCK_TRANSACTIONS = [
-  { id: "tx1", date: "Oct 24, 2023", desc: "Unlock Episode: CEO's Secret...", type: "spend", amount: -50, status: "Success" },
-  { id: "tx2", date: "Oct 23, 2023", desc: "Top Up 1000 Coins + Bonus", type: "topup", amount: 1200, status: "Success" },
-  { id: "tx3", date: "Oct 22, 2023", desc: "Daily Login Reward", type: "earn", amount: 30, status: "Success" },
-  { id: "tx4", date: "Oct 20, 2023", desc: "Unlock Episode: Alpha's...", type: "spend", amount: -50, status: "Success" },
-];
+interface TransactionItem {
+  id: string;
+  date: string;
+  desc: string;
+  type: string;
+  amount: number;
+  status: string;
+}
 
 export default function ProfilePage() {
   const { user, logout, token } = useAuth();
@@ -237,26 +239,26 @@ function LibraryTab({ favorites, history }: { favorites: Drama[]; history: Watch
 
 /* ─── Wallet Tab ─── */
 function WalletTab({ user, isVip, token }: { user: User; isVip: boolean; token: string | null }) {
-  const [transactions, setTransactions] = useState(MOCK_TRANSACTIONS);
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
 
   useEffect(() => {
     const fetchTransactions = async () => {
       if (!token) return;
       try {
-        const res = await profileApi.getPurchases(token);
-        const data = (res as { data?: { purchases?: unknown[] } }).data?.purchases || (res as { data?: unknown[] }).data || [];
-        if (Array.isArray(data) && data.length > 0) {
-          setTransactions((data as Record<string, string | number | undefined>[]).slice(0, 4).map((tx) => ({
+        const res = await coinsApi.getTransactions(token, { limit: 4 });
+        const data = res.data?.transactions || res.data || [];
+        if (Array.isArray(data)) {
+          setTransactions(data.map((tx: any) => ({
             id: String(tx._id || tx.id || ""),
-            date: String(tx.date || tx.createdAt || ""),
-            desc: String(tx.itemName || tx.description || tx.desc || "Transaction"),
-            type: tx.type === "purchase" ? "topup" : tx.type === "unlock" ? "spend" : String(tx.type || "spend"),
-            amount: Number(tx.amountCoins || tx.amount || 0),
-            status: "Success",
+            date: tx.createdAt ? new Date(tx.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+            desc: tx.type === "recharge" ? "Coin Recharge" : tx.type === "unlock" ? "Episode Unlock" : tx.type === "refund" ? "Refund" : tx.type || "Transaction",
+            type: tx.type === "recharge" ? "topup" : tx.type === "unlock" ? "spend" : tx.type || "spend",
+            amount: Number(tx.amount || 0),
+            status: tx.status === "completed" ? "Success" : tx.status || "Pending",
           })));
         }
       } catch {
-        // Keep mock data as fallback
+        // Leave empty on error
       }
     };
     fetchTransactions();

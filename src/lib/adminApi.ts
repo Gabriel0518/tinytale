@@ -166,7 +166,7 @@ export const adminApi = {
     api.delete(`/api/admin/featured/${id}`, { token }),
 
   // Transactions / Orders
-  getTransactions: (params?: { page?: number; limit?: number; type?: string; status?: string }, token = getAdminToken()) => {
+  getTransactions: (params?: Record<string, any>, token = getAdminToken()) => {
     const query = params ? new URLSearchParams(params as any).toString() : '';
     return api.get(`/api/admin/transactions${query ? `?${query}` : ''}`, { token });
   },
@@ -348,6 +348,32 @@ export const adminApi = {
 
   bulkRejectComments: (ids: string[], token = getAdminToken()) =>
     api.post('/api/admin/comments/bulk/reject', { ids }, { token }),
+
+  // Coin consumption records
+  getCoinRecords: (params?: { search?: string; dramaId?: string; page?: number; limit?: number }, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/coin-records${query ? `?${query}` : ''}`, { token });
+  },
+
+  // Finance overview
+  getFinanceOverview: (token = getAdminToken()) =>
+    api.get('/api/admin/finance/overview', { token }),
+
+  // VIP Subscriptions
+  getSubscriptions: (params?: { status?: string; search?: string; page?: number; limit?: number }, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/subscriptions${query ? `?${query}` : ''}`, { token });
+  },
+
+  getSubscription: (id: string, token = getAdminToken()) =>
+    api.get(`/api/admin/subscriptions/${id}`, { token }),
+
+  cancelSubscription: (id: string, token = getAdminToken()) =>
+    api.post(`/api/admin/subscriptions/${id}/cancel`, {}, { token }),
 
   // User detail tab data
   getUserTransactions: (userId: string, params?: { page?: number; limit?: number; type?: string }, token = getAdminToken()) => {

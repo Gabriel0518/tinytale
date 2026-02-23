@@ -11,11 +11,11 @@ interface Order {
   userId: string;
   userName: string;
   userEmail: string;
-  tier: "VIP" | "Standard";
+  type: string;
   amount: number;
   coins: number;
   channel: string;
-  status: "Paid" | "Pending" | "Failed" | "Refunded";
+  status: "Completed" | "Pending" | "Failed" | "Refunded";
   createdAt: string;
 }
 
@@ -30,37 +30,35 @@ interface Filters {
   amountMax: string;
 }
 
-// ── Mock Data ──────────────────────────────────────────────────────────────────
-const MOCK_ORDERS: Order[] = [
-  { id: "ORD-20231024-8842", userId: "88293", userName: "Sarah Jenkins", userEmail: "sarah.j@email.com", tier: "VIP", amount: 9.99, coins: 1200, channel: "Stripe", status: "Paid", createdAt: "2023-10-24T14:32:00Z" },
-  { id: "ORD-20231024-7731", userId: "77312", userName: "Michael Chen", userEmail: "m.chen@email.com", tier: "Standard", amount: 49.99, coins: 6500, channel: "Google Pay", status: "Paid", createdAt: "2023-10-24T12:18:00Z" },
-  { id: "ORD-20231023-5521", userId: "55218", userName: "Emma Wilson", userEmail: "emma.w@email.com", tier: "VIP", amount: 4.99, coins: 500, channel: "Stripe", status: "Pending", createdAt: "2023-10-23T09:45:00Z" },
-  { id: "ORD-20231023-4410", userId: "44109", userName: "James Rodriguez", userEmail: "j.rod@email.com", tier: "Standard", amount: 19.99, coins: 2500, channel: "Apple Pay", status: "Paid", createdAt: "2023-10-23T08:12:00Z" },
-  { id: "ORD-20231022-3398", userId: "33982", userName: "Olivia Brown", userEmail: "o.brown@email.com", tier: "VIP", amount: 99.99, coins: 13000, channel: "Airwallex", status: "Paid", createdAt: "2023-10-22T19:55:00Z" },
-  { id: "ORD-20231022-2287", userId: "22871", userName: "Liam Davis", userEmail: "liam.d@email.com", tier: "Standard", amount: 9.99, coins: 1200, channel: "Stripe", status: "Failed", createdAt: "2023-10-22T16:30:00Z" },
-  { id: "ORD-20231021-1176", userId: "11763", userName: "Sophia Martinez", userEmail: "sophia.m@email.com", tier: "VIP", amount: 24.99, coins: 3200, channel: "Google Pay", status: "Refunded", createdAt: "2023-10-21T11:20:00Z" },
-  { id: "ORD-20231021-9965", userId: "99654", userName: "Noah Taylor", userEmail: "noah.t@email.com", tier: "Standard", amount: 4.99, coins: 500, channel: "Apple Pay", status: "Pending", createdAt: "2023-10-21T07:48:00Z" },
-  { id: "ORD-20231020-8854", userId: "88543", userName: "Ava Anderson", userEmail: "ava.a@email.com", tier: "VIP", amount: 49.99, coins: 6500, channel: "Stripe", status: "Paid", createdAt: "2023-10-20T22:10:00Z" },
-  { id: "ORD-20231020-7743", userId: "77432", userName: "Ethan Thomas", userEmail: "ethan.t@email.com", tier: "Standard", amount: 19.99, coins: 2500, channel: "Airwallex", status: "Paid", createdAt: "2023-10-20T15:05:00Z" },
-];
-
-const CHANNELS = ["All", "Stripe", "Google Pay", "Apple Pay", "Airwallex"];
-const STATUSES = ["All", "Paid", "Pending", "Failed", "Refunded"];
+const CHANNELS = ["All", "Stripe", "Credit Card", "PayPal", "Apple Pay", "Google Pay", "Coins", "System"];
+const STATUSES = ["All", "Completed", "Pending", "Failed", "Refunded"];
 const PAGE_SIZE = 10;
 
 const emptyFilters: Filters = { orderId: "", userSearch: "", channel: "All", status: "All", dateFrom: "", dateTo: "", amountMin: "", amountMax: "" };
 
 // ── Status badge colours ───────────────────────────────────────────────────────
 const statusBadge: Record<string, string> = {
-  Paid: "bg-green-500/20 text-green-400",
+  Completed: "bg-green-500/20 text-green-400",
   Pending: "bg-yellow-500/20 text-yellow-400",
   Failed: "bg-red-500/20 text-red-400",
   Refunded: "bg-gray-500/20 text-gray-400",
 };
 
+// ── Payment method display name mapping ─────────────────────────────────────────
+const channelDisplayName: Record<string, string> = {
+  stripe: "Stripe",
+  credit_card: "Credit Card",
+  paypal: "PayPal",
+  apple_pay: "Apple Pay",
+  google_pay: "Google Pay",
+  coins: "Coins",
+  system: "System",
+};
+
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [totalOrders, setTotalOrders] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
   const [appliedFilters, setAppliedFilters] = useState<Filters>(emptyFilters);
@@ -78,69 +76,66 @@ export default function OrdersPage() {
   const [refundLoading, setRefundLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch orders (fall back to mock)
+  // Fetch orders from API with server-side pagination
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       setLoading(true);
       try {
-        const res: any = await adminApi.getTransactions();
+        const params: any = { page: currentPage, limit: PAGE_SIZE };
+        const f = appliedFilters;
+        if (f.status && f.status !== "All") params.status = f.status.toLowerCase();
+        if (f.userSearch) params.search = f.userSearch;
+        if (f.orderId) params.search = f.orderId;
+        if (f.channel && f.channel !== "All") {
+          // Reverse lookup: display name -> backend paymentMethod value
+          const reverseChannel = Object.entries(channelDisplayName).find(([, v]) => v === f.channel);
+          if (reverseChannel) params.paymentMethod = reverseChannel[0];
+        }
+        if (f.dateFrom) params.dateFrom = f.dateFrom;
+        if (f.dateTo) params.dateTo = f.dateTo;
+        if (f.amountMin) params.amountMin = f.amountMin;
+        if (f.amountMax) params.amountMax = f.amountMax;
+
+        const res: any = await adminApi.getTransactions(params);
         if (!cancelled) {
           const list = res.data?.transactions ?? res.data ?? [];
           setOrders(
             list.map((t: any) => ({
               id: t._id ?? t.id,
-              userId: t.userId,
-              userName: t.user?.nickname ?? t.userName ?? "Unknown",
-              userEmail: t.user?.email ?? t.userEmail ?? "",
-              tier: t.tier ?? "Standard",
+              userId: typeof t.userId === "object" ? t.userId?._id : t.userId,
+              userName: t.userId?.nickname ?? t.user?.nickname ?? t.userName ?? "Unknown",
+              userEmail: t.userId?.email ?? t.user?.email ?? t.userEmail ?? "",
+              type: capitalize(t.type || "recharge"),
               amount: t.amount ?? 0,
-              coins: t.coins ?? 0,
-              channel: t.paymentMethod ?? t.channel ?? "Stripe",
+              coins: (t.coinAmount || 0) + (t.bonusCoins || 0),
+              channel: channelDisplayName[t.paymentMethod] || capitalize(t.paymentMethod || "stripe"),
               status: capitalize(t.status) as Order["status"],
               createdAt: t.createdAt,
             }))
           );
+          setTotalOrders(res.data?.total ?? list.length);
         }
       } catch {
-        if (!cancelled) setOrders(MOCK_ORDERS);
+        if (!cancelled) { setOrders([]); setTotalOrders(0); }
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [currentPage, appliedFilters]);
 
-  // Filtered + paginated data
-  const filtered = useMemo(() => {
-    const f = appliedFilters;
-    return orders.filter((o) => {
-      if (f.orderId && !o.id.toLowerCase().includes(f.orderId.toLowerCase())) return false;
-      if (f.userSearch) {
-        const q = f.userSearch.toLowerCase();
-        if (!o.userName.toLowerCase().includes(q) && !o.userId.includes(q) && !o.userEmail.toLowerCase().includes(q)) return false;
-      }
-      if (f.channel !== "All" && o.channel !== f.channel) return false;
-      if (f.status !== "All" && o.status !== f.status) return false;
-      if (f.dateFrom && new Date(o.createdAt) < new Date(f.dateFrom)) return false;
-      if (f.dateTo && new Date(o.createdAt) > new Date(f.dateTo + "T23:59:59Z")) return false;
-      if (f.amountMin && o.amount < Number(f.amountMin)) return false;
-      if (f.amountMax && o.amount > Number(f.amountMax)) return false;
-      return true;
-    });
-  }, [orders, appliedFilters]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginated = useMemo(() => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), [filtered, currentPage]);
-  const totalAmount = useMemo(() => filtered.reduce((s, o) => s + o.amount, 0), [filtered]);
+  // Server-side pagination: orders already filtered and paginated by API
+  const totalPages = Math.max(1, Math.ceil(totalOrders / PAGE_SIZE));
+  const totalAmount = useMemo(() => orders.reduce((s, o) => s + o.amount, 0), [orders]);
 
   // Selection helpers
-  const allOnPageSelected = paginated.length > 0 && paginated.every((o) => selectedIds.has(o.id));
+  const allOnPageSelected = orders.length > 0 && orders.every((o) => selectedIds.has(o.id));
   const toggleAll = () => {
     const next = new Set(selectedIds);
-    if (allOnPageSelected) paginated.forEach((o) => next.delete(o.id));
-    else paginated.forEach((o) => next.add(o.id));
+    if (allOnPageSelected) orders.forEach((o) => next.delete(o.id));
+    else orders.forEach((o) => next.add(o.id));
     setSelectedIds(next);
   };
   const toggleOne = (id: string) => {
@@ -271,11 +266,25 @@ export default function OrdersPage() {
       {/* ── Summary Bar ──────────────────────────────────────────────── */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-700/50 bg-[#13131d] px-5 py-3">
         <p className="text-sm text-gray-400">
-          Total Orders: <span className="font-semibold text-gray-200">{filtered.length.toLocaleString()}</span>
+          Total Orders: <span className="font-semibold text-gray-200">{totalOrders.toLocaleString()}</span>
           {" \u00B7 "}
           Total Amount: <span className="font-semibold text-gray-200">${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </p>
-        <button className="rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700/40 transition">Export Data</button>
+        <button
+          onClick={() => {
+            const headers = ["Order ID", "User", "Email", "Type", "Amount", "Coins", "Channel", "Status", "Time"];
+            const rows = orders.map((o) => [o.id, o.userName, o.userEmail, o.type, o.amount.toFixed(2), o.coins, o.channel, o.status, o.createdAt].join(","));
+            const csv = [headers.join(","), ...rows].join("\n");
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `orders-${new Date().toISOString().slice(0, 10)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          className="rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700/40 transition"
+        >Export Data</button>
       </div>
 
       {/* ── Data Table ───────────────────────────────────────────────── */}
@@ -286,7 +295,7 @@ export default function OrdersPage() {
               <th className="px-4 py-3"><input type="checkbox" checked={allOnPageSelected} onChange={toggleAll} className="h-4 w-4 rounded border-gray-600 bg-[#1a1a2e] accent-indigo-600" /></th>
               <th className="px-4 py-3">Order ID</th>
               <th className="px-4 py-3">User</th>
-              <th className="px-4 py-3">Tier</th>
+              <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Amount</th>
               <th className="px-4 py-3">Coins</th>
               <th className="px-4 py-3">Channel</th>
@@ -300,10 +309,10 @@ export default function OrdersPage() {
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}><td colSpan={10} className="px-4 py-4"><div className="h-4 w-full animate-pulse rounded bg-gray-700/40" /></td></tr>
               ))
-            ) : paginated.length === 0 ? (
+            ) : orders.length === 0 ? (
               <tr><td colSpan={10} className="px-4 py-16 text-center text-gray-500">No orders found</td></tr>
             ) : (
-              paginated.map((o) => (
+              orders.map((o) => (
                 <tr key={o.id} className="hover:bg-[#1a1a2e]/60 transition-colors">
                   <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(o.id)} onChange={() => toggleOne(o.id)} className="h-4 w-4 rounded border-gray-600 bg-[#1a1a2e] accent-indigo-600" /></td>
                   <td className="whitespace-nowrap px-4 py-3 font-mono text-indigo-400">{o.id}</td>
@@ -317,7 +326,7 @@ export default function OrdersPage() {
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${o.tier === "VIP" ? "bg-green-500/20 text-green-400" : "bg-gray-500/20 text-gray-400"}`}>{o.tier}</span>
+                    <span className="rounded-full px-2.5 py-0.5 text-xs font-medium bg-indigo-500/20 text-indigo-400">{o.type}</span>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-200">${o.amount.toFixed(2)}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-gray-300">{o.coins.toLocaleString()}</td>
@@ -344,10 +353,10 @@ export default function OrdersPage() {
       </div>
 
       {/* ── Pagination ───────────────────────────────────────────────── */}
-      {!loading && filtered.length > 0 && (
+      {!loading && totalOrders > 0 && (
         <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
           <p className="text-sm text-gray-500">
-            Showing {((currentPage - 1) * PAGE_SIZE) + 1} to {Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length.toLocaleString()} orders
+            Showing {((currentPage - 1) * PAGE_SIZE) + 1} to {Math.min(currentPage * PAGE_SIZE, totalOrders)} of {totalOrders.toLocaleString()} orders
           </p>
           <div className="flex items-center gap-1">
             <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="rounded-lg border border-gray-700/50 px-3 py-1.5 text-sm text-gray-400 hover:bg-[#1a1a2e] disabled:opacity-30 transition">Prev</button>

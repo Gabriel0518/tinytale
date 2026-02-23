@@ -24,20 +24,6 @@ interface Episode {
   createdAt: string;
 }
 
-// ── Mock Data ──────────────────────────────────────────
-const MOCK_EPISODES: Episode[] = [
-  { id: "ep-001", episodeNumber: 1, title: "The Unexpected Encounter", cover: "", duration: 225, status: "Published", plays: 84_200, monetization: { type: "free" }, createdAt: "2025-12-01" },
-  { id: "ep-002", episodeNumber: 2, title: "Secrets Unveiled", cover: "", duration: 198, status: "Published", plays: 71_500, monetization: { type: "free" }, createdAt: "2025-12-02" },
-  { id: "ep-003", episodeNumber: 3, title: "A Dangerous Alliance", cover: "", duration: 241, status: "Published", plays: 63_800, monetization: { type: "paid", price: 30 }, createdAt: "2025-12-03" },
-  { id: "ep-004", episodeNumber: 4, title: "Betrayal at Midnight", cover: "", duration: 210, status: "Processing", plays: 0, monetization: { type: "paid", price: 30 }, createdAt: "2025-12-04" },
-  { id: "ep-005", episodeNumber: 5, title: "The Hidden Truth", cover: "", duration: 187, status: "Published", plays: 52_100, monetization: { type: "paid", price: 30 }, createdAt: "2025-12-05" },
-  { id: "ep-006", episodeNumber: 6, title: "Crossroads of Fate", cover: "", duration: 256, status: "Failed", errorMessage: "Video encoding failed: corrupted source file at 02:34", plays: 0, monetization: { type: "paid", price: 30 }, createdAt: "2025-12-06" },
-  { id: "ep-007", episodeNumber: 7, title: "Echoes of the Past", cover: "", duration: 219, status: "Draft", plays: 0, monetization: { type: "paid", price: 50 }, createdAt: "2025-12-07" },
-  { id: "ep-008", episodeNumber: 8, title: "The Final Gambit", cover: "", duration: 233, status: "Published", plays: 41_300, monetization: { type: "paid", price: 50 }, createdAt: "2025-12-08" },
-  { id: "ep-009", episodeNumber: 9, title: "Shattered Illusions", cover: "", duration: 202, status: "Processing", plays: 0, monetization: { type: "free" }, createdAt: "2025-12-09" },
-  { id: "ep-010", episodeNumber: 10, title: "Dawn of Reckoning", cover: "", duration: 278, status: "Published", plays: 38_600, monetization: { type: "paid", price: 50 }, createdAt: "2025-12-10" },
-];
-
 // ── Helpers ────────────────────────────────────────────
 function fmtDur(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -372,11 +358,7 @@ function EditRankingsModal({ episode, onClose }: { episode: Episode; onClose: ()
 
 // ── M2-04: Comment Details Modal ────────────────────────
 function EditCommentsModal({ episode, onClose }: { episode: Episode; onClose: () => void }) {
-  const MOCK_REPORTS = [
-    { id: "RPT-001", reporter: "user_jane92", reason: "Spam content", date: "2025-12-10", status: "Pending" },
-    { id: "RPT-002", reporter: "user_mark55", reason: "Offensive language", date: "2025-12-11", status: "Reviewed" },
-    { id: "RPT-003", reporter: "user_lisa07", reason: "Spoiler without warning", date: "2025-12-12", status: "Pending" },
-  ];
+  const reports: { id: string; reporter: string; reason: string; date: string; status: string }[] = [];
 
   const statusCls = (s: string) =>
     s === "Pending" ? "bg-amber-500/20 text-amber-400" : "bg-emerald-500/20 text-emerald-400";
@@ -444,7 +426,7 @@ function EditCommentsModal({ episode, onClose }: { episode: Episode; onClose: ()
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/50">
-                {MOCK_REPORTS.map((r) => (
+                {reports.map((r) => (
                   <tr key={r.id} className="hover:bg-white/[0.02]">
                     <td className="px-4 py-2.5 text-sm font-mono text-gray-300">{r.id}</td>
                     <td className="px-4 py-2.5 text-sm text-gray-300">{r.reporter}</td>
@@ -498,7 +480,7 @@ export default function EpisodesPage() {
         createdAt: ep.createdAt ? new Date(ep.createdAt).toISOString().slice(0, 10) : "",
       })));
     } catch {
-      setEpisodes(MOCK_EPISODES);
+      setEpisodes([]);
     }
   }, [dramaId]);
 

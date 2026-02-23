@@ -21,7 +21,7 @@ interface CoinPackage {
 type PaymentMethod = "stripe" | "paypal" | "apple_pay";
 
 export default function CoinsPage() {
-  const { user, token, updateUser } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const { toast } = useToast();
   const [packages, setPackages] = useState<CoinPackage[]>([]);
@@ -36,6 +36,10 @@ export default function CoinsPage() {
   useEffect(() => {
     if (!user) return;
     setBalance(user.coins || 0);
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
     const load = async () => {
       try {
         const res = await coinsApi.getPackages();
@@ -87,12 +91,10 @@ export default function CoinsPage() {
     try {
       const res = await coinsApi.redeem(token, redeemCode.trim());
       const d = res.data;
-      const newBal = balance + (d.coins || 0);
-      setBalance(newBal);
-      if (user) updateUser({ ...user, coins: newBal });
       toast(d.message || `Redeemed ${d.coins} coins!`, "success");
       setRedeemCode("");
       setShowRedeem(false);
+      await refreshUser();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An error occurred';
       toast(message || "Invalid or expired code", "error");

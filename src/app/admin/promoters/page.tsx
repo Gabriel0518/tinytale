@@ -36,20 +36,6 @@ interface Filters {
   dateTo: string;
 }
 
-// ── Mock Data ──────────────────────────────────────────────────────────────────
-const MOCK_PROMOTERS: Promoter[] = [
-  { id: "AP-0021", userId: "U-10021", userName: "Alice Wang", userEmail: "alice.wang@email.com", avatar: "AW", level: "Elite", totalPromoted: 342, effectiveUsers: 218, totalCommission: 8640, withdrawn: 7200, pending: 1440, status: "Active", joinDate: "2024-08-15" },
-  { id: "AP-0022", userId: "U-10022", userName: "Bob Chen", userEmail: "bob.chen@email.com", avatar: "BC", level: "Professional", totalPromoted: 185, effectiveUsers: 97, totalCommission: 3820, withdrawn: 3000, pending: 820, status: "Active", joinDate: "2024-09-02" },
-  { id: "AP-0023", userId: "U-10023", userName: "Carol Davis", userEmail: "carol.d@email.com", avatar: "CD", level: "Standard", totalPromoted: 46, effectiveUsers: 21, totalCommission: 630, withdrawn: 500, pending: 130, status: "Active", joinDate: "2024-10-11" },
-  { id: "AP-0024", userId: "U-10024", userName: "David Kim", userEmail: "david.kim@email.com", avatar: "DK", level: "Professional", totalPromoted: 210, effectiveUsers: 134, totalCommission: 5360, withdrawn: 4800, pending: 560, status: "Suspended", joinDate: "2024-07-20" },
-  { id: "AP-0025", userId: "U-10025", userName: "Eva Martinez", userEmail: "eva.m@email.com", avatar: "EM", level: "Elite", totalPromoted: 520, effectiveUsers: 389, totalCommission: 15560, withdrawn: 14000, pending: 1560, status: "Active", joinDate: "2024-06-05" },
-  { id: "AP-0026", userId: "U-10026", userName: "Frank Liu", userEmail: "frank.liu@email.com", avatar: "FL", level: "Standard", totalPromoted: 28, effectiveUsers: 9, totalCommission: 270, withdrawn: 200, pending: 70, status: "Active", joinDate: "2025-01-18" },
-  { id: "AP-0027", userId: "U-10027", userName: "Grace Park", userEmail: "grace.p@email.com", avatar: "GP", level: "Professional", totalPromoted: 156, effectiveUsers: 88, totalCommission: 4120, withdrawn: 3600, pending: 520, status: "Banned", joinDate: "2024-11-30" },
-  { id: "AP-0028", userId: "U-10028", userName: "Henry Zhao", userEmail: "henry.z@email.com", avatar: "HZ", level: "Elite", totalPromoted: 410, effectiveUsers: 295, totalCommission: 11800, withdrawn: 10200, pending: 1600, status: "Active", joinDate: "2024-05-12" },
-  { id: "AP-0029", userId: "U-10029", userName: "Iris Lee", userEmail: "iris.lee@email.com", avatar: "IL", level: "Standard", totalPromoted: 0, effectiveUsers: 0, totalCommission: 0, withdrawn: 0, pending: 0, status: "Applying", joinDate: "2025-02-18" },
-  { id: "AP-0030", userId: "U-10030", userName: "Jack Wilson", userEmail: "jack.w@email.com", avatar: "JW", level: "Standard", totalPromoted: 0, effectiveUsers: 0, totalCommission: 0, withdrawn: 0, pending: 0, status: "Applying", joinDate: "2025-02-20" },
-];
-
 const PAGE_SIZE = 10;
 const emptyFilters: Filters = { search: "", level: "All", status: "All", dateFrom: "", dateTo: "" };
 
@@ -119,7 +105,7 @@ export default function PromoterManagementPage() {
           );
         }
       } catch {
-        if (!cancelled) setPromoters(MOCK_PROMOTERS);
+        if (!cancelled) setPromoters([]);
       } finally {
         if (!cancelled) setLoading(false);
       }

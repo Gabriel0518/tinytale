@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { authApi } from './api';
 import { User } from '@/types';
 
@@ -8,11 +8,13 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, turnstileToken?: string) => Promise<void>;
   register: (email: string, password: string, nickname: string, referredBy?: string) => Promise<void>;
   googleLogin: (credential: string) => Promise<void>;
+  facebookLogin: (accessToken: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: User) => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -48,8 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const response = await authApi.login(email, password);
+  const login = async (email: string, password: string, turnstileToken?: string) => {
+    const response = await authApi.login(email, password, turnstileToken);
     if (response.success && response.data) {
       const { user: userData, token: authToken } = response.data;
       setUser(userData);
@@ -87,6 +89,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const facebookLogin = async (accessToken: string) => {
+    const response = await authApi.facebookLogin(accessToken);
+    if (response.success && response.data) {
+      const { user: userData, token: authToken } = response.data;
+      setUser(userData);
+      setToken(authToken);
+      localStorage.setItem('token', authToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+    } else {
+      throw new Error(response.error?.message || 'Facebook login failed');
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setToken(null);
@@ -99,8 +114,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
+  const refreshUser = useCallback(async () => {
+    const currentToken = token || localStorage.getItem('token');
+    if (!currentToken) return;
+    try {
+      const res = await authApi.getMe(currentToken);
+      if (res.success && res.data) {
+        setUser(res.data);
+        localStorage.setItem('user', JSON.stringify(res.data));
+      }
+    } catch {
+      // Silently fail
+    }
+  }, [token]);
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, googleLogin, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, googleLogin, facebookLogin, logout, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

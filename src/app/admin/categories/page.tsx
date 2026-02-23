@@ -29,28 +29,6 @@ interface CategoryFormData {
   weight: number;
 }
 
-// ── Mock Data ──────────────────────────────────────────
-const MOCK_CATEGORIES: Category[] = [
-  { id: "g1", name: "Romance", icon: "heart", iconColor: "#f43f5e", type: "genres", countries: [], linkedDramas: 128, status: "Active", weight: 10 },
-  { id: "g2", name: "Thriller", icon: "zap", iconColor: "#f59e0b", type: "genres", countries: [], linkedDramas: 85, status: "Active", weight: 9 },
-  { id: "g3", name: "Comedy", icon: "smile", iconColor: "#22c55e", type: "genres", countries: [], linkedDramas: 64, status: "Active", weight: 8 },
-  { id: "g4", name: "Fantasy", icon: "star", iconColor: "#a855f7", type: "genres", countries: [], linkedDramas: 42, status: "Active", weight: 7 },
-  { id: "g5", name: "Horror", icon: "skull", iconColor: "#64748b", type: "genres", countries: [], linkedDramas: 0, status: "Disabled", weight: 3 },
-  { id: "g6", name: "Action", icon: "flame", iconColor: "#ef4444", type: "genres", countries: [], linkedDramas: 56, status: "Active", weight: 6 },
-  { id: "g7", name: "Drama", icon: "theater", iconColor: "#3b82f6", type: "genres", countries: [], linkedDramas: 91, status: "Active", weight: 5 },
-  { id: "r1", name: "North America", icon: "globe", iconColor: "#3b82f6", type: "regions", countries: ["United States", "Canada", "Mexico"], linkedDramas: 210, status: "Active", weight: 10 },
-  { id: "r2", name: "Southeast Asia", icon: "globe", iconColor: "#10b981", type: "regions", countries: ["Thailand", "Vietnam", "Philippines", "Indonesia", "Malaysia", "Singapore"], linkedDramas: 145, status: "Active", weight: 9 },
-  { id: "r3", name: "Europe", icon: "globe", iconColor: "#8b5cf6", type: "regions", countries: ["United Kingdom", "Germany", "France", "Spain", "Italy", "Netherlands"], linkedDramas: 78, status: "Active", weight: 8 },
-  { id: "r4", name: "Latin America", icon: "globe", iconColor: "#f59e0b", type: "regions", countries: ["Brazil", "Argentina", "Colombia", "Chile", "Peru"], linkedDramas: 52, status: "Active", weight: 7 },
-  { id: "r5", name: "Middle East", icon: "globe", iconColor: "#ef4444", type: "regions", countries: ["Saudi Arabia", "UAE", "Turkey", "Egypt"], linkedDramas: 0, status: "Disabled", weight: 2 },
-  { id: "t1", name: "Trending", icon: "trending", iconColor: "#f43f5e", type: "tags", countries: [], linkedDramas: 35, status: "Active", weight: 10 },
-  { id: "t2", name: "New Release", icon: "sparkle", iconColor: "#3b82f6", type: "tags", countries: [], linkedDramas: 48, status: "Active", weight: 9 },
-  { id: "t3", name: "Editor's Pick", icon: "award", iconColor: "#f59e0b", type: "tags", countries: [], linkedDramas: 20, status: "Active", weight: 8 },
-  { id: "t4", name: "Binge-worthy", icon: "play", iconColor: "#22c55e", type: "tags", countries: [], linkedDramas: 62, status: "Active", weight: 7 },
-  { id: "t5", name: "Classic", icon: "bookmark", iconColor: "#a855f7", type: "tags", countries: [], linkedDramas: 30, status: "Active", weight: 6 },
-  { id: "t6", name: "Archived", icon: "archive", iconColor: "#64748b", type: "tags", countries: [], linkedDramas: 0, status: "Disabled", weight: 1 },
-];
-
 const TABS: { key: TabKey; label: string }[] = [
   { key: "genres", label: "Genres" },
   { key: "regions", label: "Regions" },
@@ -237,7 +215,7 @@ export default function AdminCategoriesPage() {
         weight: c.weight || c.sortOrder || 0,
       })));
     } catch {
-      setCategories(MOCK_CATEGORIES);
+      setCategories([]);
     } finally {
       setLoading(false);
     }

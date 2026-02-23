@@ -60,51 +60,21 @@ interface PromotionLink {
   conversions: number;
 }
 
-// ─── Mock Data ───────────────────────────────────────────
-const MOCK_PROMOTER: PromoterData = {
-  id: "#88293",
-  name: "Alex Johnson",
-  initials: "AJ",
-  email: "alex@example.com",
-  joinedDate: "Oct 2022",
-  level: "Gold Tier",
-  commissionRate: 10,
-  totalEarned: 45231.50,
-  earnedChange: "+12.3%",
-  totalReferrals: 1248,
-  referralsChange: "+8 this week",
-  status: "Active",
+// ─── Default empty promoter ───────────────────────────────────────────
+const EMPTY_PROMOTER: PromoterData = {
+  id: "",
+  name: "",
+  initials: "",
+  email: "",
+  joinedDate: "",
+  level: "",
+  commissionRate: 0,
+  totalEarned: 0,
+  earnedChange: "",
+  totalReferrals: 0,
+  referralsChange: "",
+  status: "",
 };
-
-const MOCK_PROMOTED_USERS: PromotedUser[] = [
-  { id: "U-10021", name: "Emma Wilson", avatarInitials: "EW", regDate: "Jan 15, 2025", firstRecharge: true, rechargeAmount: 10.00, totalVolume: 2450.00, commission: 245.00 },
-  { id: "U-10034", name: "James Chen", avatarInitials: "JC", regDate: "Jan 12, 2025", firstRecharge: true, rechargeAmount: 25.00, totalVolume: 1820.00, commission: 182.00 },
-  { id: "U-10045", name: "Sofia Martinez", avatarInitials: "SM", regDate: "Jan 10, 2025", firstRecharge: false, rechargeAmount: null, totalVolume: 0, commission: 0 },
-  { id: "U-10052", name: "Liam O'Brien", avatarInitials: "LO", regDate: "Jan 8, 2025", firstRecharge: true, rechargeAmount: 50.00, totalVolume: 5200.00, commission: 520.00 },
-  { id: "U-10068", name: "Mia Tanaka", avatarInitials: "MT", regDate: "Jan 5, 2025", firstRecharge: true, rechargeAmount: 10.00, totalVolume: 980.00, commission: 98.00 },
-  { id: "U-10079", name: "Noah Davis", avatarInitials: "ND", regDate: "Jan 2, 2025", firstRecharge: false, rechargeAmount: null, totalVolume: 0, commission: 0 },
-];
-
-const MOCK_COMMISSIONS: CommissionRecord[] = [
-  { date: "Jan 15, 2025", sourceUser: "Emma Wilson", type: "Recharge", amount: 245.00, status: "Paid" },
-  { date: "Jan 14, 2025", sourceUser: "James Chen", type: "Subscription", amount: 182.00, status: "Paid" },
-  { date: "Jan 12, 2025", sourceUser: "Liam O'Brien", type: "Recharge", amount: 520.00, status: "Pending" },
-  { date: "Jan 10, 2025", sourceUser: "Mia Tanaka", type: "Recharge", amount: 98.00, status: "Paid" },
-  { date: "Jan 8, 2025", sourceUser: "Emma Wilson", type: "Subscription", amount: 120.00, status: "Pending" },
-];
-
-const MOCK_WITHDRAWALS: WithdrawalRecord[] = [
-  { requestId: "WD-20250110", amount: 2500.00, method: "PayPal", status: "Completed", date: "Jan 10, 2025" },
-  { requestId: "WD-20250105", amount: 1800.00, method: "Bank Transfer", status: "Completed", date: "Jan 5, 2025" },
-  { requestId: "WD-20250103", amount: 950.00, method: "PayPal", status: "Processing", date: "Jan 3, 2025" },
-  { requestId: "WD-20241228", amount: 500.00, method: "Crypto (USDT)", status: "Rejected", date: "Dec 28, 2024" },
-];
-
-const MOCK_LINKS: PromotionLink[] = [
-  { code: "ALEX2025", url: "https://tinytale.com/r/ALEX2025", clicks: 3420, conversions: 512 },
-  { code: "ALEX-VIP", url: "https://tinytale.com/r/ALEX-VIP", clicks: 1860, conversions: 298 },
-  { code: "ALEX-WINTER", url: "https://tinytale.com/r/ALEX-WINTER", clicks: 940, conversions: 138 },
-];
 
 // ═══════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -121,11 +91,11 @@ export default function PromoterDetailPage() {
   const [adjustModalOpen, setAdjustModalOpen] = useState(false);
   const [banModalOpen, setBanModalOpen] = useState(false);
 
-  const [promoter, setPromoter] = useState<PromoterData>(MOCK_PROMOTER);
-  const [promotedUsers, setPromotedUsers] = useState<PromotedUser[]>(MOCK_PROMOTED_USERS);
-  const [commissions, setCommissions] = useState<CommissionRecord[]>(MOCK_COMMISSIONS);
-  const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>(MOCK_WITHDRAWALS);
-  const [links, setLinks] = useState<PromotionLink[]>(MOCK_LINKS);
+  const [promoter, setPromoter] = useState<PromoterData>(EMPTY_PROMOTER);
+  const [promotedUsers, setPromotedUsers] = useState<PromotedUser[]>([]);
+  const [commissions, setCommissions] = useState<CommissionRecord[]>([]);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalRecord[]>([]);
+  const [links, setLinks] = useState<PromotionLink[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -135,34 +105,34 @@ export default function PromoterDetailPage() {
           const raw = res.data.promoter || res.data;
           if (raw && (raw._id || raw.id)) {
             const user = raw.user || (typeof raw.userId === 'object' ? raw.userId : null);
-            const name = user?.nickname ?? raw.name ?? MOCK_PROMOTER.name;
+            const name = user?.nickname ?? raw.name ?? "Unknown";
             setPromoter({
-              id: raw._id ?? raw.id ?? MOCK_PROMOTER.id,
+              id: raw._id ?? raw.id ?? "",
               name,
               initials: name.slice(0, 2).toUpperCase(),
-              email: user?.email ?? raw.email ?? MOCK_PROMOTER.email,
-              joinedDate: raw.createdAt ?? raw.joinedDate ?? MOCK_PROMOTER.joinedDate,
+              email: user?.email ?? raw.email ?? "",
+              joinedDate: raw.createdAt ?? raw.joinedDate ?? "",
               level: typeof raw.level === 'number'
                 ? (raw.level >= 3 ? "Elite" : raw.level >= 2 ? "Professional" : "Standard")
-                : (raw.level ?? MOCK_PROMOTER.level),
-              commissionRate: raw.commissionRate ?? MOCK_PROMOTER.commissionRate,
-              totalEarned: raw.totalRevenue ?? raw.totalEarned ?? MOCK_PROMOTER.totalEarned,
-              earnedChange: raw.earnedChange ?? MOCK_PROMOTER.earnedChange,
-              totalReferrals: raw.referredUsers ?? raw.totalReferrals ?? MOCK_PROMOTER.totalReferrals,
-              referralsChange: raw.referralsChange ?? MOCK_PROMOTER.referralsChange,
+                : (raw.level ?? "Standard"),
+              commissionRate: raw.commissionRate ?? 0,
+              totalEarned: raw.totalRevenue ?? raw.totalEarned ?? 0,
+              earnedChange: raw.earnedChange ?? "",
+              totalReferrals: raw.referredUsers ?? raw.totalReferrals ?? 0,
+              referralsChange: raw.referralsChange ?? "",
               status: raw.applicationStatus === 'pending' ? 'Applying'
                 : raw.status === 'banned' ? 'Banned'
                 : raw.status === 'suspended' ? 'Suspended'
                 : 'Active',
             });
           }
-          setPromotedUsers(res.data.promotedUsers || MOCK_PROMOTED_USERS);
-          setCommissions(res.data.commissions || MOCK_COMMISSIONS);
-          setWithdrawals(res.data.withdrawals || MOCK_WITHDRAWALS);
-          setLinks(res.data.links || MOCK_LINKS);
+          setPromotedUsers(res.data.promotedUsers || []);
+          setCommissions(res.data.commissions || []);
+          setWithdrawals(res.data.withdrawals || []);
+          setLinks(res.data.links || []);
         }
       } catch {
-        // API not available — keep mock data
+        // API not available — keep empty state
       } finally {
         setLoading(false);
       }

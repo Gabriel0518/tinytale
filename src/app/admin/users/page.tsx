@@ -21,20 +21,6 @@ interface User {
   regMethod: "Email" | "Google" | "Apple";
 }
 
-// --- Mock Data ---
-const mockUsers: User[] = [
-  { id: "#89021", name: "Sarah Jenkins", avatar: "https://i.pravatar.cc/40?u=user1", email: "sarah.jenkins@gmail.com", maskedEmail: "s***@gmail.com", status: "VIP", coins: 8200, recharge: 299.0, regTime: "2024-01-15", lastLogin: "2025-02-18 14:32", tag: "Active", regMethod: "Email" },
-  { id: "#89022", name: "Michael Chen", avatar: "https://i.pravatar.cc/40?u=user2", email: "michael.chen@outlook.com", maskedEmail: "m***@outlook.com", status: "VIP", coins: 5400, recharge: 149.0, regTime: "2024-02-20", lastLogin: "2025-02-17 09:15", tag: "Active", regMethod: "Google" },
-  { id: "#89023", name: "BarkleyBill", avatar: "https://i.pravatar.cc/40?u=user3", email: "barkley.bill@yahoo.com", maskedEmail: "b***@yahoo.com", status: "Standard", coins: 120, recharge: 0.0, regTime: "2024-03-10", lastLogin: "2025-02-16 22:45", tag: "Active", regMethod: "Apple" },
-  { id: "#89024", name: "Emma Wilson", avatar: "https://i.pravatar.cc/40?u=user4", email: "emma.wilson@gmail.com", maskedEmail: "e***@gmail.com", status: "VIP", coins: 3100, recharge: 99.0, regTime: "2024-04-05", lastLogin: "2025-02-18 11:20", tag: "Active", regMethod: "Email" },
-  { id: "#89025", name: "James Smith", avatar: "https://i.pravatar.cc/40?u=user5", email: "james.smith@gmail.com", maskedEmail: "j***@gmail.com", status: "Standard", coins: 0, recharge: 0.0, regTime: "2024-05-22", lastLogin: "2025-01-30 08:00", tag: "Banned", regMethod: "Google" },
-  { id: "#89026", name: "Olivia Brown", avatar: "https://i.pravatar.cc/40?u=user6", email: "olivia.brown@icloud.com", maskedEmail: "o***@icloud.com", status: "VIP", coins: 6750, recharge: 199.0, regTime: "2024-06-18", lastLogin: "2025-02-18 16:55", tag: "Active", regMethod: "Apple" },
-  { id: "#89027", name: "Liam Garcia", avatar: "https://i.pravatar.cc/40?u=user7", email: "liam.garcia@gmail.com", maskedEmail: "l***@gmail.com", status: "Standard", coins: 450, recharge: 19.0, regTime: "2024-07-30", lastLogin: "2025-02-15 13:10", tag: "Active", regMethod: "Email" },
-  { id: "#89028", name: "Sophia Martinez", avatar: "https://i.pravatar.cc/40?u=user8", email: "sophia.m@hotmail.com", maskedEmail: "s***@hotmail.com", status: "Standard", coins: 80, recharge: 0.0, regTime: "2024-09-12", lastLogin: "2025-02-10 19:30", tag: "Active", regMethod: "Google" },
-  { id: "#89029", name: "Noah Davis", avatar: "https://i.pravatar.cc/40?u=user9", email: "noah.davis@gmail.com", maskedEmail: "n***@gmail.com", status: "VIP", coins: 4200, recharge: 129.0, regTime: "2024-10-01", lastLogin: "2025-02-18 07:45", tag: "Active", regMethod: "Email" },
-  { id: "#89030", name: "Ava Thompson", avatar: "https://i.pravatar.cc/40?u=user10", email: "ava.t@gmail.com", maskedEmail: "a***@gmail.com", status: "Standard", coins: 20, recharge: 0.0, regTime: "2025-01-05", lastLogin: "2025-01-20 10:00", tag: "Banned", regMethod: "Apple" },
-];
-
 const PAGE_SIZE = 10;
 
 export default function AdminUsersPage() {

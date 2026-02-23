@@ -2,6 +2,11 @@ import type { StreamPlaybackInfo } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
 
+// Cloudflare Turnstile site key (get from Cloudflare Dashboard)
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
+
+export { API_URL, TURNSTILE_SITE_KEY };
+
 interface FetchOptions extends RequestInit {
   token?: string;
 }
@@ -88,14 +93,17 @@ export const api = new ApiClient(API_URL);
 
 // Auth API
 export const authApi = {
-  login: (email: string, password: string) =>
-    api.post('/api/auth/login', { email, password }),
+  login: (email: string, password: string, turnstileToken?: string) =>
+    api.post('/api/auth/login', { email, password, turnstileToken }),
 
   register: (email: string, password: string, nickname: string, referredBy?: string) =>
     api.post('/api/auth/register', { email, password, nickname, referredBy }),
 
   googleLogin: (credential: string) =>
     api.post('/api/auth/google', { credential }),
+
+  facebookLogin: (accessToken: string) =>
+    api.post('/api/auth/facebook', { accessToken }),
 
   getMe: (token: string) =>
     api.get('/api/auth/me', { token }),
@@ -181,6 +189,9 @@ export const userApi = {
   checkUnlocked: (token: string, episodeId: string) =>
     api.get(`/api/user/episodes/${episodeId}/unlocked`, { token }),
 
+  getUnlockedEpisodes: (token: string, dramaId: string) =>
+    api.get(`/api/user/dramas/${dramaId}/unlocked-episodes`, { token }),
+
   getNotifications: (token: string) =>
     api.get('/api/user/notifications', { token }),
 
@@ -222,6 +233,14 @@ export const coinsApi = {
 
   unlock: (token: string, episodeId: string) =>
     api.post('/api/coins/unlock', { episodeId }, { token }),
+
+  unlockAll: (token: string, dramaId: string) =>
+    api.post('/api/coins/unlock-all', { dramaId }, { token }),
+
+  getTransactions: (token: string, params?: { page?: number; limit?: number }) => {
+    const query = params ? new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])).toString() : '';
+    return api.get(`/api/coins/transactions${query ? `?${query}` : ''}`, { token });
+  },
 
   getPackages: () =>
     api.get('/api/payment/packages'),

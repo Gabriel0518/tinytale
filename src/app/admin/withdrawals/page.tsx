@@ -22,18 +22,6 @@ interface Withdrawal {
   requestTime: string;
 }
 
-// ── Mock Data ──────────────────────────────────────────────────────────────────
-const MOCK_DATA: Withdrawal[] = [
-  { id: "WRD-9823", promoter: { name: "Alice Wang", avatar: "AW", id: "P-001", level: "Professional", totalCommission: 8640, availableBalance: 1440 }, amount: 520.00, method: "PayPal", account: "ali****@gmail.com", bankName: "PayPal", bankAccountName: "Alice Wang", routingNumber: "", bankAddress: "", status: "Pending", requestTime: "2026-02-18 10:30" },
-  { id: "WRD-9818", promoter: { name: "Bob Chen", avatar: "BC", id: "P-002", level: "Elite", totalCommission: 15000, availableBalance: 3200 }, amount: 1200.00, method: "Bank Transfer", account: "****7890", bankName: "Chase Bank", bankAccountName: "Bob Chen", routingNumber: "021000021", bankAddress: "New York, NY", status: "Processing", requestTime: "2026-02-17 08:15" },
-  { id: "WRD-9812", promoter: { name: "Carol Li", avatar: "CL", id: "P-003", level: "Standard", totalCommission: 2100, availableBalance: 350 }, amount: 350.00, method: "PayPal", account: "car****@yahoo.com", bankName: "PayPal", bankAccountName: "Carol Li", routingNumber: "", bankAddress: "", status: "Paid", requestTime: "2026-02-16 14:20" },
-  { id: "WRD-9807", promoter: { name: "David Kim", avatar: "DK", id: "P-004", level: "Professional", totalCommission: 5360, availableBalance: 560 }, amount: 800.00, method: "Bank Transfer", account: "****4321", bankName: "Bank of America", bankAccountName: "David Kim", routingNumber: "026009593", bankAddress: "Los Angeles, CA", status: "Rejected", requestTime: "2026-02-15 16:45" },
-  { id: "WRD-9801", promoter: { name: "Eva Zhang", avatar: "EZ", id: "P-005", level: "Elite", totalCommission: 22000, availableBalance: 5960 }, amount: 2960.00, method: "PayPal", account: "eva****@outlook.com", bankName: "PayPal", bankAccountName: "Eva Zhang", routingNumber: "", bankAddress: "", status: "Pending", requestTime: "2026-02-14 09:00" },
-  { id: "WRD-9795", promoter: { name: "Frank Liu", avatar: "FL", id: "P-006", level: "Professional", totalCommission: 9800, availableBalance: 1300 }, amount: 4500.00, method: "Bank Transfer", account: "****5678", bankName: "Wells Fargo", bankAccountName: "Frank Liu", routingNumber: "121000248", bankAddress: "San Francisco, CA", status: "Paid", requestTime: "2026-02-13 11:30" },
-  { id: "WRD-9788", promoter: { name: "Grace Park", avatar: "GP", id: "P-007", level: "Standard", totalCommission: 4120, availableBalance: 1120 }, amount: 1120.00, method: "PayPal", account: "gra****@gmail.com", bankName: "PayPal", bankAccountName: "Grace Park", routingNumber: "", bankAddress: "", status: "Approved", requestTime: "2026-02-12 15:10" },
-  { id: "WRD-9780", promoter: { name: "Henry Wu", avatar: "HW", id: "P-008", level: "Standard", totalCommission: 1800, availableBalance: 680 }, amount: 680.00, method: "Bank Transfer", account: "****9012", bankName: "Citibank", bankAccountName: "Henry Wu", routingNumber: "021000089", bankAddress: "Chicago, IL", status: "Pending", requestTime: "2026-02-11 07:45" },
-];
-
 // ── Status badge colours ───────────────────────────────────────────────────────
 const statusBadge: Record<Status, string> = {
   Pending: "bg-yellow-500/20 text-yellow-400",
@@ -107,7 +95,7 @@ export default function WithdrawalsPage() {
           );
         }
       } catch {
-        if (!cancelled) setWithdrawals(MOCK_DATA);
+        if (!cancelled) setWithdrawals([]);
       } finally {
         if (!cancelled) setLoading(false);
       }

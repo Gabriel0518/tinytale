@@ -101,7 +101,7 @@ function PlayerInner({
   }, [actions]);
 
   // Determine video source: prefer stream, fallback to direct URL
-  const videoUrl = activeEpisode?.isFree ? (activeEpisode?.videoUrl || undefined) : undefined;
+  const videoUrl = activeEpisode?.videoUrl || undefined;
 
   return (
     <>
@@ -147,7 +147,7 @@ function DramaDetailContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, token, updateUser } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const { toast } = useToast();
   const dramaId = params.id as string;
   const playerRef = useRef<CloudflarePlayerHandle>(null) as React.RefObject<CloudflarePlayerHandle>;
@@ -165,6 +165,8 @@ function DramaDetailContent() {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState("");
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [unlockingAll, setUnlockingAll] = useState(false);
+  const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
 
   // Fetch drama data
   useEffect(() => {
@@ -216,6 +218,21 @@ function DramaDetailContent() {
     checkFavorite();
   }, [token, dramaId]);
 
+  // Fetch unlocked episodes for this drama
+  useEffect(() => {
+    if (!token || episodes.length === 0) return;
+    const fetchUnlocked = async () => {
+      try {
+        const res = await userApi.getUnlockedEpisodes(token, dramaId);
+        const ids: string[] = res.data || [];
+        setUnlockedEpisodeIds(new Set(ids));
+      } catch {
+        // silently ignore
+      }
+    };
+    fetchUnlocked();
+  }, [token, dramaId, episodes.length]);
+
   // Fetch stream info when active episode changes
   useEffect(() => {
     if (!activeEpisode) {
@@ -223,7 +240,7 @@ function DramaDetailContent() {
       return;
     }
     // Only fetch stream for free/unlocked episodes
-    if (!activeEpisode.isFree) {
+    if (!activeEpisode.isFree && !unlockedEpisodeIds.has(activeEpisode._id)) {
       setStreamInfo(null);
       return;
     }
@@ -236,10 +253,10 @@ function DramaDetailContent() {
         if (!cancelled) setStreamInfo(null);
       });
     return () => { cancelled = true; };
-  }, [activeEpisode?._id, activeEpisode?.isFree, token]);
+  }, [activeEpisode?._id, activeEpisode?.isFree, token, unlockedEpisodeIds]);
 
   const handleEpisodeClick = useCallback(async (episode: Episode) => {
-    if (!episode.isFree) {
+    if (!episode.isFree && !unlockedEpisodeIds.has(episode._id)) {
       // Auth check for unlock (P1-18)
       if (!token) {
         toast("Please sign in to unlock episodes", "info");
@@ -255,17 +272,67 @@ function DramaDetailContent() {
         const res = await coinsApi.unlock(token, episode._id);
         const unlockData = res?.data || res;
         toast("Episode unlocked!", "success");
-        // Update user's coin balance in auth context
-        if (user && unlockData?.balance !== undefined) {
-          updateUser({ ...user, coins: unlockData.balance });
-        }
+        await refreshUser();
+        setUnlockedEpisodeIds(prev => new Set(prev).add(episode._id));
       } catch (err: unknown) {
         toast(err instanceof Error ? err.message : "Failed to unlock episode", "error");
         return;
       }
     }
     setActiveEpisode(episode);
-  }, [token, toast, router, user, updateUser]);
+  }, [token, toast, router, user, refreshUser, unlockedEpisodeIds]);
+
+  // Unlock all paid episodes
+  const lockedEpisodes = episodes.filter(ep => !ep.isFree && ep.unlockPrice > 0 && !unlockedEpisodeIds.has(ep._id));
+  const totalUnlockCost = lockedEpisodes.reduce((sum, ep) => sum + ep.unlockPrice, 0);
+
+  const handleUnlockAll = useCallback(async () => {
+    if (!token) {
+      toast("Please sign in to unlock episodes", "info");
+      router.push(`/auth/login?returnUrl=${encodeURIComponent(window.location.pathname)}`);
+      return;
+    }
+    if (lockedEpisodes.length === 0) {
+      toast("All episodes are already unlocked!", "info");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Unlock all ${lockedEpisodes.length} paid episodes for ${totalUnlockCost} coins?`
+    );
+    if (!confirmed) return;
+
+    setUnlockingAll(true);
+    try {
+      const res = await coinsApi.unlockAll(token, dramaId);
+      const data = res?.data || res;
+      toast(`${data.unlockedCount} episodes unlocked!`, "success");
+      await refreshUser();
+      // Mark all paid episodes as unlocked
+      setUnlockedEpisodeIds(prev => {
+        const next = new Set(prev);
+        episodes.filter(ep => !ep.isFree).forEach(ep => next.add(ep._id));
+        return next;
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to unlock episodes";
+      if (message.includes("Insufficient")) {
+        toast("Insufficient coins. Please recharge first.", "error");
+      } else if (message.includes("already unlocked")) {
+        toast("All episodes are already unlocked!", "info");
+        // Mark all as unlocked since server says so
+        setUnlockedEpisodeIds(prev => {
+          const next = new Set(prev);
+          episodes.filter(ep => !ep.isFree).forEach(ep => next.add(ep._id));
+          return next;
+        });
+      } else {
+        toast(message, "error");
+      }
+    } finally {
+      setUnlockingAll(false);
+    }
+  }, [token, dramaId, lockedEpisodes.length, totalUnlockCost, toast, router, refreshUser]);
 
   // Fix favorite toggle logic (P0-05) + auth check (P1-18)
   const toggleFavorite = async () => {
@@ -420,6 +487,13 @@ function DramaDetailContent() {
                       <div className="flex-shrink-0">
                         {ep.isFree ? (
                           <span className="rounded bg-green-600/80 px-1.5 py-0.5 text-[10px] font-medium text-white">FREE</span>
+                        ) : unlockedEpisodeIds.has(ep._id) ? (
+                          <span className="rounded bg-green-600/80 px-1.5 py-0.5 text-[10px] font-medium text-white flex items-center gap-0.5">
+                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                            </svg>
+                            Unlocked
+                          </span>
                         ) : ep.unlockPrice > 0 ? (
                           <span className="rounded bg-yellow-600/80 px-1.5 py-0.5 text-[10px] font-medium text-white">{ep.unlockPrice} coins</span>
                         ) : (
@@ -429,13 +503,31 @@ function DramaDetailContent() {
                     </button>
                   ))}
                 </div>
-                <button
-                  disabled
-                  title="Coming soon"
-                  className="mt-3 w-full rounded-lg bg-gray-700 py-2.5 text-sm font-medium text-gray-400 cursor-not-allowed"
-                >
-                  Unlock All Episodes (Coming Soon)
-                </button>
+                {lockedEpisodes.length > 0 ? (
+                  <button
+                    onClick={handleUnlockAll}
+                    disabled={unlockingAll}
+                    className="mt-3 w-full rounded-lg bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 py-2.5 text-sm font-medium text-black transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {unlockingAll ? (
+                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                        </svg>
+                        Unlock All ({totalUnlockCost} coins)
+                      </>
+                    )}
+                  </button>
+                ) : episodes.some(ep => !ep.isFree && unlockedEpisodeIds.has(ep._id)) ? (
+                  <div className="mt-3 w-full rounded-lg bg-green-600/20 border border-green-600/30 py-2.5 text-sm font-medium text-green-400 flex items-center justify-center gap-2">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    All Episodes Unlocked
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

@@ -6,11 +6,12 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { useGoogleLogin } from "@react-oauth/google";
+import { useFacebookLogin } from "@/lib/facebookSdk";
 import { useToast } from "@/components/ui/Toast";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register, googleLogin } = useAuth();
+  const { register, googleLogin, facebookLogin } = useAuth();
   const { toast } = useToast();
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
@@ -73,6 +74,25 @@ export default function RegisterPage() {
       setError("Google sign up was cancelled or failed.");
     },
   });
+
+  const handleFacebookSignup = useFacebookLogin(
+    async (accessToken) => {
+      setIsLoading(true);
+      setError("");
+      try {
+        await facebookLogin(accessToken);
+        router.push("/user/profile");
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "An error occurred";
+        setError(message || "Facebook sign up failed. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    (error) => {
+      setError(error);
+    }
+  );
 
   return (
     <AuthLayout
@@ -256,7 +276,7 @@ export default function RegisterPage() {
           </button>
           <button
             type="button"
-            onClick={() => toast('Facebook signup coming soon!', 'info')}
+            onClick={() => handleFacebookSignup()}
             className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#1a1c23] py-3 text-sm font-medium text-white transition hover:bg-white/5"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="#1877F2">

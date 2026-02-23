@@ -1,32 +1,108 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { useGoogleLogin } from "@react-oauth/google";
+import { useFacebookLogin } from "@/lib/facebookSdk";
 import { useToast } from "@/components/ui/Toast";
+import { TURNSTILE_SITE_KEY } from "@/lib/api";
+
+// Type declaration for Turnstile
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: HTMLElement, options: {
+        sitekey: string;
+        callback?: (token: string) => void;
+        'expired-callback'?: () => void;
+        'error-callback'?: () => void;
+      }) => string;
+      reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, googleLogin } = useAuth();
+  const { login, googleLogin, facebookLogin } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
+  // Load Turnstile script and render widget
+  useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return;
+
+    const renderWidget = () => {
+      if (!window.turnstile || !turnstileRef.current) return;
+      // Remove existing widget if any
+      if (widgetIdRef.current) {
+        window.turnstile.remove(widgetIdRef.current);
+      }
+      widgetIdRef.current = window.turnstile.render(turnstileRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: (token: string) => setTurnstileToken(token),
+        'expired-callback': () => setTurnstileToken(''),
+        'error-callback': () => setTurnstileToken(''),
+      });
+    };
+
+    // If script already loaded
+    if (window.turnstile) {
+      renderWidget();
+      return;
+    }
+
+    // Load script
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.async = true;
+    script.onload = () => renderWidget();
+    document.head.appendChild(script);
+
+    return () => {
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.remove(widgetIdRef.current);
+        widgetIdRef.current = null;
+      }
+    };
+  }, []);
+
+  const resetTurnstile = useCallback(() => {
+    if (widgetIdRef.current && window.turnstile) {
+      window.turnstile.reset(widgetIdRef.current);
+    }
+    setTurnstileToken('');
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
+    // Check Turnstile if configured
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError("Please complete the security verification.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      await login(email, password);
+      await login(email, password, turnstileToken);
       router.push("/user/profile");
     } catch (err: unknown) {
+      // Reset Turnstile on error
+      resetTurnstile();
       const message = err instanceof Error ? err.message : 'An error occurred';
       setError(message || "Login failed. Please try again.");
     } finally {
@@ -53,9 +129,24 @@ export default function LoginPage() {
     },
   });
 
-  const handleFacebookLogin = () => {
-    toast("Facebook login coming soon!", "info");
-  };
+  const handleFacebookLogin = useFacebookLogin(
+    async (accessToken) => {
+      setIsLoading(true);
+      setError("");
+      try {
+        await facebookLogin(accessToken);
+        router.push("/user/profile");
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "An error occurred";
+        setError(message || "Facebook login failed. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    (error) => {
+      setError(error);
+    }
+  );
 
   return (
     <AuthLayout
@@ -163,6 +254,13 @@ export default function LoginPage() {
               Forgot password?
             </Link>
           </div>
+
+          {/* Cloudflare Turnstile */}
+          {TURNSTILE_SITE_KEY && (
+            <div className="flex justify-center">
+              <div ref={turnstileRef} />
+            </div>
+          )}
 
           {/* Submit Button */}
           <button
