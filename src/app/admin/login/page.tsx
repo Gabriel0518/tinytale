@@ -3,7 +3,7 @@
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-const ADMIN_API_URL = process.env.NEXT_PUBLIC_ADMIN_API_URL || "http://localhost:7002";
+const ADMIN_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7002";
 
 export default function AdminLoginPage() {
   const router = useRouter();
