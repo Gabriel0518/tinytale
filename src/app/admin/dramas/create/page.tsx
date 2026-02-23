@@ -805,6 +805,8 @@ function StepVideoSubtitles({
   const [autoSplitLoading, setAutoSplitLoading] = useState(false);
   const [splitProgress, setSplitProgress] = useState<{ total: number; ready: number } | null>(null);
   const [sourceVideoUid, setSourceVideoUid] = useState<string | null>(null);
+  const [uploadedVideoInfo, setUploadedVideoInfo] = useState<{ name: string; size: string } | null>(null);
+  const pendingFileInfo = useRef<{ name: string; size: number } | null>(null);
 
   // Simulate sequential upload for episode mode
   useEffect(() => {
@@ -850,6 +852,14 @@ function StepVideoSubtitles({
   const handleAutoSplitUpload = async (videoUid: string) => {
     setSourceVideoUid(videoUid);
     setAutoSplitLoading(true);
+
+    // Show success banner with captured file info
+    if (pendingFileInfo.current) {
+      setUploadedVideoInfo({
+        name: pendingFileInfo.current.name,
+        size: formatFileSize(pendingFileInfo.current.size),
+      });
+    }
 
     try {
       const res = await adminApi.autoSplit({
@@ -953,6 +963,12 @@ function StepVideoSubtitles({
     setDragOverIdx(null);
   };
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
   const readyCount = form.episodes.filter((e) => e.status === "ready").length;
 
   return (
@@ -1039,9 +1055,32 @@ function StepVideoSubtitles({
           </div>
         )}
 
-        {/* Upload Area */}
-        {uploadMode === "full" && !autoSplitLoading && form.episodes.length === 0 && (
-          <VideoUploader onUploadComplete={handleAutoSplitUpload} maxSizeMB={10240} />
+        {/* Upload Area - use CSS hidden instead of unmount to keep TUS upload alive */}
+        {uploadMode === "full" && (
+          <div className={autoSplitLoading || uploadedVideoInfo || form.episodes.length > 0 ? 'hidden' : ''}>
+            <VideoUploader
+              onUploadComplete={handleAutoSplitUpload}
+              onFileSelected={(file) => { pendingFileInfo.current = { name: file.name, size: file.size }; }}
+              maxSizeMB={10240}
+            />
+          </div>
+        )}
+
+        {/* Upload Success Banner */}
+        {uploadMode === "full" && uploadedVideoInfo && (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+                <svg className="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-emerald-300">视频上传完成</p>
+                <p className="truncate text-xs text-zinc-400">{uploadedVideoInfo.name} ({uploadedVideoInfo.size})</p>
+              </div>
+            </div>
+          </div>
         )}
 
         {uploadMode === "full" && autoSplitLoading && (

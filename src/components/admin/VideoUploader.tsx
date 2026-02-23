@@ -5,6 +5,7 @@ import * as tus from 'tus-js-client';
 
 interface VideoUploaderProps {
   onUploadComplete: (videoUid: string) => void;
+  onFileSelected?: (file: { name: string; size: number }) => void;
   onProgress?: (percent: number) => void;
   onError?: (error: string) => void;
   maxSizeMB?: number;
@@ -18,6 +19,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
 
 export default function VideoUploader({
   onUploadComplete,
+  onFileSelected,
   onProgress,
   onError,
   maxSizeMB = 500,
@@ -46,6 +48,18 @@ export default function VideoUploader({
       }
     };
   }, []);
+
+  // Warn user before leaving during upload
+  useEffect(() => {
+    if (state === 'uploading') {
+      const handler = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = '';
+      };
+      window.addEventListener('beforeunload', handler);
+      return () => window.removeEventListener('beforeunload', handler);
+    }
+  }, [state]);
 
   const formatSize = (bytes: number) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -95,6 +109,7 @@ export default function VideoUploader({
     setState('uploading');
     setProgress(0);
     setErrorMsg('');
+    onFileSelected?.({ name: file.name, size: file.size });
 
     try {
       // Request TUS upload URL from backend
