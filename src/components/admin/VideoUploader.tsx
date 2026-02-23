@@ -116,8 +116,9 @@ export default function VideoUploader({
       // Start TUS upload
       const upload = new tus.Upload(file, {
         endpoint: upload_url,
-        chunkSize: 50 * 1024 * 1024,
-        retryDelays: [0, 3000, 5000, 10000],
+        chunkSize: 20 * 1024 * 1024,
+        parallelUploads: 5,
+        retryDelays: [0, 1000, 3000, 5000, 10000],
         metadata: {
           filename: file.name,
           filetype: file.type,
