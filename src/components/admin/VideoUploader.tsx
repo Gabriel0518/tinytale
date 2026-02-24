@@ -102,7 +102,10 @@ export default function VideoUploader({
         body: JSON.stringify({ filename: file.name, filesize: file.size }),
       });
 
-      if (!res.ok) throw new Error('Failed to get upload URL');
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error?.message || `Upload service error (${res.status})`);
+      }
 
       const { data } = await res.json();
       const { upload_url, video_uid } = data;
@@ -136,9 +139,8 @@ export default function VideoUploader({
 
       uploadRef.current = upload;
       upload.start();
-    } catch {
-      // Show real error instead of silently falling back to mock upload
-      const msg = 'Failed to connect to upload service. Please check your network and try again.';
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to connect to upload service. Please check your network and try again.';
       setErrorMsg(msg);
       setState('error');
       onError?.(msg);
