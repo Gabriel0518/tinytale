@@ -39,6 +39,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "pub-*.r2.dev",
       },
+      {
+        protocol: "https",
+        hostname: "bucket.tinytale.top",
+      },
     ],
   },
 };

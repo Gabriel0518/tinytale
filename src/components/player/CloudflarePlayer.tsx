@@ -39,7 +39,7 @@ export interface CloudflarePlayerHandle {
 const CF_STREAM_SUBDOMAIN = process.env.NEXT_PUBLIC_CF_STREAM_SUBDOMAIN || 'mock-subdomain';
 
 function buildHlsUrl(videoId: string, token?: string): string {
-  const base = `https://customer-${CF_STREAM_SUBDOMAIN}.cloudflarestream.com/${videoId}/manifest/video.m3u8`;
+  const base = `https://${CF_STREAM_SUBDOMAIN}.cloudflarestream.com/${videoId}/manifest/video.m3u8`;
   return token ? `${base}?token=${token}` : base;
 }
 
