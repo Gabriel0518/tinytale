@@ -78,7 +78,7 @@ export default function Home() {
             <div
               className="absolute inset-0 bg-cover bg-center"
               style={{
-                backgroundImage: `url(${heroDrama.cover || 'https://picsum.photos/seed/hero/1920/1080'})`,
+                backgroundImage: `url(${heroDrama.horizontalCover || heroDrama.cover || 'https://picsum.photos/seed/hero/1920/1080'})`,
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#141414] via-[#141414]/70 to-transparent" />

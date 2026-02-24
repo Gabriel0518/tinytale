@@ -116,11 +116,12 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
             >
               <div className="group relative aspect-[2/3] overflow-hidden rounded-lg">
                 <Image
-                  src={drama.cover}
+                  src={drama.cover || '/placeholder-cover.svg'}
                   alt={drama.title}
                   fill
                   className="object-cover transition group-hover:scale-105"
                   draggable={false}
+                  unoptimized={!drama.cover}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 transition group-hover:opacity-100" />
                 <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 transition group-hover:opacity-100">

@@ -18,11 +18,12 @@ export function DramaCard({ drama, onClick }: DramaCardProps) {
       {/* Cover Image */}
       <div className="relative aspect-[9/16] w-full overflow-hidden">
         <Image
-          src={drama.cover}
+          src={drama.cover || '/placeholder-cover.svg'}
           alt={drama.title}
           fill
           className="object-cover"
           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+          unoptimized={!drama.cover}
         />
 
         {/* Hover Overlay */}

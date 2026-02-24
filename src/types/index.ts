@@ -3,6 +3,7 @@ export interface Drama {
   _id: string;
   title: string;
   cover: string;
+  horizontalCover?: string;
   description: string;
   categories: string[];
   actors: string[];

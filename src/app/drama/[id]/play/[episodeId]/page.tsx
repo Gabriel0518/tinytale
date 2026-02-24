@@ -129,7 +129,7 @@ function PlayerSection({
         ref={playerRef as React.Ref<import('@/components/player').CloudflarePlayerHandle>}
         streamVideoId={streamInfo?.videoUid}
         signedToken={streamInfo?.signedToken}
-        videoUrl={currentEpisode.videoUrl}
+        videoUrl={streamInfo?.playbackUrl || currentEpisode.videoUrl}
         poster={currentEpisode.thumbnail || drama?.cover}
         subtitles={streamInfo?.subtitles}
         autoplay

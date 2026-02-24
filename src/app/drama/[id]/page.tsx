@@ -109,7 +109,7 @@ function PlayerInner({
         ref={playerRef as React.Ref<CloudflarePlayerHandle>}
         streamVideoId={streamInfo?.videoUid}
         signedToken={streamInfo?.signedToken}
-        videoUrl={videoUrl}
+        videoUrl={streamInfo?.playbackUrl || videoUrl}
         poster={activeEpisode?.thumbnail || drama.cover}
         subtitles={streamInfo?.subtitles}
         onEnded={onNext}

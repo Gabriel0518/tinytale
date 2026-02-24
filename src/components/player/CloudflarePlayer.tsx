@@ -89,16 +89,17 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       getPlayer: () => playerRef.current,
     }));
 
-    // Resolve the video source
+    // Resolve the video source — prefer backend-provided videoUrl (has correct subdomain)
     const getSource = useCallback(() => {
+      if (videoUrl) {
+        const isHls = videoUrl.includes('.m3u8');
+        return { src: videoUrl, type: isHls ? 'application/x-mpegURL' as const : 'video/mp4' as const };
+      }
       if (streamVideoId) {
         return {
           src: buildHlsUrl(streamVideoId, signedToken),
           type: 'application/x-mpegURL' as const,
         };
-      }
-      if (videoUrl) {
-        return { src: videoUrl, type: 'video/mp4' as const };
       }
       return null;
     }, [streamVideoId, signedToken, videoUrl]);

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600" viewBox="0 0 400 600">
+  <rect width="400" height="600" fill="#1a1a2e"/>
+  <g transform="translate(200,280)" fill="#333">
+    <rect x="-30" y="-40" width="60" height="80" rx="4"/>
+    <polygon points="-10,-15 -10,15 15,0" fill="#555"/>
+  </g>
+  <text x="200" y="340" text-anchor="middle" fill="#555" font-family="sans-serif" font-size="14">No Cover</text>
+</svg>
