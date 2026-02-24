@@ -254,9 +254,11 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
     uploadProgress: 100,
   }));
 
+  const cleanCover = (url?: string | null): string => (url && !url.startsWith('blob:') ? url : "");
+
   const [form, setForm] = useState<FormData>({
-    verticalCover: drama.cover || null,
-    horizontalCover: null,
+    verticalCover: cleanCover(drama.cover) || null,
+    horizontalCover: cleanCover(drama.horizontalCover) || null,
     dramaName: drama.title,
     synopsis: "",
     categories: [drama.genre],
@@ -287,6 +289,8 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
 
   const [coverUploading, setCoverUploading] = useState<"verticalCover" | "horizontalCover" | null>(null);
 
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const handleFileChange = async (
     field: "verticalCover" | "horizontalCover",
     e: React.ChangeEvent<HTMLInputElement>
@@ -294,6 +298,7 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
+    setUploadError(null);
 
     // Show local preview immediately
     const previewUrl = URL.createObjectURL(file);
@@ -315,9 +320,12 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
       if (result.success && result.data?.url) {
         updateForm(field, result.data.url);
       } else {
+        const msg = result.error?.message || 'Upload failed';
+        setUploadError(msg);
         updateForm(field, null);
       }
-    } catch {
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Network error during upload');
       updateForm(field, null);
     } finally {
       URL.revokeObjectURL(previewUrl);
@@ -372,8 +380,8 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
       title: form.dramaName || drama.title,
       genre: form.categories[0] || drama.genre,
       episodes: form.episodes.length,
-      cover: form.verticalCover || drama.cover,
-      horizontalCover: form.horizontalCover || "",
+      cover: cleanCover(form.verticalCover) || cleanCover(drama.cover) || "",
+      horizontalCover: cleanCover(form.horizontalCover) || cleanCover(drama.horizontalCover) || "",
       description: form.synopsis || "",
       categories: form.categories,
       seoTitle: form.seoTitle || "",
@@ -450,6 +458,7 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
               verticalCoverRef={verticalCoverRef}
               horizontalCoverRef={horizontalCoverRef}
               coverUploading={coverUploading}
+              uploadError={uploadError}
             />
           )}
           {step === 2 && (
@@ -524,14 +533,20 @@ interface StepBasicInfoProps {
   verticalCoverRef: React.RefObject<HTMLInputElement>;
   horizontalCoverRef: React.RefObject<HTMLInputElement>;
   coverUploading: "verticalCover" | "horizontalCover" | null;
+  uploadError: string | null;
 }
 
 function StepBasicInfo({
   form, updateForm, categoryInput, setCategoryInput, addCategory, removeCategory,
-  triggerUpload, handleFileChange, verticalCoverRef, horizontalCoverRef, coverUploading,
+  triggerUpload, handleFileChange, verticalCoverRef, horizontalCoverRef, coverUploading, uploadError,
 }: StepBasicInfoProps) {
   return (
     <div className="space-y-8">
+      {uploadError && (
+        <div className="rounded-lg bg-red-900/30 border border-red-700/50 px-4 py-3 text-sm text-red-300">
+          Cover upload failed: {uploadError}
+        </div>
+      )}
       {/* Visual Assets */}
       <div className="rounded-xl bg-[#1a1a2e] p-6">
         <div className="mb-5 flex items-center gap-3">
