@@ -107,9 +107,9 @@ export default function VideoUploader({
       const { data } = await res.json();
       const { upload_url, video_uid } = data;
 
-      // Start TUS upload
+      // Start TUS upload — use uploadUrl (not endpoint) for Cloudflare direct creator uploads
       const upload = new tus.Upload(file, {
-        endpoint: upload_url,
+        uploadUrl: upload_url,
         chunkSize: 20 * 1024 * 1024,
         parallelUploads: 5,
         retryDelays: [0, 1000, 3000, 5000, 10000],

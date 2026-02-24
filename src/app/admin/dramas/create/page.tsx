@@ -307,7 +307,7 @@ export default function CreateDramaPage() {
         const { upload_url, video_uid } = data;
 
         const upload = new tus.Upload(file, {
-          endpoint: upload_url,
+          uploadUrl: upload_url,
           chunkSize: 20 * 1024 * 1024,
           retryDelays: [0, 1000, 3000, 5000, 10000],
           metadata: { filename: file.name, filetype: file.type },
@@ -965,7 +965,7 @@ function StepVideoSubtitles({
         const { upload_url, video_uid } = data;
 
         const upload = new tus.Upload(file, {
-          endpoint: upload_url,
+          uploadUrl: upload_url,
           chunkSize: 20 * 1024 * 1024,
           retryDelays: [0, 1000, 3000, 5000, 10000],
           metadata: { filename: file.name, filetype: file.type },
