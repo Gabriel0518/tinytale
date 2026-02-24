@@ -22,6 +22,11 @@ body {
   }
 }
 
+/* Video player: keep original aspect ratio inside container */
+.video-js video {
+  object-fit: contain !important;
+}
+
 /* Glassmorphism utilities */
 .glass-card {
   background: rgba(255, 255, 255, 0.05);

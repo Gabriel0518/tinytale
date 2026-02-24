@@ -125,8 +125,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
 
         const player = videojs(videoElement, {
           controls: false,
-          fluid: true,
-          responsive: true,
+          fill: true,
           preload: 'auto',
           autoplay,
           poster: poster || undefined,

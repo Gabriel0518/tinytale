@@ -86,7 +86,11 @@ export default function PlayControls({
       {/* Center play/pause / loading */}
       <button
         className="flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white transition-transform hover:scale-110 active:scale-95"
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onPlayPause();
+          resetHideTimer();
+        }}
         aria-label={isLoading ? 'Loading' : isPlaying ? 'Pause' : 'Play'}
       >
         {isLoading ? (
