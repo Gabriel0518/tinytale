@@ -6,6 +6,11 @@ import Image from "next/image";
 import { Drama } from "@/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+function validCover(url?: string): string {
+  if (!url || url.startsWith('blob:')) return '/placeholder-cover.svg';
+  return url;
+}
+
 interface HomeCarouselProps {
   title: string;
   dramas: Drama[];
@@ -116,12 +121,12 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
             >
               <div className="group relative aspect-[2/3] overflow-hidden rounded-lg">
                 <Image
-                  src={drama.cover || '/placeholder-cover.svg'}
+                  src={validCover(drama.cover)}
                   alt={drama.title}
                   fill
                   className="object-cover transition group-hover:scale-105"
                   draggable={false}
-                  unoptimized={!drama.cover}
+                  unoptimized={!drama.cover || drama.cover.startsWith('blob:')}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 transition group-hover:opacity-100" />
                 <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 transition group-hover:opacity-100">

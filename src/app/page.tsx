@@ -11,6 +11,12 @@ import { EditorialBanner } from '@/components/features/EditorialBanner';
 import { Footer } from '@/components/features/Footer';
 import { mockDramas, mockCategories } from '@/lib/mockData';
 
+// Filter out invalid cover URLs (blob:, empty, etc.)
+function validCover(url?: string): string | undefined {
+  if (!url || url.startsWith('blob:')) return undefined;
+  return url;
+}
+
 export default function Home() {
   const router = useRouter();
   const [dramas, setDramas] = useState<Drama[]>([]);
@@ -78,7 +84,7 @@ export default function Home() {
             <div
               className="absolute inset-0 bg-cover bg-center"
               style={{
-                backgroundImage: `url(${heroDrama.horizontalCover || heroDrama.cover || 'https://picsum.photos/seed/hero/1920/1080'})`,
+                backgroundImage: `url(${validCover(heroDrama.horizontalCover) || validCover(heroDrama.cover) || 'https://picsum.photos/seed/hero/1920/1080'})`,
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#141414] via-[#141414]/70 to-transparent" />

@@ -1,6 +1,11 @@
 import Image from "next/image";
 import type { Drama } from "@/types";
 
+function validCover(url?: string): string {
+  if (!url || url.startsWith('blob:')) return '/placeholder-cover.svg';
+  return url;
+}
+
 interface DramaCardProps {
   drama: Drama;
   onClick?: () => void;
@@ -18,12 +23,12 @@ export function DramaCard({ drama, onClick }: DramaCardProps) {
       {/* Cover Image */}
       <div className="relative aspect-[9/16] w-full overflow-hidden">
         <Image
-          src={drama.cover || '/placeholder-cover.svg'}
+          src={validCover(drama.cover)}
           alt={drama.title}
           fill
           className="object-cover"
           sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
-          unoptimized={!drama.cover}
+          unoptimized={!drama.cover || drama.cover.startsWith('blob:')}
         />
 
         {/* Hover Overlay */}

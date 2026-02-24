@@ -249,16 +249,46 @@ export default function CreateDramaPage() {
     ref.current?.click();
   };
 
-  const handleFileChange = (
+  const [coverUploading, setCoverUploading] = useState<"verticalCover" | "horizontalCover" | null>(null);
+
+  const handleFileChange = async (
     field: "verticalCover" | "horizontalCover",
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      updateForm(field, url);
-    }
+    if (!file) return;
     e.target.value = "";
+
+    // Show local preview immediately
+    const previewUrl = URL.createObjectURL(file);
+    updateForm(field, previewUrl);
+
+    // Upload to R2
+    setCoverUploading(field);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${API_BASE}/api/admin/upload/image`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: formData,
+      });
+      const result = await res.json();
+      if (result.success && result.data?.url) {
+        updateForm(field, result.data.url);
+      } else {
+        toast('Cover upload failed: ' + (result.error?.message || 'Unknown error'), 'error');
+        updateForm(field, null);
+      }
+    } catch (err: any) {
+      toast('Cover upload failed: ' + (err.message || 'Network error'), 'error');
+      updateForm(field, null);
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+      setCoverUploading(null);
+    }
   };
 
   const manualFileRef = useRef<HTMLInputElement>(null);
@@ -390,8 +420,8 @@ export default function CreateDramaPage() {
               Create New Drama
             </h1>
           </div>
-          <button onClick={() => handlePublish("draft")} disabled={saving} className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50">
-            {saving ? "Saving..." : "Save as Draft"}
+          <button onClick={() => handlePublish("draft")} disabled={saving || !!coverUploading} className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50">
+            {saving ? "Saving..." : coverUploading ? "Uploading cover..." : "Save as Draft"}
           </button>
         </div>
       </header>
@@ -454,6 +484,7 @@ export default function CreateDramaPage() {
               handleFileChange={handleFileChange}
               verticalCoverRef={verticalCoverRef}
               horizontalCoverRef={horizontalCoverRef}
+              coverUploading={coverUploading}
             />
           )}
           {step === 2 && (
@@ -506,8 +537,8 @@ export default function CreateDramaPage() {
                 Next Step &rarr;
               </button>
             ) : (
-              <button onClick={() => handlePublish("published")} disabled={saving} className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50">
-                {saving ? "Publishing..." : "Publish"}
+              <button onClick={() => handlePublish("published")} disabled={saving || !!coverUploading} className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50">
+                {saving ? "Publishing..." : coverUploading ? "Uploading cover..." : "Publish"}
               </button>
             )}
           </div>
@@ -643,6 +674,7 @@ interface StepBasicInfoProps {
   handleFileChange: (field: "verticalCover" | "horizontalCover", e: React.ChangeEvent<HTMLInputElement>) => void;
   verticalCoverRef: React.RefObject<HTMLInputElement>;
   horizontalCoverRef: React.RefObject<HTMLInputElement>;
+  coverUploading: "verticalCover" | "horizontalCover" | null;
 }
 
 function StepBasicInfo({
@@ -656,6 +688,7 @@ function StepBasicInfo({
   handleFileChange,
   verticalCoverRef,
   horizontalCoverRef,
+  coverUploading,
 }: StepBasicInfoProps) {
   return (
     <div className="space-y-8">
@@ -696,9 +729,16 @@ function StepBasicInfo({
                     alt="Vertical cover preview"
                     className="absolute inset-0 h-full w-full object-cover"
                   />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity">
-                    <p className="text-sm text-white font-medium">Click to replace</p>
-                  </div>
+                  {coverUploading === "verticalCover" ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-400 border-t-white" />
+                      <p className="mt-2 text-xs text-white">Uploading...</p>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity">
+                      <p className="text-sm text-white font-medium">Click to replace</p>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="text-center">
@@ -739,9 +779,16 @@ function StepBasicInfo({
                     alt="Horizontal cover preview"
                     className="absolute inset-0 h-full w-full object-cover"
                   />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity">
-                    <p className="text-sm text-white font-medium">Click to replace</p>
-                  </div>
+                  {coverUploading === "horizontalCover" ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-400 border-t-white" />
+                      <p className="mt-2 text-xs text-white">Uploading...</p>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity">
+                      <p className="text-sm text-white font-medium">Click to replace</p>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="text-center">
