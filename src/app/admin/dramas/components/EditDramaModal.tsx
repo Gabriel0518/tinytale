@@ -29,6 +29,12 @@ interface Drama {
   code: string;
   title: string;
   cover: string;
+  horizontalCover?: string;
+  description?: string;
+  categories?: string[];
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
   genre: string;
   episodes: number;
   status: "Published" | "Draft" | "Suspended";
@@ -279,15 +285,44 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
     ref.current?.click();
   };
 
-  const handleFileChange = (
+  const [coverUploading, setCoverUploading] = useState<"verticalCover" | "horizontalCover" | null>(null);
+
+  const handleFileChange = async (
     field: "verticalCover" | "horizontalCover",
     e: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = e.target.files?.[0];
-    if (file) {
-      updateForm(field, URL.createObjectURL(file));
-    }
+    if (!file) return;
     e.target.value = "";
+
+    // Show local preview immediately
+    const previewUrl = URL.createObjectURL(file);
+    updateForm(field, previewUrl);
+
+    // Upload to R2
+    setCoverUploading(field);
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`${API_BASE}/api/admin/upload/image`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: fd,
+      });
+      const result = await res.json();
+      if (result.success && result.data?.url) {
+        updateForm(field, result.data.url);
+      } else {
+        updateForm(field, null);
+      }
+    } catch {
+      updateForm(field, null);
+    } finally {
+      URL.revokeObjectURL(previewUrl);
+      setCoverUploading(null);
+    }
   };
 
   const addCategory = () => {
@@ -337,6 +372,13 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
       title: form.dramaName || drama.title,
       genre: form.categories[0] || drama.genre,
       episodes: form.episodes.length,
+      cover: form.verticalCover || drama.cover,
+      horizontalCover: form.horizontalCover || "",
+      description: form.synopsis || "",
+      categories: form.categories,
+      seoTitle: form.seoTitle || "",
+      seoDescription: form.seoDescription || "",
+      seoKeywords: form.seoKeywords || "",
     });
   };
 
@@ -407,6 +449,7 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
               handleFileChange={handleFileChange}
               verticalCoverRef={verticalCoverRef}
               horizontalCoverRef={horizontalCoverRef}
+              coverUploading={coverUploading}
             />
           )}
           {step === 2 && (
@@ -480,11 +523,12 @@ interface StepBasicInfoProps {
   handleFileChange: (field: "verticalCover" | "horizontalCover", e: React.ChangeEvent<HTMLInputElement>) => void;
   verticalCoverRef: React.RefObject<HTMLInputElement>;
   horizontalCoverRef: React.RefObject<HTMLInputElement>;
+  coverUploading: "verticalCover" | "horizontalCover" | null;
 }
 
 function StepBasicInfo({
   form, updateForm, categoryInput, setCategoryInput, addCategory, removeCategory,
-  triggerUpload, handleFileChange, verticalCoverRef, horizontalCoverRef,
+  triggerUpload, handleFileChange, verticalCoverRef, horizontalCoverRef, coverUploading,
 }: StepBasicInfoProps) {
   return (
     <div className="space-y-8">
@@ -508,9 +552,16 @@ function StepBasicInfo({
               {form.verticalCover ? (
                 <>
                   <img src={form.verticalCover} alt="Vertical cover" className="absolute inset-0 h-full w-full object-cover" />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity">
-                    <p className="text-sm text-white font-medium">Click to replace</p>
-                  </div>
+                  {coverUploading === "verticalCover" ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-400 border-t-white" />
+                      <p className="mt-2 text-xs text-white">Uploading...</p>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity">
+                      <p className="text-sm text-white font-medium">Click to replace</p>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="text-center">
@@ -534,9 +585,16 @@ function StepBasicInfo({
               {form.horizontalCover ? (
                 <>
                   <img src={form.horizontalCover} alt="Horizontal cover" className="absolute inset-0 h-full w-full object-cover" />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity">
-                    <p className="text-sm text-white font-medium">Click to replace</p>
-                  </div>
+                  {coverUploading === "horizontalCover" ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-400 border-t-white" />
+                      <p className="mt-2 text-xs text-white">Uploading...</p>
+                    </div>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 hover:opacity-100 transition-opacity">
+                      <p className="text-sm text-white font-medium">Click to replace</p>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="text-center">
