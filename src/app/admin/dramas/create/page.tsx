@@ -162,7 +162,7 @@ export default function CreateDramaPage() {
   const handlePublish = async (status: "published" | "draft") => {
     setSaving(true);
     try {
-      await adminApi.createDrama({
+      const result = await adminApi.createDrama({
         title: form.dramaName,
         description: form.synopsis,
         categories: form.categories,
@@ -179,7 +179,29 @@ export default function CreateDramaPage() {
         seoKeywords: form.seoKeywords,
         publishOption: form.publishOption,
         scheduleDate: form.scheduleDate,
-      });
+        totalEpisodes: form.episodes.length,
+      }) as any;
+
+      const dramaId = result?.data?._id || result?._id;
+
+      // Create Episode records for each uploaded/split episode
+      if (dramaId && form.episodes.length > 0) {
+        const episodePromises = form.episodes.map((ep, idx) =>
+          adminApi.createEpisode({
+            dramaId,
+            episodeNumber: idx + 1,
+            title: ep.name,
+            duration: ep.duration ? parseDurationToSeconds(ep.duration) : 0,
+            streamVideoId: ep.videoUid || "",
+            thumbnail: ep.cover || "",
+            isFree: form.monetizationModel === "free" || idx < form.freeEpisodeCount,
+            unlockPrice: form.monetizationModel === "free" ? 0 : (ep.price ?? form.defaultPrice),
+            status: ep.status === "ready" ? "Published" : "Processing",
+          }).catch((err: any) => console.error(`Failed to create episode ${idx + 1}:`, err))
+        );
+        await Promise.all(episodePromises);
+      }
+
       toast("Drama created successfully", "success");
       router.push("/admin/dramas");
     } catch (err: any) {
@@ -187,6 +209,14 @@ export default function CreateDramaPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Helper to parse "M:SS" or "MM:SS" duration string to seconds
+  const parseDurationToSeconds = (dur: string): number => {
+    const parts = dur.split(":").map(Number);
+    if (parts.length === 2) return (parts[0] || 0) * 60 + (parts[1] || 0);
+    if (parts.length === 3) return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+    return Number(dur) || 0;
   };
 
   const updateForm = useCallback(
@@ -231,22 +261,92 @@ export default function CreateDramaPage() {
     e.target.value = "";
   };
 
-  const addMockEpisode = () => {
+  const manualFileRef = useRef<HTMLInputElement>(null);
+
+  const addEpisodeManually = () => {
+    manualFileRef.current?.click();
+  };
+
+  const handleManualEpisodeFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const epId = `ep-${Date.now()}`;
     const num = form.episodes.length + 1;
-    const ep: Episode = {
-      id: `ep-${Date.now()}`,
-      name: `Episode ${num}`,
-      fileName: `episode_${num}_final.mp4`,
-      size: `${(Math.random() * 200 + 50).toFixed(0)} MB`,
+    const newEp: Episode = {
+      id: epId,
+      name: file.name.replace(/\.[^.]+$/, ""),
+      fileName: file.name,
+      size: `${(file.size / (1024 * 1024)).toFixed(0)} MB`,
       subtitleFile: null,
       price: null,
       cover: null,
       description: "",
-      duration: `${Math.floor(Math.random() * 10 + 8)}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
-      status: "ready",
-      uploadProgress: 100,
+      duration: "",
+      status: "uploading",
+      uploadProgress: 0,
     };
-    updateForm("episodes", [...form.episodes, ep]);
+    updateForm("episodes", [...form.episodes, newEp]);
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/upload/video`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ filename: file.name, filesize: file.size }),
+        });
+        if (!res.ok) throw new Error('Failed to get upload URL');
+        const { data } = await res.json();
+        const { upload_url, video_uid } = data;
+
+        const upload = new tus.Upload(file, {
+          endpoint: upload_url,
+          chunkSize: 20 * 1024 * 1024,
+          retryDelays: [0, 1000, 3000, 5000, 10000],
+          metadata: { filename: file.name, filetype: file.type },
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const pct = Math.round((bytesUploaded / bytesTotal) * 100);
+            setForm(prev => ({
+              ...prev,
+              episodes: prev.episodes.map(ep =>
+                ep.id === epId ? { ...ep, uploadProgress: pct } : ep
+              ),
+            }));
+          },
+          onSuccess: () => {
+            setForm(prev => ({
+              ...prev,
+              episodes: prev.episodes.map(ep =>
+                ep.id === epId ? { ...ep, status: "ready" as const, uploadProgress: 100, videoUid: video_uid } : ep
+              ),
+            }));
+          },
+          onError: (err) => {
+            setForm(prev => ({
+              ...prev,
+              episodes: prev.episodes.map(ep =>
+                ep.id === epId ? { ...ep, status: "ready" as const, uploadProgress: 0, description: `Upload failed: ${err.message}` } : ep
+              ),
+            }));
+          },
+        });
+        upload.start();
+      } catch (err: any) {
+        setForm(prev => ({
+          ...prev,
+          episodes: prev.episodes.map(ep =>
+            ep.id === epId ? { ...ep, status: "ready" as const, uploadProgress: 0, description: `Upload failed: ${err.message || 'Network error'}` } : ep
+          ),
+        }));
+      }
+    })();
   };
 
   const removeEpisode = (id: string) => {
@@ -268,6 +368,14 @@ export default function CreateDramaPage() {
 
   return (
     <div className="min-h-screen bg-[#0f0f17] flex flex-col">
+      {/* Hidden file input for manual episode upload */}
+      <input
+        ref={manualFileRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleManualEpisodeFile}
+      />
       {/* ── Sticky Header ── */}
       <header className="sticky top-0 z-50 border-b border-gray-800 bg-[#0f0f17]/95 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
@@ -352,7 +460,8 @@ export default function CreateDramaPage() {
             <StepVideoSubtitles
               form={form}
               updateForm={updateForm}
-              addMockEpisode={addMockEpisode}
+              setForm={setForm}
+              addEpisodeManually={addEpisodeManually}
               removeEpisode={removeEpisode}
               updateEpisode={updateEpisode}
             />
@@ -782,7 +891,8 @@ type UploadMode = "full" | "episode";
 interface StepVideoSubtitlesProps {
   form: FormData;
   updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
-  addMockEpisode: () => void;
+  setForm: React.Dispatch<React.SetStateAction<FormData>>;
+  addEpisodeManually: () => void;
   removeEpisode: (id: string) => void;
   updateEpisode: (id: string, updates: Partial<Episode>) => void;
 }
@@ -790,7 +900,8 @@ interface StepVideoSubtitlesProps {
 function StepVideoSubtitles({
   form,
   updateForm,
-  addMockEpisode,
+  setForm,
+  addEpisodeManually,
   removeEpisode,
   updateEpisode,
 }: StepVideoSubtitlesProps) {
@@ -819,7 +930,6 @@ function StepVideoSubtitles({
     setIsUploading(true);
     const file = uploadQueue[0];
     const epId = `ep-${Date.now()}`;
-    const num = form.episodes.length + 1;
     const newEp: Episode = {
       id: epId,
       name: file.name.replace(/\.[^.]+$/, ""),
@@ -833,7 +943,7 @@ function StepVideoSubtitles({
       status: "uploading",
       uploadProgress: 0,
     };
-    updateForm("episodes", [...form.episodes, newEp]);
+    setForm(prev => ({ ...prev, episodes: [...prev.episodes, newEp] }));
 
     // Request TUS upload URL from backend, then upload with real progress
     const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
@@ -861,35 +971,32 @@ function StepVideoSubtitles({
           metadata: { filename: file.name, filetype: file.type },
           onProgress: (bytesUploaded, bytesTotal) => {
             const pct = Math.round((bytesUploaded / bytesTotal) * 100);
-            updateForm("episodes",
-              form.episodes.map(e => e.id === epId ? e : e).length > 0
-                ? form.episodes.filter(e => e.id !== epId).concat([{ ...newEp, uploadProgress: pct }])
-                : [{ ...newEp, uploadProgress: pct }]
-            );
+            setForm(prev => ({
+              ...prev,
+              episodes: prev.episodes.map(ep =>
+                ep.id === epId ? { ...ep, uploadProgress: pct } : ep
+              ),
+            }));
           },
           onSuccess: () => {
-            updateForm("episodes",
-              form.episodes.filter(e => e.id !== epId).concat([{
-                ...newEp,
-                status: "ready" as const,
-                uploadProgress: 100,
-                videoUid: video_uid,
-              }])
-            );
+            setForm(prev => ({
+              ...prev,
+              episodes: prev.episodes.map(ep =>
+                ep.id === epId ? { ...ep, status: "ready" as const, uploadProgress: 100, videoUid: video_uid } : ep
+              ),
+            }));
             setUploadQueue(q => q.slice(1));
             setIsUploading(false);
             uploadAbortRef.current = null;
           },
           onError: (err) => {
             console.error('Episode upload failed:', err);
-            updateForm("episodes",
-              form.episodes.filter(e => e.id !== epId).concat([{
-                ...newEp,
-                status: "ready" as const,
-                uploadProgress: 0,
-                description: `Upload failed: ${err.message}`,
-              }])
-            );
+            setForm(prev => ({
+              ...prev,
+              episodes: prev.episodes.map(ep =>
+                ep.id === epId ? { ...ep, status: "ready" as const, uploadProgress: 0, description: `Upload failed: ${err.message}` } : ep
+              ),
+            }));
             setUploadQueue(q => q.slice(1));
             setIsUploading(false);
             uploadAbortRef.current = null;
@@ -900,14 +1007,12 @@ function StepVideoSubtitles({
         upload.start();
       } catch (err: any) {
         console.error('Episode upload init failed:', err);
-        updateForm("episodes",
-          form.episodes.filter(e => e.id !== epId).concat([{
-            ...newEp,
-            status: "ready" as const,
-            uploadProgress: 0,
-            description: `Upload failed: ${err.message || 'Network error'}`,
-          }])
-        );
+        setForm(prev => ({
+          ...prev,
+          episodes: prev.episodes.map(ep =>
+            ep.id === epId ? { ...ep, status: "ready" as const, uploadProgress: 0, description: `Upload failed: ${err.message || 'Network error'}` } : ep
+          ),
+        }));
         setUploadQueue(q => q.slice(1));
         setIsUploading(false);
       }
@@ -934,6 +1039,29 @@ function StepVideoSubtitles({
     }
 
     try {
+      // Wait for source video to be ready on Cloudflare Stream
+      const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
+      let ready = false;
+      for (let attempt = 0; attempt < 60; attempt++) {
+        const statusRes = await fetch(`${API_BASE}/api/admin/upload/video/${videoUid}`, {
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        });
+        if (statusRes.ok) {
+          const statusData = await statusRes.json() as any;
+          if (statusData.data?.readyToStream) {
+            ready = true;
+            break;
+          }
+        }
+        await new Promise(r => setTimeout(r, 3000));
+      }
+
+      if (!ready) {
+        console.error('Source video not ready after timeout');
+        setAutoSplitLoading(false);
+        return;
+      }
+
       const res = await adminApi.autoSplit({
         sourceVideoUid: videoUid,
         episodeDuration: splitDuration * 60,
@@ -963,7 +1091,7 @@ function StepVideoSubtitles({
         const clipUids = splitEpisodes.map((ep: any) => ep.streamVideoId).filter(Boolean);
         if (clipUids.length > 0) {
           setSplitProgress({ total: clipUids.length, ready: 0 });
-          pollClipStatus(clipUids, newEpisodes);
+          pollClipStatus(clipUids);
         }
       }
     } catch (err) {
@@ -973,7 +1101,7 @@ function StepVideoSubtitles({
     }
   };
 
-  const pollClipStatus = (clipUids: string[], currentEpisodes: Episode[]) => {
+  const pollClipStatus = (clipUids: string[]) => {
     const interval = setInterval(async () => {
       try {
         const res = await adminApi.getClipStatus(clipUids) as any;
@@ -982,19 +1110,20 @@ function StepVideoSubtitles({
           const readyCount = clips.filter((c: any) => c.readyToStream).length;
           setSplitProgress({ total: clips.length, ready: readyCount });
 
-          const updatedEpisodes = currentEpisodes.map(ep => {
-            const clipInfo = clips.find((c: any) => c.uid === ep.videoUid);
-            if (clipInfo?.readyToStream) {
-              return {
-                ...ep,
-                status: 'ready' as const,
-                // Auto-set thumbnail from Cloudflare Stream keyframe
-                cover: clipInfo.thumbnail || ep.cover,
-              };
-            }
-            return ep;
-          });
-          updateForm('episodes', updatedEpisodes);
+          setForm(prev => ({
+            ...prev,
+            episodes: prev.episodes.map(ep => {
+              const clipInfo = clips.find((c: any) => c.uid === ep.videoUid);
+              if (clipInfo?.readyToStream) {
+                return {
+                  ...ep,
+                  status: 'ready' as const,
+                  cover: clipInfo.thumbnail || ep.cover,
+                };
+              }
+              return ep;
+            }),
+          }));
 
           if (allReady) {
             clearInterval(interval);
@@ -1392,7 +1521,7 @@ function StepVideoSubtitles({
 
             {/* Add Episode Manually Card */}
             <button
-              onClick={addMockEpisode}
+              onClick={addEpisodeManually}
               className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-800 py-16 transition-colors hover:border-gray-600 hover:bg-white/[0.02]"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-700 text-gray-500">
