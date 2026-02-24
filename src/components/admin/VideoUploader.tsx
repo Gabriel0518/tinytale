@@ -35,16 +35,13 @@ export default function VideoUploader({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<tus.Upload | null>(null);
-  const mockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // mockTimerRef removed — no more fake progress simulation
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (uploadRef.current) {
         uploadRef.current.abort();
-      }
-      if (mockTimerRef.current) {
-        clearInterval(mockTimerRef.current);
       }
     };
   }, []);
@@ -76,24 +73,6 @@ export default function VideoUploader({
     }
     return null;
   };
-
-  const startMockUpload = useCallback((videoUid: string) => {
-    let mockProgress = 0;
-    mockTimerRef.current = setInterval(() => {
-      mockProgress += Math.random() * 15 + 5;
-      if (mockProgress >= 100) {
-        mockProgress = 100;
-        if (mockTimerRef.current) clearInterval(mockTimerRef.current);
-        setProgress(100);
-        onProgress?.(100);
-        setState('success');
-        onUploadComplete(videoUid);
-      } else {
-        setProgress(Math.round(mockProgress));
-        onProgress?.(Math.round(mockProgress));
-      }
-    }, 300);
-  }, [onProgress, onUploadComplete]);
 
   const handleUpload = useCallback(async (file: File) => {
     const validationError = validateFile(file);
@@ -159,21 +138,19 @@ export default function VideoUploader({
       uploadRef.current = upload;
       upload.start();
     } catch {
-      // Mock mode fallback: simulate upload when backend is unavailable
-      const mockUid = `cf-video-${Date.now()}`;
-      startMockUpload(mockUid);
+      // Show real error instead of silently falling back to mock upload
+      const msg = 'Failed to connect to upload service. Please check your network and try again.';
+      setErrorMsg(msg);
+      setState('error');
+      onError?.(msg);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onUploadComplete, onProgress, onError, startMockUpload]);
+  }, [onUploadComplete, onProgress, onError]);
 
   const handleCancel = () => {
     if (uploadRef.current) {
       uploadRef.current.abort();
       uploadRef.current = null;
-    }
-    if (mockTimerRef.current) {
-      clearInterval(mockTimerRef.current);
-      mockTimerRef.current = null;
     }
     setState('idle');
     setProgress(0);

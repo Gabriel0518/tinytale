@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
 import { useToast } from "@/components/ui/Toast";
 import VideoUploader from "@/components/admin/VideoUploader";
+import * as tus from "tus-js-client";
 
 // ── Types ──────────────────────────────────────────────
 interface Episode {
@@ -808,7 +809,11 @@ function StepVideoSubtitles({
   const [uploadedVideoInfo, setUploadedVideoInfo] = useState<{ name: string; size: string } | null>(null);
   const pendingFileInfo = useRef<{ name: string; size: number } | null>(null);
 
-  // Simulate sequential upload for episode mode
+  const uploadAbortRef = useRef<tus.Upload | null>(null);
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+
+  // Real sequential TUS upload for episode mode
   useEffect(() => {
     if (uploadQueue.length === 0 || isUploading) return;
     setIsUploading(true);
@@ -824,28 +829,95 @@ function StepVideoSubtitles({
       price: null,
       cover: null,
       description: "",
-      duration: `${Math.floor(Math.random() * 10 + 5)}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
+      duration: "",
       status: "uploading",
       uploadProgress: 0,
     };
     updateForm("episodes", [...form.episodes, newEp]);
 
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 15 + 5;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-        updateForm("episodes", form.episodes.map((e) => e.id === epId ? e : e).concat().length > 0
-          ? [...form.episodes.filter((e) => e.id !== epId), { ...newEp, status: "ready" as const, uploadProgress: 100 }]
-          : [{ ...newEp, status: "ready" as const, uploadProgress: 100 }]
+    // Request TUS upload URL from backend, then upload with real progress
+    const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/upload/video`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ filename: file.name, filesize: file.size }),
+        });
+
+        if (!res.ok) throw new Error('Failed to get upload URL');
+
+        const { data } = await res.json();
+        const { upload_url, video_uid } = data;
+
+        const upload = new tus.Upload(file, {
+          endpoint: upload_url,
+          chunkSize: 20 * 1024 * 1024,
+          retryDelays: [0, 1000, 3000, 5000, 10000],
+          metadata: { filename: file.name, filetype: file.type },
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const pct = Math.round((bytesUploaded / bytesTotal) * 100);
+            updateForm("episodes",
+              form.episodes.map(e => e.id === epId ? e : e).length > 0
+                ? form.episodes.filter(e => e.id !== epId).concat([{ ...newEp, uploadProgress: pct }])
+                : [{ ...newEp, uploadProgress: pct }]
+            );
+          },
+          onSuccess: () => {
+            updateForm("episodes",
+              form.episodes.filter(e => e.id !== epId).concat([{
+                ...newEp,
+                status: "ready" as const,
+                uploadProgress: 100,
+                videoUid: video_uid,
+              }])
+            );
+            setUploadQueue(q => q.slice(1));
+            setIsUploading(false);
+            uploadAbortRef.current = null;
+          },
+          onError: (err) => {
+            console.error('Episode upload failed:', err);
+            updateForm("episodes",
+              form.episodes.filter(e => e.id !== epId).concat([{
+                ...newEp,
+                status: "ready" as const,
+                uploadProgress: 0,
+                description: `Upload failed: ${err.message}`,
+              }])
+            );
+            setUploadQueue(q => q.slice(1));
+            setIsUploading(false);
+            uploadAbortRef.current = null;
+          },
+        });
+
+        uploadAbortRef.current = upload;
+        upload.start();
+      } catch (err: any) {
+        console.error('Episode upload init failed:', err);
+        updateForm("episodes",
+          form.episodes.filter(e => e.id !== epId).concat([{
+            ...newEp,
+            status: "ready" as const,
+            uploadProgress: 0,
+            description: `Upload failed: ${err.message || 'Network error'}`,
+          }])
         );
-        setUploadQueue((q) => q.slice(1));
+        setUploadQueue(q => q.slice(1));
         setIsUploading(false);
       }
-    }, 300);
+    })();
 
-    return () => clearInterval(interval);
+    return () => {
+      if (uploadAbortRef.current) {
+        uploadAbortRef.current.abort();
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uploadQueue, isUploading]);
 
@@ -913,7 +985,12 @@ function StepVideoSubtitles({
           const updatedEpisodes = currentEpisodes.map(ep => {
             const clipInfo = clips.find((c: any) => c.uid === ep.videoUid);
             if (clipInfo?.readyToStream) {
-              return { ...ep, status: 'ready' as const };
+              return {
+                ...ep,
+                status: 'ready' as const,
+                // Auto-set thumbnail from Cloudflare Stream keyframe
+                cover: clipInfo.thumbnail || ep.cover,
+              };
             }
             return ep;
           });
