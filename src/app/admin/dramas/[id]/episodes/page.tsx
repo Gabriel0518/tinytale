@@ -67,7 +67,7 @@ function ModalCloseBtn({ onClick }: { onClick: () => void }) {
 }
 
 // ── M2-01: Edit Episode Info Modal ──────────────────────
-function EditInfoModal({ episode, onClose }: { episode: Episode; onClose: () => void }) {
+function EditInfoModal({ episode, onClose, onSave }: { episode: Episode; onClose: () => void; onSave: (id: string, data: any) => Promise<void> }) {
   const [epNumber, setEpNumber] = useState(episode.episodeNumber);
   const [epTitle, setEpTitle] = useState(episode.title);
   const [accessType, setAccessType] = useState<"free" | "paid">(episode.monetization.type);
@@ -76,13 +76,29 @@ function EditInfoModal({ episode, onClose }: { episode: Episode; onClose: () => 
     episode.status === "Draft" ? "draft" : "immediate"
   );
   const [scheduleDate, setScheduleDate] = useState("");
-  const [videoFile, setVideoFile] = useState<string>("");
-  const [coverFile, setCoverFile] = useState<string>("");
-  const [subtitleFile, setSubtitleFile] = useState<string>("");
+  const [saving, setSaving] = useState(false);
 
   const labelCls = "block text-sm font-medium text-gray-300 mb-1.5";
   const inputCls = "w-full rounded-lg border border-gray-700 bg-[#13131d] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none";
-  const uploadCls = "flex items-center justify-center w-full rounded-lg border-2 border-dashed border-gray-700 bg-[#13131d] px-4 py-6 text-sm text-gray-400 hover:border-gray-500 cursor-pointer transition-colors";
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const status = publishMode === "draft" ? "Draft" : publishMode === "immediate" ? "Published" : "Draft";
+      await onSave(episode.id, {
+        episodeNumber: epNumber,
+        title: epTitle,
+        isFree: accessType === "free",
+        unlockPrice: accessType === "paid" ? price : 0,
+        status,
+      });
+      onClose();
+    } catch {
+      // error handled by parent
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
@@ -92,20 +108,6 @@ function EditInfoModal({ episode, onClose }: { episode: Episode; onClose: () => 
         <p className="text-sm text-gray-500 mb-6">Episode {episode.episodeNumber} &mdash; {episode.title}</p>
 
         <div className="space-y-5">
-          {/* Video File */}
-          <div>
-            <label className={labelCls}>Video File</label>
-            <label className={uploadCls}>
-              <input type="file" accept="video/*" className="hidden" onChange={(e) => setVideoFile(e.target.files?.[0]?.name || "")} />
-              <div className="text-center">
-                <svg className="mx-auto h-8 w-8 text-gray-600 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                </svg>
-                {videoFile ? <span className="text-indigo-400">{videoFile}</span> : <span>Click to upload video file</span>}
-              </div>
-            </label>
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             {/* Episode Number */}
             <div>
@@ -138,24 +140,6 @@ function EditInfoModal({ episode, onClose }: { episode: Episode; onClose: () => 
             )}
           </div>
 
-          {/* Cover Image */}
-          <div>
-            <label className={labelCls}>Cover Image</label>
-            <label className={uploadCls + " py-4"}>
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => setCoverFile(e.target.files?.[0]?.name || "")} />
-              {coverFile ? <span className="text-indigo-400">{coverFile}</span> : <span>Click to upload cover image</span>}
-            </label>
-          </div>
-
-          {/* Subtitles */}
-          <div>
-            <label className={labelCls}>Subtitles / Captions</label>
-            <label className={uploadCls + " py-4"}>
-              <input type="file" accept=".srt,.vtt,.ass" className="hidden" onChange={(e) => setSubtitleFile(e.target.files?.[0]?.name || "")} />
-              {subtitleFile ? <span className="text-indigo-400">{subtitleFile}</span> : <span>Click to upload subtitle file (.srt, .vtt)</span>}
-            </label>
-          </div>
-
           {/* Publishing Status */}
           <div>
             <label className={labelCls}>Publishing Status</label>
@@ -179,7 +163,9 @@ function EditInfoModal({ episode, onClose }: { episode: Episode; onClose: () => 
         {/* Footer */}
         <div className="mt-6 flex items-center justify-end gap-3 border-t border-gray-800 pt-4">
           <button onClick={onClose} className="rounded-lg border border-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 transition-colors">Cancel</button>
-          <button onClick={onClose} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors">Save Changes</button>
+          <button onClick={handleSave} disabled={saving} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors disabled:opacity-50">
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
         </div>
       </div>
     </div>
@@ -467,18 +453,22 @@ export default function EpisodesPage() {
     try {
       const res: any = await adminApi.getEpisodes(dramaId as string);
       const items = res.data?.episodes || res.data || [];
-      setEpisodes(items.map((ep: any) => ({
-        id: ep._id || ep.id,
-        episodeNumber: ep.episodeNumber || 0,
-        title: ep.title || "",
-        cover: ep.thumbnail || ep.cover || "",
-        duration: ep.duration || 0,
-        status: ep.status === "published" ? "Published" : ep.status === "processing" ? "Processing" : ep.status === "failed" ? "Failed" : "Draft",
-        errorMessage: ep.errorMessage,
-        plays: ep.plays || ep.viewCount || 0,
-        monetization: ep.isFree ? { type: "free" } : { type: "paid", price: ep.unlockPrice || 30 },
-        createdAt: ep.createdAt ? new Date(ep.createdAt).toISOString().slice(0, 10) : "",
-      })));
+      setEpisodes(items.map((ep: any) => {
+        const s = (ep.status || "").toLowerCase();
+        const status: EpisodeStatus = s === "published" ? "Published" : s === "processing" ? "Processing" : s === "failed" ? "Failed" : "Draft";
+        return {
+          id: ep._id || ep.id,
+          episodeNumber: ep.episodeNumber || 0,
+          title: ep.title || "",
+          cover: ep.thumbnail || ep.cover || "",
+          duration: ep.duration || 0,
+          status,
+          errorMessage: ep.errorMessage,
+          plays: ep.plays || ep.viewCount || 0,
+          monetization: ep.isFree ? { type: "free" as const } : { type: "paid" as const, price: ep.unlockPrice || 30 },
+          createdAt: ep.createdAt ? new Date(ep.createdAt).toISOString().slice(0, 10) : "",
+        };
+      }));
     } catch {
       setEpisodes([]);
     }
@@ -515,6 +505,22 @@ export default function EpisodesPage() {
     }
     setActionMenuId(null);
   }, [episodes, fetchEpisodes]);
+
+  const handleSaveEpisode = useCallback(async (id: string, data: any) => {
+    await adminApi.updateEpisode(id, data);
+    fetchEpisodes();
+  }, [fetchEpisodes]);
+
+  const handleDeleteEpisode = useCallback(async (id: string) => {
+    if (!confirm("Are you sure you want to delete this episode? The video will also be removed from cloud storage.")) return;
+    try {
+      await adminApi.deleteEpisode(id);
+      fetchEpisodes();
+    } catch {
+      // silently fail
+    }
+    setActionMenuId(null);
+  }, [fetchEpisodes]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return episodes;
@@ -750,6 +756,19 @@ export default function EpisodesPage() {
                               </svg>
                               Edit Comments
                             </button>
+
+                            <div className="my-1 border-t border-gray-800" />
+
+                            {/* Delete Episode */}
+                            <button
+                              onClick={() => handleDeleteEpisode(ep.id)}
+                              className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-red-400 hover:bg-red-500/10"
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Delete Episode
+                            </button>
                           </div>
                         )}
                       </div>
@@ -806,7 +825,7 @@ export default function EpisodesPage() {
 
       {/* Modals */}
       {activeModal === "editInfo" && modalEpisode && (
-        <EditInfoModal episode={modalEpisode} onClose={() => { setActiveModal(null); setModalEpisode(null); }} />
+        <EditInfoModal episode={modalEpisode} onSave={handleSaveEpisode} onClose={() => { setActiveModal(null); setModalEpisode(null); }} />
       )}
       {activeModal === "editCategories" && modalEpisode && (
         <EditCategoriesModal episode={modalEpisode} onClose={() => { setActiveModal(null); setModalEpisode(null); }} />
