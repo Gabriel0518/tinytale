@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { adminApi } from "@/lib/adminApi";
 
 // ── Types ──────────────────────────────────────────────
@@ -498,8 +499,8 @@ export default function AdminRankingsPage() {
         </div>
       </div>
 
-      {/* Create / Edit Modal */}
-      {showModal && (
+      {/* Create / Edit Modal — rendered via portal to bypass stacking context */}
+      {showModal && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl bg-[#1a1a2e] p-6 shadow-2xl">
             <h3 className="text-lg font-semibold text-white">
@@ -602,7 +603,8 @@ export default function AdminRankingsPage() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
