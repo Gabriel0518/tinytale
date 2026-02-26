@@ -90,6 +90,10 @@ export interface Category {
   name: string;
   slug: string;
   icon?: string;
+  iconColor?: string;
+  type?: 'genres' | 'regions' | 'tags';
+  countries?: string[];
+  status?: 'Active' | 'Disabled';
   sortOrder?: number;
 }
 
