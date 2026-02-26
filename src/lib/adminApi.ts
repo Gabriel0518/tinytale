@@ -168,6 +168,9 @@ export const adminApi = {
   createFeatured: (data: any, token = getAdminToken()) =>
     api.post('/api/admin/featured', data, { token }),
 
+  updateFeatured: (id: string, data: any, token = getAdminToken()) =>
+    api.put(`/api/admin/featured/${id}`, data, { token }),
+
   deleteFeatured: (id: string, token = getAdminToken()) =>
     api.delete(`/api/admin/featured/${id}`, { token }),
 

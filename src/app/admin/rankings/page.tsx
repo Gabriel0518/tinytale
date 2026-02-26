@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { adminApi } from "@/lib/adminApi";
 
 // ── Types ──────────────────────────────────────────────
@@ -124,18 +124,48 @@ const STATUS_STYLES: Record<RecommendationStatus, string> = {
 
 const PAGE_SIZE = 5;
 
+const TYPE_OPTIONS = [
+  { value: "featured", label: "Editor Recommendation" },
+  { value: "rankings", label: "Hot Rankings" },
+  { value: "trending", label: "Trending" },
+  { value: "new", label: "New Release" },
+];
+
+interface FormData {
+  dramaId: string;
+  dramaTitle: string;
+  type: string;
+  position: number;
+  startDate: string;
+  endDate: string;
+}
+
+const EMPTY_FORM: FormData = { dramaId: "", dramaTitle: "", type: "featured", position: 0, startDate: "", endDate: "" };
+
 // ── Component ──────────────────────────────────────────
 export default function AdminRankingsPage() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [loading, setLoading] = useState(true);
+  // Modal state
+  const [showModal, setShowModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<FormData>(EMPTY_FORM);
+  const [dramaSearch, setDramaSearch] = useState("");
+  const [dramaResults, setDramaResults] = useState<any[]>([]);
+  const [dramaLoading, setDramaLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const dramaSearchTimer = useRef<NodeJS.Timeout | null>(null);
+  const [rawItems, setRawItems] = useState<any[]>([]);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const res: any = await adminApi.getFeatured();
-      const items = res.data?.featured || res.data || [];
+      const raw = res.data?.items || res.data?.featured || res.data || [];
+      const items = Array.isArray(raw) ? raw : [];
+      setRawItems(items);
       setRecommendations(items.map((f: any) => ({
         id: f._id || f.id,
         spotName: f.type || "Homepage Banner",
@@ -159,6 +189,76 @@ export default function AdminRankingsPage() {
 
   const handleDelete = async (id: string) => {
     try { await adminApi.deleteFeatured(id); fetchData(); } catch { /* ignore */ }
+  };
+
+  // Drama search for modal
+  const searchDramas = useCallback(async (q: string) => {
+    if (!q.trim()) { setDramaResults([]); return; }
+    setDramaLoading(true);
+    try {
+      const res: any = await adminApi.getDramas({ search: q, limit: 8 });
+      const list = res.data?.dramas || res.data || [];
+      setDramaResults(Array.isArray(list) ? list : []);
+    } catch { setDramaResults([]); }
+    setDramaLoading(false);
+  }, []);
+
+  const handleDramaSearchChange = (value: string) => {
+    setDramaSearch(value);
+    if (dramaSearchTimer.current) clearTimeout(dramaSearchTimer.current);
+    dramaSearchTimer.current = setTimeout(() => searchDramas(value), 300);
+  };
+
+  const openCreate = () => {
+    setEditingId(null);
+    const today = new Date().toISOString().slice(0, 10);
+    const nextMonth = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    setForm({ ...EMPTY_FORM, startDate: today, endDate: nextMonth });
+    setDramaSearch("");
+    setDramaResults([]);
+    setShowModal(true);
+  };
+
+  const openEdit = (item: Recommendation, rawItems: any[]) => {
+    // Find the raw item to get dramaId
+    const raw = rawItems.find((r: any) => (r._id || r.id) === item.id);
+    setEditingId(item.id);
+    setForm({
+      dramaId: raw?.dramaId?._id || raw?.dramaId || "",
+      dramaTitle: item.drama.title,
+      type: item.spotName,
+      position: raw?.position || 0,
+      startDate: item.startDate,
+      endDate: item.endDate,
+    });
+    setDramaSearch(item.drama.title);
+    setDramaResults([]);
+    setShowModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.dramaId || !form.startDate || !form.endDate) return;
+    setSaving(true);
+    try {
+      if (editingId) {
+        await adminApi.updateFeatured(editingId, {
+          position: form.position,
+          startDate: form.startDate,
+          endDate: form.endDate,
+        });
+      } else {
+        await adminApi.createFeatured({
+          dramaId: form.dramaId,
+          type: form.type,
+          position: form.position,
+          startDate: form.startDate,
+          endDate: form.endDate,
+        });
+      }
+      fetchData();
+      setShowModal(false);
+    } catch { /* ignore */ }
+    setSaving(false);
   };
 
   const filtered = useMemo(() => {
@@ -246,7 +346,7 @@ export default function AdminRankingsPage() {
               Refresh Rules
             </button>
             {/* Create Recommendation */}
-            <button className="h-9 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 transition-colors">
+            <button onClick={openCreate} className="h-9 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white hover:bg-indigo-700 transition-colors">
               Create Recommendation
             </button>
           </div>
@@ -311,6 +411,7 @@ export default function AdminRankingsPage() {
                         <button
                           className="rounded-md p-1.5 text-gray-400 hover:bg-gray-700 hover:text-gray-200 transition-colors"
                           title="Edit"
+                          onClick={() => openEdit(item, rawItems)}
                         >
                           <PencilIcon className="h-4 w-4" />
                         </button>
@@ -396,6 +497,113 @@ export default function AdminRankingsPage() {
           )}
         </div>
       </div>
+
+      {/* Create / Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-xl bg-[#1a1a2e] p-6 shadow-2xl">
+            <h3 className="text-lg font-semibold text-white">
+              {editingId ? "Edit Recommendation" : "Create Recommendation"}
+            </h3>
+            <div className="mt-5 space-y-4">
+              {/* Drama Search */}
+              {!editingId && (
+                <div>
+                  <label className="mb-1 block text-sm text-gray-400">Drama</label>
+                  <input
+                    type="text"
+                    value={dramaSearch}
+                    onChange={(e) => handleDramaSearchChange(e.target.value)}
+                    placeholder="Search dramas..."
+                    className="w-full rounded-lg border border-gray-700 bg-[#13131d] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                  {form.dramaId && (
+                    <p className="mt-1 text-xs text-indigo-400">Selected: {form.dramaTitle}</p>
+                  )}
+                  {dramaResults.length > 0 && (
+                    <div className="mt-1 max-h-40 overflow-auto rounded-lg border border-gray-700 bg-[#13131d]">
+                      {dramaResults.map((d: any) => (
+                        <button
+                          key={d._id}
+                          type="button"
+                          onClick={() => {
+                            setForm({ ...form, dramaId: d._id, dramaTitle: d.title });
+                            setDramaSearch(d.title);
+                            setDramaResults([]);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-300 hover:bg-white/5"
+                        >
+                          <span className="truncate">{d.title}</span>
+                          {d.rating && <span className="shrink-0 text-xs text-yellow-400">{d.rating.toFixed(1)}★</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {dramaLoading && <p className="mt-1 text-xs text-gray-500">Searching...</p>}
+                </div>
+              )}
+              {editingId && (
+                <div>
+                  <label className="mb-1 block text-sm text-gray-400">Drama</label>
+                  <input type="text" value={form.dramaTitle} readOnly className="w-full rounded-lg border border-gray-700 bg-[#13131d] px-3 py-2 text-sm text-gray-500 cursor-not-allowed" />
+                </div>
+              )}
+              {/* Type */}
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Type</label>
+                <select
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value })}
+                  disabled={!!editingId}
+                  className="w-full rounded-lg border border-gray-700 bg-[#13131d] px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none disabled:text-gray-500 disabled:cursor-not-allowed"
+                >
+                  {TYPE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Position */}
+              <div>
+                <label className="mb-1 block text-sm text-gray-400">Position (sort order)</label>
+                <input
+                  type="number" min={0} value={form.position}
+                  onChange={(e) => setForm({ ...form, position: Number(e.target.value) })}
+                  className="w-full rounded-lg border border-gray-700 bg-[#13131d] px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+              {/* Date Range */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm text-gray-400">Start Date</label>
+                  <input
+                    type="date" value={form.startDate}
+                    onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                    className="w-full rounded-lg border border-gray-700 bg-[#13131d] px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm text-gray-400">End Date</label>
+                  <input
+                    type="date" value={form.endDate}
+                    onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                    className="w-full rounded-lg border border-gray-700 bg-[#13131d] px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setShowModal(false)} className="rounded-lg bg-gray-700 px-4 py-2 text-sm text-gray-300 hover:bg-gray-600">Cancel</button>
+              <button
+                onClick={handleSave}
+                disabled={saving || !form.dramaId || !form.startDate || !form.endDate}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? "Saving..." : editingId ? "Save Changes" : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

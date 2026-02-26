@@ -11,7 +11,6 @@ import { EditorialBanner } from '@/components/features/EditorialBanner';
 import { Footer } from '@/components/features/Footer';
 import { mockDramas, mockCategories } from '@/lib/mockData';
 
-// Filter out invalid cover URLs (blob:, empty, etc.)
 function validCover(url?: string): string | undefined {
   if (!url || url.startsWith('blob:')) return undefined;
   return url;
@@ -21,20 +20,34 @@ export default function Home() {
   const router = useRouter();
   const [dramas, setDramas] = useState<Drama[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [hotRankings, setHotRankings] = useState<Drama[]>([]);
+  const [recommendations, setRecommendations] = useState<Drama[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [heroIndex, setHeroIndex] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [dramasRes, categoriesRes] = await Promise.all([
+        const [dramasRes, categoriesRes, rankingsRes, featuredRes] = await Promise.all([
           dramasApi.getAll({ limit: 20 }),
           categoriesApi.getAll(),
+          dramasApi.getRankings('rating').catch(() => ({ data: [] })),
+          dramasApi.getFeatured().catch(() => ({ data: {} })),
         ]);
         const fetchedDramas = dramasRes.data?.dramas || [];
         const fetchedCategories = categoriesRes.data || [];
         setDramas(fetchedDramas.length > 0 ? fetchedDramas : mockDramas);
         setCategories(fetchedCategories.length > 0 ? fetchedCategories : mockCategories);
+
+        // Hot rankings for hero banner
+        const rankings = rankingsRes.data || [];
+        setHotRankings(Array.isArray(rankings) ? rankings.slice(0, 5) : []);
+
+        // Editor recommendations
+        const featuredData = featuredRes.data || {};
+        const recDramas = featuredData.featured || [];
+        setRecommendations(Array.isArray(recDramas) ? recDramas : []);
       } catch {
         setDramas(mockDramas);
         setCategories(mockCategories);
@@ -45,9 +58,17 @@ export default function Home() {
     fetchData();
   }, []);
 
-  const heroDrama = dramas[0];
+  // Auto-rotate hero banner
+  useEffect(() => {
+    if (hotRankings.length <= 1) return;
+    const timer = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % hotRankings.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [hotRankings.length]);
 
-  // Filter dramas by active category
+  const heroDrama = hotRankings.length > 0 ? hotRankings[heroIndex] : dramas[0];
+
   const filteredDramas = useMemo(() => {
     if (activeCategory === 'all') return dramas;
     return dramas.filter(d =>
@@ -67,7 +88,6 @@ export default function Home() {
     [filteredDramas]
   );
 
-  // Category pills from design
   const categoryPills = [
     { key: 'all', label: 'All' },
     ...categories.slice(0, 7).map(c => ({ key: c.slug, label: c.name })),
@@ -77,12 +97,12 @@ export default function Home() {
     <div className="min-h-screen bg-[#141414]">
       <Navbar activePath="/" variant="transparent" />
 
-      {/* Hero Banner */}
+      {/* Hero Banner — Hot Rankings Carousel */}
       <section className="relative h-[70vh] w-full overflow-hidden md:h-[85vh]">
         {heroDrama ? (
           <>
             <div
-              className="absolute inset-0 bg-cover bg-center"
+              className="absolute inset-0 bg-cover bg-center transition-all duration-700"
               style={{
                 backgroundImage: `url(${validCover(heroDrama.horizontalCover) || validCover(heroDrama.cover) || 'https://picsum.photos/seed/hero/1920/1080'})`,
               }}
@@ -91,11 +111,15 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-[#141414]/30" />
 
             <div className="absolute bottom-24 left-0 right-0 mx-auto max-w-7xl px-4 md:bottom-32">
+              {hotRankings.length > 0 && (
+                <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1 text-xs font-semibold text-white">
+                  🔥 #{heroIndex + 1} Hot Ranking
+                </span>
+              )}
               <h1 className="max-w-lg text-4xl font-bold leading-tight text-white md:text-6xl">
                 {heroDrama.title}
               </h1>
 
-              {/* Meta info: rating, genres, year, episodes */}
               <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-300">
                 <span className="flex items-center gap-1 text-yellow-400">
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -115,12 +139,10 @@ export default function Home() {
                 <span>{heroDrama.totalEpisodes} Episodes</span>
               </div>
 
-              {/* Description */}
               <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-400 md:text-base">
                 {heroDrama.description}
               </p>
 
-              {/* Action buttons */}
               <div className="mt-6 flex items-center gap-3">
                 <Link
                   href={`/drama/${heroDrama._id}`}
@@ -148,6 +170,22 @@ export default function Home() {
                   My List
                 </button>
               </div>
+
+              {/* Carousel Indicators */}
+              {hotRankings.length > 1 && (
+                <div className="mt-6 flex items-center gap-2">
+                  {hotRankings.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setHeroIndex(i)}
+                      className={`h-1.5 rounded-full transition-all ${
+                        i === heroIndex ? 'w-8 bg-white' : 'w-4 bg-white/40 hover:bg-white/60'
+                      }`}
+                      aria-label={`Go to slide ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -211,6 +249,14 @@ export default function Home() {
           title="Weekly Top Picks:"
           subtitle="The Best of Revenge"
           backgroundImage="https://picsum.photos/seed/editorial/800/400"
+        />
+      )}
+
+      {/* Recommendations (from admin featured) */}
+      {!loading && recommendations.length > 0 && (
+        <HomeCarousel
+          title="💎 Recommendations"
+          dramas={recommendations}
         />
       )}
 
