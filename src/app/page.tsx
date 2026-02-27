@@ -280,63 +280,50 @@ export default function Home() {
         />
       )}
 
-      {/* Custom Playlists + Banners (inserted by banner position field) */}
+      {/* Custom Playlists + Banners (mixed by position) */}
       {!loading && (() => {
         const visiblePlaylists = customPlaylists.filter(pl => pl.dramas.length > 0);
-        const elements: React.ReactNode[] = [];
 
         const getBannerHref = (b: typeof banners[0]) =>
           b.linkType === 'url' ? (b.linkId.startsWith('http') ? b.linkId : '/browse')
           : b.linkType === 'playlist' ? (b.linkId ? `/browse?playlist=${b.linkId}` : '/browse')
           : b.linkId ? `/drama/${b.linkId}` : '/browse';
 
-        // Group banners by their target position (1-based: position=3 means after 3rd playlist)
-        const bannersByPosition = new Map<number, typeof banners>();
-        banners.forEach(b => {
-          const pos = b.position || 1;
-          if (!bannersByPosition.has(pos)) bannersByPosition.set(pos, []);
-          bannersByPosition.get(pos)!.push(b);
-        });
-
-        const insertedPositions = new Set<number>();
+        // Build a unified list: playlists get position 1,2,3... banners use their own position
+        type Item = { type: 'playlist'; data: typeof visiblePlaylists[0]; pos: number }
+                  | { type: 'banner'; data: typeof banners[0]; pos: number };
+        const items: Item[] = [];
 
         visiblePlaylists.forEach((pl, i) => {
-          elements.push(
-            <HomeCarousel
-              key={`playlist-${pl._id}`}
-              title={`${pl.icon ? pl.icon + ' ' : ''}${pl.name}`}
-              dramas={pl.dramas}
-            />
-          );
-          // Insert banners whose position matches this playlist index (1-based)
-          const pos = i + 1;
-          const bannersAtPos = bannersByPosition.get(pos);
-          if (bannersAtPos) {
-            bannersAtPos.forEach(b => {
-              if (b.slot === 'featured') {
-                elements.push(<FeaturedBanner key={`fbanner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />);
-              } else {
-                elements.push(<EditorialBanner key={`banner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />);
-              }
-            });
-            insertedPositions.add(pos);
-          }
+          items.push({ type: 'playlist', data: pl, pos: i + 1 });
+        });
+        banners.forEach(b => {
+          items.push({ type: 'banner', data: b, pos: b.position || 1 });
         });
 
-        // Append banners whose position exceeds playlist count at the end
-        bannersByPosition.forEach((bList, pos) => {
-          if (!insertedPositions.has(pos)) {
-            bList.forEach(b => {
-              if (b.slot === 'featured') {
-                elements.push(<FeaturedBanner key={`fbanner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />);
-              } else {
-                elements.push(<EditorialBanner key={`banner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />);
-              }
-            });
-          }
+        // Stable sort: by position, then playlists before banners at same position
+        items.sort((a, b) => {
+          if (a.pos !== b.pos) return a.pos - b.pos;
+          return a.type === 'playlist' ? -1 : 1;
         });
 
-        return elements;
+        return items.map(item => {
+          if (item.type === 'playlist') {
+            const pl = item.data as typeof visiblePlaylists[0];
+            return (
+              <HomeCarousel
+                key={`playlist-${pl._id}`}
+                title={`${pl.icon ? pl.icon + ' ' : ''}${pl.name}`}
+                dramas={pl.dramas}
+              />
+            );
+          }
+          const b = item.data as typeof banners[0];
+          if (b.slot === 'featured') {
+            return <FeaturedBanner key={`fbanner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />;
+          }
+          return <EditorialBanner key={`banner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />;
+        });
       })()}
 
       {/* Editor's Choice */}
