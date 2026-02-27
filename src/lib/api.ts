@@ -128,6 +128,9 @@ export const dramasApi = {
   getTrending: () =>
     api.get('/api/featured/trending'),
 
+  getPlaylists: () =>
+    api.get('/api/playlists'),
+
   getRelated: (id: string) =>
     api.get(`/api/dramas/${id}/related`),
 };

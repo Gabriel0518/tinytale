@@ -22,6 +22,7 @@ export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [hotRankings, setHotRankings] = useState<Drama[]>([]);
   const [recommendations, setRecommendations] = useState<Drama[]>([]);
+  const [customPlaylists, setCustomPlaylists] = useState<{ _id: string; slug: string; name: string; icon: string; dramas: Drama[] }[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
   const [heroIndex, setHeroIndex] = useState(0);
@@ -29,11 +30,12 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [dramasRes, categoriesRes, rankingsRes, featuredRes] = await Promise.all([
+        const [dramasRes, categoriesRes, rankingsRes, featuredRes, playlistsRes] = await Promise.all([
           dramasApi.getAll({ limit: 20 }),
           categoriesApi.getAll(),
           dramasApi.getRankings('rating').catch(() => ({ data: [] })),
           dramasApi.getFeatured().catch(() => ({ data: {} })),
+          dramasApi.getPlaylists().catch(() => ({ data: [] })),
         ]);
         const fetchedDramas = dramasRes.data?.dramas || [];
         const fetchedCategories = categoriesRes.data || [];
@@ -48,6 +50,18 @@ export default function Home() {
         const featuredData = featuredRes.data || {};
         const recDramas = featuredData.featured || [];
         setRecommendations(Array.isArray(recDramas) ? recDramas : []);
+
+        // Custom playlists
+        const plData = playlistsRes.data || [];
+        setCustomPlaylists(
+          (Array.isArray(plData) ? plData : []).map((p: any) => ({
+            _id: p._id,
+            slug: p.slug || '',
+            name: p.name,
+            icon: p.icon || '',
+            dramas: Array.isArray(p.dramas) ? p.dramas : [],
+          }))
+        );
       } catch {
         setDramas(mockDramas);
         setCategories(mockCategories);
@@ -259,6 +273,17 @@ export default function Home() {
           dramas={recommendations}
         />
       )}
+
+      {/* Custom Playlists */}
+      {!loading && customPlaylists.map((pl) => (
+        pl.dramas.length > 0 && (
+          <HomeCarousel
+            key={`playlist-${pl._id}`}
+            title={`${pl.icon ? pl.icon + ' ' : ''}${pl.name}`}
+            dramas={pl.dramas}
+          />
+        )
+      ))}
 
       {/* Editor's Choice */}
       {!loading && editorsChoice.length > 0 && (

@@ -174,6 +174,19 @@ export const adminApi = {
   deleteFeatured: (id: string, token = getAdminToken()) =>
     api.delete(`/api/admin/featured/${id}`, { token }),
 
+  // Playlists
+  getPlaylists: (token = getAdminToken()) =>
+    api.get('/api/admin/playlists', { token }),
+
+  createPlaylist: (data: any, token = getAdminToken()) =>
+    api.post('/api/admin/playlists', data, { token }),
+
+  updatePlaylist: (id: string, data: any, token = getAdminToken()) =>
+    api.put(`/api/admin/playlists/${id}`, data, { token }),
+
+  deletePlaylist: (id: string, token = getAdminToken()) =>
+    api.delete(`/api/admin/playlists/${id}`, { token }),
+
   // Transactions / Orders
   getTransactions: (params?: Record<string, any>, token = getAdminToken()) => {
     const query = params ? new URLSearchParams(params as any).toString() : '';
