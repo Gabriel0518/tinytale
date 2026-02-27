@@ -27,6 +27,7 @@ export function FeaturedBanner({
               style={{ backgroundImage: `url(${backgroundImage})` }}
             />
           )}
+          <div className="absolute inset-0 bg-black/10" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0f0f17] via-[#0f0f17]/70 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0f0f17]/80 via-transparent to-transparent" />
           <div className="relative flex h-full flex-col justify-end px-10 pb-10 md:justify-center md:px-16 md:pb-0">

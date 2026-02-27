@@ -141,7 +141,7 @@ export default function AdminBannersPage() {
       }
       setShowModal(false);
       fetchBanners();
-    } catch { setError("Failed to save banner"); } finally { setSaving(false); }
+    } catch (err: any) { setError(err?.message || "Failed to save banner"); } finally { setSaving(false); }
   };
 
   const handleDelete = async (id: string) => {

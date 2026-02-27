@@ -27,6 +27,7 @@ export function EditorialBanner({
               style={{ backgroundImage: `url(${backgroundImage})` }}
             />
           )}
+          <div className="absolute inset-0 bg-black/10" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#1a1a2e] via-[#1a1a2e]/80 to-transparent" />
           <div className="relative flex h-full flex-col justify-center px-8 md:px-12">
             <div className="mb-2 flex items-center gap-2">
