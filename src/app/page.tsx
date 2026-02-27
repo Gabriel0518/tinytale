@@ -63,7 +63,8 @@ export default function Home() {
             name: p.name,
             icon: p.icon || '',
             dramas: Array.isArray(p.dramas) ? p.dramas : [],
-          }))\n        );
+          }))
+        );
 
         // Banners
         const bnData = bannersRes.data || [];

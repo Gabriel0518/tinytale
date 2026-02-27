@@ -55,7 +55,7 @@ export default function AdminBannersPage() {
 
   const fetchBanners = useCallback(async () => {
     try {
-      const res = await adminApi.getBanners();
+      const res: any = await adminApi.getBanners();
       setBanners(res.data || []);
     } catch { /* ignore */ } finally { setLoading(false); }
   }, []);
@@ -70,10 +70,10 @@ export default function AdminBannersPage() {
       setLinkLoading(true);
       try {
         if (form.linkType === "drama") {
-          const res = await adminApi.getDramas({ search: query, limit: 8 });
+          const res: any = await adminApi.getDramas({ search: query, limit: 8 });
           setLinkResults((res.data?.dramas || res.data || []).map((d: any) => ({ _id: d._id, title: d.title, cover: d.cover })));
         } else if (form.linkType === "playlist") {
-          const res = await adminApi.getPlaylists();
+          const res: any = await adminApi.getPlaylists();
           const all = res.data || [];
           setLinkResults(all.filter((p: any) => p.name.toLowerCase().includes(query.toLowerCase())).slice(0, 8));
         }
