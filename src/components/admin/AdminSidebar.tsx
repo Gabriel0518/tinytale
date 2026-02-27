@@ -40,6 +40,7 @@ const navigation: NavBlock[] = [
           { href: "/admin/dramas", label: "Drama Management" },
           { href: "/admin/categories", label: "Categories" },
           { href: "/admin/rankings", label: "Rankings" },
+          { href: "/admin/banners", label: "Banners" },
           { href: "/admin/comments", label: "Comments & Reviews" },
         ],
       },

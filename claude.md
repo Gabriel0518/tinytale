@@ -910,6 +910,23 @@ cd /Users/gabriel/tinytale-1 && npx next dev -p 7003
 
 > **注意**：前端和后台共用同一个 Next.js 项目，无法同时用 `next dev` 运行两个端口。`start-local.sh` 通过后台进程实现，但可能存在冲突。生产环境通过 Vercel 分别部署。
 
+### VPS 生产环境部署
+
+| 属性 | 值 |
+|------|-----|
+| **IP** | 93.188.160.112 |
+| **SSH 端口** | 7897 |
+| **用户** | root |
+| **前端路径** | /var/www/tinytale/frontend |
+| **后端路径** | /var/www/tinytale/api |
+| **进程管理** | PM2 (tinytale-api, tinytale-web) |
+| **PM2 配置** | /var/www/tinytale/ecosystem.config.js |
+
+```bash
+# 部署流程
+ssh -p 7897 root@93.188.160.112 "cd /var/www/tinytale/api && git pull && npm run build && cd /var/www/tinytale/frontend && git pull && npm run build && pm2 restart all"
+```
+
 ---
 
 ## 13. 前端API客户端模块
@@ -985,6 +1002,36 @@ cd /Users/gabriel/tinytale-1 && npx next dev -p 7003
 - **禁止** Audit Agent修改任何代码文件（只能测试和报告）
 - **禁止** Agent修改自己文件归属权范围之外的文件
 - **禁止** 跳过循环流程中的任何步骤
+
+---
+
+## 15. 统一国家/地区系统
+
+所有涉及国家选择的页面统一使用 `src/lib/countries.ts`，禁止在页面中硬编码国家列表。
+
+| 导出 | 类型 | 说明 |
+|------|------|------|
+| `COUNTRY_GROUPS` | `CountryGroup[]` | 按 17 个区域分组的国家列表（含 label + countries） |
+| `ALL_COUNTRIES` | `string[]` | 扁平化的全部国家名称列表（由 COUNTRY_GROUPS 自动生成） |
+
+### 使用方式
+
+```typescript
+import { COUNTRY_GROUPS } from "@/lib/countries";  // 需要分组选择器时
+import { ALL_COUNTRIES } from "@/lib/countries";    // 需要扁平列表时
+```
+
+### 引用页面
+
+| 页面 | 导入 | 用途 |
+|------|------|------|
+| `admin/rankings/page.tsx` | `ALL_COUNTRIES` | Playlist 国家定向 |
+| `admin/categories/page.tsx` | `ALL_COUNTRIES` | Category 国家定向 |
+| `admin/dramas/components/EditDramaModal.tsx` | `COUNTRY_GROUPS` | Drama 地区选择（分组） |
+| `admin/dramas/create/page.tsx` | `COUNTRY_GROUPS` | Drama 创建地区选择（分组） |
+| `affiliate/apply/page.tsx` | `ALL_COUNTRIES` | 推广员申请国家选择 |
+
+> **规则**：新增国家/地区功能时，只修改 `src/lib/countries.ts`，所有页面自动同步。数据库中国家字段统一存储英文全名（如 "United Arab Emirates" 而非 "UAE"）。
 
 ---
 

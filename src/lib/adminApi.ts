@@ -187,6 +187,19 @@ export const adminApi = {
   deletePlaylist: (id: string, token = getAdminToken()) =>
     api.delete(`/api/admin/playlists/${id}`, { token }),
 
+  // Banners
+  getBanners: (token = getAdminToken()) =>
+    api.get('/api/admin/banners', { token }),
+
+  createBanner: (data: any, token = getAdminToken()) =>
+    api.post('/api/admin/banners', data, { token }),
+
+  updateBanner: (id: string, data: any, token = getAdminToken()) =>
+    api.put(`/api/admin/banners/${id}`, data, { token }),
+
+  deleteBanner: (id: string, token = getAdminToken()) =>
+    api.delete(`/api/admin/banners/${id}`, { token }),
+
   // Transactions / Orders
   getTransactions: (params?: Record<string, any>, token = getAdminToken()) => {
     const query = params ? new URLSearchParams(params as any).toString() : '';
