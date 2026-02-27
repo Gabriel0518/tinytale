@@ -4,57 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
+import { ALL_COUNTRIES } from "@/lib/countries";
 
-const countries = [
-  // East Asia
-  "China", "Hong Kong", "Macau", "Taiwan", "Japan", "South Korea",
-  "North Korea", "Mongolia",
-  // Southeast Asia
-  "Brunei", "Cambodia", "Indonesia", "Laos", "Malaysia", "Myanmar",
-  "Philippines", "Singapore", "Thailand", "Timor-Leste", "Vietnam",
-  // South Asia
-  "Afghanistan", "Bangladesh", "Bhutan", "India", "Maldives", "Nepal",
-  "Pakistan", "Sri Lanka",
-  // Central Asia
-  "Kazakhstan", "Kyrgyzstan", "Tajikistan", "Turkmenistan", "Uzbekistan",
-  // West Asia / Middle East
-  "Armenia", "Azerbaijan", "Bahrain", "Cyprus", "Georgia", "Iran", "Iraq",
-  "Israel", "Jordan", "Kuwait", "Lebanon", "Oman", "Palestine", "Qatar",
-  "Saudi Arabia", "Syria", "Turkey", "United Arab Emirates", "Yemen",
-  // Europe
-  "Albania", "Andorra", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina",
-  "Bulgaria", "Croatia", "Czech Republic", "Denmark", "Estonia", "Finland",
-  "France", "Germany", "Greece", "Hungary", "Iceland", "Ireland", "Italy",
-  "Kosovo", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta",
-  "Moldova", "Monaco", "Montenegro", "Netherlands", "North Macedonia",
-  "Norway", "Poland", "Portugal", "Romania", "Russia", "San Marino",
-  "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden", "Switzerland",
-  "Ukraine", "United Kingdom", "Vatican City",
-  // North America & Caribbean
-  "Antigua and Barbuda", "Bahamas", "Barbados", "Belize", "Canada",
-  "Costa Rica", "Cuba", "Dominica", "Dominican Republic", "El Salvador",
-  "Grenada", "Guatemala", "Haiti", "Honduras", "Jamaica", "Mexico",
-  "Nicaragua", "Panama", "Puerto Rico", "Saint Kitts and Nevis", "Saint Lucia",
-  "Saint Vincent and the Grenadines", "Trinidad and Tobago", "United States",
-  // South America
-  "Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador",
-  "Guyana", "Paraguay", "Peru", "Suriname", "Uruguay", "Venezuela",
-  // Africa
-  "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi",
-  "Cabo Verde", "Cameroon", "Central African Republic", "Chad", "Comoros",
-  "Congo", "Côte d'Ivoire", "Democratic Republic of the Congo", "Djibouti",
-  "Egypt", "Equatorial Guinea", "Eritrea", "Eswatini", "Ethiopia", "Gabon",
-  "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho",
-  "Liberia", "Libya", "Madagascar", "Malawi", "Mali", "Mauritania",
-  "Mauritius", "Morocco", "Mozambique", "Namibia", "Niger", "Nigeria",
-  "Rwanda", "São Tomé and Príncipe", "Senegal", "Seychelles", "Sierra Leone",
-  "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania", "Togo",
-  "Tunisia", "Uganda", "Zambia", "Zimbabwe",
-  // Oceania
-  "Australia", "Fiji", "Guam", "Kiribati", "Marshall Islands", "Micronesia",
-  "Nauru", "New Zealand", "Palau", "Papua New Guinea", "Samoa",
-  "Solomon Islands", "Tonga", "Tuvalu", "Vanuatu",
-].sort();
+const countries = [...ALL_COUNTRIES].sort();
 
 type PaymentMethod = "bank" | "trx-usdt" | "paypal";
 

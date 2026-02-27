@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { adminApi } from "@/lib/adminApi";
+import { ALL_COUNTRIES } from "@/lib/countries";
 
 // ── Types ──────────────────────────────────────────────
 interface PlaylistItem {
@@ -36,11 +37,6 @@ const EMPTY_FORM: FormData = {
   name: "", description: "", icon: "", countries: [], position: 0,
   startDate: "", endDate: "", status: "Active", dramas: [],
 };
-
-const COUNTRY_OPTIONS = [
-  "US", "CA", "GB", "AU", "DE", "FR", "JP", "KR", "BR", "MX",
-  "IN", "ID", "PH", "TH", "VN", "SG", "MY", "TW", "HK",
-];
 
 // ── Icons ──────────────────────────────────────────────
 function FireIcon({ className }: { className?: string }) {
@@ -215,7 +211,7 @@ export default function AdminRankingsPage() {
     return "bg-gray-500/20 text-gray-400"; // Expired
   };
 
-  const filteredCountries = COUNTRY_OPTIONS.filter(
+  const filteredCountries = ALL_COUNTRIES.filter(
     c => !form.countries.includes(c) && c.toLowerCase().includes(countryInput.toLowerCase())
   );
 

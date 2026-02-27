@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { adminApi } from "@/lib/adminApi";
 import { useToast } from "@/components/ui/Toast";
+import { ALL_COUNTRIES } from "@/lib/countries";
 
 // ── Types ──────────────────────────────────────────────
 type TabKey = "genres" | "regions" | "tags";
@@ -53,58 +54,6 @@ const ICON_MAP: Record<string, string> = {
 };
 
 const EMPTY_FORM: CategoryFormData = { name: "", icon: "", type: "genres", countries: [], status: "Active", weight: 0 };
-
-const ALL_COUNTRIES = [
-  // North America
-  "United States", "Canada", "Mexico", "Guatemala", "Cuba", "Haiti", "Dominican Republic",
-  "Honduras", "El Salvador", "Nicaragua", "Costa Rica", "Panama", "Jamaica",
-  "Trinidad and Tobago", "Bahamas", "Barbados", "Belize",
-  // South America
-  "Brazil", "Argentina", "Colombia", "Peru", "Venezuela", "Chile", "Ecuador",
-  "Bolivia", "Paraguay", "Uruguay", "Guyana", "Suriname",
-  // Western Europe
-  "United Kingdom", "France", "Germany", "Netherlands", "Belgium", "Luxembourg",
-  "Switzerland", "Austria", "Ireland", "Monaco", "Liechtenstein",
-  // Southern Europe
-  "Spain", "Italy", "Portugal", "Greece", "Malta", "Cyprus", "Andorra", "San Marino", "Vatican City",
-  // Northern Europe
-  "Sweden", "Norway", "Denmark", "Finland", "Iceland", "Estonia", "Latvia", "Lithuania",
-  // Eastern Europe
-  "Poland", "Czech Republic", "Slovakia", "Hungary", "Romania", "Bulgaria", "Ukraine",
-  "Belarus", "Moldova", "Serbia", "Croatia", "Bosnia and Herzegovina", "Slovenia",
-  "Montenegro", "North Macedonia", "Albania", "Kosovo",
-  // Russia & Central Asia
-  "Russia", "Kazakhstan", "Uzbekistan", "Turkmenistan", "Kyrgyzstan", "Tajikistan",
-  "Georgia", "Armenia", "Azerbaijan",
-  // East Asia
-  "China", "Japan", "South Korea", "North Korea", "Taiwan", "Mongolia", "Hong Kong", "Macau",
-  // Southeast Asia
-  "Thailand", "Vietnam", "Philippines", "Indonesia", "Malaysia", "Singapore",
-  "Myanmar", "Cambodia", "Laos", "Brunei", "Timor-Leste",
-  // South Asia
-  "India", "Pakistan", "Bangladesh", "Sri Lanka", "Nepal", "Bhutan", "Maldives", "Afghanistan",
-  // Middle East
-  "Saudi Arabia", "UAE", "Qatar", "Kuwait", "Bahrain", "Oman", "Yemen", "Iraq", "Iran",
-  "Jordan", "Lebanon", "Syria", "Israel", "Palestine", "Turkey",
-  // North Africa
-  "Egypt", "Libya", "Tunisia", "Algeria", "Morocco", "Sudan", "South Sudan",
-  // West Africa
-  "Nigeria", "Ghana", "Senegal", "Ivory Coast", "Mali", "Burkina Faso", "Niger",
-  "Guinea", "Sierra Leone", "Liberia", "Togo", "Benin", "Gambia", "Cape Verde", "Mauritania",
-  // East Africa
-  "Kenya", "Ethiopia", "Tanzania", "Uganda", "Rwanda", "Burundi", "Somalia",
-  "Eritrea", "Djibouti", "Madagascar", "Mauritius", "Seychelles", "Comoros",
-  // Central Africa
-  "Democratic Republic of Congo", "Republic of Congo", "Cameroon",
-  "Central African Republic", "Chad", "Gabon", "Equatorial Guinea", "São Tomé and Príncipe",
-  // Southern Africa
-  "South Africa", "Namibia", "Botswana", "Zimbabwe", "Zambia", "Mozambique",
-  "Angola", "Malawi", "Lesotho", "Eswatini",
-  // Oceania
-  "Australia", "New Zealand", "Papua New Guinea", "Fiji", "Samoa", "Tonga",
-  "Vanuatu", "Solomon Islands", "Micronesia", "Palau", "Marshall Islands",
-  "Kiribati", "Nauru", "Tuvalu",
-];
 
 // ── Country Select ────────────────────────────────────
 function CountrySelect({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) {
