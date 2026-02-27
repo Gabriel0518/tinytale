@@ -24,7 +24,7 @@ export default function Home() {
   const [hotRankings, setHotRankings] = useState<Drama[]>([]);
   const [recommendations, setRecommendations] = useState<Drama[]>([]);
   const [customPlaylists, setCustomPlaylists] = useState<{ _id: string; slug: string; name: string; icon: string; dramas: Drama[] }[]>([]);
-  const [banners, setBanners] = useState<{ _id: string; title: string; subtitle: string; image: string; linkType: string; linkId: string; slot: string }[]>([]);
+  const [banners, setBanners] = useState<{ _id: string; title: string; subtitle: string; image: string; linkType: string; linkId: string; slot: string; position: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
   const [heroIndex, setHeroIndex] = useState(0);
@@ -72,7 +72,7 @@ export default function Home() {
           (Array.isArray(bnData) ? bnData : []).map((b: any) => ({
             _id: b._id, title: b.title || '', subtitle: b.subtitle || '',
             image: b.image || '', linkType: b.linkType || 'drama', linkId: b.linkId || '',
-            slot: b.slot || 'standard',
+            slot: b.slot || 'standard', position: b.position ?? 0,
           }))
         );
       } catch {
@@ -280,13 +280,9 @@ export default function Home() {
         />
       )}
 
-      {/* Custom Playlists + Banners (standard after 3rd, featured after 6th) */}
+      {/* Custom Playlists + Banners (inserted by banner position field) */}
       {!loading && (() => {
         const visiblePlaylists = customPlaylists.filter(pl => pl.dramas.length > 0);
-        const standardBanners = banners.filter(b => b.slot !== 'featured');
-        const featuredBanners = banners.filter(b => b.slot === 'featured');
-        const STANDARD_AFTER = 3;
-        const FEATURED_AFTER = 6;
         const elements: React.ReactNode[] = [];
 
         const getBannerHref = (b: typeof banners[0]) =>
@@ -294,8 +290,15 @@ export default function Home() {
           : b.linkType === 'playlist' ? (b.linkId ? `/browse?playlist=${b.linkId}` : '/browse')
           : b.linkId ? `/drama/${b.linkId}` : '/browse';
 
-        let standardInserted = false;
-        let featuredInserted = false;
+        // Group banners by their target position (1-based: position=3 means after 3rd playlist)
+        const bannersByPosition = new Map<number, typeof banners>();
+        banners.forEach(b => {
+          const pos = b.position || 1;
+          if (!bannersByPosition.has(pos)) bannersByPosition.set(pos, []);
+          bannersByPosition.get(pos)!.push(b);
+        });
+
+        const insertedPositions = new Set<number>();
 
         visiblePlaylists.forEach((pl, i) => {
           elements.push(
@@ -305,33 +308,33 @@ export default function Home() {
               dramas={pl.dramas}
             />
           );
-          // Standard banners after 3rd playlist
-          if (i === STANDARD_AFTER - 1 && standardBanners.length > 0) {
-            standardBanners.forEach(b => elements.push(
-              <EditorialBanner key={`banner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />
-            ));
-            standardInserted = true;
-          }
-          // Featured banners after 6th playlist
-          if (i === FEATURED_AFTER - 1 && featuredBanners.length > 0) {
-            featuredBanners.forEach(b => elements.push(
-              <FeaturedBanner key={`fbanner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />
-            ));
-            featuredInserted = true;
+          // Insert banners whose position matches this playlist index (1-based)
+          const pos = i + 1;
+          const bannersAtPos = bannersByPosition.get(pos);
+          if (bannersAtPos) {
+            bannersAtPos.forEach(b => {
+              if (b.slot === 'featured') {
+                elements.push(<FeaturedBanner key={`fbanner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />);
+              } else {
+                elements.push(<EditorialBanner key={`banner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />);
+              }
+            });
+            insertedPositions.add(pos);
           }
         });
 
-        // Fallback: if not enough playlists, append at the end
-        if (!standardInserted && standardBanners.length > 0) {
-          standardBanners.forEach(b => elements.push(
-            <EditorialBanner key={`banner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />
-          ));
-        }
-        if (!featuredInserted && featuredBanners.length > 0) {
-          featuredBanners.forEach(b => elements.push(
-            <FeaturedBanner key={`fbanner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />
-          ));
-        }
+        // Append banners whose position exceeds playlist count at the end
+        bannersByPosition.forEach((bList, pos) => {
+          if (!insertedPositions.has(pos)) {
+            bList.forEach(b => {
+              if (b.slot === 'featured') {
+                elements.push(<FeaturedBanner key={`fbanner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />);
+              } else {
+                elements.push(<EditorialBanner key={`banner-${b._id}`} title={b.title} subtitle={b.subtitle} backgroundImage={b.image} href={getBannerHref(b)} />);
+              }
+            });
+          }
+        });
 
         return elements;
       })()}
