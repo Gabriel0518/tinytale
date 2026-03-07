@@ -6,7 +6,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import OTPInput from '@/components/ui/OTPInput';
 import CountdownTimer from '@/components/ui/CountdownTimer';
-import { api } from '@/lib/api';
+import { apiCombined as api } from '@/lib/api';
 
 function VerifyOTPContent() {
   const router = useRouter();

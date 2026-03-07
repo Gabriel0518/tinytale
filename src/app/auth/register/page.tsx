@@ -10,6 +10,7 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { useGoogleLogin } from "@react-oauth/google";
 import { useFacebookLogin } from "@/lib/facebookSdk";
 import { useToast } from "@/components/ui/Toast";
+import { verificationApi } from "@/lib/api";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -47,12 +48,23 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
+      // Step 1: Send verification code
+      await verificationApi.sendVerificationCode(email, 'register');
+
+      // Step 2: Store registration data in sessionStorage
       const refCode = typeof window !== 'undefined' ? localStorage.getItem('ref_code') || '' : '';
-      await register(email, password, nickname, refCode || undefined);
-      router.push("/user/profile");
+      sessionStorage.setItem('pendingRegistration', JSON.stringify({
+        email,
+        password,
+        nickname,
+        referredBy: refCode || undefined
+      }));
+
+      // Step 3: Redirect to verification page
+      router.push(`/auth/verify-otp?email=${encodeURIComponent(email)}&purpose=register`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'An error occurred';
-      setError(message || "Registration failed. Please try again.");
+      setError(message || "Failed to send verification code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -250,7 +262,7 @@ export default function RegisterPage() {
             disabled={isLoading}
             className="w-full rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 py-3 font-medium text-white transition hover:from-amber-600 hover:to-amber-700 disabled:opacity-50"
           >
-            {isLoading ? "Creating account..." : "Create Account"}
+            {isLoading ? "Sending verification code..." : "Create Account"}
           </button>
         </form>
 

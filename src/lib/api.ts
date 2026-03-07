@@ -264,6 +264,15 @@ export const coinsApi = {
     api.post('/api/coins/redeem', { code }, { token }),
 };
 
+// Verification Code API
+export const verificationApi = {
+  sendVerificationCode: (email: string, purpose: 'register' | 'reset-password' | 'login' | 'email-change') =>
+    api.post('/api/verification/send', { email, purpose }),
+
+  verifyCode: (email: string, code: string, purpose: string) =>
+    api.post('/api/verification/verify', { email, code, purpose }),
+};
+
 // Password Reset API
 export const passwordApi = {
   sendResetCode: (email: string) =>
@@ -389,4 +398,26 @@ export const promoterApi = {
 
   getSettings: () =>
     api.get('/api/promoter/settings'),
+};
+
+// Combined API export for convenience
+export const apiCombined = {
+  ...authApi,
+  ...dramasApi,
+  ...episodesApi,
+  ...categoriesApi,
+  ...userApi,
+  ...commentsApi,
+  ...reviewsApi,
+  ...coinsApi,
+  ...verificationApi,
+  ...passwordApi,
+  ...profileApi,
+  ...settingsApi,
+  ...subscriptionApi,
+  ...contactApi,
+  ...promoterApi,
+  register: authApi.register,
+  sendVerificationCode: verificationApi.sendVerificationCode,
+  verifyCode: verificationApi.verifyCode,
 };
