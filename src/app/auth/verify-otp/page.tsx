@@ -7,10 +7,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import OTPInput from '@/components/ui/OTPInput';
 import CountdownTimer from '@/components/ui/CountdownTimer';
 import { apiCombined as api } from '@/lib/api';
+import { useAuth } from '@/lib/authContext';
 
 function VerifyOTPContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { register: authRegister } = useAuth();
 
   const email = searchParams.get('email');
   const purpose = searchParams.get('purpose') as 'register' | 'login' | 'reset-password' | 'email-change';
@@ -44,17 +46,17 @@ function VerifyOTPContent() {
         // Complete registration after successful verification
         const pendingData = sessionStorage.getItem('pendingRegistration');
         if (pendingData) {
-          const { email, password, nickname } = JSON.parse(pendingData);
+          const { email, password, nickname, referredBy } = JSON.parse(pendingData);
 
           try {
-            // Register the user
-            await api.register(email, password, nickname);
+            // Register the user using AuthContext (this will set login state)
+            await authRegister(email, password, nickname, referredBy);
 
             // Clear pending data
             sessionStorage.removeItem('pendingRegistration');
 
-            // Redirect to home page (user is now logged in)
-            router.push('/?message=Registration successful! Welcome to TinyTale.');
+            // Redirect to user profile page (user is now logged in)
+            router.push('/user/profile?message=Registration successful! Welcome to TinyTale.');
           } catch (regError: any) {
             setError(regError.message || 'Registration failed. Please try again.');
             setLoading(false);
