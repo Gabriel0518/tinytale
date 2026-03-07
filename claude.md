@@ -388,6 +388,92 @@
 | `redis` ^4.6.12 | Redis 客户端 |
 | `cors` ^2.8.5 | 跨域 |
 
+### Next.js 14 架构规范
+
+#### Providers 组件架构
+
+**关键文件：** `/src/components/Providers.tsx`
+
+```typescript
+'use client';
+
+import { AuthProvider } from '@/lib/authContext';
+import { GoogleOAuthProvider } from '@react-oauth/google';
+import { ToastProvider } from '@/components/ui/Toast';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ''}>
+      <AuthProvider>
+        <ToastProvider>
+          {children}
+        </ToastProvider>
+      </AuthProvider>
+    </GoogleOAuthProvider>
+  );
+}
+```
+
+**用途：**
+- 在根 layout (`/src/app/layout.tsx`) 中包裹所有子组件
+- 提供全局上下文（Auth、Toast、Google OAuth）
+- 解决 Next.js 14 构建时 "useAuth must be used within an AuthProvider" 错误
+- 确保所有页面在 SSR 和客户端都能访问 auth context
+
+**根 Layout 使用方式：**
+
+```typescript
+import { Providers } from "@/components/Providers";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className="dark">
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  );
+}
+```
+
+#### 动态渲染配置
+
+**规则：** 所有使用以下功能的页面必须添加 `export const dynamic = 'force-dynamic'`：
+
+1. **使用 `useAuth` 的页面**（直接或通过 Navbar 组件）
+2. **使用 `useSearchParams` 的页面**
+3. **使用 `useRouter` 并依赖客户端状态的页面**
+
+**配置位置：** 在 `"use client"` 指令之后，所有 import 之前
+
+```typescript
+"use client";
+
+export const dynamic = 'force-dynamic';
+
+import { useState } from "react";
+// ... 其他 imports
+```
+
+**已配置的页面列表：**
+
+| 类别 | 页面 | 原因 |
+|------|------|------|
+| **认证页面** | `/auth/login`, `/auth/register`, `/auth/verify-otp`, `/auth/reset-password`, `/auth/reset-password/verify` | 使用 useAuth 或 useSearchParams |
+| **用户中心** | `/user/*` (8个页面) | 使用 useAuth + Navbar |
+| **推广员** | `/affiliate/*` (7个页面 + layout) | 使用 useAuth |
+| **短剧相关** | `/drama/[id]`, `/drama/[id]/play/[episodeId]` | 使用 useAuth + Navbar |
+| **浏览页面** | `/`, `/browse`, `/search`, `/category`, `/rankings`, `/help` | 使用 Navbar（含 useAuth） |
+| **其他** | `/ref/[code]/[[...params]]` | 使用 useParams 动态路由 |
+
+**常见错误及解决方案：**
+
+| 错误 | 原因 | 解决方案 |
+|------|------|----------|
+| `useAuth must be used within an AuthProvider` | 页面在构建时静态生成，但 AuthProvider 只在客户端可用 | 1. 确保根 layout 使用 Providers 组件<br>2. 页面添加 `export const dynamic = 'force-dynamic'` |
+| `useSearchParams() should be wrapped in a suspense boundary` | 使用 useSearchParams 但未配置动态渲染 | 添加 `export const dynamic = 'force-dynamic'` |
+| Navbar 组件导致构建失败 | Navbar 使用 useAuth，所有引用它的页面都需要动态渲染 | 所有使用 Navbar 的页面添加 dynamic 配置 |
+
 ---
 
 ## 7. API接口
@@ -891,6 +977,31 @@ CF_STREAM_SIGNING_KEY_JWK=
 
 - 无 `.env` 文件，API URL 默认值：`NEXT_PUBLIC_API_URL=http://localhost:7002`（在 `src/lib/api.ts` 中定义）
 
+### Vercel 生产环境变量
+
+**必需环境变量：**
+
+| 变量名 | 值 | 说明 |
+|--------|-----|------|
+| `NEXT_PUBLIC_API_URL` | `https://api.tinytale.top` | 生产环境后端 API 地址 |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Google OAuth Client ID | Google 登录功能 |
+
+**配置方式：**
+
+```bash
+# 通过 Vercel CLI 添加环境变量
+vercel env add NEXT_PUBLIC_API_URL production
+# 输入值: https://api.tinytale.top
+
+# 或通过 Vercel Dashboard
+# Project Settings → Environment Variables → Add New
+```
+
+**重要提示：**
+- 环境变量修改后需要重新部署才能生效
+- `NEXT_PUBLIC_` 前缀的变量会在构建时注入到客户端代码中
+- 生产环境 API URL 必须使用 HTTPS
+
 ### 本地开发启动
 
 ```bash
@@ -926,6 +1037,53 @@ cd /Users/gabriel/tinytale-1 && npx next dev -p 7003
 # 部署流程
 ssh -p 7897 root@93.188.160.112 "cd /var/www/tinytale/api && git pull && npm run build && cd /var/www/tinytale/frontend && git pull && npm run build && pm2 restart all"
 ```
+
+### Vercel 部署流程
+
+**生产环境：**
+
+| 属性 | 值 |
+|------|-----|
+| **前端域名** | https://tinytale.top |
+| **部署平台** | Vercel |
+| **Git 仓库** | https://github.com/Gabriel0518/tinytale.git |
+| **自动部署** | main 分支推送自动触发 |
+
+**手动部署命令：**
+
+```bash
+# 方式1：通过 Vercel CLI 手动部署
+cd /Users/gabriel/tinytale
+npx vercel --prod
+
+# 方式2：推送到 GitHub 触发自动部署
+git push origin main
+
+# 查看部署状态
+npx vercel ls --prod
+
+# 查看部署日志
+npx vercel logs <deployment-url>
+```
+
+**部署检查清单：**
+
+1. ✅ 确保所有使用 `useAuth` 的页面添加了 `export const dynamic = 'force-dynamic'`
+2. ✅ 确保所有使用 `useSearchParams` 的页面添加了动态渲染配置
+3. ✅ 确保根 layout 使用 Providers 组件包裹子组件
+4. ✅ 确保 Vercel 环境变量已配置（`NEXT_PUBLIC_API_URL`）
+5. ✅ 本地测试构建：`npm run build`
+6. ✅ 检查 TypeScript 错误：`npm run type-check`（如果有）
+7. ✅ 推送代码到 GitHub 或手动触发部署
+
+**常见部署问题：**
+
+| 问题 | 原因 | 解决方案 |
+|------|------|----------|
+| 构建失败：`useAuth must be used within an AuthProvider` | 页面缺少动态渲染配置 | 添加 `export const dynamic = 'force-dynamic'` |
+| 环境变量未生效 | 环境变量配置后未重新部署 | 重新触发部署 |
+| API 请求失败 | `NEXT_PUBLIC_API_URL` 未配置或错误 | 检查 Vercel 环境变量配置 |
+| Google Fonts CSS 警告 | Next.js 字体优化问题 | 可忽略，不影响功能 |
 
 ---
 
