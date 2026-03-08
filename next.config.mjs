@@ -1,12 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // NOTE: Do NOT add ignoreBuildErrors or ignoreDuringBuilds
+  // All errors must be properly fixed, not ignored
   images: {
     remotePatterns: [
       {
