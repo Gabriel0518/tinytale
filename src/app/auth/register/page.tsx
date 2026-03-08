@@ -7,10 +7,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
-import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
+import dynamicImport from "next/dynamic";
 import { useFacebookLogin } from "@/lib/facebookSdk";
 import { useToast } from "@/components/ui/Toast";
 import { verificationApi } from "@/lib/api";
+
+// Dynamically import GoogleLoginButton to avoid SSR issues
+const GoogleLoginButton = dynamicImport(
+  () => import("@/components/auth/GoogleLoginButton").then(mod => ({ default: mod.GoogleLoginButton })),
+  { ssr: false }
+);
 
 export default function RegisterPage() {
   const router = useRouter();
