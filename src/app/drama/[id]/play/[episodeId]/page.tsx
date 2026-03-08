@@ -233,6 +233,14 @@ export default function VideoPlayerPage() {
   // Fetch stream playback info when episode changes
   useEffect(() => {
     if (!currentEpisode || isLocked) return;
+
+    // Check if user is logged in for non-free episodes
+    if (!currentEpisode.isFree && !token) {
+      toast("Please login to watch this episode", "error");
+      setStreamInfo(null);
+      return;
+    }
+
     episodesApi
       .getStream(currentEpisode._id, token || undefined)
       .then((res) => {
@@ -240,8 +248,12 @@ export default function VideoPlayerPage() {
         const info = (res as any).data ?? res;
         setStreamInfo(info);
       })
-      .catch(() => setStreamInfo(null));
-  }, [currentEpisode?._id, token, isLocked]);
+      .catch((error) => {
+        console.error('Failed to get stream:', error);
+        setStreamInfo(null);
+        toast("Failed to load video stream. Please try again or contact support.", "error");
+      });
+  }, [currentEpisode?._id, token, isLocked, toast]);
 
   // Record watch history on play (P1-28)
   const recordHistory = useCallback(() => {
