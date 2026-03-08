@@ -4,7 +4,10 @@ import { useRef, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
 // 动态导入 ReactPlayer 以避免 SSR 问题
-const ReactPlayer = dynamic(() => import('react-player'), { ssr: false });
+const ReactPlayer = dynamic(() => import('react-player'), {
+  ssr: false,
+  loading: () => <div className="flex items-center justify-center h-full bg-black"><p className="text-white">Loading player...</p></div>
+}) as any;
 
 interface SimplePlayerProps {
   videoUrl: string;
