@@ -50,7 +50,7 @@ export default function SimplePlayer({
     }
   }, [playing, duration, onTimeUpdate]);
 
-  const handleProgress = (state: { played: number; playedSeconds: number }) => {
+  const handleProgress = (state: any) => {
     setPlayed(state.played);
     if (duration > 0) {
       onTimeUpdate?.(state.playedSeconds, duration);
