@@ -6,8 +6,8 @@ import { ToastProvider } from '@/components/ui/Toast';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Always render GoogleOAuthProvider to prevent build errors
-  // Use empty string as fallback if client ID is not configured
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+  // Use a dummy client ID during build if not configured
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || 'dummy-client-id-for-build';
 
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
