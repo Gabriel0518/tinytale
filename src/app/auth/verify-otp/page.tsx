@@ -136,7 +136,7 @@ function VerifyOTPContent() {
               Security Verification
             </h2>
             <p className="text-sm" style={{ color: '#b8b8b8' }}>
-              We've sent a 6-digit verification code to your registered device. Please enter it below.
+              We&apos;ve sent a 6-digit verification code to your registered device. Please enter it below.
             </p>
           </div>
 
@@ -195,7 +195,7 @@ function VerifyOTPContent() {
 
             <div className="text-center">
               <p className="text-sm" style={{ color: '#9ca3af' }}>
-                Didn't receive the code?{' '}
+                Didn&apos;t receive the code?{' '}
                 <button
                   onClick={handleResend}
                   disabled={resendLoading}
