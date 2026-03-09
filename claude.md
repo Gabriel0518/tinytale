@@ -165,13 +165,13 @@
 
 | 仓库 | 本地路径 | GitHub | 说明 |
 |------|----------|--------|------|
-| **tinytale-1** | `/Users/gabriel/tinytale-1/` | `Gabriel0518/tinytale` | Next.js 项目（前端 7001 + 后台 7003 共用） |
+| **tinytale** | `/Users/gabriel/tinytale/` | `Gabriel0518/tinytale` | Next.js 项目（前端 7001 + 后台 7003 共用） |
 | **tinytale-api** | `/Users/gabriel/tinytale-api/` | `Gabriel0518/tinytale-api` | Express 后端 API（7002） |
 
 > 前端和后台共用同一个 Next.js 项目，通过 App Router 路由区分。后端 API 是独立的 Express 项目，独立部署。
 
 ```
-/tinytale-1/              # Next.js 项目 (前端 Port 7001 + 后台 Port 7003)
+/tinytale/              # Next.js 项目 (前端 Port 7001 + 后台 Port 7003)
   /src
     /app                  # Next.js App Router
       /admin              # 后台管理系统页面 (27个)
@@ -973,7 +973,7 @@ CF_STREAM_SIGNING_KEY_ID=
 CF_STREAM_SIGNING_KEY_JWK=
 ```
 
-### 前端 (/tinytale-1)
+### 前端 (/tinytale)
 
 - 无 `.env` 文件，API URL 默认值：`NEXT_PUBLIC_API_URL=http://localhost:7002`（在 `src/lib/api.ts` 中定义）
 
@@ -1006,17 +1006,17 @@ vercel env add NEXT_PUBLIC_API_URL production
 
 ```bash
 # 方式1：使用启动脚本（同时启动所有服务）
-cd /Users/gabriel/tinytale-1 && bash start-local.sh
+cd /Users/gabriel/tinytale && bash start-local.sh
 
 # 方式2：分别启动
 # 后端 API (Port 7002)
 cd /Users/gabriel/tinytale-api && npm run dev
 
 # 前端 (Port 7001)
-cd /Users/gabriel/tinytale-1 && npx next dev -p 7001
+cd /Users/gabriel/tinytale && npx next dev -p 7001
 
 # 后台管理 (Port 7003)
-cd /Users/gabriel/tinytale-1 && npx next dev -p 7003
+cd /Users/gabriel/tinytale && npx next dev -p 7003
 ```
 
 > **注意**：前端和后台共用同一个 Next.js 项目，无法同时用 `next dev` 运行两个端口。`start-local.sh` 通过后台进程实现，但可能存在冲突。生产环境通过 Vercel 分别部署。
