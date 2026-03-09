@@ -8,8 +8,6 @@ interface VideoUploaderProps {
   onFileSelected?: (file: { name: string; size: number }) => void;
   onProgress?: (percent: number) => void;
   onError?: (error: string) => void;
-  maxSizeMB?: number;
-  accept?: string;
   className?: string;
 }
 
@@ -33,8 +31,6 @@ export default function VideoUploader({
   onFileSelected,
   onProgress,
   onError,
-  maxSizeMB = 500,
-  accept = 'video/*',
   className = '',
 }: VideoUploaderProps) {
   const [state, setState] = useState<UploadState>('idle');
@@ -249,7 +245,7 @@ export default function VideoUploader({
       <input
         ref={inputRef}
         type="file"
-        accept={accept}
+        accept="video/mp4,.mp4"
         onChange={handleFileSelect}
         className="hidden"
       />

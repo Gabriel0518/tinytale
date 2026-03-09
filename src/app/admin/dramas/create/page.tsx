@@ -1295,7 +1295,6 @@ function StepVideoSubtitles({
             <VideoUploader
               onUploadComplete={handleAutoSplitUpload}
               onFileSelected={(file) => { pendingFileInfo.current = { name: file.name, size: file.size }; }}
-              maxSizeMB={10240}
             />
           </div>
         )}
