@@ -805,7 +805,7 @@ function StepBasicInfo({
             />
             <button
               onClick={() => triggerUpload("verticalCover")}
-              className={`relative flex h-64 w-full flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors overflow-hidden ${
+              className={`relative flex aspect-[2/3] w-full max-w-[280px] flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
                 form.verticalCover
                   ? "border-indigo-600 bg-indigo-600/5"
                   : "border-gray-700 hover:border-gray-500"
