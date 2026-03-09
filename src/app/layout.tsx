@@ -10,13 +10,19 @@ import {
   parseAcceptLanguageHeader,
   SupportedLocale,
 } from "@/lib/i18n";
+import {
+  buildCanonicalUrl,
+  buildLanguageAlternates,
+  getSiteUrl,
+  normalizePath,
+  resolveRequestLocale,
+} from "@/lib/seo";
 
 const inter = Inter({ subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: "TinyTale - Watch Short Dramas Online",
-  description: "Netflix-style vertical short drama streaming platform",
-};
+const SITE_TITLE = "TinyTale - Watch Short Dramas Online";
+const SITE_DESCRIPTION = "Netflix-style vertical short drama streaming platform";
+const NOINDEX_PATH_PREFIXES = ["/admin"];
 
 function resolveHtmlLang(): SupportedLocale {
   const requestHeaders = headers();
@@ -35,6 +41,32 @@ function resolveHtmlLang(): SupportedLocale {
   if (country && COUNTRY_LANG_MAP[country]) return COUNTRY_LANG_MAP[country];
 
   return DEFAULT_LOCALE;
+}
+
+export function generateMetadata(): Metadata {
+  const requestHeaders = headers();
+  const pathname = normalizePath(requestHeaders.get("x-locale-path") || "/");
+  const metadataBase = new URL(getSiteUrl());
+  const metadata: Metadata = {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    metadataBase,
+  };
+
+  if (NOINDEX_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+    metadata.robots = {
+      index: false,
+      follow: false,
+    };
+    return metadata;
+  }
+
+  const locale = resolveRequestLocale(pathname, requestHeaders.get("x-user-lang"));
+  metadata.alternates = {
+    canonical: buildCanonicalUrl(pathname, locale),
+    languages: buildLanguageAlternates(pathname),
+  };
+  return metadata;
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
