@@ -3,6 +3,15 @@
 > 目标：完成 `sitemap` 提交、`hreflang/canonical` 验证、索引覆盖监控。  
 > 适用域名：`https://tinytale.top`
 
+## 0. 本次实操记录（2026-03-09）
+
+- [x] 已进入 Google Search Console 的 `sc-domain:tinytale.top`
+- [x] 已提交站点地图：`https://tinytale.top/sitemap.xml`
+- [x] 提交结果弹窗：`已成功提交站点地图`
+- [x] 详情页读取结果：`已成功处理站点地图`
+- [x] 已发现网页：`147`
+- [ ] 继续观察 7 天索引变化（见第 5 节）
+
 ## 1. 上线前检查
 
 - [ ] 访问 `https://tinytale.top/robots.txt`，确认返回 200，且包含 `Sitemap: https://tinytale.top/sitemap.xml`
@@ -50,6 +59,18 @@
 - [ ] 抽样执行 URL Inspection -> Request Indexing（首页、分类页、热门剧详情页）
 - [ ] 核对语言分布是否符合预期（至少 `en/es/pt` 首批有效收录）
 
+### 5.1 提交后监控表（2026-03-09 起）
+
+| 日期 | Sitemaps 状态 | 已发现网页 | Pages 新错误数 | 处理动作 |
+|---|---|---:|---:|---|
+| 2026-03-09 | 已成功处理 | 147 | 0（初始） | 已完成提交，开始监控 |
+| 2026-03-10 | 待填写 | 待填写 | 待填写 | 待执行 |
+| 2026-03-11 | 待填写 | 待填写 | 待填写 | 待执行 |
+| 2026-03-12 | 待填写 | 待填写 | 待填写 | 待执行 |
+| 2026-03-13 | 待填写 | 待填写 | 待填写 | 待执行 |
+| 2026-03-14 | 待填写 | 待填写 | 待填写 | 待执行 |
+| 2026-03-15 | 待填写 | 待填写 | 待填写 | 待执行 |
+
 ## 6. 回归验收标准
 
 - [ ] Search Console 中 sitemap 状态为 `Success`
@@ -72,4 +93,3 @@ curl -s https://tinytale.top/en/browse | grep -E "canonical|hreflang" -n
 curl -s https://tinytale.top/es/drama/<dramaId> | grep -E "canonical|hreflang" -n
 curl -s https://tinytale.top/ja/drama/<dramaId>/play/<episodeId> | grep -E "canonical|hreflang" -n
 ```
-
