@@ -1,4 +1,5 @@
 import type { StreamPlaybackInfo } from '@/types';
+import { detectClientLocale } from '@/lib/i18n';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
 
@@ -11,6 +12,18 @@ interface FetchOptions extends RequestInit {
   token?: string;
 }
 
+function getClientLanguageHint(): string | null {
+  if (typeof window === 'undefined') return null;
+  return detectClientLocale(window.location.pathname);
+}
+
+function appendDramaLanguageQuery(endpoint: string, language: string | null): string {
+  if (!language) return endpoint;
+  if (!endpoint.startsWith('/api/dramas')) return endpoint;
+  if (endpoint.includes('lang=')) return endpoint;
+  return `${endpoint}${endpoint.includes('?') ? '&' : '?'}lang=${encodeURIComponent(language)}`;
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -19,8 +32,10 @@ class ApiClient {
   }
 
   private getHeaders(options: FetchOptions = {}): HeadersInit {
+    const language = getClientLanguageHint();
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
+      ...(language ? { 'x-user-lang': language } : {}),
     };
 
     if (options.token) {
@@ -31,7 +46,7 @@ class ApiClient {
   }
 
   async get<T = any>(endpoint: string, options: FetchOptions = {}): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const response = await fetch(`${this.baseUrl}${appendDramaLanguageQuery(endpoint, getClientLanguageHint())}`, {
       method: 'GET',
       headers: this.getHeaders(options),
       ...options,

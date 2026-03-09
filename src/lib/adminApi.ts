@@ -117,6 +117,35 @@ export const adminApi = {
   deleteDrama: (id: string, token = getAdminToken()) =>
     api.delete(`/api/admin/dramas/${id}`, { token }),
 
+  getDramaTranslations: (id: string, token = getAdminToken()) =>
+    api.get(`/api/dramas/${id}/translations`, { token }),
+
+  saveDramaTranslation: (
+    id: string,
+    language: string,
+    data: {
+      title: string;
+      description?: string;
+      seoTitle?: string;
+      seoDescription?: string;
+      status?: 'auto' | 'reviewed' | 'published';
+      translator?: string;
+      qualityScore?: number;
+    },
+    token = getAdminToken()
+  ) =>
+    api.put(`/api/dramas/${id}/translations/${language}`, data, { token }),
+
+  autoTranslateDrama: (
+    id: string,
+    targetLanguage: string,
+    token = getAdminToken()
+  ) =>
+    api.post(`/api/dramas/${id}/translations/auto`, { targetLanguage }, { token }),
+
+  deleteDramaTranslation: (id: string, language: string, token = getAdminToken()) =>
+    api.delete(`/api/dramas/${id}/translations/${language}`, { token }),
+
   // Episodes
   getEpisodes: (dramaId?: string, token = getAdminToken()) =>
     api.get(`/api/admin/episodes${dramaId ? `?dramaId=${dramaId}` : ''}`, { token }),

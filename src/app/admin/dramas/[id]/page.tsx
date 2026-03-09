@@ -6,7 +6,16 @@ import { useParams } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
 import { useToast } from "@/components/ui/Toast";
 
-type TabId = "basic" | "payment" | "seo";
+type TabId = "basic" | "payment" | "seo" | "translations";
+
+const TRANSLATION_LANGUAGES = [
+  { code: "es", label: "Spanish (es)" },
+  { code: "pt", label: "Portuguese (pt)" },
+  { code: "id", label: "Indonesian (id)" },
+  { code: "zh", label: "Chinese (zh)" },
+  { code: "ja", label: "Japanese (ja)" },
+  { code: "hi", label: "Hindi (hi)" },
+] as const;
 
 export default function DramaDetailPage() {
   const { id } = useParams();
@@ -15,6 +24,17 @@ export default function DramaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("basic");
+  const [translations, setTranslations] = useState<Record<string, any>>({});
+  const [translationLang, setTranslationLang] = useState<(typeof TRANSLATION_LANGUAGES)[number]["code"]>("es");
+  const [translationSaving, setTranslationSaving] = useState(false);
+  const [translationLoading, setTranslationLoading] = useState(false);
+  const [translationForm, setTranslationForm] = useState({
+    title: "",
+    description: "",
+    seoTitle: "",
+    seoDescription: "",
+    status: "reviewed" as "auto" | "reviewed" | "published",
+  });
   const [form, setForm] = useState({
     title: "", description: "", cover: "", categories: [] as string[],
     actors: [] as string[], director: "", year: 2024, status: "draft",
@@ -56,6 +76,46 @@ export default function DramaDetailPage() {
     if (id) fetchDrama();
   }, [id]);
 
+  useEffect(() => {
+    const fetchTranslations = async () => {
+      try {
+        const res: any = await adminApi.getDramaTranslations(id as string);
+        const items = Array.isArray(res?.data?.translations) ? res.data.translations : [];
+        const nextMap: Record<string, any> = {};
+        items.forEach((item: any) => {
+          if (item?.language) nextMap[item.language] = item;
+        });
+        setTranslations(nextMap);
+      } catch (error) {
+        console.error("Failed to fetch drama translations:", error);
+      }
+    };
+
+    if (id) fetchTranslations();
+  }, [id]);
+
+  useEffect(() => {
+    const translation = translations[translationLang];
+    if (translation) {
+      setTranslationForm({
+        title: translation.title || "",
+        description: translation.description || "",
+        seoTitle: translation.seo_title || "",
+        seoDescription: translation.seo_description || "",
+        status: (translation.status || "reviewed") as "auto" | "reviewed" | "published",
+      });
+      return;
+    }
+
+    setTranslationForm({
+      title: form.title || "",
+      description: form.description || "",
+      seoTitle: form.seoTitle || "",
+      seoDescription: form.seoDescription || "",
+      status: "reviewed",
+    });
+  }, [form.description, form.seoDescription, form.seoTitle, form.title, translationLang, translations]);
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -69,10 +129,84 @@ export default function DramaDetailPage() {
     }
   };
 
+  const handleSaveTranslation = async () => {
+    if (!translationForm.title.trim()) {
+      toast("Translation title is required", "error");
+      return;
+    }
+
+    setTranslationSaving(true);
+    try {
+      await adminApi.saveDramaTranslation(id as string, translationLang, {
+        title: translationForm.title,
+        description: translationForm.description,
+        seoTitle: translationForm.seoTitle,
+        seoDescription: translationForm.seoDescription,
+        status: translationForm.status,
+        translator: "admin",
+      });
+
+      const latest: any = await adminApi.getDramaTranslations(id as string);
+      const items = Array.isArray(latest?.data?.translations) ? latest.data.translations : [];
+      const nextMap: Record<string, any> = {};
+      items.forEach((item: any) => {
+        if (item?.language) nextMap[item.language] = item;
+      });
+      setTranslations(nextMap);
+
+      toast(`Saved ${translationLang} translation`, "success");
+    } catch (error: any) {
+      toast(error?.message || "Failed to save translation", "error");
+    } finally {
+      setTranslationSaving(false);
+    }
+  };
+
+  const handleAutoTranslate = async () => {
+    setTranslationLoading(true);
+    try {
+      await adminApi.autoTranslateDrama(id as string, translationLang);
+      const latest: any = await adminApi.getDramaTranslations(id as string);
+      const items = Array.isArray(latest?.data?.translations) ? latest.data.translations : [];
+      const nextMap: Record<string, any> = {};
+      items.forEach((item: any) => {
+        if (item?.language) nextMap[item.language] = item;
+      });
+      setTranslations(nextMap);
+      toast(`Auto translated to ${translationLang}`, "success");
+    } catch (error: any) {
+      toast(error?.message || "Auto translation failed", "error");
+    } finally {
+      setTranslationLoading(false);
+    }
+  };
+
+  const handleDeleteTranslation = async () => {
+    if (!translations[translationLang]) {
+      toast("No translation to delete for this language", "error");
+      return;
+    }
+    if (!window.confirm(`Delete ${translationLang} translation?`)) return;
+
+    setTranslationSaving(true);
+    try {
+      await adminApi.deleteDramaTranslation(id as string, translationLang);
+      const nextMap = { ...translations };
+      delete nextMap[translationLang];
+      setTranslations(nextMap);
+      toast(`Deleted ${translationLang} translation`, "success");
+    } catch (error: any) {
+      toast(error?.message || "Failed to delete translation", "error");
+    } finally {
+      setTranslationSaving(false);
+    }
+  };
+
   const tabs = [
     { id: "basic" as const, label: "Basic Info" },
     { id: "payment" as const, label: "Payment Settings" },
     { id: "seo" as const, label: "SEO & Publish" },
+    { id: "translations" as const, label: "Translations" },
   ];
 
   if (loading) {
@@ -276,6 +410,112 @@ export default function DramaDetailPage() {
                 type="text"
                 value={form.seoKeywords}
                 onChange={(e) => setForm({ ...form, seoKeywords: e.target.value })}
+                className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2.5 text-gray-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Translations Tab */}
+      {activeTab === "translations" && (
+        <div className="rounded-xl bg-[#13131d] p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-gray-200">Drama Copy Translations</h3>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleAutoTranslate}
+                disabled={translationLoading || translationSaving}
+                className="rounded-lg border border-indigo-500/60 bg-indigo-500/10 px-3 py-2 text-xs font-medium text-indigo-300 hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {translationLoading ? "Translating..." : "Auto Translate"}
+              </button>
+              <button
+                onClick={handleDeleteTranslation}
+                disabled={translationSaving || translationLoading}
+                className="rounded-lg border border-red-500/60 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-300 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Delete
+              </button>
+              <button
+                onClick={handleSaveTranslation}
+                disabled={translationSaving || translationLoading}
+                className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {translationSaving ? "Saving..." : "Save Translation"}
+              </button>
+            </div>
+          </div>
+
+          <div className="mb-4 grid gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-300">Language</label>
+              <select
+                value={translationLang}
+                onChange={(e) => setTranslationLang(e.target.value as any)}
+                className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2.5 text-gray-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                {TRANSLATION_LANGUAGES.map((item) => (
+                  <option key={item.code} value={item.code}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-300">Status</label>
+              <select
+                value={translationForm.status}
+                onChange={(e) => setTranslationForm({ ...translationForm, status: e.target.value as any })}
+                className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2.5 text-gray-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="auto">Auto</option>
+                <option value="reviewed">Reviewed</option>
+                <option value="published">Published</option>
+              </select>
+            </div>
+            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-2">
+              <p className="text-xs text-gray-400">Current version</p>
+              <p className="text-sm font-medium text-gray-200">
+                {translations[translationLang]?.version ? `v${translations[translationLang].version}` : "Not created"}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-300">Title</label>
+              <input
+                type="text"
+                value={translationForm.title}
+                onChange={(e) => setTranslationForm({ ...translationForm, title: e.target.value })}
+                className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2.5 text-gray-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-300">Description</label>
+              <textarea
+                value={translationForm.description}
+                onChange={(e) => setTranslationForm({ ...translationForm, description: e.target.value })}
+                rows={4}
+                className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2.5 text-gray-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-300">SEO Title</label>
+              <input
+                type="text"
+                value={translationForm.seoTitle}
+                onChange={(e) => setTranslationForm({ ...translationForm, seoTitle: e.target.value })}
+                className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2.5 text-gray-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-300">SEO Description</label>
+              <textarea
+                value={translationForm.seoDescription}
+                onChange={(e) => setTranslationForm({ ...translationForm, seoDescription: e.target.value })}
+                rows={3}
                 className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2.5 text-gray-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>

@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { userApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { detectClientLocale, localizePath, removeLocalePrefix, SupportedLocale } from "@/lib/i18n";
+import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
 
 interface NavbarProps {
   activePath?: string;
@@ -17,12 +20,22 @@ interface NavbarProps {
 }
 
 const navLinks = [
-  { href: "/", label: "Home" },
-  { href: "/browse", label: "Browse" },
-  { href: "/rankings", label: "Rankings" },
-  { href: "/user/favorites", label: "My List" },
-  { href: "/affiliate", label: "Affiliate" },
+  { href: "/", key: "home" },
+  { href: "/browse", key: "browse" },
+  { href: "/rankings", key: "rankings" },
+  { href: "/user/favorites", key: "myList" },
+  { href: "/affiliate", key: "affiliate" },
 ];
+
+const NAV_LABELS: Record<SupportedLocale, Record<string, string>> = {
+  en: { home: "Home", browse: "Browse", rankings: "Rankings", myList: "My List", affiliate: "Affiliate", signIn: "Sign In", getStarted: "Get Started" },
+  es: { home: "Inicio", browse: "Explorar", rankings: "Ranking", myList: "Mi lista", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Comenzar" },
+  pt: { home: "Início", browse: "Explorar", rankings: "Ranking", myList: "Minha Lista", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Começar" },
+  id: { home: "Beranda", browse: "Jelajahi", rankings: "Peringkat", myList: "Daftar Saya", affiliate: "Afiliasi", signIn: "Masuk", getStarted: "Mulai" },
+  zh: { home: "首页", browse: "浏览", rankings: "排行", myList: "我的收藏", affiliate: "推广", signIn: "登录", getStarted: "开始使用" },
+  ja: { home: "ホーム", browse: "閲覧", rankings: "ランキング", myList: "マイリスト", affiliate: "アフィリエイト", signIn: "ログイン", getStarted: "はじめる" },
+  hi: { home: "होम", browse: "ब्राउज़", rankings: "रैंकिंग", myList: "मेरी सूची", affiliate: "अफिलिएट", signIn: "साइन इन", getStarted: "शुरू करें" },
+};
 
 export function Navbar({
   activePath,
@@ -32,6 +45,12 @@ export function Navbar({
   className,
   renderSearch,
 }: NavbarProps) {
+  const pathname = usePathname();
+  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const navText = NAV_LABELS[locale] || NAV_LABELS.en;
+  const normalizedPath = removeLocalePrefix(pathname || "/");
+  const toLocalePath = (href: string) => localizePath(href, locale);
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrollOpacity, setScrollOpacity] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -70,7 +89,7 @@ export function Navbar({
     >
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center">
+        <Link href={toLocalePath("/")} className="flex items-center">
           <Image
             src="/logo.png"
             alt="TinyTale"
@@ -86,23 +105,27 @@ export function Navbar({
           {navLinks.map((link) => (
             <Link
               key={link.href}
-              href={link.href}
+              href={toLocalePath(link.href)}
               className={cn(
                 "text-sm font-medium transition hover:text-white",
-                activePath === link.href ? "text-white" : "text-gray-300"
+                (activePath || normalizedPath) === link.href ? "text-white" : "text-gray-300"
               )}
             >
-              {link.label}
+              {navText[link.key] || link.key}
             </Link>
           ))}
         </div>
 
         {/* Right Section */}
         <div className="flex items-center gap-4">
+          <div className="hidden md:block">
+            <LanguageSwitcher />
+          </div>
+
           {renderSearch ? (
             <div className="hidden flex-1 justify-center px-4 md:flex">{renderSearch}</div>
           ) : showSearch ? (
-            <Link href="/search" className="text-gray-300 hover:text-white" aria-label="Search">
+            <Link href={toLocalePath("/search")} className="text-gray-300 hover:text-white" aria-label="Search">
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -113,7 +136,7 @@ export function Navbar({
             /* Authenticated State */
             <div className="flex items-center gap-3">
               <Link
-                href="/user/coins"
+                href={toLocalePath("/user/coins")}
                 className="flex items-center gap-1.5 rounded-full bg-gray-800 px-3 py-1.5 text-sm text-yellow-500 transition hover:bg-gray-700"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -122,7 +145,7 @@ export function Navbar({
                 <span className="font-medium">{Number(user.coins || 0).toFixed(2)}</span>
                 <span className="text-xs font-semibold text-yellow-400">ADD</span>
               </Link>
-              <Link href="/user/notifications" className="relative text-gray-300 transition hover:text-white" aria-label="Notifications">
+              <Link href={toLocalePath("/user/notifications")} className="relative text-gray-300 transition hover:text-white" aria-label="Notifications">
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
@@ -131,7 +154,7 @@ export function Navbar({
                 )}
               </Link>
               <Link
-                href="/user/profile"
+                href={toLocalePath("/user/profile")}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-700 text-sm font-medium text-white"
               >
                 {user.avatar ? (
@@ -145,16 +168,16 @@ export function Navbar({
             /* Unauthenticated State */
             <div className="flex items-center gap-3">
               <Link
-                href="/auth/login"
+                href={toLocalePath("/auth/login")}
                 className="text-sm font-medium text-gray-300 hover:text-white"
               >
-                Sign In
+                {navText.signIn}
               </Link>
               <Link
-                href="/auth/register"
+                href={toLocalePath("/auth/register")}
                 className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
               >
-                Get Started
+                {navText.getStarted}
               </Link>
             </div>
           ) : null}
@@ -189,16 +212,19 @@ export function Navbar({
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                href={toLocalePath(link.href)}
                 onClick={() => setIsMenuOpen(false)}
                 className={cn(
                   "block py-2 text-sm font-medium",
-                  activePath === link.href ? "text-white" : "text-gray-400"
+                  (activePath || normalizedPath) === link.href ? "text-white" : "text-gray-400"
                 )}
               >
-                {link.label}
+                {navText[link.key] || link.key}
               </Link>
             ))}
+            <div className="pt-2">
+              <LanguageSwitcher className="w-full" />
+            </div>
           </div>
         </div>
       )}
