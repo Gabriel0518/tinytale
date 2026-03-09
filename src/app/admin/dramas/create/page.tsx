@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { COUNTRY_GROUPS } from "@/lib/countries";
 import { adminApi } from "@/lib/adminApi";
@@ -158,9 +157,13 @@ export default function CreateDramaPage() {
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [categoryInput, setCategoryInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [cancelingFlow, setCancelingFlow] = useState(false);
   const [stepError, setStepError] = useState<string | null>(null);
+  const [activeUploadSessionId, setActiveUploadSessionId] = useState<string | null>(null);
+  const [hasPendingUploadData, setHasPendingUploadData] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const stepVideoCleanupRef = useRef<(() => Promise<boolean>) | null>(null);
 
   const validateStep = useCallback((stepNum: number): string | null => {
     if (stepNum === 1) {
@@ -395,11 +398,15 @@ export default function CreateDramaPage() {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify(buildVideoUploadPayload(file)),
+          body: JSON.stringify(buildVideoUploadPayload(file, activeUploadSessionId || undefined)),
         });
         if (!res.ok) throw new Error('Failed to get upload URL');
         const { data } = await res.json();
-        const { upload_url, video_uid } = data;
+        const { upload_url, video_uid, uploadSessionId } = data;
+        if (uploadSessionId) {
+          setActiveUploadSessionId(uploadSessionId);
+          setHasPendingUploadData(true);
+        }
 
         const upload = new tus.Upload(file, {
           uploadUrl: upload_url,
@@ -478,6 +485,31 @@ export default function CreateDramaPage() {
     setStepError(null);
   }, [step]);
 
+  const handleCancelFlow = useCallback(async () => {
+    if (cancelingFlow) return;
+    setCancelingFlow(true);
+    try {
+      if (hasPendingUploadData || activeUploadSessionId) {
+        let cleanupSuccess = true;
+        if (stepVideoCleanupRef.current) {
+          cleanupSuccess = await stepVideoCleanupRef.current();
+        } else if (activeUploadSessionId) {
+          await adminApi.cleanupUploadSession(activeUploadSessionId);
+        }
+
+        if (!cleanupSuccess) {
+          return;
+        }
+      }
+
+      router.push("/admin/dramas");
+    } catch (err: any) {
+      toast(err?.message || "Failed to cleanup uploaded Cloudflare data. Please retry.", "error");
+    } finally {
+      setCancelingFlow(false);
+    }
+  }, [activeUploadSessionId, cancelingFlow, hasPendingUploadData, router, toast]);
+
   return (
     <div className="min-h-screen bg-[#0f0f17] flex flex-col">
       {/* Hidden file input for manual episode upload */}
@@ -492,12 +524,14 @@ export default function CreateDramaPage() {
       <header className="sticky top-0 z-50 border-b border-gray-800 bg-[#0f0f17]/95 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <Link
-              href="/admin/dramas"
-              className="text-gray-400 hover:text-white transition-colors"
+            <button
+              type="button"
+              onClick={() => void handleCancelFlow()}
+              disabled={cancelingFlow}
+              className="text-gray-400 hover:text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               <ArrowLeftIcon />
-            </Link>
+            </button>
             <h1 className="text-lg font-semibold text-white">
               Create New Drama
             </h1>
@@ -584,6 +618,12 @@ export default function CreateDramaPage() {
               removeEpisode={removeEpisode}
               updateEpisode={updateEpisode}
               dramaTitle={form.dramaName}
+              sharedUploadSessionId={activeUploadSessionId}
+              onUploadSessionChange={setActiveUploadSessionId}
+              onPendingUploadStateChange={setHasPendingUploadData}
+              registerCleanupHandler={(cleanupHandler) => {
+                stepVideoCleanupRef.current = cleanupHandler;
+              }}
             />
           </div>
           <div className={step === 3 ? "block" : "hidden"}>
@@ -603,10 +643,11 @@ export default function CreateDramaPage() {
       <footer className="sticky bottom-0 z-50 border-t border-gray-800 bg-[#0f0f17]/95 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
           <button
-            onClick={() => window.history.back()}
-            className="rounded-lg border border-gray-700 px-5 py-2 text-sm font-medium text-gray-300 transition-colors hover:border-gray-500 hover:text-white"
+            onClick={() => void handleCancelFlow()}
+            disabled={cancelingFlow}
+            className="rounded-lg border border-gray-700 px-5 py-2 text-sm font-medium text-gray-300 transition-colors hover:border-gray-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Cancel
+            {cancelingFlow ? "Canceling..." : "Cancel"}
           </button>
           <span className="text-sm text-gray-500">Step {step} of 4</span>
           <div className="flex items-center gap-3">
@@ -1032,6 +1073,10 @@ interface StepVideoSubtitlesProps {
   removeEpisode: (id: string) => void;
   updateEpisode: (id: string, updates: Partial<Episode>) => void;
   dramaTitle: string;
+  sharedUploadSessionId: string | null;
+  onUploadSessionChange: (sessionId: string | null) => void;
+  onPendingUploadStateChange: (hasPendingUploadData: boolean) => void;
+  registerCleanupHandler: (cleanupHandler: (() => Promise<boolean>) | null) => void;
 }
 
 function StepVideoSubtitles({
@@ -1042,6 +1087,10 @@ function StepVideoSubtitles({
   removeEpisode,
   updateEpisode,
   dramaTitle,
+  sharedUploadSessionId,
+  onUploadSessionChange,
+  onPendingUploadStateChange,
+  registerCleanupHandler,
 }: StepVideoSubtitlesProps) {
   const { toast } = useToast();
   const [uploadMode, setUploadMode] = useState<UploadMode>("full");
@@ -1056,7 +1105,7 @@ function StepVideoSubtitles({
   const [autoSplitLoading, setAutoSplitLoading] = useState(false);
   const [splitProgress, setSplitProgress] = useState<{ total: number; ready: number } | null>(null);
   const [uploadedVideoInfo, setUploadedVideoInfo] = useState<{ name: string; size: string } | null>(null);
-  const [uploadSessionId, setUploadSessionId] = useState<string | null>(null);
+  const [uploadSessionId, setUploadSessionId] = useState<string | null>(sharedUploadSessionId || null);
   const [cancelingUpload, setCancelingUpload] = useState(false);
   const pendingFileInfo = useRef<{ name: string; size: number } | null>(null);
 
@@ -1065,6 +1114,8 @@ function StepVideoSubtitles({
   const clipPollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+  const SOURCE_READY_POLL_INTERVAL_MS = 3000;
+  const SOURCE_READY_MAX_WAIT_MS = 30 * 60 * 1000;
 
   const formatDuration = (seconds: number) => {
     const safeSeconds = Math.max(0, Math.floor(seconds || 0));
@@ -1083,6 +1134,16 @@ function StepVideoSubtitles({
       clipPollTimeoutRef.current = null;
     }
   }, []);
+
+  useEffect(() => {
+    if (sharedUploadSessionId && sharedUploadSessionId !== uploadSessionId) {
+      setUploadSessionId(sharedUploadSessionId);
+    }
+  }, [sharedUploadSessionId, uploadSessionId]);
+
+  useEffect(() => {
+    onUploadSessionChange(uploadSessionId);
+  }, [onUploadSessionChange, uploadSessionId]);
 
   const monitorUploadedVideoReady = useCallback(async (episodeId: string, videoUid: string) => {
     const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
@@ -1129,8 +1190,9 @@ function StepVideoSubtitles({
     }));
   }, [API_BASE, setForm]);
 
-  const cleanupCurrentUpload = useCallback(async () => {
-    if (cancelingUpload) return;
+  const cleanupCurrentUpload = useCallback(async (): Promise<boolean> => {
+    if (cancelingUpload) return false;
+    const hadUploadData = Boolean(uploadSessionId) || form.episodes.some((episode) => Boolean(episode.videoUid)) || uploadQueue.length > 0 || isUploading || autoSplitLoading || splitProgress !== null || Boolean(uploadedVideoInfo);
     setCancelingUpload(true);
     clearClipPolling();
     let cleanupFailed = false;
@@ -1157,12 +1219,13 @@ function StepVideoSubtitles({
       setUploadSessionId(null);
       updateForm("episodes", []);
       pendingFileInfo.current = null;
-      if (!cleanupFailed) {
+      if (!cleanupFailed && hadUploadData) {
         toast("Upload canceled and local progress cleared.", "success");
       }
       setCancelingUpload(false);
     }
-  }, [cancelingUpload, clearClipPolling, toast, updateForm, uploadSessionId]);
+    return !cleanupFailed;
+  }, [autoSplitLoading, cancelingUpload, clearClipPolling, form.episodes, isUploading, splitProgress, toast, updateForm, uploadQueue.length, uploadSessionId, uploadedVideoInfo]);
 
   // Real sequential TUS upload for episode mode
   useEffect(() => {
@@ -1294,25 +1357,24 @@ function StepVideoSubtitles({
       // Wait for source video to be ready on Cloudflare Stream
       const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
       let ready = false;
-      for (let attempt = 0; attempt < 60; attempt++) {
+      const maxAttempts = Math.ceil(SOURCE_READY_MAX_WAIT_MS / SOURCE_READY_POLL_INTERVAL_MS);
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const statusRes = await fetch(`${API_BASE}/api/admin/upload/video/${videoUid}`, {
           headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         });
         if (statusRes.ok) {
           const statusData = await statusRes.json() as any;
-          if (statusData.data?.readyToStream) {
+          const durationSeconds = Number(statusData?.data?.duration || 0);
+          if (statusData.data?.readyToStream && durationSeconds > 0) {
             ready = true;
             break;
           }
         }
-        await new Promise(r => setTimeout(r, 3000));
+        await new Promise((resolve) => setTimeout(resolve, SOURCE_READY_POLL_INTERVAL_MS));
       }
 
       if (!ready) {
-        console.error('Source video not ready after timeout');
-        toast('Source video is not ready yet. Please try again in a moment.', 'error');
-        setAutoSplitLoading(false);
-        return;
+        throw new Error('Source video is still processing on Cloudflare. Please wait and retry auto-split.');
       }
 
       const res = await adminApi.autoSplit({
@@ -1323,38 +1385,52 @@ function StepVideoSubtitles({
         dramaTitle: dramaTitle || undefined,
       }) as any;
 
-      if (res.success && res.data) {
-        const { episodes: splitEpisodes, uploadSessionId: nextUploadSessionId } = res.data;
-        if (nextUploadSessionId) {
-          setUploadSessionId(nextUploadSessionId);
-        }
+      if (!res?.success || !res?.data) {
+        throw new Error('Auto-split request failed');
+      }
 
-        const newEpisodes: Episode[] = splitEpisodes.map((ep: any, index: number) => ({
-          id: ep.episodeId || `ep-${Date.now()}-${index}`,
-          name: ep.title || `Episode ${ep.episodeNumber}`,
-          fileName: `episode_${ep.episodeNumber}.mp4`,
-          size: '',
-          subtitleFile: null,
-          price: null,
-          cover: ep.cover || null,
-          description: '',
-          duration: formatDuration(Number(ep.duration || 0)),
-          status: 'processing' as const,
-          uploadProgress: 0,
-          videoUid: ep.streamVideoId,
-        }));
+      const { episodes: splitEpisodesRaw, uploadSessionId: nextUploadSessionId, errors: splitErrorsRaw } = res.data;
+      const splitEpisodes = Array.isArray(splitEpisodesRaw) ? splitEpisodesRaw : [];
+      const splitErrors = Array.isArray(splitErrorsRaw) ? splitErrorsRaw : [];
 
-        updateForm('episodes', newEpisodes);
+      if (nextUploadSessionId) {
+        setUploadSessionId(nextUploadSessionId);
+      }
 
-        const clipUids = splitEpisodes.map((ep: any) => ep.streamVideoId).filter(Boolean);
-        if (clipUids.length > 0) {
-          setSplitProgress({ total: clipUids.length, ready: 0 });
-          pollClipStatus(clipUids);
-        }
+      if (splitEpisodes.length === 0) {
+        const firstError = splitErrors[0]?.error ? ` ${splitErrors[0].error}` : '';
+        throw new Error(`Auto-split did not generate any episode.${firstError}`);
+      }
+
+      const newEpisodes: Episode[] = splitEpisodes.map((ep: any, index: number) => ({
+        id: ep.episodeId || `ep-${Date.now()}-${index}`,
+        name: ep.title || `Episode ${ep.episodeNumber}`,
+        fileName: `episode_${ep.episodeNumber}.mp4`,
+        size: '',
+        subtitleFile: null,
+        price: null,
+        cover: ep.cover || null,
+        description: '',
+        duration: formatDuration(Number(ep.duration || 0)),
+        status: 'processing' as const,
+        uploadProgress: 0,
+        videoUid: ep.streamVideoId,
+      }));
+
+      updateForm('episodes', newEpisodes);
+
+      const clipUids = splitEpisodes.map((ep: any) => ep.streamVideoId).filter(Boolean);
+      if (clipUids.length > 0) {
+        setSplitProgress({ total: clipUids.length, ready: 0 });
+        pollClipStatus(clipUids);
+      }
+
+      if (splitErrors.length > 0) {
+        toast(`Auto-split finished with ${splitErrors.length} failed clip(s).`, 'error');
       }
     } catch (err) {
       console.error('Auto-split failed:', err);
-      toast('Auto-split failed. Please retry upload.', 'error');
+      toast(err instanceof Error ? err.message : 'Auto-split failed. Please retry upload.', 'error');
     } finally {
       setAutoSplitLoading(false);
     }
@@ -1448,6 +1524,16 @@ function StepVideoSubtitles({
   const readyCount = form.episodes.filter((e) => e.status === "ready").length;
   const allEpisodesReady = form.episodes.length > 0 && readyCount === form.episodes.length;
   const hasActiveUpload = autoSplitLoading || isUploading || uploadQueue.length > 0 || splitProgress !== null || !!uploadingFileName;
+  const hasCloudflareUploadData = hasActiveUpload || Boolean(uploadSessionId) || Boolean(uploadedVideoInfo) || form.episodes.some((episode) => Boolean(episode.videoUid));
+
+  useEffect(() => {
+    onPendingUploadStateChange(hasCloudflareUploadData);
+  }, [hasCloudflareUploadData, onPendingUploadStateChange]);
+
+  useEffect(() => {
+    registerCleanupHandler(cleanupCurrentUpload);
+    return () => registerCleanupHandler(null);
+  }, [cleanupCurrentUpload, registerCleanupHandler]);
 
   return (
     <div className="space-y-8">
@@ -1491,18 +1577,6 @@ function StepVideoSubtitles({
             </span>
           )}
         </div>
-
-        {(hasActiveUpload || form.episodes.length > 0) && (
-          <div className="mb-5 flex justify-end">
-            <button
-              onClick={() => void cleanupCurrentUpload()}
-              disabled={cancelingUpload}
-              className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-300 transition-colors hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {cancelingUpload ? "Canceling..." : "Cancel Upload & Delete Cloudflare Data"}
-            </button>
-          </div>
-        )}
 
         {/* Mode Description */}
         {uploadMode === "full" ? (
