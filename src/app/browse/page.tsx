@@ -5,13 +5,14 @@ export const dynamic = 'force-dynamic';
 import { Suspense, useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, usePathname } from 'next/navigation';
 import { dramasApi, categoriesApi } from '@/lib/api';
 import { Drama, Category } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
 import { Footer } from '@/components/features/Footer';
 import { getDramaBadge } from '@/lib/utils';
 import { mockDramas, mockCategories } from '@/lib/mockData';
+import { detectClientLocale, localizePath, SupportedLocale } from '@/lib/i18n';
 
 type ViewMode = 'grid' | 'list';
 type StatusFilter = 'all' | 'ongoing' | 'completed' | 'upcoming';
@@ -23,7 +24,20 @@ const badgeStyles: Record<string, { label: string; className: string }> = {
   new: { label: 'NEW', className: 'bg-green-600 text-white' },
 };
 
+const BROWSE_TEXT: Record<SupportedLocale, Record<string, string>> = {
+  en: { title: 'Browse Library', subtitle: 'Discover thousands of bite-sized dramas tailored for you.', genre: 'Genre', status: 'Status', sortBy: 'Sort by', all: 'All', ongoing: 'Ongoing', completed: 'Completed', upcoming: 'Upcoming', popular: 'Popular', latest: 'Latest', topRated: 'Top Rated', showing: 'Showing', results: 'results', gridView: 'Grid view', listView: 'List view', noUpcoming: 'No upcoming dramas at the moment. Check back soon!', noResults: 'No dramas found matching your filters.', dramaFallback: 'Drama', epShort: 'episodes', loadMore: 'Load More', episodesWord: 'Episodes' },
+  zh: { title: '浏览片库', subtitle: '发现适合你的高品质短剧。', genre: '类型', status: '状态', sortBy: '排序', all: '全部', ongoing: '连载中', completed: '已完结', upcoming: '即将上线', popular: '热门', latest: '最新', topRated: '高分', showing: '共显示', results: '条结果', gridView: '网格视图', listView: '列表视图', noUpcoming: '暂无即将上线短剧', noResults: '没有符合筛选条件的短剧', dramaFallback: '短剧', epShort: '集', loadMore: '加载更多', episodesWord: '集' },
+  ja: { title: 'ライブラリ', subtitle: 'あなた向けのショートドラマを探そう。', genre: 'ジャンル', status: 'ステータス', sortBy: '並び替え', all: 'すべて', ongoing: '配信中', completed: '完結', upcoming: '近日公開', popular: '人気', latest: '新着', topRated: '高評価', showing: '表示中', results: '件', gridView: 'グリッド', listView: 'リスト', noUpcoming: '近日公開の作品はありません', noResults: '条件に一致する作品がありません', dramaFallback: 'ドラマ', epShort: '話', loadMore: 'もっと見る', episodesWord: '話' },
+  es: { title: 'Explorar catálogo', subtitle: 'Descubre miles de dramas cortos para ti.', genre: 'Género', status: 'Estado', sortBy: 'Ordenar', all: 'Todo', ongoing: 'En emisión', completed: 'Completado', upcoming: 'Próximamente', popular: 'Popular', latest: 'Reciente', topRated: 'Mejor valorado', showing: 'Mostrando', results: 'resultados', gridView: 'Vista cuadrícula', listView: 'Vista lista', noUpcoming: 'No hay próximos dramas por ahora', noResults: 'No se encontraron dramas con estos filtros', dramaFallback: 'Drama', epShort: 'episodios', loadMore: 'Cargar más', episodesWord: 'Episodios' },
+  pt: { title: 'Explorar catálogo', subtitle: 'Descubra dramas curtos para você.', genre: 'Gênero', status: 'Status', sortBy: 'Ordenar por', all: 'Todos', ongoing: 'Em andamento', completed: 'Concluído', upcoming: 'Em breve', popular: 'Popular', latest: 'Mais recente', topRated: 'Melhor avaliado', showing: 'Mostrando', results: 'resultados', gridView: 'Visão em grade', listView: 'Visão em lista', noUpcoming: 'Sem dramas futuros no momento', noResults: 'Nenhum drama encontrado para os filtros', dramaFallback: 'Drama', epShort: 'episódios', loadMore: 'Carregar mais', episodesWord: 'Episódios' },
+  hi: { title: 'लाइब्रेरी ब्राउज़ करें', subtitle: 'आपके लिए शॉर्ट ड्रामा खोजें।', genre: 'शैली', status: 'स्थिति', sortBy: 'क्रमबद्ध करें', all: 'सभी', ongoing: 'चल रहा है', completed: 'पूर्ण', upcoming: 'जल्द आ रहा', popular: 'लोकप्रिय', latest: 'नवीनतम', topRated: 'शीर्ष रेटेड', showing: 'दिखाए जा रहे', results: 'परिणाम', gridView: 'ग्रिड दृश्य', listView: 'सूची दृश्य', noUpcoming: 'अभी कोई आगामी ड्रामा नहीं', noResults: 'फ़िल्टर के अनुसार कोई ड्रामा नहीं मिला', dramaFallback: 'ड्रामा', epShort: 'एपिसोड', loadMore: 'और लोड करें', episodesWord: 'एपिसोड' },
+  id: { title: 'Jelajahi katalog', subtitle: 'Temukan drama pendek pilihan untukmu.', genre: 'Genre', status: 'Status', sortBy: 'Urutkan', all: 'Semua', ongoing: 'Berjalan', completed: 'Selesai', upcoming: 'Segera hadir', popular: 'Populer', latest: 'Terbaru', topRated: 'Rating tertinggi', showing: 'Menampilkan', results: 'hasil', gridView: 'Tampilan grid', listView: 'Tampilan daftar', noUpcoming: 'Belum ada drama yang akan datang', noResults: 'Tidak ada drama sesuai filter', dramaFallback: 'Drama', epShort: 'episode', loadMore: 'Muat lebih banyak', episodesWord: 'Episode' },
+};
+
 function BrowseContent() {
+  const pathname = usePathname();
+  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const t = BROWSE_TEXT[locale] || BROWSE_TEXT.en;
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
 
@@ -94,21 +108,21 @@ function BrowseContent() {
   const hasMore = visibleCount < filtered.length;
 
   const genrePills = [
-    { key: 'all', label: 'All' },
+    { key: 'all', label: t.all },
     ...categories.map(c => ({ key: c.slug, label: c.name })),
   ];
 
   const statusOptions: { key: StatusFilter; label: string }[] = [
-    { key: 'all', label: 'All' },
-    { key: 'ongoing', label: 'Ongoing' },
-    { key: 'completed', label: 'Completed' },
-    { key: 'upcoming', label: 'Upcoming' },
+    { key: 'all', label: t.all },
+    { key: 'ongoing', label: t.ongoing },
+    { key: 'completed', label: t.completed },
+    { key: 'upcoming', label: t.upcoming },
   ];
 
   const sortOptions: { key: SortOption; label: string }[] = [
-    { key: 'popular', label: 'Popular' },
-    { key: 'latest', label: 'Latest' },
-    { key: 'top-rated', label: 'Top Rated' },
+    { key: 'popular', label: t.popular },
+    { key: 'latest', label: t.latest },
+    { key: 'top-rated', label: t.topRated },
   ];
 
   return (
@@ -119,17 +133,17 @@ function BrowseContent() {
         <div className="mx-auto max-w-7xl px-4 py-8">
           {/* Page Header */}
           <h1 className="text-3xl font-bold uppercase tracking-wide text-white md:text-4xl">
-            Browse Library
+            {t.title}
           </h1>
           <p className="mt-2 text-sm text-gray-400 md:text-base">
-            Discover thousands of bite-sized dramas tailored for you.
+            {t.subtitle}
           </p>
 
           {/* Filter Section */}
           <div className="mt-8 space-y-5">
             {/* Genre Row */}
             <div className="flex flex-wrap items-center gap-3">
-              <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-500">Genre</span>
+              <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-500">{t.genre}</span>
               <div className="flex flex-wrap gap-2">
                 {genrePills.map((pill) => (
                   <button
@@ -150,7 +164,7 @@ function BrowseContent() {
 
             {/* Status Row */}
             <div className="flex flex-wrap items-center gap-3">
-              <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-500">Status</span>
+              <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-500">{t.status}</span>
               <div className="flex flex-wrap gap-2">
                 {statusOptions.map((opt) => (
                   <button
@@ -172,7 +186,7 @@ function BrowseContent() {
             {/* Sort Row */}
             <div className="flex flex-wrap items-center justify-between gap-4 border-t border-gray-800 pt-4">
               <div className="flex items-center gap-3">
-                <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-500">Sort by</span>
+                <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-500">{t.sortBy}</span>
                 <div className="flex gap-4">
                   {sortOptions.map((opt) => (
                     <button
@@ -192,13 +206,13 @@ function BrowseContent() {
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-sm text-gray-500">
-                  Showing {filtered.length} results
+                  {t.showing} {filtered.length} {t.results}
                 </span>
                 <div className="flex gap-1">
                   <button
                     onClick={() => setViewMode('grid')}
                     className={`rounded p-1.5 transition ${viewMode === 'grid' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-white'}`}
-                    aria-label="Grid view"
+                    aria-label={t.gridView}
                     aria-pressed={viewMode === 'grid'}
                   >
                     <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 16 16">
@@ -208,7 +222,7 @@ function BrowseContent() {
                   <button
                     onClick={() => setViewMode('list')}
                     className={`rounded p-1.5 transition ${viewMode === 'list' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-white'}`}
-                    aria-label="List view"
+                    aria-label={t.listView}
                     aria-pressed={viewMode === 'list'}
                   >
                     <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 16 16">
@@ -235,15 +249,15 @@ function BrowseContent() {
             ) : filtered.length === 0 ? (
               <div className="py-20 text-center text-gray-400" role="alert">
                 {statusFilter === 'upcoming'
-                  ? 'No upcoming dramas at the moment. Check back soon!'
-                  : 'No dramas found matching your filters.'}
+                  ? t.noUpcoming
+                  : t.noResults}
               </div>
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 {visible.map((drama) => {
                   const badge = getDramaBadge(drama);
                   return (
-                    <Link key={drama._id} href={`/drama/${drama._id}`} className="group">
+                    <Link key={drama._id} href={localizePath(`/drama/${drama._id}`, locale)} className="group">
                       <div className="relative aspect-[2/3] overflow-hidden rounded-lg">
                         <Image
                           src={drama.cover}
@@ -269,9 +283,9 @@ function BrowseContent() {
                       </div>
                       <h3 className="mt-2 truncate text-sm font-medium text-white">{drama.title}</h3>
                       <p className="mt-0.5 text-xs text-gray-500">
-                        {drama.categories?.[0] || 'Drama'}
+                        {drama.categories?.[0] || t.dramaFallback}
                         {' · '}
-                        Ep {drama.totalEpisodes || '?'}
+                        {drama.totalEpisodes || '?'} {t.epShort}
                         {' · '}
                         <span className="text-yellow-500">★ {drama.rating?.toFixed(1)}</span>
                       </p>
@@ -285,7 +299,7 @@ function BrowseContent() {
                 {visible.map((drama) => {
                   const badge = getDramaBadge(drama);
                   return (
-                    <Link key={drama._id} href={`/drama/${drama._id}`} className="group flex gap-4 rounded-lg bg-[#1f1f1f] p-4 transition hover:bg-[#2a2a2a]">
+                    <Link key={drama._id} href={localizePath(`/drama/${drama._id}`, locale)} className="group flex gap-4 rounded-lg bg-[#1f1f1f] p-4 transition hover:bg-[#2a2a2a]">
                       <div className="relative h-32 w-20 shrink-0 overflow-hidden rounded-lg">
                         <Image src={drama.cover} alt={drama.title} fill className="object-cover" />
                         {badge && badgeStyles[badge] && (
@@ -299,7 +313,7 @@ function BrowseContent() {
                         <p className="mt-1 text-sm text-gray-400">{drama.categories?.join(' · ')}</p>
                         <p className="mt-1 line-clamp-2 text-xs text-gray-500">{drama.description}</p>
                         <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
-                          <span>{drama.totalEpisodes} Episodes</span>
+                          <span>{drama.totalEpisodes} {t.episodesWord}</span>
                           <span>{drama.year}</span>
                           <span className="text-yellow-500">★ {drama.rating?.toFixed(1)}</span>
                         </div>
@@ -318,7 +332,7 @@ function BrowseContent() {
                 onClick={() => setVisibleCount(prev => prev + 12)}
                 className="flex items-center gap-2 rounded-full border border-amber-500/60 px-8 py-3 text-sm font-semibold uppercase tracking-wider text-amber-400 transition hover:border-amber-400 hover:bg-amber-400/10"
               >
-                Load More Dramas
+                {t.loadMore}
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>

@@ -1,35 +1,139 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
+import { detectClientLocale, localizePath, SupportedLocale } from '@/lib/i18n';
 
-const footerSections = [
-  {
-    title: 'Company',
-    links: [
-      { label: 'About', href: '/about' },
-      { label: 'Careers', href: '/careers' },
-      { label: 'Press', href: '/press' },
-    ],
+const FOOTER_TEXT: Record<SupportedLocale, Record<string, string>> = {
+  en: {
+    company: 'Company',
+    about: 'About',
+    careers: 'Careers',
+    press: 'Press',
+    support: 'Support',
+    helpCenter: 'Help Center',
+    contact: 'Contact',
+    faq: 'FAQ',
+    legal: 'Legal',
+    terms: 'Terms',
+    privacy: 'Privacy',
+    cookies: 'Cookie Policy',
+    followUs: 'Follow Us',
+    tagline: 'Watch premium short dramas anytime, anywhere.',
+    rights: 'All rights reserved.',
+    localeLabel: 'English (US)',
   },
-  {
-    title: 'Support',
-    links: [
-      { label: 'Help Center', href: '/help' },
-      { label: 'Contact', href: '/help?tab=contact' },
-      { label: 'FAQ', href: '/help?tab=faq' },
-    ],
+  zh: {
+    company: '公司',
+    about: '关于我们',
+    careers: '加入我们',
+    press: '媒体',
+    support: '支持',
+    helpCenter: '帮助中心',
+    contact: '联系我们',
+    faq: '常见问题',
+    legal: '法律',
+    terms: '条款',
+    privacy: '隐私',
+    cookies: 'Cookie 政策',
+    followUs: '关注我们',
+    tagline: '随时随地观看高品质短剧。',
+    rights: '版权所有。',
+    localeLabel: '中文',
   },
-  {
-    title: 'Legal',
-    links: [
-      { label: 'Terms', href: '/terms' },
-      { label: 'Privacy', href: '/privacy' },
-      { label: 'Cookie Policy', href: '/cookies' },
-    ],
+  ja: {
+    company: '会社情報',
+    about: '会社概要',
+    careers: '採用情報',
+    press: 'プレス',
+    support: 'サポート',
+    helpCenter: 'ヘルプセンター',
+    contact: 'お問い合わせ',
+    faq: 'FAQ',
+    legal: '法務',
+    terms: '利用規約',
+    privacy: 'プライバシー',
+    cookies: 'Cookie ポリシー',
+    followUs: 'フォロー',
+    tagline: 'いつでもどこでもプレミアム短編ドラマ。',
+    rights: 'All rights reserved.',
+    localeLabel: '日本語',
   },
-];
+  es: {
+    company: 'Compañía',
+    about: 'Acerca de',
+    careers: 'Empleo',
+    press: 'Prensa',
+    support: 'Soporte',
+    helpCenter: 'Centro de ayuda',
+    contact: 'Contacto',
+    faq: 'FAQ',
+    legal: 'Legal',
+    terms: 'Términos',
+    privacy: 'Privacidad',
+    cookies: 'Política de cookies',
+    followUs: 'Síguenos',
+    tagline: 'Disfruta dramas cortos premium en cualquier momento.',
+    rights: 'Todos los derechos reservados.',
+    localeLabel: 'Español',
+  },
+  pt: {
+    company: 'Empresa',
+    about: 'Sobre',
+    careers: 'Carreiras',
+    press: 'Imprensa',
+    support: 'Suporte',
+    helpCenter: 'Central de ajuda',
+    contact: 'Contato',
+    faq: 'FAQ',
+    legal: 'Legal',
+    terms: 'Termos',
+    privacy: 'Privacidade',
+    cookies: 'Política de cookies',
+    followUs: 'Siga-nos',
+    tagline: 'Assista dramas curtos premium a qualquer hora.',
+    rights: 'Todos os direitos reservados.',
+    localeLabel: 'Português',
+  },
+  hi: {
+    company: 'कंपनी',
+    about: 'हमारे बारे में',
+    careers: 'करियर',
+    press: 'प्रेस',
+    support: 'सपोर्ट',
+    helpCenter: 'सहायता केंद्र',
+    contact: 'संपर्क',
+    faq: 'FAQ',
+    legal: 'कानूनी',
+    terms: 'नियम',
+    privacy: 'गोपनीयता',
+    cookies: 'कुकी नीति',
+    followUs: 'हमें फॉलो करें',
+    tagline: 'कभी भी, कहीं भी प्रीमियम शॉर्ट ड्रामा देखें।',
+    rights: 'सर्वाधिकार सुरक्षित।',
+    localeLabel: 'हिंदी',
+  },
+  id: {
+    company: 'Perusahaan',
+    about: 'Tentang',
+    careers: 'Karier',
+    press: 'Pers',
+    support: 'Dukungan',
+    helpCenter: 'Pusat bantuan',
+    contact: 'Kontak',
+    faq: 'FAQ',
+    legal: 'Legal',
+    terms: 'Ketentuan',
+    privacy: 'Privasi',
+    cookies: 'Kebijakan cookie',
+    followUs: 'Ikuti kami',
+    tagline: 'Tonton drama pendek premium kapan saja.',
+    rights: 'Hak cipta dilindungi.',
+    localeLabel: 'Indonesia',
+  },
+};
 
 const SOCIAL_ICONS: Record<string, { label: string; icon: JSX.Element }> = {
   social_whatsapp: {
@@ -85,7 +189,37 @@ const SOCIAL_ICONS: Record<string, { label: string; icon: JSX.Element }> = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
 
 export function Footer() {
+  const pathname = usePathname();
+  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const t = FOOTER_TEXT[locale] || FOOTER_TEXT.en;
   const [socialLinks, setSocialLinks] = useState<{ key: string; url: string }[]>([]);
+
+  const footerSections = useMemo(() => ([
+    {
+      title: t.company,
+      links: [
+        { label: t.about, href: '/about' },
+        { label: t.careers, href: '/careers' },
+        { label: t.press, href: '/press' },
+      ],
+    },
+    {
+      title: t.support,
+      links: [
+        { label: t.helpCenter, href: '/help' },
+        { label: t.contact, href: '/help?tab=contact' },
+        { label: t.faq, href: '/help?tab=faq' },
+      ],
+    },
+    {
+      title: t.legal,
+      links: [
+        { label: t.terms, href: '/terms' },
+        { label: t.privacy, href: '/privacy' },
+        { label: t.cookies, href: '/cookies' },
+      ],
+    },
+  ]), [t]);
 
   useEffect(() => {
     fetch(`${API_URL}/api/settings/social`)
@@ -108,7 +242,7 @@ export function Footer() {
         <div className="mb-8">
           <Image src="/logo.png" alt="TinyTale" width={420} height={108} className="h-16 w-auto" />
           <p className="mt-3 text-sm text-gray-500">
-            Watch premium short dramas anytime, anywhere.
+            {t.tagline}
           </p>
         </div>
 
@@ -123,7 +257,7 @@ export function Footer() {
                 {section.links.map((link) => (
                   <Link
                     key={link.label}
-                    href={link.href}
+                    href={localizePath(link.href, locale)}
                     className="block text-sm text-gray-500 transition hover:text-white"
                   >
                     {link.label}
@@ -137,7 +271,7 @@ export function Footer() {
           {socialLinks.length > 0 && (
             <div>
               <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">
-                Follow Us
+                {t.followUs}
               </h4>
               <div className="flex items-center gap-4">
                 {socialLinks.map((social) => {
@@ -164,13 +298,13 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-gray-800 pt-8 md:flex-row">
           <p className="text-sm text-gray-600">
-            &copy; {new Date().getFullYear()} TinyTale. All rights reserved.
+            &copy; {new Date().getFullYear()} TinyTale. {t.rights}
           </p>
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
             </svg>
-            <span>English (US)</span>
+            <span>{t.localeLabel}</span>
           </div>
         </div>
       </div>

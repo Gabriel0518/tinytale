@@ -5,13 +5,151 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { dramasApi } from '@/lib/api';
 import { Drama } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
 import { Footer } from '@/components/features/Footer';
 import { mockDramas } from '@/lib/mockData';
+import { detectClientLocale, localizePath, SupportedLocale } from '@/lib/i18n';
 
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
+
+const RANKINGS_TEXT: Record<SupportedLocale, Record<string, string>> = {
+  en: {
+    unknown: 'Unknown',
+    today: 'Today',
+    oneDayAgo: '1 day ago',
+    daysAgo: 'days ago',
+    todayTab: 'Today',
+    weekTab: 'This Week',
+    monthTab: 'This Month',
+    allTimeTab: 'All Time',
+    hotRanking: 'Hot Ranking',
+    newArrivals: 'New Arrivals',
+    mostCollected: 'Most Collected (Est.)',
+    viewsSuffix: 'Views',
+    favsSuffix: 'Favs',
+    viewFullList: 'View Full List',
+    dramaFallback: 'Drama',
+    pageTitle: 'Drama Leaderboards',
+    pageDesc: 'Discover the most popular short dramas updated daily.',
+  },
+  zh: {
+    unknown: '未知',
+    today: '今天',
+    oneDayAgo: '1 天前',
+    daysAgo: '天前',
+    todayTab: '今日',
+    weekTab: '本周',
+    monthTab: '本月',
+    allTimeTab: '全部',
+    hotRanking: '热门排行',
+    newArrivals: '新剧上新',
+    mostCollected: '收藏最多（估算）',
+    viewsSuffix: '播放',
+    favsSuffix: '收藏',
+    viewFullList: '查看完整榜单',
+    dramaFallback: '短剧',
+    pageTitle: '短剧排行榜',
+    pageDesc: '发现每日更新的人气短剧。',
+  },
+  ja: {
+    unknown: '不明',
+    today: '今日',
+    oneDayAgo: '1日前',
+    daysAgo: '日前',
+    todayTab: '今日',
+    weekTab: '今週',
+    monthTab: '今月',
+    allTimeTab: '全期間',
+    hotRanking: '人気ランキング',
+    newArrivals: '新着',
+    mostCollected: 'お気に入り数（推定）',
+    viewsSuffix: '再生',
+    favsSuffix: 'お気に入り',
+    viewFullList: '一覧を見る',
+    dramaFallback: 'ドラマ',
+    pageTitle: 'ドラマランキング',
+    pageDesc: '人気ショートドラマを毎日更新。',
+  },
+  es: {
+    unknown: 'Desconocido',
+    today: 'Hoy',
+    oneDayAgo: 'hace 1 día',
+    daysAgo: 'días atrás',
+    todayTab: 'Hoy',
+    weekTab: 'Esta semana',
+    monthTab: 'Este mes',
+    allTimeTab: 'Todo',
+    hotRanking: 'Ranking caliente',
+    newArrivals: 'Novedades',
+    mostCollected: 'Más guardados (est.)',
+    viewsSuffix: 'vistas',
+    favsSuffix: 'favoritos',
+    viewFullList: 'Ver lista completa',
+    dramaFallback: 'Drama',
+    pageTitle: 'Clasificación de dramas',
+    pageDesc: 'Descubre los dramas cortos más populares.',
+  },
+  pt: {
+    unknown: 'Desconhecido',
+    today: 'Hoje',
+    oneDayAgo: 'há 1 dia',
+    daysAgo: 'dias atrás',
+    todayTab: 'Hoje',
+    weekTab: 'Esta semana',
+    monthTab: 'Este mês',
+    allTimeTab: 'Todo período',
+    hotRanking: 'Ranking quente',
+    newArrivals: 'Novidades',
+    mostCollected: 'Mais salvos (est.)',
+    viewsSuffix: 'visualizações',
+    favsSuffix: 'favoritos',
+    viewFullList: 'Ver lista completa',
+    dramaFallback: 'Drama',
+    pageTitle: 'Ranking de dramas',
+    pageDesc: 'Descubra os dramas curtos mais populares.',
+  },
+  hi: {
+    unknown: 'अज्ञात',
+    today: 'आज',
+    oneDayAgo: '1 दिन पहले',
+    daysAgo: 'दिन पहले',
+    todayTab: 'आज',
+    weekTab: 'इस सप्ताह',
+    monthTab: 'इस माह',
+    allTimeTab: 'सभी समय',
+    hotRanking: 'हॉट रैंकिंग',
+    newArrivals: 'नए आगमन',
+    mostCollected: 'सबसे ज्यादा सेव (अनुमान)',
+    viewsSuffix: 'व्यूज़',
+    favsSuffix: 'फेव्स',
+    viewFullList: 'पूरी सूची देखें',
+    dramaFallback: 'ड्रामा',
+    pageTitle: 'ड्रामा लीडरबोर्ड',
+    pageDesc: 'लोकप्रिय शॉर्ट ड्रामा देखें।',
+  },
+  id: {
+    unknown: 'Tidak diketahui',
+    today: 'Hari ini',
+    oneDayAgo: '1 hari lalu',
+    daysAgo: 'hari lalu',
+    todayTab: 'Hari ini',
+    weekTab: 'Minggu ini',
+    monthTab: 'Bulan ini',
+    allTimeTab: 'Sepanjang waktu',
+    hotRanking: 'Peringkat panas',
+    newArrivals: 'Rilis baru',
+    mostCollected: 'Paling disimpan (estimasi)',
+    viewsSuffix: 'tayangan',
+    favsSuffix: 'favorit',
+    viewFullList: 'Lihat daftar lengkap',
+    dramaFallback: 'Drama',
+    pageTitle: 'Papan peringkat drama',
+    pageDesc: 'Temukan drama pendek paling populer.',
+  },
+};
 
 function formatViews(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
@@ -19,14 +157,14 @@ function formatViews(n: number): string {
   return String(n);
 }
 
-function daysAgo(dateStr: string): string {
-  if (!dateStr) return 'Unknown';
+function daysAgo(dateStr: string, t: Record<string, string>): string {
+  if (!dateStr) return t.unknown;
   const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return 'Unknown';
+  if (isNaN(date.getTime())) return t.unknown;
   const diff = Math.floor((Date.now() - date.getTime()) / 86400000);
-  if (diff <= 0) return 'Today';
-  if (diff === 1) return '1 day ago';
-  return `${diff} days ago`;
+  if (diff <= 0) return t.today;
+  if (diff === 1) return t.oneDayAgo;
+  return `${diff} ${t.daysAgo}`;
 }
 
 function rankColor(rank: number): string {
@@ -37,6 +175,9 @@ function rankColor(rank: number): string {
 }
 
 export default function Rankings() {
+  const pathname = usePathname();
+  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const t = RANKINGS_TEXT[locale] || RANKINGS_TEXT.en;
   const [allDramas, setAllDramas] = useState<Drama[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<TimePeriod>('daily');
@@ -79,10 +220,10 @@ export default function Rankings() {
   );
 
   const periods: { key: TimePeriod; label: string }[] = [
-    { key: 'daily', label: 'Today' },
-    { key: 'weekly', label: 'This Week' },
-    { key: 'monthly', label: 'This Month' },
-    { key: 'all', label: 'All Time' },
+    { key: 'daily', label: t.todayTab },
+    { key: 'weekly', label: t.weekTab },
+    { key: 'monthly', label: t.monthTab },
+    { key: 'all', label: t.allTimeTab },
   ];
 
   // Reusable ranking section renderer
@@ -116,7 +257,7 @@ export default function Rankings() {
         <>
           {/* #1 Featured Card */}
           {dramas[0] && (
-            <Link href={`/drama/${dramas[0]._id}`} className="group relative mb-4 block overflow-hidden rounded-lg">
+            <Link href={localizePath(`/drama/${dramas[0]._id}`, locale)} className="group relative mb-4 block overflow-hidden rounded-lg">
               <div className="relative aspect-[3/4]">
                 <Image
                   src={dramas[0].cover}
@@ -151,7 +292,7 @@ export default function Rankings() {
             {dramas.slice(1).map((drama, i) => (
               <Link
                 key={drama._id}
-                href={`/drama/${drama._id}`}
+                href={localizePath(`/drama/${drama._id}`, locale)}
                 className="group flex items-center gap-3 rounded-lg px-2 py-2.5 transition hover:bg-[#252525]"
               >
                 <span className={`w-5 text-center text-sm font-bold ${rankColor(i + 2)}`}>
@@ -168,7 +309,7 @@ export default function Rankings() {
                 <div className="min-w-0 flex-1">
                   <h4 className="truncate text-sm font-medium text-white">{drama.title}</h4>
                   <p className="mt-0.5 text-xs text-gray-500">
-                    {drama.categories?.[0] || 'Drama'} · {metricFn(drama)}
+                    {drama.categories?.[0] || t.dramaFallback} · {metricFn(drama)}
                   </p>
                 </div>
               </Link>
@@ -177,8 +318,8 @@ export default function Rankings() {
 
           {/* View Full List */}
           <div className="mt-3 border-t border-gray-800 pt-3 text-center">
-            <Link href="/browse" className="text-xs font-medium text-gray-400 transition hover:text-amber-400">
-              View Full List →
+            <Link href={localizePath('/browse', locale)} className="text-xs font-medium text-gray-400 transition hover:text-amber-400">
+              {t.viewFullList} →
             </Link>
           </div>
         </>
@@ -195,9 +336,9 @@ export default function Rankings() {
           {/* Header + Period Filter */}
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-white md:text-4xl">Drama Leaderboards</h1>
+              <h1 className="text-3xl font-bold text-white md:text-4xl">{t.pageTitle}</h1>
               <p className="mt-2 text-sm text-gray-400">
-                Discover the most popular short dramas updated daily.
+                {t.pageDesc}
               </p>
             </div>
             <div className="flex gap-1 rounded-full bg-[#1f1f1f] p-1">
@@ -221,22 +362,22 @@ export default function Rankings() {
           {/* Three-Column Leaderboard Grid */}
           <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-3">
             {renderSection(
-              'Hot Ranking',
+              t.hotRanking,
               '🔥',
               hotRanking,
-              (d) => `${formatViews(d.viewCount || 0)} Views`,
+              (d) => `${formatViews(d.viewCount || 0)} ${t.viewsSuffix}`,
             )}
             {renderSection(
-              'New Arrivals',
+              t.newArrivals,
               '💎',
               newArrivals,
-              (d) => daysAgo(d.createdAt || ''),
+              (d) => daysAgo(d.createdAt || '', t),
             )}
             {renderSection(
-              'Most Collected (Est.)',
+              t.mostCollected,
               '🔖',
               mostCollected,
-              (d) => `~${formatViews((d.viewCount || 0) / 3)} Favs`,
+              (d) => `~${formatViews((d.viewCount || 0) / 3)} ${t.favsSuffix}`,
             )}
           </div>
         </div>
