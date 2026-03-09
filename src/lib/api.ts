@@ -12,6 +12,21 @@ interface FetchOptions extends RequestInit {
   token?: string;
 }
 
+function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) {
+    const entries: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      entries[key] = value;
+    });
+    return entries;
+  }
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+  return { ...headers };
+}
+
 function getClientLanguageHint(): string | null {
   if (typeof window === 'undefined') return null;
   return detectClientLocale(window.location.pathname);
@@ -33,7 +48,7 @@ class ApiClient {
 
   private getHeaders(options: FetchOptions = {}): HeadersInit {
     const language = getClientLanguageHint();
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(language ? { 'x-user-lang': language } : {}),
     };
@@ -42,14 +57,18 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${options.token}`;
     }
 
-    return headers;
+    return {
+      ...headers,
+      ...normalizeHeaders(options.headers),
+    };
   }
 
   async get<T = any>(endpoint: string, options: FetchOptions = {}): Promise<T> {
+    const { token, ...requestOptions } = options;
     const response = await fetch(`${this.baseUrl}${appendDramaLanguageQuery(endpoint, getClientLanguageHint())}`, {
       method: 'GET',
-      headers: this.getHeaders(options),
-      ...options,
+      ...requestOptions,
+      headers: this.getHeaders({ ...requestOptions, token }),
     });
 
     const data = await response.json();
@@ -60,11 +79,12 @@ class ApiClient {
   }
 
   async post<T = any>(endpoint: string, body?: any, options: FetchOptions = {}): Promise<T> {
+    const { token, ...requestOptions } = options;
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'POST',
-      headers: this.getHeaders(options),
+      ...requestOptions,
+      headers: this.getHeaders({ ...requestOptions, token }),
       body: body ? JSON.stringify(body) : undefined,
-      ...options,
     });
 
     const data = await response.json();
@@ -75,11 +95,12 @@ class ApiClient {
   }
 
   async put<T = any>(endpoint: string, body?: any, options: FetchOptions = {}): Promise<T> {
+    const { token, ...requestOptions } = options;
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'PUT',
-      headers: this.getHeaders(options),
+      ...requestOptions,
+      headers: this.getHeaders({ ...requestOptions, token }),
       body: body ? JSON.stringify(body) : undefined,
-      ...options,
     });
 
     const data = await response.json();
@@ -90,10 +111,11 @@ class ApiClient {
   }
 
   async delete<T = any>(endpoint: string, options: FetchOptions = {}): Promise<T> {
+    const { token, ...requestOptions } = options;
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'DELETE',
-      headers: this.getHeaders(options),
-      ...options,
+      ...requestOptions,
+      headers: this.getHeaders({ ...requestOptions, token }),
     });
 
     const data = await response.json();

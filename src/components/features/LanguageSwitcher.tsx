@@ -3,6 +3,8 @@
 import { useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { SupportedLocale, detectClientLocale, localizePath } from '@/lib/i18n';
+import { useAuth } from '@/lib/authContext';
+import { settingsApi } from '@/lib/api';
 
 const LANGUAGE_OPTIONS: Array<{ code: SupportedLocale; name: string; flag: string }> = [
   { code: 'en', name: 'English', flag: 'EN' },
@@ -21,6 +23,7 @@ interface LanguageSwitcherProps {
 export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { token } = useAuth();
 
   const currentLocale = useMemo(() => detectClientLocale(pathname), [pathname]);
 
@@ -29,6 +32,11 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
     const search = typeof window !== 'undefined' ? window.location.search : '';
 
     document.cookie = `user_lang=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
+    document.documentElement.lang = nextLocale;
+
+    if (token) {
+      settingsApi.updateSettings(token, { language: nextLocale }).catch(() => {});
+    }
 
     router.push(search ? `${targetPath}${search}` : targetPath);
     router.refresh();

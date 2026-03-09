@@ -4,6 +4,21 @@ interface FetchOptions extends RequestInit {
   token?: string;
 }
 
+function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) {
+    const entries: Record<string, string> = {};
+    headers.forEach((value, key) => {
+      entries[key] = value;
+    });
+    return entries;
+  }
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+  return { ...headers };
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -12,7 +27,7 @@ class ApiClient {
   }
 
   private getHeaders(options: FetchOptions = {}): HeadersInit {
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
 
@@ -20,14 +35,18 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${options.token}`;
     }
 
-    return headers;
+    return {
+      ...headers,
+      ...normalizeHeaders(options.headers),
+    };
   }
 
   async get<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
+    const { token, ...requestOptions } = options;
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'GET',
-      headers: this.getHeaders(options),
-      ...options,
+      ...requestOptions,
+      headers: this.getHeaders({ ...requestOptions, token }),
     });
 
     const data = await response.json();
@@ -38,11 +57,12 @@ class ApiClient {
   }
 
   async post<T>(endpoint: string, body?: any, options: FetchOptions = {}): Promise<T> {
+    const { token, ...requestOptions } = options;
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'POST',
-      headers: this.getHeaders(options),
+      ...requestOptions,
+      headers: this.getHeaders({ ...requestOptions, token }),
       body: body ? JSON.stringify(body) : undefined,
-      ...options,
     });
 
     const data = await response.json();
@@ -53,11 +73,12 @@ class ApiClient {
   }
 
   async put<T>(endpoint: string, body?: any, options: FetchOptions = {}): Promise<T> {
+    const { token, ...requestOptions } = options;
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'PUT',
-      headers: this.getHeaders(options),
+      ...requestOptions,
+      headers: this.getHeaders({ ...requestOptions, token }),
       body: body ? JSON.stringify(body) : undefined,
-      ...options,
     });
 
     const data = await response.json();
@@ -68,10 +89,11 @@ class ApiClient {
   }
 
   async delete<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
+    const { token, ...requestOptions } = options;
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'DELETE',
-      headers: this.getHeaders(options),
-      ...options,
+      ...requestOptions,
+      headers: this.getHeaders({ ...requestOptions, token }),
     });
 
     const data = await response.json();
