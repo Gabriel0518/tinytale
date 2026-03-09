@@ -1,10 +1,12 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { Drama } from "@/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
 
 function validCover(url?: string): string {
   if (!url || url.startsWith('blob:')) return '/placeholder-cover.svg';
@@ -17,7 +19,20 @@ interface HomeCarouselProps {
   className?: string;
 }
 
+const CAROUSEL_TEXT: Record<SupportedLocale, Record<string, string>> = {
+  en: { scrollLeft: "Scroll left", scrollRight: "Scroll right", episodes: "episodes" },
+  zh: { scrollLeft: "向左滚动", scrollRight: "向右滚动", episodes: "集" },
+  ja: { scrollLeft: "左へスクロール", scrollRight: "右へスクロール", episodes: "話" },
+  es: { scrollLeft: "Desplazar a la izquierda", scrollRight: "Desplazar a la derecha", episodes: "episodios" },
+  pt: { scrollLeft: "Rolar para a esquerda", scrollRight: "Rolar para a direita", episodes: "episódios" },
+  hi: { scrollLeft: "बाईं ओर स्क्रॉल करें", scrollRight: "दाईं ओर स्क्रॉल करें", episodes: "एपिसोड" },
+  id: { scrollLeft: "Gulir ke kiri", scrollRight: "Gulir ke kanan", episodes: "episode" },
+};
+
 export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
+  const pathname = usePathname();
+  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const t = CAROUSEL_TEXT[locale] || CAROUSEL_TEXT.en;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
@@ -89,7 +104,7 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
           <button
             onClick={() => scroll("left")}
             className="absolute -left-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/90 md:flex"
-            aria-label="Scroll left"
+            aria-label={t.scrollLeft}
           >
             <ChevronLeft size={20} />
           </button>
@@ -112,7 +127,7 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
           {dramas.map((drama) => (
             <Link
               key={drama._id}
-              href={`/drama/${drama._id}`}
+              href={localizePath(`/drama/${drama._id}`, locale)}
               className={`shrink-0 snap-start ${cardWidthClass}`}
               draggable={false}
               onClick={(e) => {
@@ -135,7 +150,7 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
                     <p className="text-xs text-gray-300">{drama.rating?.toFixed(1)} ★</p>
                     {drama.year && <p className="text-xs text-gray-300">{drama.year}</p>}
                     {drama.totalEpisodes && (
-                      <p className="text-xs text-gray-300">{drama.totalEpisodes} eps</p>
+                      <p className="text-xs text-gray-300">{drama.totalEpisodes} {t.episodes}</p>
                     )}
                   </div>
                   {drama.categories && drama.categories.length > 0 && (
@@ -158,7 +173,7 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
           <button
             onClick={() => scroll("right")}
             className="absolute -right-2 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/70 text-white transition hover:bg-black/90 md:flex"
-            aria-label="Scroll right"
+            aria-label={t.scrollRight}
           >
             <ChevronRight size={20} />
           </button>

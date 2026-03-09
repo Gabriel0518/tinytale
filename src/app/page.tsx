@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { dramasApi, categoriesApi } from '@/lib/api';
 import { Drama, Category } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
@@ -13,13 +13,111 @@ import { EditorialBanner } from '@/components/features/EditorialBanner';
 import { FeaturedBanner } from '@/components/features/FeaturedBanner';
 import { Footer } from '@/components/features/Footer';
 import { mockDramas, mockCategories } from '@/lib/mockData';
+import { detectClientLocale, localizePath, SupportedLocale } from '@/lib/i18n';
 
 function validCover(url?: string): string | undefined {
   if (!url || url.startsWith('blob:')) return undefined;
   return url;
 }
 
+const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
+  en: {
+    all: 'All',
+    hotRanking: 'Hot Ranking',
+    episodes: 'Episodes',
+    watchNow: 'Watch Now',
+    myList: 'My List',
+    slideLabel: 'Go to slide',
+    trendingNow: 'Trending Now',
+    newReleases: 'New Releases',
+    recommendations: 'Recommendations',
+    editorsChoice: "Editor's Choice",
+    browseFallback: '/browse',
+  },
+  zh: {
+    all: '全部',
+    hotRanking: '热门榜',
+    episodes: '集',
+    watchNow: '立即观看',
+    myList: '我的收藏',
+    slideLabel: '跳转到第',
+    trendingNow: '热门推荐',
+    newReleases: '最新上新',
+    recommendations: '推荐内容',
+    editorsChoice: '编辑精选',
+    browseFallback: '/browse',
+  },
+  ja: {
+    all: 'すべて',
+    hotRanking: '人気ランキング',
+    episodes: '話',
+    watchNow: '今すぐ見る',
+    myList: 'マイリスト',
+    slideLabel: 'スライド',
+    trendingNow: 'トレンド',
+    newReleases: '新着',
+    recommendations: 'おすすめ',
+    editorsChoice: '編集部のおすすめ',
+    browseFallback: '/browse',
+  },
+  es: {
+    all: 'Todo',
+    hotRanking: 'Ranking caliente',
+    episodes: 'episodios',
+    watchNow: 'Ver ahora',
+    myList: 'Mi lista',
+    slideLabel: 'Ir a la diapositiva',
+    trendingNow: 'Tendencias',
+    newReleases: 'Novedades',
+    recommendations: 'Recomendaciones',
+    editorsChoice: 'Selección del editor',
+    browseFallback: '/browse',
+  },
+  pt: {
+    all: 'Todos',
+    hotRanking: 'Ranking em alta',
+    episodes: 'episódios',
+    watchNow: 'Assistir agora',
+    myList: 'Minha Lista',
+    slideLabel: 'Ir para o slide',
+    trendingNow: 'Em alta',
+    newReleases: 'Novidades',
+    recommendations: 'Recomendações',
+    editorsChoice: 'Escolha do editor',
+    browseFallback: '/browse',
+  },
+  hi: {
+    all: 'सभी',
+    hotRanking: 'हॉट रैंकिंग',
+    episodes: 'एपिसोड',
+    watchNow: 'अभी देखें',
+    myList: 'मेरी सूची',
+    slideLabel: 'स्लाइड पर जाएँ',
+    trendingNow: 'ट्रेंडिंग',
+    newReleases: 'नई रिलीज़',
+    recommendations: 'सिफ़ारिशें',
+    editorsChoice: 'एडिटर की पसंद',
+    browseFallback: '/browse',
+  },
+  id: {
+    all: 'Semua',
+    hotRanking: 'Peringkat panas',
+    episodes: 'episode',
+    watchNow: 'Tonton sekarang',
+    myList: 'Daftar Saya',
+    slideLabel: 'Pergi ke slide',
+    trendingNow: 'Sedang tren',
+    newReleases: 'Rilis baru',
+    recommendations: 'Rekomendasi',
+    editorsChoice: 'Pilihan editor',
+    browseFallback: '/browse',
+  },
+};
+
 export default function Home() {
+  const pathname = usePathname();
+  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const t = HOME_TEXT[locale] || HOME_TEXT.en;
   const router = useRouter();
   const [dramas, setDramas] = useState<Drama[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -118,7 +216,7 @@ export default function Home() {
   );
 
   const categoryPills = [
-    { key: 'all', label: 'All' },
+    { key: 'all', label: t.all },
     ...categories.slice(0, 7).map(c => ({ key: c.slug, label: c.name })),
   ];
 
@@ -142,7 +240,7 @@ export default function Home() {
             <div className="absolute bottom-24 left-0 right-0 mx-auto max-w-7xl px-4 md:bottom-32">
               {hotRankings.length > 0 && (
                 <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1 text-xs font-semibold text-white">
-                  🔥 #{heroIndex + 1} Hot Ranking
+                  🔥 #{heroIndex + 1} {t.hotRanking}
                 </span>
               )}
               <h1 className="max-w-lg text-4xl font-bold leading-tight text-white md:text-6xl">
@@ -165,7 +263,7 @@ export default function Home() {
                 <span className="h-1 w-1 rounded-full bg-gray-500" />
                 <span>{heroDrama.year}</span>
                 <span className="h-1 w-1 rounded-full bg-gray-500" />
-                <span>{heroDrama.totalEpisodes} Episodes</span>
+                <span>{heroDrama.totalEpisodes} {t.episodes}</span>
               </div>
 
               <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-400 md:text-base">
@@ -174,21 +272,22 @@ export default function Home() {
 
               <div className="mt-6 flex items-center gap-3">
                 <Link
-                  href={`/drama/${heroDrama._id}`}
+                  href={localizePath(`/drama/${heroDrama._id}`, locale)}
                   className="flex items-center gap-2 rounded-full bg-red-600 px-8 py-3 font-semibold text-white transition hover:bg-red-700"
                 >
                   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z" />
                   </svg>
-                  Watch Now
+                  {t.watchNow}
                 </Link>
                 <button
                   onClick={() => {
                     const token = typeof window !== 'undefined' && localStorage.getItem('token');
                     if (token) {
-                      router.push('/user/favorites');
+                      router.push(localizePath('/user/favorites', locale));
                     } else {
-                      router.push('/auth/login?redirect=/user/favorites');
+                      const redirect = encodeURIComponent(localizePath('/user/favorites', locale));
+                      router.push(`${localizePath('/auth/login', locale)}?redirect=${redirect}`);
                     }
                   }}
                   className="flex items-center gap-2 rounded-full border border-gray-500 px-6 py-3 font-medium text-white transition hover:border-white hover:bg-white/10"
@@ -196,7 +295,7 @@ export default function Home() {
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  My List
+                  {t.myList}
                 </button>
               </div>
 
@@ -210,7 +309,7 @@ export default function Home() {
                       className={`h-1.5 rounded-full transition-all ${
                         i === heroIndex ? 'w-8 bg-white' : 'w-4 bg-white/40 hover:bg-white/60'
                       }`}
-                      aria-label={`Go to slide ${i + 1}`}
+                      aria-label={`${t.slideLabel} ${i + 1}`}
                     />
                   ))}
                 </div>
@@ -249,7 +348,7 @@ export default function Home() {
         <section className="mx-auto max-w-7xl px-4 py-6">
           <div className="mb-6 flex items-center gap-2">
             <span className="text-xl">🔥</span>
-            <h2 className="text-xl font-bold text-white">Trending Now</h2>
+            <h2 className="text-xl font-bold text-white">{t.trendingNow}</h2>
           </div>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
             {[...Array(6)].map((_, i) => (
@@ -259,7 +358,7 @@ export default function Home() {
         </section>
       ) : (
         <HomeCarousel
-          title="🔥 Trending Now"
+          title={`🔥 ${t.trendingNow}`}
           dramas={trendingDramas}
         />
       )}
@@ -267,7 +366,7 @@ export default function Home() {
       {/* New Releases */}
       {!loading && (
         <HomeCarousel
-          title="✨ New Releases"
+          title={`✨ ${t.newReleases}`}
           dramas={newReleases}
         />
       )}
@@ -277,7 +376,7 @@ export default function Home() {
       {/* Recommendations (from admin featured) */}
       {!loading && recommendations.length > 0 && (
         <HomeCarousel
-          title="💎 Recommendations"
+          title={`💎 ${t.recommendations}`}
           dramas={recommendations}
         />
       )}
@@ -287,9 +386,11 @@ export default function Home() {
         const visiblePlaylists = customPlaylists.filter(pl => pl.dramas.length > 0);
 
         const getBannerHref = (b: typeof banners[0]) =>
-          b.linkType === 'url' ? (b.linkId.startsWith('http') ? b.linkId : '/browse')
-          : b.linkType === 'playlist' ? (b.linkId ? `/browse?playlist=${b.linkId}` : '/browse')
-          : b.linkId ? `/drama/${b.linkId}` : '/browse';
+          b.linkType === 'url'
+            ? (b.linkId.startsWith('http') ? b.linkId : localizePath(t.browseFallback, locale))
+            : b.linkType === 'playlist'
+              ? (b.linkId ? localizePath(`/browse?playlist=${b.linkId}`, locale) : localizePath(t.browseFallback, locale))
+              : b.linkId ? localizePath(`/drama/${b.linkId}`, locale) : localizePath(t.browseFallback, locale);
 
         // Build a unified list: playlists get position 1,2,3... banners use their own position
         type Item = { type: 'playlist'; data: typeof visiblePlaylists[0]; pos: number }
@@ -331,7 +432,7 @@ export default function Home() {
       {/* Editor's Choice */}
       {!loading && editorsChoice.length > 0 && (
         <HomeCarousel
-          title="⭐ Editor's Choice"
+          title={`⭐ ${t.editorsChoice}`}
           dramas={editorsChoice}
         />
       )}
