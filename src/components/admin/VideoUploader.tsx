@@ -6,6 +6,8 @@ import * as tus from 'tus-js-client';
 interface VideoUploaderProps {
   onUploadComplete: (videoUid: string) => void;
   onFileSelected?: (file: { name: string; size: number }) => void;
+  onUploadSessionCreated?: (uploadSessionId: string) => void;
+  onCancelUploadSession?: (uploadSessionId: string) => Promise<void> | void;
   onProgress?: (percent: number) => void;
   onError?: (error: string) => void;
   className?: string;
@@ -29,6 +31,8 @@ const ALLOWED_EXTENSION = '.mp4';
 export default function VideoUploader({
   onUploadComplete,
   onFileSelected,
+  onUploadSessionCreated,
+  onCancelUploadSession,
   onProgress,
   onError,
   className = '',
@@ -38,6 +42,7 @@ export default function VideoUploader({
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState('');
   const [fileSize, setFileSize] = useState(0);
+  const [uploadSessionId, setUploadSessionId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [errorSuggestion, setErrorSuggestion] = useState('');
 
@@ -156,7 +161,11 @@ export default function VideoUploader({
       }
 
       const { data } = await res.json();
-      const { upload_url, video_uid } = data;
+      const { upload_url, video_uid, uploadSessionId: sessionId } = data;
+      if (sessionId) {
+        setUploadSessionId(sessionId);
+        onUploadSessionCreated?.(sessionId);
+      }
 
       // Start TUS upload — use uploadUrl (not endpoint) for Cloudflare direct creator uploads
       const upload = new tus.Upload(file, {
@@ -194,17 +203,26 @@ export default function VideoUploader({
       onError?.(msg);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onUploadComplete, onProgress, onError]);
+  }, [onUploadComplete, onUploadSessionCreated, onProgress, onError]);
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     if (uploadRef.current) {
       uploadRef.current.abort();
       uploadRef.current = null;
+    }
+    const sessionId = uploadSessionId;
+    if (sessionId && onCancelUploadSession) {
+      try {
+        await onCancelUploadSession(sessionId);
+      } catch (error) {
+        console.error('Failed to cleanup cancelled upload session:', error);
+      }
     }
     setState('idle');
     setProgress(0);
     setFileName('');
     setFileSize(0);
+    setUploadSessionId(null);
     setErrorMsg('');
   };
 
@@ -236,6 +254,7 @@ export default function VideoUploader({
     setProgress(0);
     setFileName('');
     setFileSize(0);
+    setUploadSessionId(null);
     setErrorMsg('');
     setErrorSuggestion('');
   };

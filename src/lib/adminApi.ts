@@ -130,11 +130,23 @@ export const adminApi = {
   deleteEpisode: (id: string, token = getAdminToken()) =>
     api.delete(`/api/admin/episodes/${id}`, { token }),
 
-  autoSplit: (data: { sourceVideoUid: string; episodeDuration: number; dramaId: string }, token = getAdminToken()) =>
+  autoSplit: (
+    data: {
+      sourceVideoUid: string;
+      episodeDuration: number;
+      dramaId: string;
+      uploadSessionId?: string;
+      dramaTitle?: string;
+    },
+    token = getAdminToken()
+  ) =>
     api.post('/api/admin/upload/auto-split', data, { token }),
 
   getClipStatus: (uids: string[], token = getAdminToken()) =>
     api.get(`/api/admin/upload/clip-status?uids=${uids.join(',')}`, { token }),
+
+  cleanupUploadSession: (uploadSessionId: string, token = getAdminToken()) =>
+    api.post('/api/admin/upload/video/cleanup', { uploadSessionId }, { token }),
 
   // Users
   getUsers: (params?: { search?: string; status?: string; page?: number; limit?: number }, token = getAdminToken()) => {

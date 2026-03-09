@@ -48,6 +48,7 @@ export default function DramaManagementPage() {
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [editingDrama, setEditingDrama] = useState<Drama | null>(null);
   const [deletingDrama, setDeletingDrama] = useState<Drama | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -108,10 +109,12 @@ export default function DramaManagementPage() {
   const handleDelete = useCallback(async () => {
     if (!deletingDrama) return;
     try {
+      setDeleteError(null);
       await adminApi.deleteDrama(deletingDrama.id);
       fetchDramas();
-    } catch {
-      setDramas((prev) => prev.filter((d) => d.id !== deletingDrama.id));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete drama.";
+      setDeleteError(message);
     }
     setDeletingDrama(null);
   }, [deletingDrama, fetchDramas]);
@@ -175,6 +178,12 @@ export default function DramaManagementPage() {
           Create New Drama
         </Link>
       </div>
+
+      {deleteError && (
+        <div className="rounded-lg border border-red-700/50 bg-red-900/30 px-4 py-3 text-sm text-red-300">
+          {deleteError}
+        </div>
+      )}
 
       {/* Filters Card */}
       <div className="rounded-xl bg-[#1a1a2e] p-4">

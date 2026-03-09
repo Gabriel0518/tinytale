@@ -77,11 +77,30 @@ function EditInfoModal({ episode, onClose, onSave }: { episode: Episode; onClose
   );
   const [scheduleDate, setScheduleDate] = useState("");
   const [saving, setSaving] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const labelCls = "block text-sm font-medium text-gray-300 mb-1.5";
   const inputCls = "w-full rounded-lg border border-gray-700 bg-[#13131d] px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none";
 
   const handleSave = async () => {
+    if (!Number.isFinite(epNumber) || epNumber < 1) {
+      setValidationError("Episode number must be at least 1.");
+      return;
+    }
+    if (!epTitle.trim()) {
+      setValidationError("Episode title is required.");
+      return;
+    }
+    if (accessType === "paid" && (!Number.isFinite(price) || price < 1)) {
+      setValidationError("Paid episode price must be at least 1 coin.");
+      return;
+    }
+    if (publishMode === "scheduled" && !scheduleDate) {
+      setValidationError("Please choose a scheduled publish date.");
+      return;
+    }
+
+    setValidationError(null);
     setSaving(true);
     try {
       const status = publishMode === "draft" ? "Draft" : publishMode === "immediate" ? "Published" : "Draft";
@@ -106,6 +125,12 @@ function EditInfoModal({ episode, onClose, onSave }: { episode: Episode; onClose
         <ModalCloseBtn onClick={onClose} />
         <h2 className="text-lg font-bold text-white mb-1">Edit Episode Info</h2>
         <p className="text-sm text-gray-500 mb-6">Episode {episode.episodeNumber} &mdash; {episode.title}</p>
+
+        {validationError && (
+          <div className="mb-4 rounded-lg border border-red-700/50 bg-red-900/30 px-4 py-3 text-sm text-red-300">
+            {validationError}
+          </div>
+        )}
 
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-4">

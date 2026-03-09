@@ -270,6 +270,7 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
   const [coverUploading, setCoverUploading] = useState<"verticalCover" | "horizontalCover" | null>(null);
 
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [stepError, setStepError] = useState<string | null>(null);
 
   const handleFileChange = async (
     field: "verticalCover" | "horizontalCover",
@@ -351,10 +352,56 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
     updateForm("episodes", form.episodes.map((e) => (e.id === id ? { ...e, ...updates } : e)));
   };
 
-  const nextStep = () => setStep((s) => Math.min(4, s + 1));
-  const prevStep = () => setStep((s) => Math.max(1, s - 1));
+  const validateStep = (stepNum: number): string | null => {
+    if (stepNum === 1) {
+      if (!form.verticalCover) return "Vertical cover is required.";
+      if (!form.horizontalCover) return "Horizontal cover is required.";
+      if (!form.dramaName.trim()) return "Drama name is required.";
+      if (!form.synopsis.trim()) return "Synopsis is required.";
+      if (form.categories.length === 0) return "At least one category is required.";
+      return null;
+    }
+    if (stepNum === 2) {
+      if (form.episodes.length === 0) return "Please upload at least one episode.";
+      const invalidEpisode = form.episodes.find((episode) => !episode.name.trim() || episode.status !== "ready");
+      if (invalidEpisode) return "All episodes must have a name and be ready before proceeding.";
+      return null;
+    }
+    if (stepNum === 3) {
+      if (form.monetizationModel !== "free" && form.defaultPrice < 1) return "Default episode price must be at least 1 coin.";
+      if (form.monetizationModel === "partial" && form.freeEpisodeCount > form.episodes.length) {
+        return "Free episode count cannot exceed total episodes.";
+      }
+      return null;
+    }
+    return null;
+  };
+
+  const nextStep = () => {
+    const error = validateStep(step);
+    if (error) {
+      setStepError(error);
+      return;
+    }
+    setStepError(null);
+    setStep((s) => Math.min(4, s + 1));
+  };
+
+  const prevStep = () => {
+    setStepError(null);
+    setStep((s) => Math.max(1, s - 1));
+  };
 
   const handleSave = () => {
+    for (const stepNum of [1, 2, 3, 4]) {
+      const error = validateStep(stepNum);
+      if (error) {
+        setStep(stepNum);
+        setStepError(error);
+        return;
+      }
+    }
+    setStepError(null);
     onSave({
       ...drama,
       title: form.dramaName || drama.title,
@@ -425,6 +472,11 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
       {/* Step Content */}
       <div className="flex-1 overflow-y-auto pb-24">
         <div className="mx-auto max-w-5xl px-6 py-8">
+          {stepError && (
+            <div className="mb-6 rounded-lg border border-red-700/50 bg-red-900/30 px-4 py-3 text-sm text-red-300">
+              {stepError}
+            </div>
+          )}
           {step === 1 && (
             <StepBasicInfo
               form={form}
