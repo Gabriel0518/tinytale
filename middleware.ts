@@ -44,7 +44,11 @@ export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (shouldBypass(pathname)) {
-    return NextResponse.next();
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-locale-path', pathname);
+    return NextResponse.next({
+      request: { headers: requestHeaders },
+    });
   }
 
   const urlLocale = extractLocaleFromPath(pathname);
@@ -57,6 +61,7 @@ export function middleware(request: NextRequest) {
 
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-user-lang', urlLocale);
+    requestHeaders.set('x-locale-path', pathname);
 
     const response = NextResponse.rewrite(rewriteUrl, {
       request: { headers: requestHeaders },
