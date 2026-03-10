@@ -32,7 +32,7 @@
 | 缓存 | Redis |
 | 视频存储 | 第三方CDN (Mux/Cloudflare Stream) |
 | 支付 | Stripe |
-| 部署 | Vercel (前端) + Railway/AWS (后端) |
+| 部署 | Vercel (前端) + Hostinger VPS (后端) |
 
 ## 3. 数据库 Schema
 
@@ -267,5 +267,5 @@ NEXT_PUBLIC_API_URL=http://localhost:7003
 
 ### Phase 4: 部署上线 (1周)
 - [ ] 前端部署 (Vercel)
-- [ ] 后端部署 (Railway/AWS)
+- [ ] 后端部署 (Hostinger VPS)
 - [ ] 测试验收

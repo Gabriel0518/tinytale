@@ -3,9 +3,9 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
 import EditDramaModal from "./components/EditDramaModal";
+import DeleteDramaConfirmModal from "./components/DeleteDramaConfirmModal";
 
 // ── Types ──────────────────────────────────────────────
 type DramaStatus = "Published" | "Draft" | "Suspended";
@@ -48,14 +48,12 @@ export default function DramaManagementPage() {
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
   const [editingDrama, setEditingDrama] = useState<Drama | null>(null);
   const [deletingDrama, setDeletingDrama] = useState<Drama | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const actionMenuRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
 
   const fetchDramas = useCallback(async () => {
     try {
-      setLoading(true);
       const res: any = await adminApi.getDramas({ page: 1, limit: 100 });
       const items = res.data?.dramas || res.data || [];
       setDramas(items.map((d: any) => ({
@@ -72,8 +70,6 @@ export default function DramaManagementPage() {
       })));
     } catch {
       setDramas([]);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -110,13 +106,16 @@ export default function DramaManagementPage() {
     if (!deletingDrama) return;
     try {
       setDeleteError(null);
+      setDeleteSubmitting(true);
       await adminApi.deleteDrama(deletingDrama.id);
+      setDeletingDrama(null);
       fetchDramas();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to delete drama.";
       setDeleteError(message);
+    } finally {
+      setDeleteSubmitting(false);
     }
-    setDeletingDrama(null);
   }, [deletingDrama, fetchDramas]);
 
   const filtered = useMemo(() => {
@@ -412,6 +411,7 @@ export default function DramaManagementPage() {
                             <div className="my-1 border-t border-gray-800" />
                             <button
                               onClick={() => {
+                                setDeleteError(null);
                                 setDeletingDrama(drama);
                                 setActionMenuId(null);
                               }}
@@ -497,30 +497,17 @@ export default function DramaManagementPage() {
         </div>
       </div>
       {/* Delete Confirmation Modal */}
-      {deletingDrama && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-xl bg-[#1a1a2e] p-6 shadow-2xl">
-            <h3 className="text-lg font-semibold text-white">Confirm Delete</h3>
-            <p className="mt-2 text-sm text-gray-400">
-              Are you sure you want to delete &ldquo;{deletingDrama.title}&rdquo;? This action cannot be undone.
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setDeletingDrama(null)}
-                className="rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:border-gray-500 hover:text-white"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
-              >
-                Confirm Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DeleteDramaConfirmModal
+        open={Boolean(deletingDrama)}
+        dramaTitle={deletingDrama?.title}
+        submitting={deleteSubmitting}
+        error={deleteError}
+        onCancel={() => {
+          setDeleteError(null);
+          setDeletingDrama(null);
+        }}
+        onConfirm={handleDelete}
+      />
 
       {/* Edit Drama Modal */}
       {editingDrama && (
