@@ -143,6 +143,53 @@ const CATEGORY_TRANSLATIONS: Record<SupportedLocale, Record<string, string>> = {
   },
 };
 
+const CATEGORY_ALIASES: Record<string, string> = {
+  // canonical english keys
+  romance: 'romance',
+  fantasy: 'fantasy',
+  drama: 'drama',
+  comedy: 'comedy',
+  action: 'action',
+  thriller: 'thriller',
+  mystery: 'mystery',
+  historical: 'historical',
+  scifi: 'scifi',
+  horror: 'horror',
+  family: 'family',
+  youth: 'youth',
+  revenge: 'revenge',
+  urban: 'urban',
+  ceo: 'ceo',
+  werewolf: 'werewolf',
+  suspense: 'suspense',
+  all: 'all',
+  // chinese aliases
+  爱情: 'romance',
+  奇幻: 'fantasy',
+  剧情: 'drama',
+  喜剧: 'comedy',
+  动作: 'action',
+  惊悚: 'thriller',
+  悬疑: 'mystery',
+  古装: 'historical',
+  科幻: 'scifi',
+  恐怖: 'horror',
+  家庭: 'family',
+  青春: 'youth',
+  复仇: 'revenge',
+  都市: 'urban',
+  总裁: 'ceo',
+  狼人: 'werewolf',
+  悬念: 'suspense',
+  全部: 'all',
+  // common english variants
+  sci: 'scifi',
+  'sci-fi': 'scifi',
+  'science-fiction': 'scifi',
+  'science-fictions': 'scifi',
+  'science-fictional': 'scifi',
+};
+
 export function normalizeCategoryKey(input: string | undefined | null): string {
   if (!input) return '';
   const cleaned = input
@@ -162,7 +209,15 @@ export function localizeCategoryLabel(
 ): string {
   if (!name) return '';
   const dict = CATEGORY_TRANSLATIONS[locale] || CATEGORY_TRANSLATIONS.en;
+  const rawKey = name.trim().toLowerCase();
   const slugKey = normalizeCategoryKey(slug);
   const nameKey = normalizeCategoryKey(name);
-  return dict[slugKey] || dict[nameKey] || name;
+  const canonicalKey =
+    CATEGORY_ALIASES[slugKey] ||
+    CATEGORY_ALIASES[nameKey] ||
+    CATEGORY_ALIASES[rawKey] ||
+    slugKey ||
+    nameKey;
+
+  return dict[canonicalKey] || dict[slugKey] || dict[nameKey] || name;
 }
