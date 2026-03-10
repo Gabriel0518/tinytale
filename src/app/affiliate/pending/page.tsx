@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic';
 
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
@@ -14,7 +15,7 @@ const COPY: Record<SupportedLocale, Record<string, string>> = {
     docsTitle: "Program Documentation",
     docsDesc: "Review affiliate terms, payout rules, and commission structure.",
     communityTitle: "Join Our Community",
-    backHome: "Back to Home",
+    backHome: "Back to Affiliate",
   },
   zh: {
     title: "申请已提交",
@@ -23,7 +24,7 @@ const COPY: Record<SupportedLocale, Record<string, string>> = {
     docsTitle: "计划文档",
     docsDesc: "可先查看推广计划条款、结算规则与佣金结构。",
     communityTitle: "加入社区",
-    backHome: "返回首页",
+    backHome: "返回推广首页",
   },
   ja: {
     title: "申請が送信されました",
@@ -32,7 +33,7 @@ const COPY: Record<SupportedLocale, Record<string, string>> = {
     docsTitle: "プログラム資料",
     docsDesc: "アフィリエイト規約、支払いルール、報酬体系を確認できます。",
     communityTitle: "コミュニティに参加",
-    backHome: "ホームへ戻る",
+    backHome: "アフィリエイトへ戻る",
   },
   es: {
     title: "Solicitud enviada",
@@ -41,7 +42,7 @@ const COPY: Record<SupportedLocale, Record<string, string>> = {
     docsTitle: "Documentación del programa",
     docsDesc: "Revisa términos, reglas de pago y estructura de comisiones.",
     communityTitle: "Únete a la comunidad",
-    backHome: "Volver al inicio",
+    backHome: "Volver a Afiliados",
   },
   pt: {
     title: "Solicitação enviada",
@@ -50,7 +51,7 @@ const COPY: Record<SupportedLocale, Record<string, string>> = {
     docsTitle: "Documentação do programa",
     docsDesc: "Revise termos, regras de pagamento e estrutura de comissão.",
     communityTitle: "Participe da comunidade",
-    backHome: "Voltar ao início",
+    backHome: "Voltar para Afiliados",
   },
   hi: {
     title: "आवेदन जमा हो गया",
@@ -59,7 +60,7 @@ const COPY: Record<SupportedLocale, Record<string, string>> = {
     docsTitle: "प्रोग्राम दस्तावेज़",
     docsDesc: "अफिलिएट नियम, भुगतान नियम और कमीशन संरचना देखें।",
     communityTitle: "समुदाय से जुड़ें",
-    backHome: "होम पर वापस जाएँ",
+    backHome: "अफिलिएट होम पर वापस जाएँ",
   },
   id: {
     title: "Pengajuan terkirim",
@@ -68,13 +69,47 @@ const COPY: Record<SupportedLocale, Record<string, string>> = {
     docsTitle: "Dokumentasi program",
     docsDesc: "Tinjau syarat afiliasi, aturan pembayaran, dan struktur komisi.",
     communityTitle: "Gabung komunitas",
-    backHome: "Kembali ke beranda",
+    backHome: "Kembali ke Afiliasi",
   },
 };
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+
+function normalizeExternalUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
 
 export default function AffiliatePendingPage() {
   const locale = useLocale();
   const t = COPY[locale] || COPY.en;
+  const [socialLinks, setSocialLinks] = useState({ telegram: '', discord: '' });
+
+  useEffect(() => {
+    let active = true;
+
+    fetch(`${API_URL}/api/settings/social`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (!active || !res?.success || !res.data) return;
+
+        const telegram = typeof res.data.social_telegram === 'string'
+          ? normalizeExternalUrl(res.data.social_telegram)
+          : '';
+        const discord = typeof res.data.social_discord === 'string'
+          ? normalizeExternalUrl(res.data.social_discord)
+          : '';
+
+        setSocialLinks({ telegram, discord });
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#0a0a12] flex items-center justify-center px-4">
@@ -105,7 +140,7 @@ export default function AffiliatePendingPage() {
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Link
-              href={localizePath("/affiliate", locale)}
+              href={localizePath("/affiliate/docs", locale)}
               className="block rounded-xl bg-[#13131d] border border-gray-800/50 p-5 text-left transition hover:border-purple-500/40 hover:bg-[#1a1a2e]"
             >
               <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-purple-500/10">
@@ -125,19 +160,47 @@ export default function AffiliatePendingPage() {
               </div>
               <h3 className="text-sm font-semibold text-white mb-2">{t.communityTitle}</h3>
               <div className="flex gap-3">
-                <a href="#" className="inline-flex items-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 py-1.5 text-xs text-gray-300 transition hover:text-white">
-                  Telegram
-                </a>
-                <a href="#" className="inline-flex items-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 py-1.5 text-xs text-gray-300 transition hover:text-white">
-                  Discord
-                </a>
+                {socialLinks.telegram ? (
+                  <a
+                    href={socialLinks.telegram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 py-1.5 text-xs text-gray-300 transition hover:text-white"
+                  >
+                    Telegram
+                  </a>
+                ) : (
+                  <span
+                    aria-disabled="true"
+                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 py-1.5 text-xs text-gray-500"
+                  >
+                    Telegram
+                  </span>
+                )}
+                {socialLinks.discord ? (
+                  <a
+                    href={socialLinks.discord}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 py-1.5 text-xs text-gray-300 transition hover:text-white"
+                  >
+                    Discord
+                  </a>
+                ) : (
+                  <span
+                    aria-disabled="true"
+                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-md bg-[#1a1a2e] px-3 py-1.5 text-xs text-gray-500"
+                  >
+                    Discord
+                  </span>
+                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* Back to Home */}
-        <Link href={localizePath("/", locale)} className="text-sm text-gray-500 hover:text-gray-300 transition">
+        <Link href={localizePath("/affiliate", locale)} className="text-sm text-gray-500 hover:text-gray-300 transition">
           &larr; {t.backHome}
         </Link>
       </div>
