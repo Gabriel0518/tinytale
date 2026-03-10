@@ -9,30 +9,31 @@ import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 import AffiliateSidebar from "@/components/affiliate/AffiliateSidebar";
 import AffiliateHeader from "@/components/affiliate/AffiliateHeader";
+import { detectClientLocale, localizePath, removeLocalePrefix } from "@/lib/i18n";
 
-// Pages that use the full sidebar layout (approved promoters only)
 const sidebarPages = ["/affiliate/dashboard", "/affiliate/reports", "/affiliate/creatives", "/affiliate/payments"];
 
 export default function AffiliateLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = removeLocalePrefix(rawPathname || "/");
+  const locale = detectClientLocale(rawPathname || "/");
   const router = useRouter();
   const { token, user } = useAuth();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     async function checkStatus() {
-      // Landing page: if logged in, check status and redirect accordingly
       if (pathname === "/affiliate") {
         if (token) {
           try {
             const res = await promoterApi.getProfile(token);
             const status = res.data?.applicationStatus;
-            if (status === 'approved') {
-              router.push("/affiliate/dashboard");
+            if (status === "approved") {
+              router.push(localizePath("/affiliate/dashboard", locale));
               return;
             }
-            if (status === 'pending') {
-              router.push("/affiliate/pending");
+            if (status === "pending") {
+              router.push(localizePath("/affiliate/pending", locale));
               return;
             }
           } catch {
@@ -43,9 +44,8 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
         return;
       }
 
-      // All other pages require login
       if (!token) {
-        router.push(`/auth/login?redirect=${pathname}`);
+        router.push(`${localizePath("/auth/login", locale)}?redirect=${encodeURIComponent(localizePath(pathname, locale))}`);
         return;
       }
 
@@ -53,28 +53,26 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
         const res = await promoterApi.getProfile(token);
         const status = res.data?.applicationStatus;
 
-        // Route based on status
-        if (pathname === "/affiliate/apply" && status === 'approved') {
-          router.push("/affiliate/dashboard");
+        if (pathname === "/affiliate/apply" && status === "approved") {
+          router.push(localizePath("/affiliate/dashboard", locale));
           return;
         }
-        if (pathname === "/affiliate/apply" && status === 'pending') {
-          router.push("/affiliate/pending");
+        if (pathname === "/affiliate/apply" && status === "pending") {
+          router.push(localizePath("/affiliate/pending", locale));
           return;
         }
-        if (pathname === "/affiliate/pending" && status === 'approved') {
-          router.push("/affiliate/dashboard");
+        if (pathname === "/affiliate/pending" && status === "approved") {
+          router.push(localizePath("/affiliate/dashboard", locale));
           return;
         }
-        if (sidebarPages.some(p => pathname?.startsWith(p)) && status !== 'approved') {
-          if (status === 'pending') router.push("/affiliate/pending");
-          else router.push("/affiliate/apply");
+        if (sidebarPages.some((p) => pathname.startsWith(p)) && status !== "approved") {
+          if (status === "pending") router.push(localizePath("/affiliate/pending", locale));
+          else router.push(localizePath("/affiliate/apply", locale));
           return;
         }
       } catch {
-        // No promoter record — allow apply page
-        if (sidebarPages.some(p => pathname?.startsWith(p))) {
-          router.push("/affiliate/apply");
+        if (sidebarPages.some((p) => pathname.startsWith(p))) {
+          router.push(localizePath("/affiliate/apply", locale));
           return;
         }
       }
@@ -83,7 +81,7 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
     }
 
     checkStatus();
-  }, [pathname, token, router]);
+  }, [pathname, token, router, locale]);
 
   if (checking && pathname !== "/affiliate") {
     return (
@@ -93,8 +91,7 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
     );
   }
 
-  // Sidebar layout for approved promoter pages
-  const useSidebar = sidebarPages.some(p => pathname?.startsWith(p));
+  const useSidebar = sidebarPages.some((p) => pathname.startsWith(p));
 
   if (useSidebar) {
     return (
@@ -102,7 +99,7 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
         <AffiliateSidebar />
         <div className="ml-60">
           <header className="flex items-center justify-between px-6 py-3 bg-[#13131d] border-b border-gray-800/50">
-            <Link href="/" className="text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1">
+            <Link href={localizePath("/", locale)} className="text-sm text-purple-400 hover:text-purple-300 transition-colors flex items-center gap-1">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
               Back to TinyTale
             </Link>
@@ -114,7 +111,6 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
     );
   }
 
-  // Simple header layout for landing/apply/pending
   return (
     <div className="min-h-screen bg-[#0a0a12]">
       {pathname !== "/affiliate" && <AffiliateHeader />}

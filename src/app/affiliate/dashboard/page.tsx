@@ -4,8 +4,10 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
+import { detectClientLocale, localizePath } from "@/lib/i18n";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -74,6 +76,8 @@ function StatCard({
 }
 
 export default function AffiliateDashboardPage() {
+  const pathname = usePathname();
+  const locale = detectClientLocale(pathname);
   const { token } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -297,7 +301,7 @@ export default function AffiliateDashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-semibold text-white">Latest Notifications</h2>
             <Link
-              href="/user/notifications"
+              href={localizePath("/user/notifications", locale)}
               className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
             >
               View All

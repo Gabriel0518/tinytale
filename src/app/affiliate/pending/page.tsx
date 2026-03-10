@@ -3,8 +3,13 @@ export const dynamic = 'force-dynamic';
 
 
 import Link from 'next/link';
+import { usePathname } from "next/navigation";
+import { detectClientLocale, localizePath } from "@/lib/i18n";
 
 export default function AffiliatePendingPage() {
+  const pathname = usePathname();
+  const locale = detectClientLocale(pathname);
+
   return (
     <div className="min-h-screen bg-[#0a0a12] flex items-center justify-center px-4">
       <div className="max-w-lg w-full text-center">
@@ -33,8 +38,8 @@ export default function AffiliatePendingPage() {
             While You Wait
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
-            <a
-              href="/affiliate"
+            <Link
+              href={localizePath("/affiliate", locale)}
               className="block rounded-xl bg-[#13131d] border border-gray-800/50 p-5 text-left transition hover:border-purple-500/40 hover:bg-[#1a1a2e]"
             >
               <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-purple-500/10">
@@ -44,7 +49,7 @@ export default function AffiliatePendingPage() {
               </div>
               <h3 className="text-sm font-semibold text-white mb-1">Pre-study Documentation</h3>
               <p className="text-xs text-gray-500">Review the affiliate program details and commission structure.</p>
-            </a>
+            </Link>
 
             <div className="rounded-xl bg-[#13131d] border border-gray-800/50 p-5 text-left">
               <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-purple-500/10">
@@ -66,7 +71,7 @@ export default function AffiliatePendingPage() {
         </div>
 
         {/* Back to Home */}
-        <Link href="/" className="text-sm text-gray-500 hover:text-gray-300 transition">
+        <Link href={localizePath("/", locale)} className="text-sm text-gray-500 hover:text-gray-300 transition">
           &larr; Back to Home
         </Link>
       </div>

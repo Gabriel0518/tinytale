@@ -2,12 +2,15 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo } from "react";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import { promoterApi } from "@/lib/api";
+import { detectClientLocale, localizePath } from "@/lib/i18n";
 
 export default function RefPage() {
   const params = useParams();
+  const pathname = usePathname();
+  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
   const router = useRouter();
 
   useEffect(() => {
@@ -16,21 +19,17 @@ export default function RefPage() {
     const dramaId = extraParams?.[0];
 
     if (code) {
-      // Store referral code
       localStorage.setItem("ref_code", code);
       document.cookie = `ref_code=${code}; path=/; max-age=${30 * 24 * 60 * 60}`;
-
-      // Track click
       promoterApi.trackClick(code).catch(() => {});
     }
 
-    // Redirect
     if (dramaId) {
-      router.replace(`/drama/${dramaId}`);
+      router.replace(localizePath(`/drama/${dramaId}`, locale));
     } else {
-      router.replace("/");
+      router.replace(localizePath("/", locale));
     }
-  }, [params, router]);
+  }, [params, router, locale]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#141414]">

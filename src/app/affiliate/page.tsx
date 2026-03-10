@@ -3,12 +3,15 @@
 export const dynamic = 'force-dynamic';
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
+import { detectClientLocale, localizePath } from "@/lib/i18n";
 
 export default function AffiliateLandingPage() {
+  const pathname = usePathname();
+  const locale = detectClientLocale(pathname);
   const router = useRouter();
   const { user, token } = useAuth();
   const [ctaLoading, setCtaLoading] = useState(false);
@@ -18,7 +21,7 @@ export default function AffiliateLandingPage() {
 
     // Not logged in — redirect to login
     if (!token || !user) {
-      router.push("/auth/login?redirect=/affiliate/apply");
+      router.push(`${localizePath("/auth/login", locale)}?redirect=${encodeURIComponent(localizePath("/affiliate/apply", locale))}`);
       return;
     }
 
@@ -29,15 +32,15 @@ export default function AffiliateLandingPage() {
       const status = res.data?.applicationStatus;
 
       if (status === "approved") {
-        router.push("/affiliate/dashboard");
+        router.push(localizePath("/affiliate/dashboard", locale));
       } else if (status === "pending") {
-        router.push("/affiliate/pending");
+        router.push(localizePath("/affiliate/pending", locale));
       } else {
-        router.push("/affiliate/apply");
+        router.push(localizePath("/affiliate/apply", locale));
       }
     } catch {
       // No promoter record
-      router.push("/affiliate/apply");
+      router.push(localizePath("/affiliate/apply", locale));
     } finally {
       setCtaLoading(false);
     }
@@ -48,7 +51,7 @@ export default function AffiliateLandingPage() {
       {/* Navigation Bar */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#0a0a12]/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <Link href="/affiliate" className="text-xl font-bold tracking-tight">
+          <Link href={localizePath("/affiliate", locale)} className="text-xl font-bold tracking-tight">
             <span className="text-purple-400">TinyTale</span>{" "}
             <span className="text-gray-300">Affiliate</span>
           </Link>
@@ -65,7 +68,7 @@ export default function AffiliateLandingPage() {
             ) : (
               <>
                 <Link
-                  href="/auth/login?redirect=/affiliate"
+                  href={`${localizePath("/auth/login", locale)}?redirect=${encodeURIComponent(localizePath("/affiliate", locale))}`}
                   className="rounded-lg px-4 py-2 text-sm text-gray-300 transition hover:text-white"
                 >
                   Sign In

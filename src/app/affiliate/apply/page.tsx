@@ -3,16 +3,19 @@ export const dynamic = 'force-dynamic';
 
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 import { ALL_COUNTRIES } from "@/lib/countries";
+import { detectClientLocale, localizePath } from "@/lib/i18n";
 
 const countries = [...ALL_COUNTRIES].sort();
 
 type PaymentMethod = "bank" | "trx-usdt" | "paypal";
 
 export default function AffiliateApplyPage() {
+  const pathname = usePathname();
+  const locale = detectClientLocale(pathname);
   const router = useRouter();
   const { token } = useAuth();
 
@@ -45,7 +48,7 @@ export default function AffiliateApplyPage() {
       return;
     }
     if (!token) {
-      router.push(`/auth/login?redirect=/affiliate/apply`);
+      router.push(`${localizePath("/auth/login", locale)}?redirect=${encodeURIComponent(localizePath("/affiliate/apply", locale))}`);
       return;
     }
     setError("");
@@ -71,11 +74,11 @@ export default function AffiliateApplyPage() {
         promotionChannels,
         paymentMethod: paymentInfo,
       });
-      router.push("/affiliate/pending");
+      router.push(localizePath("/affiliate/pending", locale));
     } catch (err: any) {
       const msg = err?.message || "Something went wrong. Please try again.";
       if (msg.toLowerCase().includes("invalid token") || msg.toLowerCase().includes("no token")) {
-        router.push(`/auth/login?redirect=/affiliate/apply`);
+        router.push(`${localizePath("/auth/login", locale)}?redirect=${encodeURIComponent(localizePath("/affiliate/apply", locale))}`);
         return;
       }
       setError(msg);

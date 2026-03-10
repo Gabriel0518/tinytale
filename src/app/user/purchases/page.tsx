@@ -2,15 +2,16 @@
 export const dynamic = 'force-dynamic';
 
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { profileApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
+import { detectClientLocale, localizePath } from "@/lib/i18n";
 
 interface Transaction {
   _id: string;
@@ -28,7 +29,217 @@ interface Transaction {
 type FilterType = "all" | "purchase" | "unlock" | "reward";
 type FilterStatus = "all" | "completed" | "pending" | "failed";
 
+type PurchasesCopy = {
+  back: string;
+  title: string;
+  add: string;
+  monthSpending: string;
+  completedCount: (count: number) => string;
+  downloadInvoice: string;
+  filterType: string;
+  filterStatus: string;
+  all: string;
+  recharges: string;
+  unlocks: string;
+  rewards: string;
+  completed: string;
+  pending: string;
+  failed: string;
+  episodeShort: string;
+  clickToCopy: string;
+  copied: string;
+  coinsUnit: string;
+  noTransactions: string;
+  noTransactionsDesc: string;
+  getCoins: string;
+};
+
+const COPY: Record<string, PurchasesCopy> = {
+  en: {
+    back: "Back",
+    title: "Purchase History",
+    add: "ADD",
+    monthSpending: "This Month's Spending",
+    completedCount: (count) => `${count} transactions completed`,
+    downloadInvoice: "Download Invoice (Coming soon)",
+    filterType: "Type:",
+    filterStatus: "Status:",
+    all: "All",
+    recharges: "Recharges",
+    unlocks: "Unlocks",
+    rewards: "Rewards",
+    completed: "Completed",
+    pending: "Pending",
+    failed: "Failed",
+    episodeShort: "Ep.",
+    clickToCopy: "Click to copy",
+    copied: "Copied!",
+    coinsUnit: "coins",
+    noTransactions: "No transactions found",
+    noTransactionsDesc: "Try adjusting your filters or make your first purchase",
+    getCoins: "Get Coins",
+  },
+  zh: {
+    back: "返回",
+    title: "购买记录",
+    add: "充值",
+    monthSpending: "本月支出",
+    completedCount: (count) => `已完成 ${count} 笔交易`,
+    downloadInvoice: "下载发票（即将上线）",
+    filterType: "类型：",
+    filterStatus: "状态：",
+    all: "全部",
+    recharges: "充值",
+    unlocks: "解锁",
+    rewards: "奖励",
+    completed: "已完成",
+    pending: "处理中",
+    failed: "失败",
+    episodeShort: "第",
+    clickToCopy: "点击复制",
+    copied: "已复制",
+    coinsUnit: "金币",
+    noTransactions: "暂无交易记录",
+    noTransactionsDesc: "可调整筛选条件，或先完成一笔购买",
+    getCoins: "获取金币",
+  },
+  ja: {
+    back: "戻る",
+    title: "購入履歴",
+    add: "追加",
+    monthSpending: "今月の支出",
+    completedCount: (count) => `${count}件の取引が完了`,
+    downloadInvoice: "請求書をダウンロード（準備中）",
+    filterType: "種類:",
+    filterStatus: "状態:",
+    all: "すべて",
+    recharges: "チャージ",
+    unlocks: "解放",
+    rewards: "報酬",
+    completed: "完了",
+    pending: "保留",
+    failed: "失敗",
+    episodeShort: "第",
+    clickToCopy: "クリックしてコピー",
+    copied: "コピー済み",
+    coinsUnit: "コイン",
+    noTransactions: "取引履歴がありません",
+    noTransactionsDesc: "フィルターを調整するか、最初の購入を行ってください",
+    getCoins: "コインを購入",
+  },
+  es: {
+    back: "Volver",
+    title: "Historial de compras",
+    add: "AÑADIR",
+    monthSpending: "Gasto de este mes",
+    completedCount: (count) => `${count} transacciones completadas`,
+    downloadInvoice: "Descargar factura (próximamente)",
+    filterType: "Tipo:",
+    filterStatus: "Estado:",
+    all: "Todo",
+    recharges: "Recargas",
+    unlocks: "Desbloqueos",
+    rewards: "Recompensas",
+    completed: "Completado",
+    pending: "Pendiente",
+    failed: "Fallido",
+    episodeShort: "Ep.",
+    clickToCopy: "Haz clic para copiar",
+    copied: "¡Copiado!",
+    coinsUnit: "monedas",
+    noTransactions: "No se encontraron transacciones",
+    noTransactionsDesc: "Ajusta los filtros o realiza tu primera compra",
+    getCoins: "Obtener monedas",
+  },
+  pt: {
+    back: "Voltar",
+    title: "Histórico de compras",
+    add: "ADICIONAR",
+    monthSpending: "Gasto deste mês",
+    completedCount: (count) => `${count} transações concluídas`,
+    downloadInvoice: "Baixar fatura (em breve)",
+    filterType: "Tipo:",
+    filterStatus: "Status:",
+    all: "Todos",
+    recharges: "Recargas",
+    unlocks: "Desbloqueios",
+    rewards: "Recompensas",
+    completed: "Concluído",
+    pending: "Pendente",
+    failed: "Falhou",
+    episodeShort: "Ep.",
+    clickToCopy: "Clique para copiar",
+    copied: "Copiado!",
+    coinsUnit: "moedas",
+    noTransactions: "Nenhuma transação encontrada",
+    noTransactionsDesc: "Ajuste os filtros ou faça sua primeira compra",
+    getCoins: "Obter moedas",
+  },
+  hi: {
+    back: "वापस",
+    title: "खरीद इतिहास",
+    add: "जोड़ें",
+    monthSpending: "इस महीने का खर्च",
+    completedCount: (count) => `${count} लेनदेन पूरे हुए`,
+    downloadInvoice: "इनवॉइस डाउनलोड (जल्द आ रहा है)",
+    filterType: "प्रकार:",
+    filterStatus: "स्थिति:",
+    all: "सभी",
+    recharges: "रीचार्ज",
+    unlocks: "अनलॉक",
+    rewards: "रिवॉर्ड",
+    completed: "पूरा",
+    pending: "लंबित",
+    failed: "विफल",
+    episodeShort: "एप.",
+    clickToCopy: "कॉपी करने के लिए क्लिक करें",
+    copied: "कॉपी हो गया!",
+    coinsUnit: "कॉइन्स",
+    noTransactions: "कोई लेनदेन नहीं मिला",
+    noTransactionsDesc: "फ़िल्टर बदलें या पहली खरीद करें",
+    getCoins: "कॉइन्स लें",
+  },
+  id: {
+    back: "Kembali",
+    title: "Riwayat pembelian",
+    add: "TAMBAH",
+    monthSpending: "Pengeluaran bulan ini",
+    completedCount: (count) => `${count} transaksi selesai`,
+    downloadInvoice: "Unduh invoice (segera hadir)",
+    filterType: "Tipe:",
+    filterStatus: "Status:",
+    all: "Semua",
+    recharges: "Isi ulang",
+    unlocks: "Buka kunci",
+    rewards: "Hadiah",
+    completed: "Selesai",
+    pending: "Menunggu",
+    failed: "Gagal",
+    episodeShort: "Ep.",
+    clickToCopy: "Klik untuk menyalin",
+    copied: "Tersalin!",
+    coinsUnit: "koin",
+    noTransactions: "Tidak ada transaksi",
+    noTransactionsDesc: "Coba ubah filter atau lakukan pembelian pertama",
+    getCoins: "Dapatkan koin",
+  },
+};
+
+const DATE_LOCALE_MAP: Record<string, string> = {
+  en: "en-US",
+  zh: "zh-CN",
+  ja: "ja-JP",
+  es: "es-ES",
+  pt: "pt-BR",
+  hi: "hi-IN",
+  id: "id-ID",
+};
+
 export default function PurchasesPage() {
+  const pathname = usePathname();
+  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const copy = COPY[locale] || COPY.en;
+  const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
   const { user, token } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const router = useRouter();
@@ -108,7 +319,7 @@ export default function PurchasesPage() {
     return (
       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${s.text} ${s.bg}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${s.dot} ${s.pulse ? "animate-pulse" : ""}`} />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {status === "completed" ? copy.completed : status === "pending" ? copy.pending : copy.failed}
       </span>
     );
   };
@@ -125,15 +336,15 @@ export default function PurchasesPage() {
           <div>
             <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-400 hover:text-white transition mb-3">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
-              <span className="text-sm">Back</span>
+              <span className="text-sm">{copy.back}</span>
             </button>
-            <h1 className="text-2xl font-bold">Purchase History</h1>
+            <h1 className="text-2xl font-bold">{copy.title}</h1>
           </div>
           {/* Coin Capsule */}
           <div className="flex items-center gap-2 bg-zinc-900/80 border border-white/10 rounded-full px-4 py-2">
             <svg className="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="url(#phGrad)" /><text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text><defs><linearGradient id="phGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFD700" /><stop offset="100%" stopColor="#F59E0B" /></linearGradient></defs></svg>
             <span className="font-bold text-yellow-400">{balance.toLocaleString()}</span>
-            <Link href="/user/coins" className="ml-1 px-2.5 py-0.5 bg-yellow-500 text-black text-xs font-bold rounded-full hover:bg-yellow-400 transition">ADD</Link>
+            <Link href={localizePath("/user/coins", locale)} className="ml-1 px-2.5 py-0.5 bg-yellow-500 text-black text-xs font-bold rounded-full hover:bg-yellow-400 transition">{copy.add}</Link>
           </div>
         </div>
 
@@ -143,32 +354,32 @@ export default function PurchasesPage() {
             <svg className="w-24 h-24" fill="none" viewBox="0 0 24 24" strokeWidth={0.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>
           </div>
           <div className="relative">
-            <p className="text-sm text-gray-400 mb-1">This Month&apos;s Spending</p>
+            <p className="text-sm text-gray-400 mb-1">{copy.monthSpending}</p>
             <p className="text-3xl font-bold text-white">${monthlySpent.toFixed(2)}</p>
-            <p className="text-xs text-gray-500 mt-1">{transactions.filter(t => t.status === "completed").length} transactions completed</p>
+            <p className="text-xs text-gray-500 mt-1">{copy.completedCount(transactions.filter((item) => item.status === "completed").length)}</p>
           </div>
           <button disabled className="absolute right-6 bottom-6 flex items-center gap-2 text-xs text-gray-500 cursor-not-allowed opacity-50">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-            Download Invoice (Coming soon)
+            {copy.downloadInvoice}
           </button>
         </div>
 
         {/* Filter Toolbar */}
         <div className="flex flex-wrap items-center gap-3 mb-6 p-4 bg-[#1E1E1E] rounded-xl border border-white/5">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 uppercase tracking-wider">Type:</span>
+            <span className="text-xs text-gray-500 uppercase tracking-wider">{copy.filterType}</span>
             {(["all", "purchase", "unlock", "reward"] as FilterType[]).map(f => (
               <button key={f} onClick={() => setFilterType(f)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border ${filterType === f ? "border-yellow-500/50 bg-yellow-500/10 text-yellow-400" : "border-transparent text-gray-400 hover:text-white hover:border-white/10"}`}>
-                {f === "all" ? "All" : f === "purchase" ? "Recharges" : f === "unlock" ? "Unlocks" : "Rewards"}
+                {f === "all" ? copy.all : f === "purchase" ? copy.recharges : f === "unlock" ? copy.unlocks : copy.rewards}
               </button>
             ))}
           </div>
           <div className="w-px h-6 bg-white/10 mx-1" />
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 uppercase tracking-wider">Status:</span>
+            <span className="text-xs text-gray-500 uppercase tracking-wider">{copy.filterStatus}</span>
             {(["all", "completed", "pending", "failed"] as FilterStatus[]).map(f => (
               <button key={f} onClick={() => setFilterStatus(f)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition border ${filterStatus === f ? "border-yellow-500/50 bg-yellow-500/10 text-yellow-400" : "border-transparent text-gray-400 hover:text-white hover:border-white/10"}`}>
-                {f.charAt(0).toUpperCase() + f.slice(1)}
+                {f === "all" ? copy.all : f === "completed" ? copy.completed : f === "pending" ? copy.pending : copy.failed}
               </button>
             ))}
           </div>
@@ -183,63 +394,63 @@ export default function PurchasesPage() {
           </div>
         ) : filtered.length > 0 ? (
           <div className="space-y-2">
-            {filtered.map(t => {
-              const isFailed = t.status === "failed";
-              const isPositive = (t.amountCoins || 0) > 0 || t.type === "purchase" || t.type === "subscription";
+            {filtered.map((tx) => {
+              const isFailed = tx.status === "failed";
+              const isPositive = (tx.amountCoins || 0) > 0 || tx.type === "purchase" || tx.type === "subscription";
               return (
-                <div key={t._id} className="group rounded-xl hover:bg-[#2A2A2A] transition">
+                <div key={tx._id} className="group rounded-xl hover:bg-[#2A2A2A] transition">
                   {/* Desktop layout */}
                   <div className="hidden md:grid grid-cols-12 items-center gap-4 px-4 py-3.5">
-                    <div className="col-span-1">{getTypeIcon(t)}</div>
+                    <div className="col-span-1">{getTypeIcon(tx)}</div>
                     <div className="col-span-4">
-                      <p className={`text-sm font-medium ${isFailed ? "line-through text-gray-500" : "text-white"}`}>{t.itemName}</p>
+                      <p className={`text-sm font-medium ${isFailed ? "line-through text-gray-500" : "text-white"}`}>{tx.itemName}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        {t.episodes && <span className="text-[11px] text-gray-500">Ep. {t.episodes}</span>}
-                        <button onClick={() => handleCopyId(t._id)} className="text-[11px] text-gray-600 hover:text-gray-400 font-mono transition" title="Click to copy">
-                          {copiedId === t._id ? "Copied!" : t._id}
+                        {tx.episodes && <span className="text-[11px] text-gray-500">{copy.episodeShort} {tx.episodes}</span>}
+                        <button onClick={() => handleCopyId(tx._id)} className="text-[11px] text-gray-600 hover:text-gray-400 font-mono transition" title={copy.clickToCopy}>
+                          {copiedId === tx._id ? copy.copied : tx._id}
                         </button>
                       </div>
                     </div>
                     <div className="col-span-3 text-sm text-gray-500">
-                      {new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      <span className="text-gray-600 ml-1.5">{new Date(t.date).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</span>
+                      {new Date(tx.date).toLocaleDateString(dateLocale, { month: "short", day: "numeric", year: "numeric" })}
+                      <span className="text-gray-600 ml-1.5">{new Date(tx.date).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" })}</span>
                     </div>
-                    <div className="col-span-2">{getStatusBadge(t.status)}</div>
+                    <div className="col-span-2">{getStatusBadge(tx.status)}</div>
                     <div className="col-span-2 text-right">
-                      {t.amountFiat != null && (
+                      {tx.amountFiat != null && (
                         <p className={`text-sm font-semibold ${isPositive ? "text-green-400" : "text-red-400"}`}>
-                          {isPositive ? "+" : "-"}${t.amountFiat.toFixed(2)}
+                          {isPositive ? "+" : "-"}${tx.amountFiat.toFixed(2)}
                         </p>
                       )}
-                      {t.amountCoins != null && (
-                        <p className={`text-xs ${(t.amountCoins || 0) >= 0 ? "text-yellow-400/70" : "text-red-400/70"}`}>
-                          {(t.amountCoins || 0) >= 0 ? "+" : ""}{t.amountCoins?.toLocaleString()} coins
+                      {tx.amountCoins != null && (
+                        <p className={`text-xs ${(tx.amountCoins || 0) >= 0 ? "text-yellow-400/70" : "text-red-400/70"}`}>
+                          {(tx.amountCoins || 0) >= 0 ? "+" : ""}{tx.amountCoins?.toLocaleString()} {copy.coinsUnit}
                         </p>
                       )}
                     </div>
                   </div>
                   {/* Mobile layout */}
                   <div className="md:hidden flex items-start gap-3 px-4 py-3.5">
-                    <div className="shrink-0">{getTypeIcon(t)}</div>
+                    <div className="shrink-0">{getTypeIcon(tx)}</div>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium truncate ${isFailed ? "line-through text-gray-500" : "text-white"}`}>{t.itemName}</p>
+                      <p className={`text-sm font-medium truncate ${isFailed ? "line-through text-gray-500" : "text-white"}`}>{tx.itemName}</p>
                       <p className="text-xs text-gray-500 mt-0.5">
-                        {new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                        {t.episodes && <span> · Ep. {t.episodes}</span>}
+                        {new Date(tx.date).toLocaleDateString(dateLocale, { month: "short", day: "numeric" })}
+                        {tx.episodes && <span> · {copy.episodeShort} {tx.episodes}</span>}
                       </p>
                       <div className="flex items-center gap-2 mt-1.5">
-                        {getStatusBadge(t.status)}
+                        {getStatusBadge(tx.status)}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      {t.amountFiat != null && (
+                      {tx.amountFiat != null && (
                         <p className={`text-sm font-semibold ${isPositive ? "text-green-400" : "text-red-400"}`}>
-                          {isPositive ? "+" : "-"}${t.amountFiat.toFixed(2)}
+                          {isPositive ? "+" : "-"}${tx.amountFiat.toFixed(2)}
                         </p>
                       )}
-                      {t.amountCoins != null && (
-                        <p className={`text-xs ${(t.amountCoins || 0) >= 0 ? "text-yellow-400/70" : "text-red-400/70"}`}>
-                          {(t.amountCoins || 0) >= 0 ? "+" : ""}{t.amountCoins?.toLocaleString()}
+                      {tx.amountCoins != null && (
+                        <p className={`text-xs ${(tx.amountCoins || 0) >= 0 ? "text-yellow-400/70" : "text-red-400/70"}`}>
+                          {(tx.amountCoins || 0) >= 0 ? "+" : ""}{tx.amountCoins?.toLocaleString()}
                         </p>
                       )}
                     </div>
@@ -253,11 +464,11 @@ export default function PurchasesPage() {
             <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8 text-gray-600" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" /></svg>
             </div>
-            <p className="text-gray-400 font-medium">No transactions found</p>
-            <p className="text-sm text-gray-600 mt-1">Try adjusting your filters or make your first purchase</p>
-            <Link href="/user/coins" className="inline-flex items-center gap-2 mt-4 px-5 py-2 bg-yellow-500 text-black text-sm font-bold rounded-lg hover:bg-yellow-400 transition">
+            <p className="text-gray-400 font-medium">{copy.noTransactions}</p>
+            <p className="text-sm text-gray-600 mt-1">{copy.noTransactionsDesc}</p>
+            <Link href={localizePath("/user/coins", locale)} className="inline-flex items-center gap-2 mt-4 px-5 py-2 bg-yellow-500 text-black text-sm font-bold rounded-lg hover:bg-yellow-400 transition">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              Get Coins
+              {copy.getCoins}
             </Link>
           </div>
         )}

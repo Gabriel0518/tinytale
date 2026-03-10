@@ -2,14 +2,18 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, Suspense, useMemo } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import OTPInput from '@/components/ui/OTPInput';
 import CountdownTimer from '@/components/ui/CountdownTimer';
 import { apiCombined as api } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
+import { detectClientLocale, localizePath, SupportedLocale } from '@/lib/i18n';
 
 function VerifyOTPContent() {
+  const pathname = usePathname();
+  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const t = VERIFY_OTP_TEXT[locale] || VERIFY_OTP_TEXT.en;
   const router = useRouter();
   const searchParams = useSearchParams();
   const { register: authRegister } = useAuth();
@@ -27,9 +31,9 @@ function VerifyOTPContent() {
 
   useEffect(() => {
     if (!email || !purpose) {
-      router.push('/auth/login');
+      router.push(localizePath('/auth/login', locale));
     }
-  }, [email, purpose, router]);
+  }, [email, purpose, router, locale]);
 
   const handleVerify = async () => {
     if (code.length !== 6 || !email || !purpose) return;
@@ -56,14 +60,14 @@ function VerifyOTPContent() {
             sessionStorage.removeItem('pendingRegistration');
 
             // Redirect to user profile page (user is now logged in)
-            router.push('/user/profile?message=Registration successful! Welcome to TinyTale.');
+            router.push(`${localizePath('/user/profile', locale)}?message=${encodeURIComponent(t.registerSuccessMessage)}`);
           } catch (regError: any) {
-            setError(regError.message || 'Registration failed. Please try again.');
+            setError(regError.message || t.registerFailed);
             setLoading(false);
             return;
           }
         } else {
-          setError('Registration data not found. Please start over.');
+          setError(t.registrationDataMissing);
           setLoading(false);
           return;
         }
@@ -71,20 +75,20 @@ function VerifyOTPContent() {
         // Handle other purposes
         switch (purpose) {
           case 'login':
-            router.push('/');
+            router.push(localizePath('/', locale));
             break;
           case 'reset-password':
-            router.push(`/auth/reset-password/new?email=${email}`);
+            router.push(`${localizePath('/auth/reset-password/verify', locale)}?email=${encodeURIComponent(email)}`);
             break;
           case 'email-change':
-            router.push('/user/profile?message=Email verified successfully!');
+            router.push(`${localizePath('/user/profile', locale)}?message=${encodeURIComponent(t.emailVerifiedMessage)}`);
             break;
           default:
-            router.push('/');
+            router.push(localizePath('/', locale));
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Invalid verification code');
+      setError(err.message || t.invalidCode);
     } finally {
       setLoading(false);
     }
@@ -99,7 +103,7 @@ function VerifyOTPContent() {
 
     try {
       await api.sendVerificationCode(email, purpose);
-      setSuccessMessage('Code resent successfully!');
+      setSuccessMessage(t.codeResent);
       setTimerReset(prev => prev + 1);
       setTimerExpired(false);
       setCode('');
@@ -107,7 +111,7 @@ function VerifyOTPContent() {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err: any) {
-      setError(err.message || 'Failed to resend code');
+      setError(err.message || t.resendFailed);
     } finally {
       setResendLoading(false);
     }
@@ -133,10 +137,10 @@ function VerifyOTPContent() {
               </svg>
             </div>
             <h2 className="text-2xl font-bold tracking-tight mb-3" style={{ color: '#f5f5f5' }}>
-              Security Verification
+              {t.title}
             </h2>
             <p className="text-sm" style={{ color: '#b8b8b8' }}>
-              We&apos;ve sent a 6-digit verification code to your registered device. Please enter it below.
+              {t.subtitle}
             </p>
           </div>
 
@@ -185,7 +189,7 @@ function VerifyOTPContent() {
                 boxShadow: '0 4px 14px rgba(242, 185, 13, 0.3)'
               }}
             >
-              {loading ? 'Verifying...' : 'Verify & Continue'}
+              {loading ? t.verifying : t.verifyContinue}
               {!loading && (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -195,14 +199,14 @@ function VerifyOTPContent() {
 
             <div className="text-center">
               <p className="text-sm" style={{ color: '#9ca3af' }}>
-                Didn&apos;t receive the code?{' '}
+                {t.notReceived}{' '}
                 <button
                   onClick={handleResend}
                   disabled={resendLoading}
                   className="font-medium ml-1 disabled:opacity-50 hover:underline"
                   style={{ color: '#f2b90d' }}
                 >
-                  {resendLoading ? 'Sending...' : 'Resend Code'}
+                  {resendLoading ? t.sending : t.resendCode}
                 </button>
               </p>
             </div>
@@ -216,7 +220,7 @@ function VerifyOTPContent() {
             <path d="M12 16V12M12 8H12.01" stroke="#6b7280" strokeWidth="2" strokeLinecap="round"/>
           </svg>
           <span className="text-xs" style={{ color: '#9ca3af' }}>
-            Contact support for assistance
+            {t.contactSupport}
           </span>
         </div>
       </div>
@@ -228,10 +232,132 @@ export default function VerifyOTPPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0F1014' }}>
-        <div className="text-primary">Loading...</div>
-      </div>
-    }>
+          <div className="text-primary">Loading...</div>
+        </div>
+      }>
       <VerifyOTPContent />
     </Suspense>
   );
 }
+
+const VERIFY_OTP_TEXT: Record<SupportedLocale, Record<string, string>> = {
+  en: {
+    title: "Security Verification",
+    subtitle: "We've sent a 6-digit verification code to your registered device. Please enter it below.",
+    verifying: "Verifying...",
+    verifyContinue: "Verify & Continue",
+    notReceived: "Didn't receive the code?",
+    sending: "Sending...",
+    resendCode: "Resend Code",
+    contactSupport: "Contact support for assistance",
+    registerSuccessMessage: "Registration successful! Welcome to TinyTale.",
+    registerFailed: "Registration failed. Please try again.",
+    registrationDataMissing: "Registration data not found. Please start over.",
+    emailVerifiedMessage: "Email verified successfully!",
+    invalidCode: "Invalid verification code",
+    codeResent: "Code resent successfully!",
+    resendFailed: "Failed to resend code",
+  },
+  zh: {
+    title: "安全验证",
+    subtitle: "我们已向你的设备发送 6 位验证码，请在下方输入。",
+    verifying: "验证中...",
+    verifyContinue: "验证并继续",
+    notReceived: "没有收到验证码？",
+    sending: "发送中...",
+    resendCode: "重新发送",
+    contactSupport: "如需帮助请联系支持",
+    registerSuccessMessage: "注册成功！欢迎来到 TinyTale。",
+    registerFailed: "注册失败，请重试。",
+    registrationDataMissing: "未找到注册信息，请重新开始。",
+    emailVerifiedMessage: "邮箱验证成功！",
+    invalidCode: "验证码无效",
+    codeResent: "验证码已重新发送！",
+    resendFailed: "重新发送失败",
+  },
+  ja: {
+    title: "セキュリティ認証",
+    subtitle: "6桁の認証コードを送信しました。下に入力してください。",
+    verifying: "確認中...",
+    verifyContinue: "確認して続行",
+    notReceived: "コードが届きませんか？",
+    sending: "送信中...",
+    resendCode: "コード再送",
+    contactSupport: "サポートにお問い合わせください",
+    registerSuccessMessage: "登録成功！TinyTale へようこそ。",
+    registerFailed: "登録に失敗しました。",
+    registrationDataMissing: "登録データが見つかりません。",
+    emailVerifiedMessage: "メール認証が完了しました！",
+    invalidCode: "認証コードが無効です",
+    codeResent: "コードを再送しました！",
+    resendFailed: "再送に失敗しました",
+  },
+  es: {
+    title: "Verificación de seguridad",
+    subtitle: "Enviamos un código de 6 dígitos. Introdúcelo abajo.",
+    verifying: "Verificando...",
+    verifyContinue: "Verificar y continuar",
+    notReceived: "¿No recibiste el código?",
+    sending: "Enviando...",
+    resendCode: "Reenviar código",
+    contactSupport: "Contacta a soporte para ayuda",
+    registerSuccessMessage: "¡Registro exitoso! Bienvenido a TinyTale.",
+    registerFailed: "El registro falló.",
+    registrationDataMissing: "No se encontraron datos de registro.",
+    emailVerifiedMessage: "¡Correo verificado con éxito!",
+    invalidCode: "Código de verificación inválido",
+    codeResent: "¡Código reenviado con éxito!",
+    resendFailed: "No se pudo reenviar el código",
+  },
+  pt: {
+    title: "Verificação de segurança",
+    subtitle: "Enviamos um código de 6 dígitos. Digite abaixo.",
+    verifying: "Verificando...",
+    verifyContinue: "Verificar e continuar",
+    notReceived: "Não recebeu o código?",
+    sending: "Enviando...",
+    resendCode: "Reenviar código",
+    contactSupport: "Fale com o suporte para ajuda",
+    registerSuccessMessage: "Cadastro concluído! Bem-vindo ao TinyTale.",
+    registerFailed: "Falha no cadastro.",
+    registrationDataMissing: "Dados de cadastro não encontrados.",
+    emailVerifiedMessage: "E-mail verificado com sucesso!",
+    invalidCode: "Código de verificação inválido",
+    codeResent: "Código reenviado com sucesso!",
+    resendFailed: "Falha ao reenviar código",
+  },
+  hi: {
+    title: "सुरक्षा सत्यापन",
+    subtitle: "हमने 6-अंकों का कोड भेजा है। कृपया नीचे दर्ज करें।",
+    verifying: "सत्यापन हो रहा है...",
+    verifyContinue: "सत्यापित करें और जारी रखें",
+    notReceived: "कोड नहीं मिला?",
+    sending: "भेजा जा रहा है...",
+    resendCode: "कोड फिर भेजें",
+    contactSupport: "सहायता के लिए सपोर्ट से संपर्क करें",
+    registerSuccessMessage: "पंजीकरण सफल! TinyTale में आपका स्वागत है।",
+    registerFailed: "पंजीकरण विफल रहा।",
+    registrationDataMissing: "पंजीकरण डेटा नहीं मिला।",
+    emailVerifiedMessage: "ईमेल सफलतापूर्वक सत्यापित हुआ!",
+    invalidCode: "अमान्य सत्यापन कोड",
+    codeResent: "कोड फिर से भेज दिया गया!",
+    resendFailed: "कोड दोबारा भेजने में विफल",
+  },
+  id: {
+    title: "Verifikasi keamanan",
+    subtitle: "Kami telah mengirim kode 6 digit. Masukkan di bawah.",
+    verifying: "Memverifikasi...",
+    verifyContinue: "Verifikasi & lanjutkan",
+    notReceived: "Belum menerima kode?",
+    sending: "Mengirim...",
+    resendCode: "Kirim ulang kode",
+    contactSupport: "Hubungi dukungan untuk bantuan",
+    registerSuccessMessage: "Registrasi berhasil! Selamat datang di TinyTale.",
+    registerFailed: "Registrasi gagal.",
+    registrationDataMissing: "Data registrasi tidak ditemukan.",
+    emailVerifiedMessage: "Email berhasil diverifikasi!",
+    invalidCode: "Kode verifikasi tidak valid",
+    codeResent: "Kode berhasil dikirim ulang!",
+    resendFailed: "Gagal mengirim ulang kode",
+  },
+};
