@@ -30,10 +30,14 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
   const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const router = useRouter();
-  const { token, user } = useAuth();
+  const { token, user, loading: authLoading } = useAuth();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    if (authLoading) {
+      return;
+    }
+
     async function checkStatus() {
       if (pathname === "/affiliate") {
         if (token) {
@@ -93,9 +97,9 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
     }
 
     checkStatus();
-  }, [pathname, token, router, locale]);
+  }, [pathname, token, router, locale, authLoading]);
 
-  if (checking && pathname !== "/affiliate") {
+  if ((authLoading || checking) && pathname !== "/affiliate") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0a0a12]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
