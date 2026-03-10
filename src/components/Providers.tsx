@@ -4,10 +4,16 @@ import { AuthProvider } from '@/lib/authContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ToastProvider } from '@/components/ui/Toast';
 
+const FALLBACK_GOOGLE_CLIENT_ID =
+  '995123954885-eslkphffjblocspkukd7l2ms49sgcmv0.apps.googleusercontent.com';
+
 export function Providers({ children }: { children: React.ReactNode }) {
-  // Always render GoogleOAuthProvider to prevent build errors
-  // Use a dummy client ID during build if not configured
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || 'dummy-client-id-for-build';
+  // Avoid invalid_client from placeholder IDs:
+  // use env first, fallback to the production OAuth client ID.
+  const configuredClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() || '';
+  const googleClientId = configuredClientId.endsWith('.apps.googleusercontent.com')
+    ? configuredClientId
+    : FALLBACK_GOOGLE_CLIENT_ID;
 
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
