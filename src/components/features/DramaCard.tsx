@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import type { Drama } from "@/types";
 import { detectClientLocale } from "@/lib/i18n";
+import { localizeCategoryLabel } from "@/lib/categoryI18n";
 
 function validCover(url?: string): string {
   if (!url || url.startsWith('blob:')) return '/placeholder-cover.svg';
@@ -81,7 +82,7 @@ export function DramaCard({ drama, onClick }: DramaCardProps) {
           {drama.title}
         </h3>
         <p className="mt-1 text-xs text-text-tertiary">
-          {drama.categories.slice(0, 2).join(", ")}
+          {drama.categories.slice(0, 2).map((item) => localizeCategoryLabel(item, locale)).join(", ")}
         </p>
       </div>
     </div>

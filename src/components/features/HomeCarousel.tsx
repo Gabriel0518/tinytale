@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { Drama } from "@/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import { localizeCategoryLabel } from "@/lib/categoryI18n";
 
 function validCover(url?: string): string {
   if (!url || url.startsWith('blob:')) return '/placeholder-cover.svg';
@@ -157,7 +158,7 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
                     <div className="mt-1 flex gap-1">
                       {drama.categories.slice(0, 2).map((cat) => (
                         <span key={cat} className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] text-gray-200">
-                          {cat}
+                          {localizeCategoryLabel(cat, locale)}
                         </span>
                       ))}
                     </div>

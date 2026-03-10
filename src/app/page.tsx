@@ -14,6 +14,7 @@ import { FeaturedBanner } from '@/components/features/FeaturedBanner';
 import { Footer } from '@/components/features/Footer';
 import { mockDramas, mockCategories } from '@/lib/mockData';
 import { detectClientLocale, localizePath, SupportedLocale } from '@/lib/i18n';
+import { localizeCategoryLabel, normalizeCategoryKey } from '@/lib/categoryI18n';
 
 function validCover(url?: string): string | undefined {
   if (!url || url.startsWith('blob:')) return undefined;
@@ -130,10 +131,24 @@ export default function Home() {
   const [heroIndex, setHeroIndex] = useState(0);
 
   useEffect(() => {
+    let canceled = false;
+
+    const mergeLocalizedDrama = (drama: Drama, localizedMap: Map<string, Drama>) => {
+      const localized = localizedMap.get(drama._id);
+      if (!localized) return drama;
+      return {
+        ...drama,
+        title: localized.title || drama.title,
+        description: localized.description || drama.description,
+        categories: localized.categories?.length ? localized.categories : drama.categories,
+      };
+    };
+
     const fetchData = async () => {
+      setLoading(true);
       try {
         const [dramasRes, categoriesRes, rankingsRes, featuredRes, playlistsRes, bannersRes] = await Promise.all([
-          dramasApi.getAll({ limit: 20 }),
+          dramasApi.getAll({ limit: 200 }),
           categoriesApi.getAll(),
           dramasApi.getRankings('rating').catch(() => ({ data: [] })),
           dramasApi.getFeatured().catch(() => ({ data: {} })),
@@ -142,17 +157,36 @@ export default function Home() {
         ]);
         const fetchedDramas = dramasRes.data?.dramas || [];
         const fetchedCategories = categoriesRes.data || [];
-        setDramas(fetchedDramas.length > 0 ? fetchedDramas : mockDramas);
-        setCategories(fetchedCategories.length > 0 ? fetchedCategories : mockCategories);
+        const localizedDramas = fetchedDramas.length > 0 ? fetchedDramas : mockDramas;
+        const localizedMap = new Map<string, Drama>(
+          localizedDramas.map((drama: Drama) => [drama._id, drama])
+        );
+        const localizedCategories = (fetchedCategories.length > 0 ? fetchedCategories : mockCategories).map((category: Category) => ({
+          ...category,
+          name: localizeCategoryLabel(category.name, locale, category.slug),
+        }));
+
+        if (canceled) return;
+        setDramas(localizedDramas);
+        setCategories(localizedCategories);
 
         // Hot rankings for hero banner
         const rankings = rankingsRes.data || [];
-        setHotRankings(Array.isArray(rankings) ? rankings.slice(0, 5) : []);
+        setHotRankings(
+          Array.isArray(rankings)
+            ? rankings.slice(0, 5).map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
+            : []
+        );
+        setHeroIndex(0);
 
         // Editor recommendations
         const featuredData = featuredRes.data || {};
         const recDramas = featuredData.featured || [];
-        setRecommendations(Array.isArray(recDramas) ? recDramas : []);
+        setRecommendations(
+          Array.isArray(recDramas)
+            ? recDramas.map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
+            : []
+        );
 
         // Custom playlists
         const plData = playlistsRes.data || [];
@@ -162,7 +196,9 @@ export default function Home() {
             slug: p.slug || '',
             name: p.name,
             icon: p.icon || '',
-            dramas: Array.isArray(p.dramas) ? p.dramas : [],
+            dramas: Array.isArray(p.dramas)
+              ? p.dramas.map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
+              : [],
           }))
         );
 
@@ -176,14 +212,29 @@ export default function Home() {
           }))
         );
       } catch {
+        if (canceled) return;
         setDramas(mockDramas);
-        setCategories(mockCategories);
+        setCategories(
+          mockCategories.map((category) => ({
+            ...category,
+            name: localizeCategoryLabel(category.name, locale, category.slug),
+          }))
+        );
       } finally {
-        setLoading(false);
+        if (!canceled) {
+          setLoading(false);
+        }
       }
     };
     fetchData();
-  }, []);
+    return () => {
+      canceled = true;
+    };
+  }, [locale]);
+
+  useEffect(() => {
+    setActiveCategory('all');
+  }, [locale]);
 
   // Auto-rotate hero banner
   useEffect(() => {
@@ -197,9 +248,9 @@ export default function Home() {
   const heroDrama = hotRankings.length > 0 ? hotRankings[heroIndex] : dramas[0];
 
   const filteredDramas = useMemo(() => {
-    if (activeCategory === 'all') return dramas;
+    if (normalizeCategoryKey(activeCategory) === 'all') return dramas;
     return dramas.filter(d =>
-      d.categories?.some(c => c.toLowerCase() === activeCategory.toLowerCase())
+      d.categories?.some(c => normalizeCategoryKey(c) === normalizeCategoryKey(activeCategory))
     );
   }, [dramas, activeCategory]);
 
@@ -217,7 +268,10 @@ export default function Home() {
 
   const categoryPills = [
     { key: 'all', label: t.all },
-    ...categories.slice(0, 7).map(c => ({ key: c.slug, label: c.name })),
+    ...categories.slice(0, 7).map(c => ({
+      key: c.slug || normalizeCategoryKey(c.name),
+      label: localizeCategoryLabel(c.name, locale, c.slug),
+    })),
   ];
 
   return (
@@ -256,8 +310,8 @@ export default function Home() {
                 </span>
                 <span className="h-1 w-1 rounded-full bg-gray-500" />
                 {heroDrama.categories?.slice(0, 3).map((cat, i) => (
-                  <span key={cat}>
-                    {cat}{i < Math.min((heroDrama.categories?.length ?? 0), 3) - 1 && ' · '}
+                  <span key={`${cat}-${i}`}>
+                    {localizeCategoryLabel(cat, locale)}{i < Math.min((heroDrama.categories?.length ?? 0), 3) - 1 && ' · '}
                   </span>
                 ))}
                 <span className="h-1 w-1 rounded-full bg-gray-500" />

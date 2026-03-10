@@ -30,6 +30,7 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
   const switchLanguage = (nextLocale: SupportedLocale) => {
     const targetPath = localizePath(pathname || '/', nextLocale);
     const search = typeof window !== 'undefined' ? window.location.search : '';
+    const targetUrl = search ? `${targetPath}${search}` : targetPath;
 
     document.cookie = `user_lang=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
     document.documentElement.lang = nextLocale;
@@ -38,7 +39,12 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
       settingsApi.updateSettings(token, { language: nextLocale }).catch(() => {});
     }
 
-    router.push(search ? `${targetPath}${search}` : targetPath);
+    if (typeof window !== 'undefined') {
+      window.location.assign(targetUrl);
+      return;
+    }
+
+    router.push(targetUrl);
     router.refresh();
   };
 

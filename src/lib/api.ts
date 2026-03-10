@@ -32,9 +32,17 @@ function getClientLanguageHint(): string | null {
   return detectClientLocale(window.location.pathname);
 }
 
-function appendDramaLanguageQuery(endpoint: string, language: string | null): string {
+const LANGUAGE_QUERY_ENDPOINT_PREFIXES = [
+  '/api/dramas',
+  '/api/categories',
+  '/api/featured',
+  '/api/playlists',
+  '/api/banners',
+];
+
+function appendLanguageQuery(endpoint: string, language: string | null): string {
   if (!language) return endpoint;
-  if (!endpoint.startsWith('/api/dramas')) return endpoint;
+  if (!LANGUAGE_QUERY_ENDPOINT_PREFIXES.some((prefix) => endpoint.startsWith(prefix))) return endpoint;
   if (endpoint.includes('lang=')) return endpoint;
   return `${endpoint}${endpoint.includes('?') ? '&' : '?'}lang=${encodeURIComponent(language)}`;
 }
@@ -65,7 +73,7 @@ class ApiClient {
 
   async get<T = any>(endpoint: string, options: FetchOptions = {}): Promise<T> {
     const { token, ...requestOptions } = options;
-    const response = await fetch(`${this.baseUrl}${appendDramaLanguageQuery(endpoint, getClientLanguageHint())}`, {
+    const response = await fetch(`${this.baseUrl}${appendLanguageQuery(endpoint, getClientLanguageHint())}`, {
       method: 'GET',
       ...requestOptions,
       headers: this.getHeaders({ ...requestOptions, token }),
