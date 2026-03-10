@@ -2,13 +2,14 @@
 
 export const dynamic = 'force-dynamic';
 
-import { Suspense, useState, useEffect, useMemo } from "react";
-import { useSearchParams, usePathname } from "next/navigation";
+import { Suspense, useState, useEffect} from "react";
+import { useSearchParams} from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { coinsApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 type VipCopy = {
   title: string;
@@ -32,8 +33,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     startWatching: "Start Watching",
     issueTitle: "Payment Issue",
     issueDesc: "We couldn't verify your payment. If you were charged, your VIP membership will be activated shortly.",
-    backToSubscription: "Back to Subscription",
-  },
+    backToSubscription: "Back to Subscription" },
   zh: {
     title: "欢迎加入 TinyTale Premium！",
     paidOk: (amount) => `已成功支付 $${amount.toFixed(2)}，你的 VIP 会员已开通。`,
@@ -43,8 +43,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     startWatching: "开始观看",
     issueTitle: "支付异常",
     issueDesc: "我们暂时无法验证支付，如已扣款，VIP 将很快生效。",
-    backToSubscription: "返回订阅页",
-  },
+    backToSubscription: "返回订阅页" },
   ja: {
     title: "TinyTale Premiumへようこそ！",
     paidOk: (amount) => `$${amount.toFixed(2)} の支払いが完了し、VIPが有効になりました。`,
@@ -54,8 +53,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     startWatching: "視聴を開始",
     issueTitle: "支払いエラー",
     issueDesc: "お支払いを確認できませんでした。引き落とし済みの場合、VIPはまもなく有効化されます。",
-    backToSubscription: "サブスクへ戻る",
-  },
+    backToSubscription: "サブスクへ戻る" },
   es: {
     title: "¡Bienvenido a TinyTale Premium!",
     paidOk: (amount) => `Pago de $${amount.toFixed(2)} completado. Tu membresía VIP ya está activa.`,
@@ -65,8 +63,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     startWatching: "Comenzar a ver",
     issueTitle: "Problema de pago",
     issueDesc: "No pudimos verificar tu pago. Si ya se cobró, tu VIP se activará pronto.",
-    backToSubscription: "Volver a Suscripción",
-  },
+    backToSubscription: "Volver a Suscripción" },
   pt: {
     title: "Bem-vindo ao TinyTale Premium!",
     paidOk: (amount) => `Pagamento de $${amount.toFixed(2)} concluído. Sua assinatura VIP está ativa.`,
@@ -76,8 +73,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     startWatching: "Começar a assistir",
     issueTitle: "Problema no pagamento",
     issueDesc: "Não conseguimos verificar seu pagamento. Se já foi cobrado, o VIP será ativado em breve.",
-    backToSubscription: "Voltar para Assinatura",
-  },
+    backToSubscription: "Voltar para Assinatura" },
   hi: {
     title: "TinyTale Premium में आपका स्वागत है!",
     paidOk: (amount) => `$${amount.toFixed(2)} का भुगतान सफल। आपका VIP अब सक्रिय है।`,
@@ -87,8 +83,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     startWatching: "देखना शुरू करें",
     issueTitle: "भुगतान समस्या",
     issueDesc: "भुगतान सत्यापित नहीं हो सका। यदि राशि कट गई है, VIP जल्द सक्रिय हो जाएगा।",
-    backToSubscription: "सदस्यता पर वापस जाएँ",
-  },
+    backToSubscription: "सदस्यता पर वापस जाएँ" },
   id: {
     title: "Selamat datang di TinyTale Premium!",
     paidOk: (amount) => `Pembayaran $${amount.toFixed(2)} berhasil. Keanggotaan VIP kamu kini aktif.`,
@@ -98,13 +93,10 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     startWatching: "Mulai menonton",
     issueTitle: "Masalah pembayaran",
     issueDesc: "Kami tidak dapat memverifikasi pembayaranmu. Jika sudah terpotong, VIP akan segera aktif.",
-    backToSubscription: "Kembali ke Langganan",
-  },
-};
+    backToSubscription: "Kembali ke Langganan" } };
 
 function VIPSuccessContent() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const { token, refreshUser } = useAuth();
   const searchParams = useSearchParams();

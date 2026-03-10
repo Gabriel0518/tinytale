@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { SupportedLocale, detectClientLocale, localizePath } from '@/lib/i18n';
+import { SupportedLocale, localizePath } from '@/lib/i18n';
 import { useAuth } from '@/lib/authContext';
 import { settingsApi } from '@/lib/api';
+import { useLocale } from '@/hooks/useLocale';
 
 const LANGUAGE_OPTIONS: Array<{ code: SupportedLocale; name: string; flag: string }> = [
   { code: 'en', name: 'English', flag: 'EN' },
@@ -24,22 +24,32 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { token } = useAuth();
-
-  const currentLocale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const currentLocale = useLocale();
 
   const switchLanguage = (nextLocale: SupportedLocale) => {
+    if (nextLocale === currentLocale) return;
+
     const targetPath = localizePath(pathname || '/', nextLocale);
     const search = typeof window !== 'undefined' ? window.location.search : '';
     const targetUrl = search ? `${targetPath}${search}` : targetPath;
 
     document.cookie = `user_lang=${nextLocale}; path=/; max-age=31536000; samesite=lax`;
     document.documentElement.lang = nextLocale;
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('user_lang', nextLocale);
+      window.dispatchEvent(new CustomEvent('tinytale:language-changed', { detail: { locale: nextLocale } }));
+    }
 
     if (token) {
       settingsApi.updateSettings(token, { language: nextLocale }).catch(() => {});
     }
 
     if (typeof window !== 'undefined') {
+      const currentUrl = `${window.location.pathname}${window.location.search}`;
+      if (currentUrl === targetUrl) {
+        window.location.reload();
+        return;
+      }
       window.location.assign(targetUrl);
       return;
     }

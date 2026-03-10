@@ -9,14 +9,15 @@ import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 import AffiliateSidebar from "@/components/affiliate/AffiliateSidebar";
 import AffiliateHeader from "@/components/affiliate/AffiliateHeader";
-import { detectClientLocale, localizePath, removeLocalePrefix } from "@/lib/i18n";
+import {localizePath, removeLocalePrefix } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 const sidebarPages = ["/affiliate/dashboard", "/affiliate/reports", "/affiliate/creatives", "/affiliate/payments"];
 
 export default function AffiliateLayout({ children }: { children: React.ReactNode }) {
   const rawPathname = usePathname();
   const pathname = removeLocalePrefix(rawPathname || "/");
-  const locale = detectClientLocale(rawPathname || "/");
+  const locale = useLocale();
   const router = useRouter();
   const { token, user } = useAuth();
   const [checking, setChecking] = useState(true);

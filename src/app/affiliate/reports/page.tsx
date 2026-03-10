@@ -2,11 +2,11 @@
 export const dynamic = 'force-dynamic';
 
 
-import { useState, useEffect, useMemo } from "react";
-import { usePathname } from "next/navigation";
+import { useState, useEffect} from "react";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
-import { detectClientLocale, SupportedLocale } from "@/lib/i18n";
+import {SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 interface Commission {
   _id: string;
@@ -59,8 +59,7 @@ const COPY: Record<SupportedLocale, ReportsCopy> = {
     pageOf: (page, total) => `Page ${page} of ${total}`,
     previous: "Previous",
     next: "Next",
-    statusLabels: { confirmed: "Confirmed", pending: "Pending", rejected: "Rejected" },
-  },
+    statusLabels: { confirmed: "Confirmed", pending: "Pending", rejected: "Rejected" } },
   zh: {
     title: "佣金报表",
     totalCommission: "总佣金",
@@ -73,8 +72,7 @@ const COPY: Record<SupportedLocale, ReportsCopy> = {
     pageOf: (page, total) => `第 ${page} / ${total} 页`,
     previous: "上一页",
     next: "下一页",
-    statusLabels: { confirmed: "已确认", pending: "待处理", rejected: "已拒绝" },
-  },
+    statusLabels: { confirmed: "已确认", pending: "待处理", rejected: "已拒绝" } },
   ja: {
     title: "コミッションレポート",
     totalCommission: "総コミッション",
@@ -87,8 +85,7 @@ const COPY: Record<SupportedLocale, ReportsCopy> = {
     pageOf: (page, total) => `${page} / ${total} ページ`,
     previous: "前へ",
     next: "次へ",
-    statusLabels: { confirmed: "確定", pending: "保留", rejected: "却下" },
-  },
+    statusLabels: { confirmed: "確定", pending: "保留", rejected: "却下" } },
   es: {
     title: "Reportes de comisión",
     totalCommission: "Comisión total",
@@ -101,8 +98,7 @@ const COPY: Record<SupportedLocale, ReportsCopy> = {
     pageOf: (page, total) => `Página ${page} de ${total}`,
     previous: "Anterior",
     next: "Siguiente",
-    statusLabels: { confirmed: "Confirmado", pending: "Pendiente", rejected: "Rechazado" },
-  },
+    statusLabels: { confirmed: "Confirmado", pending: "Pendiente", rejected: "Rechazado" } },
   pt: {
     title: "Relatórios de comissão",
     totalCommission: "Comissão total",
@@ -115,8 +111,7 @@ const COPY: Record<SupportedLocale, ReportsCopy> = {
     pageOf: (page, total) => `Página ${page} de ${total}`,
     previous: "Anterior",
     next: "Próxima",
-    statusLabels: { confirmed: "Confirmado", pending: "Pendente", rejected: "Rejeitado" },
-  },
+    statusLabels: { confirmed: "Confirmado", pending: "Pendente", rejected: "Rejeitado" } },
   hi: {
     title: "कमीशन रिपोर्ट",
     totalCommission: "कुल कमीशन",
@@ -129,8 +124,7 @@ const COPY: Record<SupportedLocale, ReportsCopy> = {
     pageOf: (page, total) => `पेज ${page} / ${total}`,
     previous: "पिछला",
     next: "अगला",
-    statusLabels: { confirmed: "पुष्ट", pending: "लंबित", rejected: "अस्वीकृत" },
-  },
+    statusLabels: { confirmed: "पुष्ट", pending: "लंबित", rejected: "अस्वीकृत" } },
   id: {
     title: "Laporan komisi",
     totalCommission: "Total komisi",
@@ -143,9 +137,7 @@ const COPY: Record<SupportedLocale, ReportsCopy> = {
     pageOf: (page, total) => `Halaman ${page} dari ${total}`,
     previous: "Sebelumnya",
     next: "Berikutnya",
-    statusLabels: { confirmed: "Terkonfirmasi", pending: "Menunggu", rejected: "Ditolak" },
-  },
-};
+    statusLabels: { confirmed: "Terkonfirmasi", pending: "Menunggu", rejected: "Ditolak" } } };
 
 const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
   en: "en-US",
@@ -154,15 +146,13 @@ const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
   es: "es-ES",
   pt: "pt-BR",
   hi: "hi-IN",
-  id: "id-ID",
-};
+  id: "id-ID" };
 
 function StatusBadge({ status, label }: { status: Commission["status"]; label: string }) {
   const styles: Record<string, string> = {
     confirmed: "bg-green-500/20 text-green-400",
     pending: "bg-yellow-500/20 text-yellow-400",
-    rejected: "bg-red-500/20 text-red-400",
-  };
+    rejected: "bg-red-500/20 text-red-400" };
   return (
     <span
       className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${styles[status]}`}
@@ -178,8 +168,7 @@ function truncate(str: string, len: number) {
 }
 
 export default function CommissionReportsPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
   const { token } = useAuth();
@@ -337,8 +326,7 @@ export default function CommissionReportsPage() {
                     {new Date(c.date).toLocaleDateString(dateLocale, {
                       year: "numeric",
                       month: "short",
-                      day: "numeric",
-                    })}
+                      day: "numeric" })}
                   </td>
                   <td className="px-4 py-3 text-sm">{c.dramaName}</td>
                   <td className="px-4 py-3 text-sm text-gray-400" title={c.referralLink}>

@@ -2,12 +2,13 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, Suspense, useMemo } from "react";
+import { useState, useEffect, Suspense} from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useRouter, useSearchParams} from "next/navigation";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { passwordApi } from "@/lib/api";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 function getPasswordStrength(password: string): number {
   let score = 0;
@@ -70,8 +71,7 @@ function EyeOffIcon({ className }: { className?: string }) {
 }
 
 function NewPasswordContent() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = VERIFY_RESET_TEXT[locale] || VERIFY_RESET_TEXT.en;
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -310,8 +310,7 @@ const VERIFY_RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     passwordMin: "Password must be at least 8 characters.",
     passwordMismatch: "Passwords do not match.",
     resetFailed: "Failed to reset password. Please try again.",
-    genericError: "An error occurred",
-  },
+    genericError: "An error occurred" },
   zh: {
     title: "设置新密码",
     subtitle: "新密码必须和之前使用过的密码不同。",
@@ -335,8 +334,7 @@ const VERIFY_RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     passwordMin: "密码至少需要 8 位。",
     passwordMismatch: "两次输入的密码不一致。",
     resetFailed: "重置密码失败，请重试。",
-    genericError: "发生错误",
-  },
+    genericError: "发生错误" },
   ja: {
     title: "新しいパスワードを作成",
     subtitle: "以前使用したパスワードとは異なる必要があります。",
@@ -360,8 +358,7 @@ const VERIFY_RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     passwordMin: "パスワードは8文字以上必要です。",
     passwordMismatch: "パスワードが一致しません。",
     resetFailed: "パスワードリセットに失敗しました。",
-    genericError: "エラーが発生しました",
-  },
+    genericError: "エラーが発生しました" },
   es: {
     title: "Crear nueva contraseña",
     subtitle: "Tu nueva contraseña debe ser distinta a las anteriores.",
@@ -385,8 +382,7 @@ const VERIFY_RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     passwordMin: "La contraseña debe tener al menos 8 caracteres.",
     passwordMismatch: "Las contraseñas no coinciden.",
     resetFailed: "No se pudo restablecer la contraseña.",
-    genericError: "Ocurrió un error",
-  },
+    genericError: "Ocurrió un error" },
   pt: {
     title: "Criar nova senha",
     subtitle: "Sua nova senha deve ser diferente das anteriores.",
@@ -410,8 +406,7 @@ const VERIFY_RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     passwordMin: "A senha deve ter pelo menos 8 caracteres.",
     passwordMismatch: "As senhas não coincidem.",
     resetFailed: "Falha ao redefinir a senha.",
-    genericError: "Ocorreu um erro",
-  },
+    genericError: "Ocorreu um erro" },
   hi: {
     title: "नया पासवर्ड बनाएँ",
     subtitle: "नया पासवर्ड पहले वाले पासवर्ड से अलग होना चाहिए।",
@@ -435,8 +430,7 @@ const VERIFY_RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     passwordMin: "पासवर्ड कम से कम 8 अक्षर का होना चाहिए।",
     passwordMismatch: "पासवर्ड मेल नहीं खाते।",
     resetFailed: "पासवर्ड रीसेट विफल रहा।",
-    genericError: "त्रुटि हुई",
-  },
+    genericError: "त्रुटि हुई" },
   id: {
     title: "Buat kata sandi baru",
     subtitle: "Kata sandi baru harus berbeda dari yang sebelumnya.",
@@ -460,6 +454,4 @@ const VERIFY_RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     passwordMin: "Kata sandi minimal 8 karakter.",
     passwordMismatch: "Kata sandi tidak cocok.",
     resetFailed: "Gagal reset kata sandi.",
-    genericError: "Terjadi kesalahan",
-  },
-};
+    genericError: "Terjadi kesalahan" } };

@@ -2,8 +2,8 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback, Suspense, useMemo } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useState, useEffect, useCallback, Suspense} from "react";
+import { useSearchParams, useRouter} from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { dramasApi } from "@/lib/api";
@@ -11,7 +11,8 @@ import { Drama } from "@/types";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import { getDramaBadge } from "@/lib/utils";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 const hotSearchItems = [
   { rank: 1, title: "The Billionaire's Secret", type: "trending" as const },
@@ -45,8 +46,7 @@ const SEARCH_TEXT: Record<SupportedLocale, Record<string, string>> = {
     loadMore: "Load More",
     defaultTitle: "Search for your favorite dramas",
     defaultDesc: "Try a title, genre, or actor name",
-    loading: "Loading...",
-  },
+    loading: "Loading..." },
   zh: {
     searchPlaceholder: "搜索短剧、类型...",
     searchAria: "搜索短剧",
@@ -66,8 +66,7 @@ const SEARCH_TEXT: Record<SupportedLocale, Record<string, string>> = {
     loadMore: "加载更多",
     defaultTitle: "搜索你喜欢的短剧",
     defaultDesc: "试试输入剧名、类型或演员",
-    loading: "加载中...",
-  },
+    loading: "加载中..." },
   ja: {
     searchPlaceholder: "ドラマやジャンルを検索...",
     searchAria: "ドラマ検索",
@@ -87,8 +86,7 @@ const SEARCH_TEXT: Record<SupportedLocale, Record<string, string>> = {
     loadMore: "もっと見る",
     defaultTitle: "お気に入りのドラマを検索",
     defaultDesc: "タイトル・ジャンル・俳優で検索してみましょう",
-    loading: "読み込み中...",
-  },
+    loading: "読み込み中..." },
   es: {
     searchPlaceholder: "Buscar dramas, géneros...",
     searchAria: "Buscar dramas",
@@ -108,8 +106,7 @@ const SEARCH_TEXT: Record<SupportedLocale, Record<string, string>> = {
     loadMore: "Cargar más",
     defaultTitle: "Busca tus dramas favoritos",
     defaultDesc: "Prueba por título, género o actor",
-    loading: "Cargando...",
-  },
+    loading: "Cargando..." },
   pt: {
     searchPlaceholder: "Buscar dramas, gêneros...",
     searchAria: "Buscar dramas",
@@ -129,8 +126,7 @@ const SEARCH_TEXT: Record<SupportedLocale, Record<string, string>> = {
     loadMore: "Carregar mais",
     defaultTitle: "Busque seus dramas favoritos",
     defaultDesc: "Tente por título, gênero ou ator",
-    loading: "Carregando...",
-  },
+    loading: "Carregando..." },
   hi: {
     searchPlaceholder: "ड्रामा, जॉनर खोजें...",
     searchAria: "ड्रामा खोजें",
@@ -150,8 +146,7 @@ const SEARCH_TEXT: Record<SupportedLocale, Record<string, string>> = {
     loadMore: "और लोड करें",
     defaultTitle: "अपने पसंदीदा ड्रामा खोजें",
     defaultDesc: "टाइटल, जॉनर या अभिनेता से खोजें",
-    loading: "लोड हो रहा है...",
-  },
+    loading: "लोड हो रहा है..." },
   id: {
     searchPlaceholder: "Cari drama, genre...",
     searchAria: "Cari drama",
@@ -171,18 +166,14 @@ const SEARCH_TEXT: Record<SupportedLocale, Record<string, string>> = {
     loadMore: "Muat lebih banyak",
     defaultTitle: "Cari drama favoritmu",
     defaultDesc: "Coba judul, genre, atau aktor",
-    loading: "Memuat...",
-  },
-};
+    loading: "Memuat..." } };
 
 const badgeStyles: Record<string, { label: string; className: string }> = {
   hot: { label: "HOT", className: "bg-red-600 text-white" },
-  new: { label: "NEW", className: "bg-green-600 text-white" },
-};
+  new: { label: "NEW", className: "bg-green-600 text-white" } };
 
 function SearchContent() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = SEARCH_TEXT[locale] || SEARCH_TEXT.en;
   const searchParams = useSearchParams();
   const router = useRouter();

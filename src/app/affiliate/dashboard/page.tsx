@@ -4,10 +4,10 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
-import { detectClientLocale, localizePath } from "@/lib/i18n";
+import {localizePath } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -16,8 +16,7 @@ import {
   PointElement,
   LineElement,
   Tooltip,
-  Filler,
-} from "chart.js";
+  Filler } from "chart.js";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler);
 
@@ -54,8 +53,7 @@ function StatCard({
   label,
   value,
   change,
-  prefix = "",
-}: {
+  prefix = "" }: {
   label: string;
   value: string;
   change: number;
@@ -76,8 +74,7 @@ function StatCard({
 }
 
 export default function AffiliateDashboardPage() {
-  const pathname = usePathname();
-  const locale = detectClientLocale(pathname);
+  const locale = useLocale();
   const { token } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,12 +99,10 @@ export default function AffiliateDashboardPage() {
             paidUsers: d.totalPaidUsers || 0,
             paidUsersChange: d.changePercent || 0,
             totalCommission: d.totalCommission || 0,
-            commissionChange: d.changePercent || 0,
-          },
+            commissionChange: d.changePercent || 0 },
           earningsTrend: { labels, data: values },
           referralLink: d.referralLink || "",
-          notifications: [],
-        });
+          notifications: [] });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -154,10 +149,8 @@ export default function AffiliateDashboardPage() {
         pointRadius: 3,
         pointBackgroundColor: "#8b5cf6",
         pointBorderColor: "#8b5cf6",
-        borderWidth: 2,
-      },
-    ],
-  };
+        borderWidth: 2 },
+    ] };
 
   const chartOptions = {
     responsive: true,
@@ -170,25 +163,17 @@ export default function AffiliateDashboardPage() {
         borderColor: "#374151",
         borderWidth: 1,
         callbacks: {
-          label: (ctx: any) => `$${ctx.parsed.y.toFixed(2)}`,
-        },
-      },
-    },
+          label: (ctx: any) => `$${ctx.parsed.y.toFixed(2)}` } } },
     scales: {
       x: {
         grid: { color: "rgba(75,85,99,0.2)" },
-        ticks: { color: "#9ca3af", font: { size: 11 } },
-      },
+        ticks: { color: "#9ca3af", font: { size: 11 } } },
       y: {
         grid: { color: "rgba(75,85,99,0.2)" },
         ticks: {
           color: "#9ca3af",
           font: { size: 11 },
-          callback: (val: any) => `$${val}`,
-        },
-      },
-    },
-  };
+          callback: (val: any) => `$${val}` } } } };
 
   return (
     <div className="space-y-6">

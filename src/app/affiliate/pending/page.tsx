@@ -3,12 +3,11 @@ export const dynamic = 'force-dynamic';
 
 
 import Link from 'next/link';
-import { usePathname } from "next/navigation";
-import { detectClientLocale, localizePath } from "@/lib/i18n";
+import {localizePath } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export default function AffiliatePendingPage() {
-  const pathname = usePathname();
-  const locale = detectClientLocale(pathname);
+  const locale = useLocale();
 
   return (
     <div className="min-h-screen bg-[#0a0a12] flex items-center justify-center px-4">

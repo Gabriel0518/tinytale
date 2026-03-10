@@ -3,15 +3,15 @@
 export const dynamic = 'force-dynamic';
 
 import { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter} from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
-import { detectClientLocale, localizePath } from "@/lib/i18n";
+import {localizePath } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export default function AffiliateLandingPage() {
-  const pathname = usePathname();
-  const locale = detectClientLocale(pathname);
+  const locale = useLocale();
   const router = useRouter();
   const { user, token } = useAuth();
   const [ctaLoading, setCtaLoading] = useState(false);

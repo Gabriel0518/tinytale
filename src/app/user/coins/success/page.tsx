@@ -2,13 +2,14 @@
 
 export const dynamic = 'force-dynamic';
 
-import { Suspense, useState, useEffect, useMemo } from "react";
-import { useSearchParams, usePathname } from "next/navigation";
+import { Suspense, useState, useEffect} from "react";
+import { useSearchParams} from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { coinsApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 type SuccessCopy = {
   paymentSuccess: string;
@@ -30,8 +31,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     startWatching: "Start Watching",
     issueTitle: "Payment Issue",
     issueDesc: "We couldn't verify your payment. If you were charged, your coins will be credited shortly.",
-    backToCoins: "Back to Coins",
-  },
+    backToCoins: "Back to Coins" },
   zh: {
     paymentSuccess: "支付成功",
     paidOk: (amount) => `已成功支付 $${amount.toFixed(2)}`,
@@ -40,8 +40,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     startWatching: "开始观看",
     issueTitle: "支付异常",
     issueDesc: "我们暂时无法验证该笔支付，如已扣款，金币将很快到账。",
-    backToCoins: "返回金币页",
-  },
+    backToCoins: "返回金币页" },
   ja: {
     paymentSuccess: "支払い完了",
     paidOk: (amount) => `$${amount.toFixed(2)} の支払いが完了しました`,
@@ -50,8 +49,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     startWatching: "視聴を開始",
     issueTitle: "支払いエラー",
     issueDesc: "お支払いを確認できませんでした。引き落とし済みの場合、コインはまもなく反映されます。",
-    backToCoins: "コインページへ戻る",
-  },
+    backToCoins: "コインページへ戻る" },
   es: {
     paymentSuccess: "Pago exitoso",
     paidOk: (amount) => `Pago de $${amount.toFixed(2)} completado`,
@@ -60,8 +58,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     startWatching: "Comenzar a ver",
     issueTitle: "Problema de pago",
     issueDesc: "No pudimos verificar tu pago. Si ya se cobró, tus monedas se acreditarán pronto.",
-    backToCoins: "Volver a Monedas",
-  },
+    backToCoins: "Volver a Monedas" },
   pt: {
     paymentSuccess: "Pagamento concluído",
     paidOk: (amount) => `Pagamento de $${amount.toFixed(2)} concluído`,
@@ -70,8 +67,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     startWatching: "Começar a assistir",
     issueTitle: "Problema no pagamento",
     issueDesc: "Não conseguimos verificar seu pagamento. Se houve cobrança, suas moedas serão creditadas em breve.",
-    backToCoins: "Voltar para Moedas",
-  },
+    backToCoins: "Voltar para Moedas" },
   hi: {
     paymentSuccess: "भुगतान सफल",
     paidOk: (amount) => `$${amount.toFixed(2)} का भुगतान सफल रहा`,
@@ -80,8 +76,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     startWatching: "देखना शुरू करें",
     issueTitle: "भुगतान समस्या",
     issueDesc: "भुगतान सत्यापित नहीं हो सका। यदि राशि कट गई है, कॉइन्स जल्द जोड़ दिए जाएंगे।",
-    backToCoins: "कॉइन्स पर वापस जाएँ",
-  },
+    backToCoins: "कॉइन्स पर वापस जाएँ" },
   id: {
     paymentSuccess: "Pembayaran berhasil",
     paidOk: (amount) => `Pembayaran $${amount.toFixed(2)} berhasil`,
@@ -90,13 +85,10 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     startWatching: "Mulai menonton",
     issueTitle: "Masalah pembayaran",
     issueDesc: "Kami tidak dapat memverifikasi pembayaranmu. Jika sudah terpotong, koin akan segera masuk.",
-    backToCoins: "Kembali ke Koin",
-  },
-};
+    backToCoins: "Kembali ke Koin" } };
 
 function PaymentSuccessContent() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const { token, refreshUser } = useAuth();
   const searchParams = useSearchParams();

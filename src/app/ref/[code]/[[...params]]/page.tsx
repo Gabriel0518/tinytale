@@ -2,15 +2,15 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useMemo } from "react";
-import { useParams, useRouter, usePathname } from "next/navigation";
+import { useEffect} from "react";
+import { useParams, useRouter} from "next/navigation";
 import { promoterApi } from "@/lib/api";
-import { detectClientLocale, localizePath } from "@/lib/i18n";
+import {localizePath } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export default function RefPage() {
   const params = useParams();
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const router = useRouter();
 
   useEffect(() => {

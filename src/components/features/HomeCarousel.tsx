@@ -1,13 +1,13 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, useMemo } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
 import { Drama } from "@/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { localizeCategoryLabel } from "@/lib/categoryI18n";
+import { useLocale } from "@/hooks/useLocale";
 
 function validCover(url?: string): string {
   if (!url || url.startsWith('blob:')) return '/placeholder-cover.svg';
@@ -27,12 +27,10 @@ const CAROUSEL_TEXT: Record<SupportedLocale, Record<string, string>> = {
   es: { scrollLeft: "Desplazar a la izquierda", scrollRight: "Desplazar a la derecha", episodes: "episodios" },
   pt: { scrollLeft: "Rolar para a esquerda", scrollRight: "Rolar para a direita", episodes: "episódios" },
   hi: { scrollLeft: "बाईं ओर स्क्रॉल करें", scrollRight: "दाईं ओर स्क्रॉल करें", episodes: "एपिसोड" },
-  id: { scrollLeft: "Gulir ke kiri", scrollRight: "Gulir ke kanan", episodes: "episode" },
-};
+  id: { scrollLeft: "Gulir ke kiri", scrollRight: "Gulir ke kanan", episodes: "episode" } };
 
 export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = CAROUSEL_TEXT[locale] || CAROUSEL_TEXT.en;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -67,8 +65,7 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
     const amount = el.clientWidth * 0.8;
     el.scrollBy({
       left: direction === "left" ? -amount : amount,
-      behavior: "smooth",
-    });
+      behavior: "smooth" });
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -122,8 +119,7 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
           style={{
             scrollSnapType: "x mandatory",
             WebkitOverflowScrolling: "touch",
-            cursor: isDragging ? "grabbing" : "grab",
-          }}
+            cursor: isDragging ? "grabbing" : "grab" }}
         >
           {dramas.map((drama) => (
             <Link

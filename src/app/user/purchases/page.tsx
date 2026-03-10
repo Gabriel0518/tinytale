@@ -2,16 +2,17 @@
 export const dynamic = 'force-dynamic';
 
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect} from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter} from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { profileApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import { detectClientLocale, localizePath } from "@/lib/i18n";
+import {localizePath } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 interface Transaction {
   _id: string;
@@ -77,8 +78,7 @@ const COPY: Record<string, PurchasesCopy> = {
     coinsUnit: "coins",
     noTransactions: "No transactions found",
     noTransactionsDesc: "Try adjusting your filters or make your first purchase",
-    getCoins: "Get Coins",
-  },
+    getCoins: "Get Coins" },
   zh: {
     back: "返回",
     title: "购买记录",
@@ -101,8 +101,7 @@ const COPY: Record<string, PurchasesCopy> = {
     coinsUnit: "金币",
     noTransactions: "暂无交易记录",
     noTransactionsDesc: "可调整筛选条件，或先完成一笔购买",
-    getCoins: "获取金币",
-  },
+    getCoins: "获取金币" },
   ja: {
     back: "戻る",
     title: "購入履歴",
@@ -125,8 +124,7 @@ const COPY: Record<string, PurchasesCopy> = {
     coinsUnit: "コイン",
     noTransactions: "取引履歴がありません",
     noTransactionsDesc: "フィルターを調整するか、最初の購入を行ってください",
-    getCoins: "コインを購入",
-  },
+    getCoins: "コインを購入" },
   es: {
     back: "Volver",
     title: "Historial de compras",
@@ -149,8 +147,7 @@ const COPY: Record<string, PurchasesCopy> = {
     coinsUnit: "monedas",
     noTransactions: "No se encontraron transacciones",
     noTransactionsDesc: "Ajusta los filtros o realiza tu primera compra",
-    getCoins: "Obtener monedas",
-  },
+    getCoins: "Obtener monedas" },
   pt: {
     back: "Voltar",
     title: "Histórico de compras",
@@ -173,8 +170,7 @@ const COPY: Record<string, PurchasesCopy> = {
     coinsUnit: "moedas",
     noTransactions: "Nenhuma transação encontrada",
     noTransactionsDesc: "Ajuste os filtros ou faça sua primeira compra",
-    getCoins: "Obter moedas",
-  },
+    getCoins: "Obter moedas" },
   hi: {
     back: "वापस",
     title: "खरीद इतिहास",
@@ -197,8 +193,7 @@ const COPY: Record<string, PurchasesCopy> = {
     coinsUnit: "कॉइन्स",
     noTransactions: "कोई लेनदेन नहीं मिला",
     noTransactionsDesc: "फ़िल्टर बदलें या पहली खरीद करें",
-    getCoins: "कॉइन्स लें",
-  },
+    getCoins: "कॉइन्स लें" },
   id: {
     back: "Kembali",
     title: "Riwayat pembelian",
@@ -221,9 +216,7 @@ const COPY: Record<string, PurchasesCopy> = {
     coinsUnit: "koin",
     noTransactions: "Tidak ada transaksi",
     noTransactionsDesc: "Coba ubah filter atau lakukan pembelian pertama",
-    getCoins: "Dapatkan koin",
-  },
-};
+    getCoins: "Dapatkan koin" } };
 
 const DATE_LOCALE_MAP: Record<string, string> = {
   en: "en-US",
@@ -232,12 +225,10 @@ const DATE_LOCALE_MAP: Record<string, string> = {
   es: "es-ES",
   pt: "pt-BR",
   hi: "hi-IN",
-  id: "id-ID",
-};
+  id: "id-ID" };
 
 export default function PurchasesPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const copy = COPY[locale] || COPY.en;
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
   const { user, token } = useAuth();
@@ -299,8 +290,7 @@ export default function PurchasesPage() {
       coins: { path: "M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z", color: "text-yellow-400", bg: "bg-yellow-500/10" },
       film: { path: "M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125M20.625 4.5h-1.5C18.504 4.5 18 5.004 18 5.625m3.75 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 4.5c-.621 0-1.125.504-1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C5.496 8.25 6 8.754 6 9.375v1.5m0-5.25v5.25m0-5.25C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125m1.125 2.625h1.5m-1.5 0A1.125 1.125 0 0118 7.125v-1.5m1.125 2.625c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125M18 5.625v5.25M7.125 12h9.75m-9.75 0A1.125 1.125 0 016 10.875M7.125 12C6.504 12 6 12.504 6 13.125m0-2.25C6 11.496 5.496 12 4.875 12M18 10.875c0 .621-.504 1.125-1.125 1.125M18 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-12 5.25v-5.25m0 5.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125m-12 0v-1.5c0-.621-.504-1.125-1.125-1.125M18 18.375v-5.25m0 5.25v-1.5c0-.621.504-1.125 1.125-1.125M18 13.125v1.5c0 .621.504 1.125 1.125 1.125M18 13.125c0-.621.504-1.125 1.125-1.125M6 13.125v1.5c0 .621-.504 1.125-1.125 1.125M6 13.125C6 12.504 5.496 12 4.875 12m-1.5 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M19.125 12h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h1.5m14.25 0h1.5", color: "text-blue-400", bg: "bg-blue-500/10" },
       gift: { path: "M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z", color: "text-purple-400", bg: "bg-purple-500/10" },
-      crown: { path: "M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z", color: "text-yellow-400", bg: "bg-yellow-500/10" },
-    };
+      crown: { path: "M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z", color: "text-yellow-400", bg: "bg-yellow-500/10" } };
     const ic = icons[t.icon] || icons.coins;
     return (
       <div className={`w-10 h-10 rounded-lg ${ic.bg} flex items-center justify-center`}>
@@ -313,8 +303,7 @@ export default function PurchasesPage() {
     const map: Record<string, { dot: string; text: string; bg: string; pulse?: boolean }> = {
       completed: { dot: "bg-green-400", text: "text-green-400", bg: "bg-green-400/10" },
       pending: { dot: "bg-orange-400", text: "text-orange-400", bg: "bg-orange-400/10", pulse: true },
-      failed: { dot: "bg-red-400", text: "text-red-400", bg: "bg-red-400/10" },
-    };
+      failed: { dot: "bg-red-400", text: "text-red-400", bg: "bg-red-400/10" } };
     const s = map[status] || map.completed;
     return (
       <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${s.text} ${s.bg}`}>

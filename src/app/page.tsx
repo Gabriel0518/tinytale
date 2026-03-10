@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { dramasApi, categoriesApi } from '@/lib/api';
 import { Drama, Category } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
@@ -13,8 +13,9 @@ import { EditorialBanner } from '@/components/features/EditorialBanner';
 import { FeaturedBanner } from '@/components/features/FeaturedBanner';
 import { Footer } from '@/components/features/Footer';
 import { mockDramas, mockCategories } from '@/lib/mockData';
-import { detectClientLocale, localizePath, SupportedLocale } from '@/lib/i18n';
+import { localizePath, SupportedLocale } from '@/lib/i18n';
 import { localizeCategoryLabel, normalizeCategoryKey } from '@/lib/categoryI18n';
+import { useLocale } from '@/hooks/useLocale';
 
 function validCover(url?: string): string | undefined {
   if (!url || url.startsWith('blob:')) return undefined;
@@ -33,8 +34,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     newReleases: 'New Releases',
     recommendations: 'Recommendations',
     editorsChoice: "Editor's Choice",
-    browseFallback: '/browse',
-  },
+    browseFallback: '/browse' },
   zh: {
     all: '全部',
     hotRanking: '热门榜',
@@ -46,8 +46,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     newReleases: '最新上新',
     recommendations: '推荐内容',
     editorsChoice: '编辑精选',
-    browseFallback: '/browse',
-  },
+    browseFallback: '/browse' },
   ja: {
     all: 'すべて',
     hotRanking: '人気ランキング',
@@ -59,8 +58,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     newReleases: '新着',
     recommendations: 'おすすめ',
     editorsChoice: '編集部のおすすめ',
-    browseFallback: '/browse',
-  },
+    browseFallback: '/browse' },
   es: {
     all: 'Todo',
     hotRanking: 'Ranking caliente',
@@ -72,8 +70,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     newReleases: 'Novedades',
     recommendations: 'Recomendaciones',
     editorsChoice: 'Selección del editor',
-    browseFallback: '/browse',
-  },
+    browseFallback: '/browse' },
   pt: {
     all: 'Todos',
     hotRanking: 'Ranking em alta',
@@ -85,8 +82,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     newReleases: 'Novidades',
     recommendations: 'Recomendações',
     editorsChoice: 'Escolha do editor',
-    browseFallback: '/browse',
-  },
+    browseFallback: '/browse' },
   hi: {
     all: 'सभी',
     hotRanking: 'हॉट रैंकिंग',
@@ -98,8 +94,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     newReleases: 'नई रिलीज़',
     recommendations: 'सिफ़ारिशें',
     editorsChoice: 'एडिटर की पसंद',
-    browseFallback: '/browse',
-  },
+    browseFallback: '/browse' },
   id: {
     all: 'Semua',
     hotRanking: 'Peringkat panas',
@@ -111,13 +106,10 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     newReleases: 'Rilis baru',
     recommendations: 'Rekomendasi',
     editorsChoice: 'Pilihan editor',
-    browseFallback: '/browse',
-  },
-};
+    browseFallback: '/browse' } };
 
 export default function Home() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = HOME_TEXT[locale] || HOME_TEXT.en;
   const router = useRouter();
   const [dramas, setDramas] = useState<Drama[]>([]);
@@ -140,8 +132,7 @@ export default function Home() {
         ...drama,
         title: localized.title || drama.title,
         description: localized.description || drama.description,
-        categories: localized.categories?.length ? localized.categories : drama.categories,
-      };
+        categories: localized.categories?.length ? localized.categories : drama.categories };
     };
 
     const fetchData = async () => {
@@ -163,8 +154,7 @@ export default function Home() {
         );
         const localizedCategories = (fetchedCategories.length > 0 ? fetchedCategories : mockCategories).map((category: Category) => ({
           ...category,
-          name: localizeCategoryLabel(category.name, locale, category.slug),
-        }));
+          name: localizeCategoryLabel(category.name, locale, category.slug) }));
 
         if (canceled) return;
         setDramas(localizedDramas);
@@ -198,8 +188,7 @@ export default function Home() {
             icon: p.icon || '',
             dramas: Array.isArray(p.dramas)
               ? p.dramas.map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
-              : [],
-          }))
+              : [] }))
         );
 
         // Banners
@@ -208,8 +197,7 @@ export default function Home() {
           (Array.isArray(bnData) ? bnData : []).map((b: any) => ({
             _id: b._id, title: b.title || '', subtitle: b.subtitle || '',
             image: b.image || '', linkType: b.linkType || 'drama', linkId: b.linkId || '',
-            slot: b.slot || 'standard', position: b.position ?? 0,
-          }))
+            slot: b.slot || 'standard', position: b.position ?? 0 }))
         );
       } catch {
         if (canceled) return;
@@ -217,8 +205,7 @@ export default function Home() {
         setCategories(
           mockCategories.map((category) => ({
             ...category,
-            name: localizeCategoryLabel(category.name, locale, category.slug),
-          }))
+            name: localizeCategoryLabel(category.name, locale, category.slug) }))
         );
       } finally {
         if (!canceled) {
@@ -270,8 +257,7 @@ export default function Home() {
     { key: 'all', label: t.all },
     ...categories.slice(0, 7).map(c => ({
       key: c.slug || normalizeCategoryKey(c.name),
-      label: localizeCategoryLabel(c.name, locale, c.slug),
-    })),
+      label: localizeCategoryLabel(c.name, locale, c.slug) })),
   ];
 
   return (
@@ -285,8 +271,7 @@ export default function Home() {
             <div
               className="absolute inset-0 bg-cover bg-center transition-all duration-700"
               style={{
-                backgroundImage: `url(${validCover(heroDrama.horizontalCover) || validCover(heroDrama.cover) || 'https://picsum.photos/seed/hero/1920/1080'})`,
-              }}
+                backgroundImage: `url(${validCover(heroDrama.horizontalCover) || validCover(heroDrama.cover) || 'https://picsum.photos/seed/hero/1920/1080'})` }}
             />
             <div className="absolute inset-0 bg-gradient-to-r from-[#141414] via-[#141414]/70 to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-[#141414]/30" />

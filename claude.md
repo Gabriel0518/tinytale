@@ -26,7 +26,7 @@
 | **缓存** | Redis | 6379 |
 | **视频托管** | 第三方CDN（Mux / Cloudflare Stream） | - |
 | **支付** | Stripe | - |
-| **部署** | Vercel(前端/后台) + Railway/AWS(后端) | - |
+| **部署** | Vercel(前端/后台) + Hostinger VPS(后端，自管) | - |
 
 ### 服务地址（生产环境端口不可修改）
 

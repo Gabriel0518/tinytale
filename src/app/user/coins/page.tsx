@@ -1,16 +1,16 @@
 "use client";
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect} from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useToast } from "@/components/ui/Toast";
 import { coinsApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 interface CoinPackage {
   _id: string;
@@ -80,8 +80,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     paymentMethodLabels: {
       stripe: "Credit / Debit Card",
       paypal: "PayPal",
-      apple_pay: "Apple Pay",
-    },
+      apple_pay: "Apple Pay" },
     paySecurely: "Pay Securely",
     haveRedeemCode: "Have a redeem code?",
     enterCode: "Enter code",
@@ -92,9 +91,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
       paymentFailed: "Payment failed",
       redeemSuccess: (coins) => `Redeemed ${coins} coins!`,
       invalidCode: "Invalid or expired code",
-      genericError: "An error occurred",
-    },
-  },
+      genericError: "An error occurred" } },
   zh: {
     title: "金币充值",
     subtitle: "购买金币以解锁付费剧集与专属内容",
@@ -119,8 +116,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     paymentMethodLabels: {
       stripe: "信用卡 / 借记卡",
       paypal: "PayPal",
-      apple_pay: "Apple Pay",
-    },
+      apple_pay: "Apple Pay" },
     paySecurely: "安全支付",
     haveRedeemCode: "有兑换码？",
     enterCode: "输入兑换码",
@@ -131,9 +127,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
       paymentFailed: "支付失败",
       redeemSuccess: (coins) => `成功兑换 ${coins} 金币！`,
       invalidCode: "兑换码无效或已过期",
-      genericError: "发生错误",
-    },
-  },
+      genericError: "发生错误" } },
   ja: {
     title: "コインチャージ",
     subtitle: "コインを購入してプレミアム話数と限定コンテンツを解放",
@@ -158,8 +152,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     paymentMethodLabels: {
       stripe: "クレジット / デビットカード",
       paypal: "PayPal",
-      apple_pay: "Apple Pay",
-    },
+      apple_pay: "Apple Pay" },
     paySecurely: "安全に支払う",
     haveRedeemCode: "引き換えコードをお持ちですか？",
     enterCode: "コードを入力",
@@ -170,9 +163,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
       paymentFailed: "支払いに失敗しました",
       redeemSuccess: (coins) => `${coins} コインを引き換えました！`,
       invalidCode: "無効または期限切れのコードです",
-      genericError: "エラーが発生しました",
-    },
-  },
+      genericError: "エラーが発生しました" } },
   es: {
     title: "Recarga de monedas",
     subtitle: "Compra monedas para desbloquear episodios premium y contenido exclusivo",
@@ -197,8 +188,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     paymentMethodLabels: {
       stripe: "Tarjeta de crédito / débito",
       paypal: "PayPal",
-      apple_pay: "Apple Pay",
-    },
+      apple_pay: "Apple Pay" },
     paySecurely: "Pagar de forma segura",
     haveRedeemCode: "¿Tienes un código?",
     enterCode: "Ingresa el código",
@@ -209,9 +199,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
       paymentFailed: "Pago fallido",
       redeemSuccess: (coins) => `¡Canjeaste ${coins} monedas!`,
       invalidCode: "Código inválido o vencido",
-      genericError: "Ocurrió un error",
-    },
-  },
+      genericError: "Ocurrió un error" } },
   pt: {
     title: "Recarga de moedas",
     subtitle: "Compre moedas para desbloquear episódios premium e conteúdo exclusivo",
@@ -236,8 +224,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     paymentMethodLabels: {
       stripe: "Cartão de crédito / débito",
       paypal: "PayPal",
-      apple_pay: "Apple Pay",
-    },
+      apple_pay: "Apple Pay" },
     paySecurely: "Pagar com segurança",
     haveRedeemCode: "Tem um código de resgate?",
     enterCode: "Digite o código",
@@ -248,9 +235,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
       paymentFailed: "Falha no pagamento",
       redeemSuccess: (coins) => `${coins} moedas resgatadas!`,
       invalidCode: "Código inválido ou expirado",
-      genericError: "Ocorreu um erro",
-    },
-  },
+      genericError: "Ocorreu um erro" } },
   hi: {
     title: "कॉइन रिचार्ज",
     subtitle: "प्रीमियम एपिसोड और एक्सक्लूसिव कंटेंट अनलॉक करने के लिए कॉइन खरीदें",
@@ -275,8 +260,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     paymentMethodLabels: {
       stripe: "क्रेडिट / डेबिट कार्ड",
       paypal: "PayPal",
-      apple_pay: "Apple Pay",
-    },
+      apple_pay: "Apple Pay" },
     paySecurely: "सुरक्षित भुगतान",
     haveRedeemCode: "क्या आपके पास रिडीम कोड है?",
     enterCode: "कोड दर्ज करें",
@@ -287,9 +271,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
       paymentFailed: "भुगतान विफल",
       redeemSuccess: (coins) => `${coins} कॉइन्स सफलतापूर्वक रिडीम हुए!`,
       invalidCode: "अमान्य या समाप्त कोड",
-      genericError: "एक त्रुटि हुई",
-    },
-  },
+      genericError: "एक त्रुटि हुई" } },
   id: {
     title: "Isi ulang koin",
     subtitle: "Beli koin untuk membuka episode premium dan konten eksklusif",
@@ -314,8 +296,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     paymentMethodLabels: {
       stripe: "Kartu kredit / debit",
       paypal: "PayPal",
-      apple_pay: "Apple Pay",
-    },
+      apple_pay: "Apple Pay" },
     paySecurely: "Bayar dengan aman",
     haveRedeemCode: "Punya kode redeem?",
     enterCode: "Masukkan kode",
@@ -326,14 +307,10 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
       paymentFailed: "Pembayaran gagal",
       redeemSuccess: (coins) => `Berhasil redeem ${coins} koin!`,
       invalidCode: "Kode tidak valid atau kedaluwarsa",
-      genericError: "Terjadi kesalahan",
-    },
-  },
-};
+      genericError: "Terjadi kesalahan" } } };
 
 export default function CoinsPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = COPY[locale] || COPY.en;
 
   const { user, token, refreshUser } = useAuth();

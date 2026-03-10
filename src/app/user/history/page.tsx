@@ -4,14 +4,14 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useToast } from "@/components/ui/Toast";
 import { userApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 interface HistoryItem {
   _id?: string;
@@ -78,8 +78,7 @@ const COPY: Record<SupportedLocale, HistoryCopy> = {
     clearTitle: "Clear Watch History?",
     clearDesc: "This will remove all your watch history. This action cannot be undone.",
     cancel: "Cancel",
-    clearAll: "Clear All",
-  },
+    clearAll: "Clear All" },
   zh: {
     title: "观看历史",
     subtitle: "从你上次中断的位置继续观看。",
@@ -104,8 +103,7 @@ const COPY: Record<SupportedLocale, HistoryCopy> = {
     clearTitle: "清空观看历史？",
     clearDesc: "这会删除你的全部观看历史，且无法恢复。",
     cancel: "取消",
-    clearAll: "全部清空",
-  },
+    clearAll: "全部清空" },
   ja: {
     title: "視聴履歴",
     subtitle: "前回の続きからすぐに再生できます。",
@@ -130,8 +128,7 @@ const COPY: Record<SupportedLocale, HistoryCopy> = {
     clearTitle: "視聴履歴を削除しますか？",
     clearDesc: "すべての履歴が削除され、この操作は取り消せません。",
     cancel: "キャンセル",
-    clearAll: "すべて削除",
-  },
+    clearAll: "すべて削除" },
   es: {
     title: "Historial",
     subtitle: "Continúa tus dramas donde lo dejaste.",
@@ -156,8 +153,7 @@ const COPY: Record<SupportedLocale, HistoryCopy> = {
     clearTitle: "¿Borrar historial?",
     clearDesc: "Se eliminará todo tu historial. Esta acción no se puede deshacer.",
     cancel: "Cancelar",
-    clearAll: "Borrar todo",
-  },
+    clearAll: "Borrar todo" },
   pt: {
     title: "Histórico",
     subtitle: "Continue seus dramas de onde parou.",
@@ -182,8 +178,7 @@ const COPY: Record<SupportedLocale, HistoryCopy> = {
     clearTitle: "Limpar histórico?",
     clearDesc: "Isso removerá todo o seu histórico. A ação não pode ser desfeita.",
     cancel: "Cancelar",
-    clearAll: "Limpar tudo",
-  },
+    clearAll: "Limpar tudo" },
   hi: {
     title: "देखने का इतिहास",
     subtitle: "जहाँ छोड़ा था वहीं से देखना जारी रखें।",
@@ -208,8 +203,7 @@ const COPY: Record<SupportedLocale, HistoryCopy> = {
     clearTitle: "इतिहास साफ करें?",
     clearDesc: "यह आपका पूरा इतिहास हटाएगा। इसे वापस नहीं किया जा सकता।",
     cancel: "रद्द करें",
-    clearAll: "सब साफ करें",
-  },
+    clearAll: "सब साफ करें" },
   id: {
     title: "Riwayat Tonton",
     subtitle: "Lanjutkan menonton drama dari titik terakhir.",
@@ -234,9 +228,7 @@ const COPY: Record<SupportedLocale, HistoryCopy> = {
     clearTitle: "Hapus riwayat tonton?",
     clearDesc: "Semua riwayat akan dihapus dan tidak bisa dibatalkan.",
     cancel: "Batal",
-    clearAll: "Hapus semua",
-  },
-};
+    clearAll: "Hapus semua" } };
 
 function groupByTime(items: HistoryItem[], t: HistoryCopy) {
   const now = new Date();
@@ -271,8 +263,7 @@ function updatedAgo(dateStr: string, t: HistoryCopy) {
 }
 
 export default function HistoryPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const { token } = useAuth();
   const { loading: authLoading } = useAuthGuard();

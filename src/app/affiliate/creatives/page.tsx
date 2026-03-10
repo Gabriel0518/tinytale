@@ -2,11 +2,11 @@
 export const dynamic = 'force-dynamic';
 
 
-import { useState, useEffect, useMemo } from "react";
-import { usePathname } from "next/navigation";
+import { useState, useEffect} from "react";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi, dramasApi } from "@/lib/api";
-import { detectClientLocale, SupportedLocale } from "@/lib/i18n";
+import {SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 interface Creative {
   _id: string;
@@ -70,8 +70,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
       Blog: "Blog",
       YouTube: "YouTube",
       TikTok: "TikTok",
-      Other: "Other",
-    },
+      Other: "Other" },
     generatedLink: "Generated Link",
     linkPlaceholder: "Select options above to generate a link",
     copyLink: "Copy Link",
@@ -80,8 +79,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipText: "Use unique source tags to track which channels perform best.",
     coverImage: "Cover Image",
     coverSuffix: "Cover",
-    bannerSuffix: "Banner",
-  },
+    bannerSuffix: "Banner" },
   zh: {
     pageTitle: "素材中心",
     allDramas: "全部短剧",
@@ -102,8 +100,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
       Blog: "博客",
       YouTube: "YouTube",
       TikTok: "TikTok",
-      Other: "其他",
-    },
+      Other: "其他" },
     generatedLink: "生成链接",
     linkPlaceholder: "选择上方选项后自动生成链接",
     copyLink: "复制链接",
@@ -112,8 +109,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipText: "为不同渠道使用唯一来源标记，便于分析转化效果。",
     coverImage: "封面图",
     coverSuffix: "封面",
-    bannerSuffix: "横幅",
-  },
+    bannerSuffix: "横幅" },
   ja: {
     pageTitle: "クリエイティブ素材",
     allDramas: "すべてのドラマ",
@@ -134,8 +130,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
       Blog: "ブログ",
       YouTube: "YouTube",
       TikTok: "TikTok",
-      Other: "その他",
-    },
+      Other: "その他" },
     generatedLink: "生成リンク",
     linkPlaceholder: "上の項目を選ぶとリンクが生成されます",
     copyLink: "リンクをコピー",
@@ -144,8 +139,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipText: "チャネルごとに異なる source タグを使うと効果測定しやすくなります。",
     coverImage: "カバー画像",
     coverSuffix: "カバー",
-    bannerSuffix: "バナー",
-  },
+    bannerSuffix: "バナー" },
   es: {
     pageTitle: "Recursos creativos",
     allDramas: "Todos los dramas",
@@ -166,8 +160,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
       Blog: "Blog",
       YouTube: "YouTube",
       TikTok: "TikTok",
-      Other: "Otro",
-    },
+      Other: "Otro" },
     generatedLink: "Enlace generado",
     linkPlaceholder: "Selecciona opciones para generar un enlace",
     copyLink: "Copiar enlace",
@@ -176,8 +169,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipText: "Usa etiquetas de fuente únicas para medir mejor el rendimiento por canal.",
     coverImage: "Imagen de portada",
     coverSuffix: "Portada",
-    bannerSuffix: "Banner",
-  },
+    bannerSuffix: "Banner" },
   pt: {
     pageTitle: "Materiais criativos",
     allDramas: "Todos os dramas",
@@ -198,8 +190,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
       Blog: "Blog",
       YouTube: "YouTube",
       TikTok: "TikTok",
-      Other: "Outro",
-    },
+      Other: "Outro" },
     generatedLink: "Link gerado",
     linkPlaceholder: "Selecione as opções acima para gerar um link",
     copyLink: "Copiar link",
@@ -208,8 +199,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipText: "Use tags de origem únicas para medir melhor o desempenho por canal.",
     coverImage: "Imagem de capa",
     coverSuffix: "Capa",
-    bannerSuffix: "Banner",
-  },
+    bannerSuffix: "Banner" },
   hi: {
     pageTitle: "क्रिएटिव एसेट्स",
     allDramas: "सभी ड्रामा",
@@ -230,8 +220,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
       Blog: "ब्लॉग",
       YouTube: "YouTube",
       TikTok: "TikTok",
-      Other: "अन्य",
-    },
+      Other: "अन्य" },
     generatedLink: "जनरेटेड लिंक",
     linkPlaceholder: "लिंक बनाने के लिए ऊपर विकल्प चुनें",
     copyLink: "लिंक कॉपी करें",
@@ -240,8 +229,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipText: "हर चैनल के लिए अलग source टैग उपयोग करें ताकि प्रदर्शन ट्रैक हो सके।",
     coverImage: "कवर इमेज",
     coverSuffix: "कवर",
-    bannerSuffix: "बैनर",
-  },
+    bannerSuffix: "बैनर" },
   id: {
     pageTitle: "Aset kreatif",
     allDramas: "Semua drama",
@@ -262,8 +250,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
       Blog: "Blog",
       YouTube: "YouTube",
       TikTok: "TikTok",
-      Other: "Lainnya",
-    },
+      Other: "Lainnya" },
     generatedLink: "Tautan hasil",
     linkPlaceholder: "Pilih opsi di atas untuk membuat tautan",
     copyLink: "Salin tautan",
@@ -272,13 +259,10 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipText: "Gunakan tag sumber unik untuk melacak performa tiap kanal.",
     coverImage: "Gambar sampul",
     coverSuffix: "Sampul",
-    bannerSuffix: "Banner",
-  },
-};
+    bannerSuffix: "Banner" } };
 
 export default function CreativesPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const { token } = useAuth();
   const [creatives, setCreatives] = useState<Creative[]>([]);
@@ -345,8 +329,7 @@ export default function CreativesPage() {
         height: 600,
         fileSize: t.coverImage,
         dramaId: drama._id,
-        downloadUrl: drama.cover,
-      });
+        downloadUrl: drama.cover });
     }
     if (drama?.horizontalCover && (activeTab === "all" || activeTab === "banners")) {
       coverItems.push({
@@ -358,8 +341,7 @@ export default function CreativesPage() {
         height: 1080,
         fileSize: t.coverImage,
         dramaId: drama._id,
-        downloadUrl: drama.horizontalCover,
-      });
+        downloadUrl: drama.horizontalCover });
     }
     // Merge: cover items first, then any API creatives (deduplicated)
     const apiIds = new Set(apiCreatives.map((c) => c._id));

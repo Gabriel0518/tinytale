@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useToast } from "@/components/ui/Toast";
@@ -12,7 +11,8 @@ import { userApi, dramasApi } from "@/lib/api";
 import { Drama } from "@/types";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 type SortOption = "newest" | "oldest" | "title-az" | "title-za";
 
@@ -72,8 +72,7 @@ const COPY: Record<SupportedLocale, FavoritesCopy> = {
     timeToday: "Today",
     timeDaysAgo: (days) => `${days}d ago`,
     timeWeeksAgo: (weeks) => `${weeks}w ago`,
-    timeMonthsAgo: (months) => `${months}mo ago`,
-  },
+    timeMonthsAgo: (months) => `${months}mo ago` },
   zh: {
     title: "我的片单",
     savedTitles: "个已收藏",
@@ -100,8 +99,7 @@ const COPY: Record<SupportedLocale, FavoritesCopy> = {
     timeToday: "今天",
     timeDaysAgo: (days) => `${days}天前`,
     timeWeeksAgo: (weeks) => `${weeks}周前`,
-    timeMonthsAgo: (months) => `${months}个月前`,
-  },
+    timeMonthsAgo: (months) => `${months}个月前` },
   ja: {
     title: "マイリスト",
     savedTitles: "件を保存",
@@ -128,8 +126,7 @@ const COPY: Record<SupportedLocale, FavoritesCopy> = {
     timeToday: "今日",
     timeDaysAgo: (days) => `${days}日前`,
     timeWeeksAgo: (weeks) => `${weeks}週間前`,
-    timeMonthsAgo: (months) => `${months}か月前`,
-  },
+    timeMonthsAgo: (months) => `${months}か月前` },
   es: {
     title: "Mi Lista",
     savedTitles: "títulos guardados",
@@ -156,8 +153,7 @@ const COPY: Record<SupportedLocale, FavoritesCopy> = {
     timeToday: "Hoy",
     timeDaysAgo: (days) => `hace ${days} d`,
     timeWeeksAgo: (weeks) => `hace ${weeks} sem`,
-    timeMonthsAgo: (months) => `hace ${months} mes`,
-  },
+    timeMonthsAgo: (months) => `hace ${months} mes` },
   pt: {
     title: "Minha Lista",
     savedTitles: "títulos salvos",
@@ -184,8 +180,7 @@ const COPY: Record<SupportedLocale, FavoritesCopy> = {
     timeToday: "Hoje",
     timeDaysAgo: (days) => `há ${days}d`,
     timeWeeksAgo: (weeks) => `há ${weeks} sem`,
-    timeMonthsAgo: (months) => `há ${months} meses`,
-  },
+    timeMonthsAgo: (months) => `há ${months} meses` },
   hi: {
     title: "मेरी वॉचलिस्ट",
     savedTitles: "टाइटल सेव किए गए",
@@ -212,8 +207,7 @@ const COPY: Record<SupportedLocale, FavoritesCopy> = {
     timeToday: "आज",
     timeDaysAgo: (days) => `${days} दिन पहले`,
     timeWeeksAgo: (weeks) => `${weeks} हफ्ते पहले`,
-    timeMonthsAgo: (months) => `${months} महीने पहले`,
-  },
+    timeMonthsAgo: (months) => `${months} महीने पहले` },
   id: {
     title: "Daftar Tonton Saya",
     savedTitles: "judul disimpan",
@@ -240,9 +234,7 @@ const COPY: Record<SupportedLocale, FavoritesCopy> = {
     timeToday: "Hari ini",
     timeDaysAgo: (days) => `${days}h lalu`,
     timeWeeksAgo: (weeks) => `${weeks}mgg lalu`,
-    timeMonthsAgo: (months) => `${months}bln lalu`,
-  },
-};
+    timeMonthsAgo: (months) => `${months}bln lalu` } };
 
 function getStatusBadge(drama: Drama, t: FavoritesCopy) {
   if (!drama.isCompleted && drama.viewCount && drama.viewCount > 5000)
@@ -264,8 +256,7 @@ function timeAgo(dateStr: string | undefined, t: FavoritesCopy) {
 }
 
 export default function FavoritesPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const { token } = useAuth();
   const { loading: authLoading } = useAuthGuard();
@@ -317,8 +308,7 @@ export default function FavoritesPage() {
             } catch {
               toast(t.restoreFailed, "error");
             }
-          },
-        };
+          } };
       }
     } catch (err) {
       console.error("Failed to remove favorite:", err);

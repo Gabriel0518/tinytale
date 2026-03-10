@@ -2,16 +2,16 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect} from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter} from "next/navigation";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { passwordApi } from "@/lib/api";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 export default function ResetPasswordPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = RESET_TEXT[locale] || RESET_TEXT.en;
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -193,8 +193,7 @@ const RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "Failed to send verification code.",
     enterEmailAndCode: "Please enter both email and verification code.",
     verifyFailed: "Verification failed. Please try again.",
-    genericError: "An error occurred",
-  },
+    genericError: "An error occurred" },
   zh: {
     title: "重置密码",
     subtitle: "输入邮箱和验证码以重置你的密码。",
@@ -210,8 +209,7 @@ const RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "验证码发送失败。",
     enterEmailAndCode: "请输入邮箱和验证码。",
     verifyFailed: "验证失败，请重试。",
-    genericError: "发生错误",
-  },
+    genericError: "发生错误" },
   ja: {
     title: "パスワード再設定",
     subtitle: "メールアドレスと認証コードを入力してください。",
@@ -227,8 +225,7 @@ const RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "認証コード送信に失敗しました。",
     enterEmailAndCode: "メールと認証コードを入力してください。",
     verifyFailed: "認証に失敗しました。",
-    genericError: "エラーが発生しました",
-  },
+    genericError: "エラーが発生しました" },
   es: {
     title: "Restablecer contraseña",
     subtitle: "Ingresa tu correo y código para restablecer tu contraseña.",
@@ -244,8 +241,7 @@ const RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "No se pudo enviar el código.",
     enterEmailAndCode: "Ingresa correo y código.",
     verifyFailed: "La verificación falló.",
-    genericError: "Ocurrió un error",
-  },
+    genericError: "Ocurrió un error" },
   pt: {
     title: "Redefinir senha",
     subtitle: "Informe e-mail e código para redefinir sua senha.",
@@ -261,8 +257,7 @@ const RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "Falha ao enviar código.",
     enterEmailAndCode: "Digite e-mail e código.",
     verifyFailed: "Falha na verificação.",
-    genericError: "Ocorreu um erro",
-  },
+    genericError: "Ocorreu um erro" },
   hi: {
     title: "पासवर्ड रीसेट",
     subtitle: "पासवर्ड रीसेट करने के लिए ईमेल और कोड दर्ज करें।",
@@ -278,8 +273,7 @@ const RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "कोड भेजने में विफल।",
     enterEmailAndCode: "ईमेल और कोड दर्ज करें।",
     verifyFailed: "सत्यापन विफल रहा।",
-    genericError: "त्रुटि हुई",
-  },
+    genericError: "त्रुटि हुई" },
   id: {
     title: "Reset kata sandi",
     subtitle: "Masukkan email dan kode verifikasi untuk reset kata sandi.",
@@ -295,6 +289,4 @@ const RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "Gagal mengirim kode.",
     enterEmailAndCode: "Masukkan email dan kode.",
     verifyFailed: "Verifikasi gagal.",
-    genericError: "Terjadi kesalahan",
-  },
-};
+    genericError: "Terjadi kesalahan" } };

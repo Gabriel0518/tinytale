@@ -4,11 +4,12 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Image from "next/image";
-import { usePathname, useSearchParams } from "next/navigation";
+import {useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import { contactApi } from "@/lib/api";
-import { detectClientLocale, SupportedLocale } from "@/lib/i18n";
+import {SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 type TabKey = "about" | "privacy" | "terms" | "faq";
 
@@ -123,8 +124,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
         { id: "faq-coins", label: "Coins & Payment" },
         { id: "faq-content", label: "Watching & Content" },
         { id: "faq-vip", label: "VIP Membership" },
-      ],
-    },
+      ] },
     heroTitle: "Information & Help Center",
     heroSubtitle: "Everything you need to know about TinyTale. Our mission, policies, and answers to your questions.",
     about: {
@@ -139,8 +139,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       statsTitle: "By the Numbers",
       statsLabels: ["Global Users", "Original Dramas", "Countries", "Hours Watched"],
       teamTitle: "Leadership",
-      teamRoles: ["CEO & Co-Founder", "CTO", "VP of Content", "Head of Design"],
-    },
+      teamRoles: ["CEO & Co-Founder", "CTO", "VP of Content", "Head of Design"] },
     privacy: {
       lastUpdated: "Last updated: January 15, 2026",
       introTitle: "Introduction",
@@ -157,8 +156,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       securityTitle: "Security",
       security: "We apply industry-standard security measures, including encryption for payments and regular security reviews.",
       rightsTitle: "Your Rights",
-      rights: "Depending on your region, you may request access, correction, deletion, or export of your personal data, and object to specific processing activities.",
-    },
+      rights: "Depending on your region, you may request access, correction, deletion, or export of your personal data, and object to specific processing activities." },
     terms: {
       lastUpdated: "Last updated: January 15, 2026",
       introTitle: "Introduction",
@@ -172,8 +170,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       conductTitle: "User Conduct",
       conduct: "You may not misuse the platform, harm others, distribute malicious content, or attempt unauthorized access to our systems.",
       terminationTitle: "Termination",
-      termination: "We may suspend or terminate accounts for policy violations or legal reasons. Access ends immediately after termination.",
-    },
+      termination: "We may suspend or terminate accounts for policy violations or legal reasons. Access ends immediately after termination." },
     faq: {
       sections: [
         {
@@ -183,8 +180,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
             { q: "How do I create an account?", a: "Tap Sign Up on the login page. You can register with email or use Google sign-in." },
             { q: "I forgot my password. How do I reset it?", a: "Use Forgot password on the login page. We'll send a verification code to your email." },
             { q: "How do I delete my account?", a: "Go to Settings > Delete Account. This action is irreversible." },
-          ],
-        },
+          ] },
         {
           id: "faq-coins",
           title: "Coins & Payment",
@@ -192,8 +188,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
             { q: "What are coins and how do they work?", a: "Coins are used to unlock premium episodes. Different episodes can require different amounts." },
             { q: "How do I recharge coins?", a: "Open Profile > Coins, choose a package, and complete payment via Stripe." },
             { q: "Can I get a refund?", a: "Refund eligibility depends on local law and purchase usage status. Contact support for help." },
-          ],
-        },
+          ] },
         {
           id: "faq-content",
           title: "Watching & Content",
@@ -201,8 +196,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
             { q: "Are all episodes free?", a: "Some early episodes may be free. Premium episodes require coins or VIP access." },
             { q: "Can I download episodes for offline viewing?", a: "Offline viewing is available for eligible plans and selected content." },
             { q: "How do I report a playback problem?", a: "Use the report option in player or submit the contact form below." },
-          ],
-        },
+          ] },
         {
           id: "faq-vip",
           title: "VIP Membership",
@@ -210,10 +204,8 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
             { q: "What benefits does VIP include?", a: "VIP includes broad content access, better viewing experience, and periodic benefits depending on plan." },
             { q: "How do I cancel my subscription?", a: "Go to Settings > Subscription and choose Cancel Subscription." },
             { q: "Can I switch between monthly and annual plans?", a: "Yes. Go to Settings > Subscription to change plans." },
-          ],
-        },
-      ],
-    },
+          ] },
+      ] },
     contact: {
       title: "Contact Us",
       subtitle: "Have a question or feedback? We'd love to hear from you.",
@@ -231,22 +223,18 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
         name: "Your Name",
         email: "Email Address",
         subject: "Subject",
-        message: "Your message...",
-      },
+        message: "Your message..." },
       sending: "Sending...",
       sent: "Sent Successfully!",
       send: "Send Message",
-      failed: "Failed to send. Please try again.",
-    },
-  },
+      failed: "Failed to send. Please try again." } },
   zh: {
     tabs: { about: "关于我们", privacy: "隐私政策", terms: "服务条款", faq: "常见问题" },
     sidebar: {
       about: [{ id: "mission", label: "我们的使命" }, { id: "story", label: "我们的故事" }, { id: "stats", label: "数据概览" }, { id: "team", label: "管理团队" }],
       privacy: [{ id: "pp-intro", label: "引言" }, { id: "pp-collect", label: "我们收集的信息" }, { id: "pp-use", label: "信息用途" }, { id: "pp-share", label: "信息共享" }, { id: "pp-security", label: "安全" }, { id: "pp-rights", label: "你的权利" }],
       terms: [{ id: "tos-intro", label: "引言" }, { id: "tos-account", label: "账号条款" }, { id: "tos-content", label: "内容与授权" }, { id: "tos-coins", label: "虚拟货币" }, { id: "tos-conduct", label: "用户行为" }, { id: "tos-termination", label: "终止" }],
-      faq: [{ id: "faq-account", label: "账号与登录" }, { id: "faq-coins", label: "金币与支付" }, { id: "faq-content", label: "观看与内容" }, { id: "faq-vip", label: "VIP会员" }],
-    },
+      faq: [{ id: "faq-account", label: "账号与登录" }, { id: "faq-coins", label: "金币与支付" }, { id: "faq-content", label: "观看与内容" }, { id: "faq-vip", label: "VIP会员" }] },
     heroTitle: "信息与帮助中心",
     heroSubtitle: "在这里了解 TinyTale 的使命、政策与常见问题解答。",
     about: {
@@ -257,8 +245,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       statsTitle: "数据概览",
       statsLabels: ["全球用户", "原创短剧", "覆盖国家", "观看时长"],
       teamTitle: "管理团队",
-      teamRoles: ["CEO 与联合创始人", "CTO", "内容副总裁", "设计负责人"],
-    },
+      teamRoles: ["CEO 与联合创始人", "CTO", "内容副总裁", "设计负责人"] },
     privacy: {
       lastUpdated: "最后更新：2026年1月15日",
       introTitle: "引言",
@@ -272,8 +259,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       securityTitle: "安全",
       security: "我们采用行业标准安全措施，包括支付加密与定期安全审计。",
       rightsTitle: "你的权利",
-      rights: "根据地区法规，你可申请访问、更正、删除或导出个人数据，并对特定处理行为提出异议。",
-    },
+      rights: "根据地区法规，你可申请访问、更正、删除或导出个人数据，并对特定处理行为提出异议。" },
     terms: {
       lastUpdated: "最后更新：2026年1月15日",
       introTitle: "引言",
@@ -287,16 +273,14 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       conductTitle: "用户行为",
       conduct: "不得滥用平台、侵害他人、传播恶意内容或尝试未授权访问系统。",
       terminationTitle: "终止",
-      termination: "如发生违规或法律原因，我们可暂停或终止账号，终止后访问权限将立即失效。",
-    },
+      termination: "如发生违规或法律原因，我们可暂停或终止账号，终止后访问权限将立即失效。" },
     faq: {
       sections: [
         { id: "faq-account", title: "账号与登录", items: [{ q: "如何注册账号？", a: "在登录页点击注册，可通过邮箱或 Google 快速登录。" }, { q: "忘记密码怎么办？", a: "在登录页点击忘记密码，我们会向邮箱发送验证码。" }, { q: "如何删除账号？", a: "前往设置 > 删除账号。该操作不可恢复。" }] },
         { id: "faq-coins", title: "金币与支付", items: [{ q: "金币有什么用？", a: "金币用于解锁付费剧集，不同剧集消耗可能不同。" }, { q: "如何充值金币？", a: "进入个人中心 > 金币，选择套餐并通过 Stripe 支付。" }, { q: "可以退款吗？", a: "是否可退取决于当地法规与使用状态，请联系支持。" }] },
         { id: "faq-content", title: "观看与内容", items: [{ q: "所有剧集都免费吗？", a: "部分前几集免费，后续剧集需金币或 VIP 权益。" }, { q: "可以离线观看吗？", a: "离线下载取决于套餐权限与内容可用性。" }, { q: "播放有问题怎么反馈？", a: "可在播放器内反馈，或通过下方表单联系我们。" }] },
         { id: "faq-vip", title: "VIP会员", items: [{ q: "VIP 有什么权益？", a: "VIP 可享受更完整内容访问、更好观看体验和周期性福利。" }, { q: "如何取消订阅？", a: "前往设置 > 订阅，点击取消订阅。" }, { q: "月付和年付可以切换吗？", a: "可以，在设置 > 订阅中切换。" }] },
-      ],
-    },
+      ] },
     contact: {
       title: "联系我们",
       subtitle: "有任何问题或建议，欢迎随时联系。",
@@ -314,17 +298,14 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       sending: "发送中...",
       sent: "发送成功！",
       send: "发送消息",
-      failed: "发送失败，请稍后再试。",
-    },
-  },
+      failed: "发送失败，请稍后再试。" } },
   ja: {
     tabs: { about: "会社情報", privacy: "プライバシーポリシー", terms: "利用規約", faq: "FAQ" },
     sidebar: {
       about: [{ id: "mission", label: "ミッション" }, { id: "story", label: "ストーリー" }, { id: "stats", label: "実績" }, { id: "team", label: "リーダーシップ" }],
       privacy: [{ id: "pp-intro", label: "はじめに" }, { id: "pp-collect", label: "収集する情報" }, { id: "pp-use", label: "利用目的" }, { id: "pp-share", label: "情報共有" }, { id: "pp-security", label: "セキュリティ" }, { id: "pp-rights", label: "ユーザーの権利" }],
       terms: [{ id: "tos-intro", label: "はじめに" }, { id: "tos-account", label: "アカウント" }, { id: "tos-content", label: "コンテンツとライセンス" }, { id: "tos-coins", label: "仮想通貨" }, { id: "tos-conduct", label: "利用ルール" }, { id: "tos-termination", label: "利用停止" }],
-      faq: [{ id: "faq-account", label: "アカウントとログイン" }, { id: "faq-coins", label: "コインと支払い" }, { id: "faq-content", label: "視聴とコンテンツ" }, { id: "faq-vip", label: "VIP会員" }],
-    },
+      faq: [{ id: "faq-account", label: "アカウントとログイン" }, { id: "faq-coins", label: "コインと支払い" }, { id: "faq-content", label: "視聴とコンテンツ" }, { id: "faq-vip", label: "VIP会員" }] },
     heroTitle: "情報・ヘルプセンター",
     heroSubtitle: "TinyTale の概要、ポリシー、よくある質問をまとめています。",
     about: {
@@ -335,8 +316,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       statsTitle: "主な実績",
       statsLabels: ["グローバルユーザー", "オリジナル作品", "対応国", "総視聴時間"],
       teamTitle: "リーダーシップ",
-      teamRoles: ["CEO兼共同創業者", "CTO", "コンテンツ責任者", "デザイン責任者"],
-    },
+      teamRoles: ["CEO兼共同創業者", "CTO", "コンテンツ責任者", "デザイン責任者"] },
     privacy: {
       lastUpdated: "最終更新: 2026年1月15日",
       introTitle: "はじめに",
@@ -350,8 +330,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       securityTitle: "セキュリティ",
       security: "決済暗号化を含む業界標準の対策を実施し、定期的に安全性を見直しています。",
       rightsTitle: "ユーザーの権利",
-      rights: "地域法に応じて、データへのアクセス、修正、削除、エクスポート等を請求できます。",
-    },
+      rights: "地域法に応じて、データへのアクセス、修正、削除、エクスポート等を請求できます。" },
     terms: {
       lastUpdated: "最終更新: 2026年1月15日",
       introTitle: "はじめに",
@@ -365,16 +344,14 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       conductTitle: "利用ルール",
       conduct: "不正利用、他者への迷惑行為、悪意ある配布、無断アクセスは禁止です。",
       terminationTitle: "利用停止",
-      termination: "規約違反や法的理由により、アカウント停止・終了を行う場合があります。",
-    },
+      termination: "規約違反や法的理由により、アカウント停止・終了を行う場合があります。" },
     faq: {
       sections: [
         { id: "faq-account", title: "アカウントとログイン", items: [{ q: "アカウント作成方法は？", a: "ログイン画面で登録を選択し、メールまたは Google で登録できます。" }, { q: "パスワードを忘れた場合は？", a: "ログイン画面のパスワード再設定から、メール認証コードで再設定できます。" }, { q: "アカウント削除方法は？", a: "設定 > アカウント削除から実行できます（取り消し不可）。" }] },
         { id: "faq-coins", title: "コインと支払い", items: [{ q: "コインの使い道は？", a: "プレミアム話数の解放に使います。必要数は作品ごとに異なります。" }, { q: "コインの購入方法は？", a: "プロフィール > コインからパッケージを選び、Stripeで支払います。" }, { q: "返金はできますか？", a: "返金可否は地域法と利用状況によります。サポートへご相談ください。" }] },
         { id: "faq-content", title: "視聴とコンテンツ", items: [{ q: "全話無料ですか？", a: "一部序盤話は無料、以降はコインまたはVIPで視聴可能です。" }, { q: "オフライン視聴は可能ですか？", a: "対象プランと対象作品で利用できます。" }, { q: "再生トラブルの報告方法は？", a: "プレイヤー内の報告機能または下記フォームをご利用ください。" }] },
         { id: "faq-vip", title: "VIP会員", items: [{ q: "VIP特典は？", a: "より広い視聴範囲、快適な体験、プランに応じた特典が含まれます。" }, { q: "解約方法は？", a: "設定 > サブスクリプションから解約できます。" }, { q: "月額と年額の切替は？", a: "設定 > サブスクリプションで切替可能です。" }] },
-      ],
-    },
+      ] },
     contact: {
       title: "お問い合わせ",
       subtitle: "ご質問・ご意見があればお気軽にご連絡ください。",
@@ -392,17 +369,14 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       sending: "送信中...",
       sent: "送信しました！",
       send: "送信",
-      failed: "送信に失敗しました。再度お試しください。",
-    },
-  },
+      failed: "送信に失敗しました。再度お試しください。" } },
   es: {
     tabs: { about: "Sobre nosotros", privacy: "Política de privacidad", terms: "Términos del servicio", faq: "FAQ" },
     sidebar: {
       about: [{ id: "mission", label: "Nuestra misión" }, { id: "story", label: "Nuestra historia" }, { id: "stats", label: "En números" }, { id: "team", label: "Liderazgo" }],
       privacy: [{ id: "pp-intro", label: "Introducción" }, { id: "pp-collect", label: "Información que recopilamos" }, { id: "pp-use", label: "Cómo usamos los datos" }, { id: "pp-share", label: "Compartición de datos" }, { id: "pp-security", label: "Seguridad" }, { id: "pp-rights", label: "Tus derechos" }],
       terms: [{ id: "tos-intro", label: "Introducción" }, { id: "tos-account", label: "Cuenta" }, { id: "tos-content", label: "Contenido y licencia" }, { id: "tos-coins", label: "Moneda virtual" }, { id: "tos-conduct", label: "Conducta" }, { id: "tos-termination", label: "Terminación" }],
-      faq: [{ id: "faq-account", label: "Cuenta y acceso" }, { id: "faq-coins", label: "Monedas y pagos" }, { id: "faq-content", label: "Visualización y contenido" }, { id: "faq-vip", label: "Membresía VIP" }],
-    },
+      faq: [{ id: "faq-account", label: "Cuenta y acceso" }, { id: "faq-coins", label: "Monedas y pagos" }, { id: "faq-content", label: "Visualización y contenido" }, { id: "faq-vip", label: "Membresía VIP" }] },
     heroTitle: "Centro de información y ayuda",
     heroSubtitle: "Todo lo que necesitas saber sobre TinyTale en un solo lugar.",
     about: {
@@ -413,8 +387,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       statsTitle: "En números",
       statsLabels: ["Usuarios globales", "Dramas originales", "Países", "Horas vistas"],
       teamTitle: "Liderazgo",
-      teamRoles: ["CEO y cofundadora", "CTO", "VP de contenido", "Líder de diseño"],
-    },
+      teamRoles: ["CEO y cofundadora", "CTO", "VP de contenido", "Líder de diseño"] },
     privacy: {
       lastUpdated: "Última actualización: 15 de enero de 2026",
       introTitle: "Introducción",
@@ -428,8 +401,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       securityTitle: "Seguridad",
       security: "Aplicamos medidas de seguridad estándar, incluido cifrado y revisiones periódicas.",
       rightsTitle: "Tus derechos",
-      rights: "Según tu región, puedes solicitar acceso, corrección, eliminación o exportación de tus datos.",
-    },
+      rights: "Según tu región, puedes solicitar acceso, corrección, eliminación o exportación de tus datos." },
     terms: {
       lastUpdated: "Última actualización: 15 de enero de 2026",
       introTitle: "Introducción",
@@ -443,16 +415,14 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       conductTitle: "Conducta",
       conduct: "Está prohibido abusar de la plataforma, dañar a otros o intentar acceso no autorizado.",
       terminationTitle: "Terminación",
-      termination: "Podemos suspender o cerrar cuentas por incumplimientos o motivos legales.",
-    },
+      termination: "Podemos suspender o cerrar cuentas por incumplimientos o motivos legales." },
     faq: {
       sections: [
         { id: "faq-account", title: "Cuenta y acceso", items: [{ q: "¿Cómo creo una cuenta?", a: "En la pantalla de inicio de sesión, pulsa registrarte con email o Google." }, { q: "¿Olvidé mi contraseña?", a: "Usa la opción de restablecimiento y recibe un código en tu correo." }, { q: "¿Cómo elimino mi cuenta?", a: "Ve a Configuración > Eliminar cuenta (acción irreversible)." }] },
         { id: "faq-coins", title: "Monedas y pagos", items: [{ q: "¿Para qué sirven las monedas?", a: "Sirven para desbloquear episodios premium." }, { q: "¿Cómo recargo monedas?", a: "Ve a Perfil > Monedas y paga con Stripe." }, { q: "¿Puedo pedir reembolso?", a: "Depende de la ley local y uso de la compra; contacta soporte." }] },
         { id: "faq-content", title: "Visualización y contenido", items: [{ q: "¿Todo es gratis?", a: "Algunos episodios iniciales son gratis; otros requieren monedas o VIP." }, { q: "¿Hay modo offline?", a: "Está disponible en planes y contenidos elegibles." }, { q: "¿Cómo reporto problemas de reproducción?", a: "Usa reportar en el reproductor o el formulario de contacto." }] },
         { id: "faq-vip", title: "Membresía VIP", items: [{ q: "¿Qué incluye VIP?", a: "Incluye mayor acceso, mejor experiencia y beneficios según plan." }, { q: "¿Cómo cancelo mi suscripción?", a: "En Configuración > Suscripción." }, { q: "¿Puedo cambiar plan mensual/anual?", a: "Sí, desde Configuración > Suscripción." }] },
-      ],
-    },
+      ] },
     contact: {
       title: "Contáctanos",
       subtitle: "¿Tienes preguntas o sugerencias? Queremos escucharte.",
@@ -470,17 +440,14 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       sending: "Enviando...",
       sent: "¡Enviado con éxito!",
       send: "Enviar mensaje",
-      failed: "No se pudo enviar. Inténtalo de nuevo.",
-    },
-  },
+      failed: "No se pudo enviar. Inténtalo de nuevo." } },
   pt: {
     tabs: { about: "Sobre nós", privacy: "Política de privacidade", terms: "Termos de serviço", faq: "FAQ" },
     sidebar: {
       about: [{ id: "mission", label: "Nossa missão" }, { id: "story", label: "Nossa história" }, { id: "stats", label: "Em números" }, { id: "team", label: "Liderança" }],
       privacy: [{ id: "pp-intro", label: "Introdução" }, { id: "pp-collect", label: "Informações coletadas" }, { id: "pp-use", label: "Uso dos dados" }, { id: "pp-share", label: "Compartilhamento" }, { id: "pp-security", label: "Segurança" }, { id: "pp-rights", label: "Seus direitos" }],
       terms: [{ id: "tos-intro", label: "Introdução" }, { id: "tos-account", label: "Conta" }, { id: "tos-content", label: "Conteúdo e licença" }, { id: "tos-coins", label: "Moeda virtual" }, { id: "tos-conduct", label: "Conduta" }, { id: "tos-termination", label: "Encerramento" }],
-      faq: [{ id: "faq-account", label: "Conta e login" }, { id: "faq-coins", label: "Moedas e pagamento" }, { id: "faq-content", label: "Assistir e conteúdo" }, { id: "faq-vip", label: "Assinatura VIP" }],
-    },
+      faq: [{ id: "faq-account", label: "Conta e login" }, { id: "faq-coins", label: "Moedas e pagamento" }, { id: "faq-content", label: "Assistir e conteúdo" }, { id: "faq-vip", label: "Assinatura VIP" }] },
     heroTitle: "Central de informação e ajuda",
     heroSubtitle: "Tudo o que você precisa saber sobre a TinyTale em um só lugar.",
     about: {
@@ -491,8 +458,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       statsTitle: "Em números",
       statsLabels: ["Usuários globais", "Dramas originais", "Países", "Horas assistidas"],
       teamTitle: "Liderança",
-      teamRoles: ["CEO e cofundadora", "CTO", "VP de conteúdo", "Líder de design"],
-    },
+      teamRoles: ["CEO e cofundadora", "CTO", "VP de conteúdo", "Líder de design"] },
     privacy: {
       lastUpdated: "Última atualização: 15 de janeiro de 2026",
       introTitle: "Introdução",
@@ -506,8 +472,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       securityTitle: "Segurança",
       security: "Aplicamos medidas de segurança padrão do setor, com criptografia e revisões periódicas.",
       rightsTitle: "Seus direitos",
-      rights: "Dependendo da sua região, você pode solicitar acesso, correção, exclusão ou exportação dos seus dados.",
-    },
+      rights: "Dependendo da sua região, você pode solicitar acesso, correção, exclusão ou exportação dos seus dados." },
     terms: {
       lastUpdated: "Última atualização: 15 de janeiro de 2026",
       introTitle: "Introdução",
@@ -521,16 +486,14 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       conductTitle: "Conduta",
       conduct: "É proibido uso indevido da plataforma, danos a terceiros ou acesso não autorizado.",
       terminationTitle: "Encerramento",
-      termination: "Podemos suspender ou encerrar contas por violação de políticas ou motivos legais.",
-    },
+      termination: "Podemos suspender ou encerrar contas por violação de políticas ou motivos legais." },
     faq: {
       sections: [
         { id: "faq-account", title: "Conta e login", items: [{ q: "Como criar conta?", a: "Na tela de login, toque em cadastrar usando email ou Google." }, { q: "Esqueci minha senha", a: "Use redefinir senha para receber código no email." }, { q: "Como excluir conta?", a: "Em Configurações > Excluir conta (ação irreversível)." }] },
         { id: "faq-coins", title: "Moedas e pagamento", items: [{ q: "Para que servem as moedas?", a: "Moedas desbloqueiam episódios premium." }, { q: "Como recarregar moedas?", a: "Acesse Perfil > Moedas e pague via Stripe." }, { q: "Posso pedir reembolso?", a: "Depende da lei local e do uso da compra; fale com suporte." }] },
         { id: "faq-content", title: "Assistir e conteúdo", items: [{ q: "Tudo é grátis?", a: "Alguns episódios iniciais são grátis; os demais exigem moedas ou VIP." }, { q: "Tem modo offline?", a: "Disponível em planos e conteúdos elegíveis." }, { q: "Como reportar problema no player?", a: "Use reportar no player ou formulário de contato abaixo." }] },
         { id: "faq-vip", title: "Assinatura VIP", items: [{ q: "Quais benefícios do VIP?", a: "Inclui maior acesso, melhor experiência e benefícios conforme o plano." }, { q: "Como cancelar assinatura?", a: "Em Configurações > Assinatura." }, { q: "Posso trocar mensal/anual?", a: "Sim, em Configurações > Assinatura." }] },
-      ],
-    },
+      ] },
     contact: {
       title: "Fale conosco",
       subtitle: "Tem dúvidas ou feedback? Vamos adorar ouvir você.",
@@ -548,17 +511,14 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       sending: "Enviando...",
       sent: "Enviado com sucesso!",
       send: "Enviar mensagem",
-      failed: "Falha ao enviar. Tente novamente.",
-    },
-  },
+      failed: "Falha ao enviar. Tente novamente." } },
   hi: {
     tabs: { about: "हमारे बारे में", privacy: "गोपनीयता नीति", terms: "सेवा की शर्तें", faq: "अक्सर पूछे जाने वाले प्रश्न" },
     sidebar: {
       about: [{ id: "mission", label: "हमारा मिशन" }, { id: "story", label: "हमारी कहानी" }, { id: "stats", label: "मुख्य आँकड़े" }, { id: "team", label: "लीडरशिप" }],
       privacy: [{ id: "pp-intro", label: "परिचय" }, { id: "pp-collect", label: "हम क्या डेटा लेते हैं" }, { id: "pp-use", label: "डेटा का उपयोग" }, { id: "pp-share", label: "डेटा साझा करना" }, { id: "pp-security", label: "सुरक्षा" }, { id: "pp-rights", label: "आपके अधिकार" }],
       terms: [{ id: "tos-intro", label: "परिचय" }, { id: "tos-account", label: "अकाउंट नियम" }, { id: "tos-content", label: "कंटेंट और लाइसेंस" }, { id: "tos-coins", label: "वर्चुअल करेंसी" }, { id: "tos-conduct", label: "यूज़र व्यवहार" }, { id: "tos-termination", label: "समापन" }],
-      faq: [{ id: "faq-account", label: "अकाउंट और लॉगिन" }, { id: "faq-coins", label: "कॉइन और पेमेंट" }, { id: "faq-content", label: "देखना और कंटेंट" }, { id: "faq-vip", label: "VIP सदस्यता" }],
-    },
+      faq: [{ id: "faq-account", label: "अकाउंट और लॉगिन" }, { id: "faq-coins", label: "कॉइन और पेमेंट" }, { id: "faq-content", label: "देखना और कंटेंट" }, { id: "faq-vip", label: "VIP सदस्यता" }] },
     heroTitle: "जानकारी और हेल्प सेंटर",
     heroSubtitle: "TinyTale के बारे में ज़रूरी जानकारी, नीतियाँ और सामान्य सवालों के जवाब यहाँ मिलेंगे।",
     about: {
@@ -569,8 +529,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       statsTitle: "मुख्य आँकड़े",
       statsLabels: ["वैश्विक उपयोगकर्ता", "ओरिजिनल ड्रामा", "देश", "देखने के घंटे"],
       teamTitle: "लीडरशिप",
-      teamRoles: ["CEO और सह-संस्थापक", "CTO", "VP कंटेंट", "हेड ऑफ डिज़ाइन"],
-    },
+      teamRoles: ["CEO और सह-संस्थापक", "CTO", "VP कंटेंट", "हेड ऑफ डिज़ाइन"] },
     privacy: {
       lastUpdated: "अंतिम अपडेट: 15 जनवरी 2026",
       introTitle: "परिचय",
@@ -584,8 +543,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       securityTitle: "सुरक्षा",
       security: "हम उद्योग-मानक सुरक्षा उपाय अपनाते हैं, जिसमें एन्क्रिप्शन और नियमित सुरक्षा समीक्षा शामिल है।",
       rightsTitle: "आपके अधिकार",
-      rights: "आप अपनी क्षेत्रीय कानून व्यवस्था के अनुसार डेटा एक्सेस, सुधार, हटाने या निर्यात का अनुरोध कर सकते हैं।",
-    },
+      rights: "आप अपनी क्षेत्रीय कानून व्यवस्था के अनुसार डेटा एक्सेस, सुधार, हटाने या निर्यात का अनुरोध कर सकते हैं।" },
     terms: {
       lastUpdated: "अंतिम अपडेट: 15 जनवरी 2026",
       introTitle: "परिचय",
@@ -599,16 +557,14 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       conductTitle: "यूज़र व्यवहार",
       conduct: "प्लेटफॉर्म का दुरुपयोग, दूसरों को नुकसान, या अनधिकृत एक्सेस का प्रयास वर्जित है।",
       terminationTitle: "समापन",
-      termination: "नीति उल्लंघन या कानूनी कारणों पर अकाउंट निलंबित/समाप्त किया जा सकता है।",
-    },
+      termination: "नीति उल्लंघन या कानूनी कारणों पर अकाउंट निलंबित/समाप्त किया जा सकता है।" },
     faq: {
       sections: [
         { id: "faq-account", title: "अकाउंट और लॉगिन", items: [{ q: "अकाउंट कैसे बनाएं?", a: "लॉगिन पेज पर साइन अप चुनें। ईमेल या Google से पंजीकरण करें।" }, { q: "पासवर्ड भूल गया/गई?", a: "पासवर्ड रीसेट विकल्प से ईमेल पर कोड प्राप्त करें।" }, { q: "अकाउंट कैसे हटाएं?", a: "सेटिंग्स > डिलीट अकाउंट (यह वापस नहीं होगा)।" }] },
         { id: "faq-coins", title: "कॉइन और पेमेंट", items: [{ q: "कॉइन किस लिए हैं?", a: "प्रीमियम एपिसोड अनलॉक करने के लिए।" }, { q: "कॉइन रिचार्ज कैसे करें?", a: "प्रोफाइल > कॉइन्स में जाकर पैकेज चुनें और Stripe से भुगतान करें।" }, { q: "रिफंड मिलेगा?", a: "रिफंड स्थानीय नियम और उपयोग स्थिति पर निर्भर करता है।" }] },
         { id: "faq-content", title: "देखना और कंटेंट", items: [{ q: "क्या सभी एपिसोड फ्री हैं?", a: "कुछ शुरुआती एपिसोड फ्री हो सकते हैं, बाकी के लिए कॉइन या VIP चाहिए।" }, { q: "ऑफलाइन डाउनलोड उपलब्ध है?", a: "योग्य प्लान और कंटेंट के लिए उपलब्ध है।" }, { q: "वीडियो समस्या कैसे रिपोर्ट करें?", a: "प्लेयर रिपोर्ट विकल्प या नीचे दिए फॉर्म का उपयोग करें।" }] },
         { id: "faq-vip", title: "VIP सदस्यता", items: [{ q: "VIP में क्या मिलता है?", a: "बेहतर एक्सेस, बेहतर अनुभव और प्लान आधारित लाभ।" }, { q: "सब्सक्रिप्शन कैसे कैंसिल करें?", a: "सेटिंग्स > सब्सक्रिप्शन से।" }, { q: "मासिक और वार्षिक प्लान बदल सकते हैं?", a: "हाँ, सेटिंग्स > सब्सक्रिप्शन में बदलें।" }] },
-      ],
-    },
+      ] },
     contact: {
       title: "हमसे संपर्क करें",
       subtitle: "कोई प्रश्न या सुझाव है? हम सुनना चाहेंगे।",
@@ -626,17 +582,14 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       sending: "भेजा जा रहा है...",
       sent: "सफलतापूर्वक भेजा गया!",
       send: "संदेश भेजें",
-      failed: "भेजने में असफल। कृपया फिर प्रयास करें।",
-    },
-  },
+      failed: "भेजने में असफल। कृपया फिर प्रयास करें।" } },
   id: {
     tabs: { about: "Tentang kami", privacy: "Kebijakan privasi", terms: "Ketentuan layanan", faq: "FAQ" },
     sidebar: {
       about: [{ id: "mission", label: "Misi kami" }, { id: "story", label: "Cerita kami" }, { id: "stats", label: "Angka utama" }, { id: "team", label: "Kepemimpinan" }],
       privacy: [{ id: "pp-intro", label: "Pendahuluan" }, { id: "pp-collect", label: "Data yang kami kumpulkan" }, { id: "pp-use", label: "Penggunaan data" }, { id: "pp-share", label: "Berbagi data" }, { id: "pp-security", label: "Keamanan" }, { id: "pp-rights", label: "Hak Anda" }],
       terms: [{ id: "tos-intro", label: "Pendahuluan" }, { id: "tos-account", label: "Ketentuan akun" }, { id: "tos-content", label: "Konten & lisensi" }, { id: "tos-coins", label: "Mata uang virtual" }, { id: "tos-conduct", label: "Perilaku pengguna" }, { id: "tos-termination", label: "Pengakhiran" }],
-      faq: [{ id: "faq-account", label: "Akun & login" }, { id: "faq-coins", label: "Koin & pembayaran" }, { id: "faq-content", label: "Menonton & konten" }, { id: "faq-vip", label: "Keanggotaan VIP" }],
-    },
+      faq: [{ id: "faq-account", label: "Akun & login" }, { id: "faq-coins", label: "Koin & pembayaran" }, { id: "faq-content", label: "Menonton & konten" }, { id: "faq-vip", label: "Keanggotaan VIP" }] },
     heroTitle: "Pusat informasi & bantuan",
     heroSubtitle: "Semua yang perlu kamu tahu tentang TinyTale ada di sini.",
     about: {
@@ -647,8 +600,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       statsTitle: "Angka utama",
       statsLabels: ["Pengguna global", "Drama original", "Negara", "Jam ditonton"],
       teamTitle: "Kepemimpinan",
-      teamRoles: ["CEO & co-founder", "CTO", "VP konten", "Head of design"],
-    },
+      teamRoles: ["CEO & co-founder", "CTO", "VP konten", "Head of design"] },
     privacy: {
       lastUpdated: "Terakhir diperbarui: 15 Januari 2026",
       introTitle: "Pendahuluan",
@@ -662,8 +614,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       securityTitle: "Keamanan",
       security: "Kami menerapkan standar keamanan industri, termasuk enkripsi dan audit keamanan berkala.",
       rightsTitle: "Hak Anda",
-      rights: "Sesuai wilayah, kamu dapat meminta akses, koreksi, penghapusan, atau ekspor data pribadi.",
-    },
+      rights: "Sesuai wilayah, kamu dapat meminta akses, koreksi, penghapusan, atau ekspor data pribadi." },
     terms: {
       lastUpdated: "Terakhir diperbarui: 15 Januari 2026",
       introTitle: "Pendahuluan",
@@ -677,16 +628,14 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       conductTitle: "Perilaku pengguna",
       conduct: "Dilarang menyalahgunakan platform, merugikan pengguna lain, atau mencoba akses tanpa izin.",
       terminationTitle: "Pengakhiran",
-      termination: "Kami dapat menangguhkan atau menghentikan akun karena pelanggaran kebijakan atau alasan hukum.",
-    },
+      termination: "Kami dapat menangguhkan atau menghentikan akun karena pelanggaran kebijakan atau alasan hukum." },
     faq: {
       sections: [
         { id: "faq-account", title: "Akun & login", items: [{ q: "Bagaimana membuat akun?", a: "Di halaman login, pilih daftar via email atau Google." }, { q: "Lupa password?", a: "Gunakan reset password untuk menerima kode verifikasi via email." }, { q: "Bagaimana menghapus akun?", a: "Masuk ke Pengaturan > Hapus Akun (tidak dapat dibatalkan)." }] },
         { id: "faq-coins", title: "Koin & pembayaran", items: [{ q: "Untuk apa koin?", a: "Koin digunakan untuk membuka episode premium." }, { q: "Bagaimana isi ulang koin?", a: "Buka Profil > Koin lalu bayar via Stripe." }, { q: "Apakah bisa refund?", a: "Refund tergantung hukum lokal dan status penggunaan pembelian." }] },
         { id: "faq-content", title: "Menonton & konten", items: [{ q: "Apakah semua episode gratis?", a: "Sebagian awal mungkin gratis, sisanya perlu koin/VIP." }, { q: "Bisa offline?", a: "Tersedia untuk paket dan konten yang memenuhi syarat." }, { q: "Bagaimana lapor masalah video?", a: "Gunakan fitur lapor di player atau form kontak di bawah." }] },
         { id: "faq-vip", title: "Keanggotaan VIP", items: [{ q: "Apa manfaat VIP?", a: "Akses lebih luas, pengalaman lebih baik, dan benefit berkala sesuai paket." }, { q: "Bagaimana batalkan langganan?", a: "Di Pengaturan > Langganan." }, { q: "Bisa ganti paket bulanan/tahunan?", a: "Bisa, melalui Pengaturan > Langganan." }] },
-      ],
-    },
+      ] },
     contact: {
       title: "Hubungi kami",
       subtitle: "Punya pertanyaan atau masukan? Kami siap membantu.",
@@ -704,10 +653,7 @@ const COPY: Record<SupportedLocale, HelpCopy> = {
       sending: "Mengirim...",
       sent: "Berhasil dikirim!",
       send: "Kirim pesan",
-      failed: "Gagal mengirim. Silakan coba lagi.",
-    },
-  },
-};
+      failed: "Gagal mengirim. Silakan coba lagi." } } };
 
 const STATS_VALUES = ["10M+", "500+", "45+", "2B+"];
 
@@ -721,9 +667,8 @@ function SectionDivider({ title }: { title: string }) {
 }
 
 export default function HelpPage() {
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const c = COPY[locale] || COPY.en;
 
   const [activeTab, setActiveTab] = useState<TabKey>("about");
@@ -745,8 +690,7 @@ export default function HelpPage() {
     about: c.sidebar.about,
     privacy: c.sidebar.privacy,
     terms: c.sidebar.terms,
-    faq: c.sidebar.faq,
-  }), [c]);
+    faq: c.sidebar.faq }), [c]);
 
   useEffect(() => {
     const anchors = sidebarMap[activeTab];
@@ -997,8 +941,7 @@ function AboutSection({ c }: { c: HelpCopy }) {
   const team = TEAM_NAMES.map((name, index) => ({
     name,
     role: c.about.teamRoles[index] || c.about.teamRoles[0],
-    img: `https://picsum.photos/seed/team${index + 1}/200/200`,
-  }));
+    img: `https://picsum.photos/seed/team${index + 1}/200/200` }));
 
   return (
     <div className="space-y-16">

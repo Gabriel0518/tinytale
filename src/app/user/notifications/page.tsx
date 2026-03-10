@@ -1,15 +1,15 @@
 "use client";
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect} from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { userApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 interface Notification {
   _id: string;
@@ -39,8 +39,7 @@ const COPY: Record<SupportedLocale, NotificationsCopy> = {
     watchNow: "Watch now",
     justNow: "Just now",
     hoursAgo: (h) => `${h}h ago`,
-    daysAgo: (d) => `${d}d ago`,
-  },
+    daysAgo: (d) => `${d}d ago` },
   zh: {
     title: "通知",
     markAllRead: "全部标为已读",
@@ -48,8 +47,7 @@ const COPY: Record<SupportedLocale, NotificationsCopy> = {
     watchNow: "立即观看",
     justNow: "刚刚",
     hoursAgo: (h) => `${h}小时前`,
-    daysAgo: (d) => `${d}天前`,
-  },
+    daysAgo: (d) => `${d}天前` },
   ja: {
     title: "通知",
     markAllRead: "すべて既読にする",
@@ -57,8 +55,7 @@ const COPY: Record<SupportedLocale, NotificationsCopy> = {
     watchNow: "今すぐ視聴",
     justNow: "たった今",
     hoursAgo: (h) => `${h}時間前`,
-    daysAgo: (d) => `${d}日前`,
-  },
+    daysAgo: (d) => `${d}日前` },
   es: {
     title: "Notificaciones",
     markAllRead: "Marcar todo como leído",
@@ -66,8 +63,7 @@ const COPY: Record<SupportedLocale, NotificationsCopy> = {
     watchNow: "Ver ahora",
     justNow: "Ahora mismo",
     hoursAgo: (h) => `hace ${h} h`,
-    daysAgo: (d) => `hace ${d} d`,
-  },
+    daysAgo: (d) => `hace ${d} d` },
   pt: {
     title: "Notificações",
     markAllRead: "Marcar tudo como lido",
@@ -75,8 +71,7 @@ const COPY: Record<SupportedLocale, NotificationsCopy> = {
     watchNow: "Assistir agora",
     justNow: "Agora",
     hoursAgo: (h) => `${h}h atrás`,
-    daysAgo: (d) => `${d}d atrás`,
-  },
+    daysAgo: (d) => `${d}d atrás` },
   hi: {
     title: "सूचनाएं",
     markAllRead: "सभी को पढ़ा हुआ करें",
@@ -84,8 +79,7 @@ const COPY: Record<SupportedLocale, NotificationsCopy> = {
     watchNow: "अभी देखें",
     justNow: "अभी",
     hoursAgo: (h) => `${h}घं पहले`,
-    daysAgo: (d) => `${d}दिन पहले`,
-  },
+    daysAgo: (d) => `${d}दिन पहले` },
   id: {
     title: "Notifikasi",
     markAllRead: "Tandai semua sudah dibaca",
@@ -93,13 +87,10 @@ const COPY: Record<SupportedLocale, NotificationsCopy> = {
     watchNow: "Tonton sekarang",
     justNow: "Baru saja",
     hoursAgo: (h) => `${h}j lalu`,
-    daysAgo: (d) => `${d}h lalu`,
-  },
-};
+    daysAgo: (d) => `${d}h lalu` } };
 
 export default function NotificationsPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const { token } = useAuth();
   const { loading: authLoading } = useAuthGuard();

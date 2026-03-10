@@ -1,11 +1,11 @@
 "use client";
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { usePathname } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
-import { detectClientLocale, SupportedLocale } from "@/lib/i18n";
+import {SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 interface PaymentMethod {
   _id: string;
@@ -40,8 +40,7 @@ const STATUS_STYLES: Record<string, string> = {
   paid: "bg-green-500/10 text-green-400 border border-green-500/20",
   approved: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
   pending: "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20",
-  rejected: "bg-red-500/10 text-red-400 border border-red-500/20",
-};
+  rejected: "bg-red-500/10 text-red-400 border border-red-500/20" };
 
 type PaymentsCopy = {
   typeLabels: {
@@ -150,9 +149,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         min: "Minimum withdrawal is $50.00",
         insufficient: "Insufficient balance",
         selectMethod: "Select a payment method",
-        failed: "Withdrawal failed",
-      },
-    },
+        failed: "Withdrawal failed" } },
     paymentModal: {
       editTitle: "Edit Payment Method",
       addTitle: "Add Payment Method",
@@ -175,15 +172,12 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         accountHolderName: "John Doe",
         routingNumber: "021000021",
         bankAddress: "123 Main St, New York, NY",
-        usdtAddress: "T...",
-      },
+        usdtAddress: "T..." },
       errors: {
         paypalRequired: "PayPal email is required",
         bankRequired: "Bank name, account number and holder name are required",
         usdtRequired: "USDT address is required",
-        saveFailed: "Failed to save",
-      },
-    },
+        saveFailed: "Failed to save" } },
     page: {
       title: "Payments",
       requestWithdrawal: "Request Withdrawal",
@@ -202,9 +196,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
       setDefault: "Set Default",
       edit: "Edit",
       delete: "Delete",
-      deleteConfirm: "Delete this payment method?",
-    },
-  },
+      deleteConfirm: "Delete this payment method?" } },
   zh: {
     typeLabels: { paypal: "PayPal", bankTransfer: "银行转账", usdt: "USDT", default: "默认" },
     statusLabels: { paid: "已打款", approved: "已通过", pending: "待处理", rejected: "已拒绝" },
@@ -225,9 +217,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         min: "最低提现金额为 $50.00",
         insufficient: "余额不足",
         selectMethod: "请选择收款方式",
-        failed: "提现失败",
-      },
-    },
+        failed: "提现失败" } },
     paymentModal: {
       editTitle: "编辑收款方式",
       addTitle: "新增收款方式",
@@ -250,15 +240,12 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         accountHolderName: "张三",
         routingNumber: "021000021",
         bankAddress: "中国上海...",
-        usdtAddress: "T...",
-      },
+        usdtAddress: "T..." },
       errors: {
         paypalRequired: "请填写 PayPal 邮箱",
         bankRequired: "请填写银行名称、账号和账户姓名",
         usdtRequired: "请填写 USDT 地址",
-        saveFailed: "保存失败",
-      },
-    },
+        saveFailed: "保存失败" } },
     page: {
       title: "收款管理",
       requestWithdrawal: "申请提现",
@@ -277,9 +264,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
       setDefault: "设为默认",
       edit: "编辑",
       delete: "删除",
-      deleteConfirm: "确认删除该收款方式？",
-    },
-  },
+      deleteConfirm: "确认删除该收款方式？" } },
   ja: {
     typeLabels: { paypal: "PayPal", bankTransfer: "銀行振込", usdt: "USDT", default: "デフォルト" },
     statusLabels: { paid: "支払済み", approved: "承認済み", pending: "保留中", rejected: "却下" },
@@ -300,9 +285,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         min: "最低出金額は $50.00 です",
         insufficient: "残高不足です",
         selectMethod: "受取方法を選択してください",
-        failed: "出金に失敗しました",
-      },
-    },
+        failed: "出金に失敗しました" } },
     paymentModal: {
       editTitle: "受取方法を編集",
       addTitle: "受取方法を追加",
@@ -325,15 +308,12 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         accountHolderName: "Taro Yamada",
         routingNumber: "021000021",
         bankAddress: "Tokyo, Japan",
-        usdtAddress: "T...",
-      },
+        usdtAddress: "T..." },
       errors: {
         paypalRequired: "PayPalメールは必須です",
         bankRequired: "銀行名・口座番号・口座名義は必須です",
         usdtRequired: "USDTアドレスは必須です",
-        saveFailed: "保存に失敗しました",
-      },
-    },
+        saveFailed: "保存に失敗しました" } },
     page: {
       title: "支払い管理",
       requestWithdrawal: "出金申請",
@@ -352,9 +332,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
       setDefault: "デフォルトに設定",
       edit: "編集",
       delete: "削除",
-      deleteConfirm: "この受取方法を削除しますか？",
-    },
-  },
+      deleteConfirm: "この受取方法を削除しますか？" } },
   es: {
     typeLabels: { paypal: "PayPal", bankTransfer: "Transferencia bancaria", usdt: "USDT", default: "Predeterminado" },
     statusLabels: { paid: "Pagado", approved: "Aprobado", pending: "Pendiente", rejected: "Rechazado" },
@@ -375,9 +353,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         min: "El retiro mínimo es $50.00",
         insufficient: "Saldo insuficiente",
         selectMethod: "Selecciona un método de pago",
-        failed: "Error al retirar",
-      },
-    },
+        failed: "Error al retirar" } },
     paymentModal: {
       editTitle: "Editar método de pago",
       addTitle: "Agregar método de pago",
@@ -400,15 +376,12 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         accountHolderName: "John Doe",
         routingNumber: "021000021",
         bankAddress: "123 Main St, New York, NY",
-        usdtAddress: "T...",
-      },
+        usdtAddress: "T..." },
       errors: {
         paypalRequired: "El email de PayPal es obligatorio",
         bankRequired: "Se requieren banco, número de cuenta y titular",
         usdtRequired: "La dirección USDT es obligatoria",
-        saveFailed: "No se pudo guardar",
-      },
-    },
+        saveFailed: "No se pudo guardar" } },
     page: {
       title: "Pagos",
       requestWithdrawal: "Solicitar retiro",
@@ -427,9 +400,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
       setDefault: "Predeterminar",
       edit: "Editar",
       delete: "Eliminar",
-      deleteConfirm: "¿Eliminar este método de pago?",
-    },
-  },
+      deleteConfirm: "¿Eliminar este método de pago?" } },
   pt: {
     typeLabels: { paypal: "PayPal", bankTransfer: "Transferência bancária", usdt: "USDT", default: "Padrão" },
     statusLabels: { paid: "Pago", approved: "Aprovado", pending: "Pendente", rejected: "Rejeitado" },
@@ -450,9 +421,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         min: "O saque mínimo é $50.00",
         insufficient: "Saldo insuficiente",
         selectMethod: "Selecione um método de pagamento",
-        failed: "Falha no saque",
-      },
-    },
+        failed: "Falha no saque" } },
     paymentModal: {
       editTitle: "Editar método de pagamento",
       addTitle: "Adicionar método de pagamento",
@@ -475,15 +444,12 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         accountHolderName: "John Doe",
         routingNumber: "021000021",
         bankAddress: "123 Main St, New York, NY",
-        usdtAddress: "T...",
-      },
+        usdtAddress: "T..." },
       errors: {
         paypalRequired: "O email PayPal é obrigatório",
         bankRequired: "Banco, conta e titular são obrigatórios",
         usdtRequired: "O endereço USDT é obrigatório",
-        saveFailed: "Falha ao salvar",
-      },
-    },
+        saveFailed: "Falha ao salvar" } },
     page: {
       title: "Pagamentos",
       requestWithdrawal: "Solicitar saque",
@@ -502,9 +468,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
       setDefault: "Definir padrão",
       edit: "Editar",
       delete: "Excluir",
-      deleteConfirm: "Excluir este método de pagamento?",
-    },
-  },
+      deleteConfirm: "Excluir este método de pagamento?" } },
   hi: {
     typeLabels: { paypal: "PayPal", bankTransfer: "बैंक ट्रांसफर", usdt: "USDT", default: "डिफॉल्ट" },
     statusLabels: { paid: "भुगतान हो चुका", approved: "स्वीकृत", pending: "लंबित", rejected: "अस्वीकृत" },
@@ -525,9 +489,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         min: "न्यूनतम निकासी $50.00 है",
         insufficient: "पर्याप्त बैलेंस नहीं",
         selectMethod: "कृपया भुगतान विधि चुनें",
-        failed: "निकासी असफल रही",
-      },
-    },
+        failed: "निकासी असफल रही" } },
     paymentModal: {
       editTitle: "भुगतान विधि संपादित करें",
       addTitle: "भुगतान विधि जोड़ें",
@@ -550,15 +512,12 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         accountHolderName: "John Doe",
         routingNumber: "021000021",
         bankAddress: "123 Main St, New York, NY",
-        usdtAddress: "T...",
-      },
+        usdtAddress: "T..." },
       errors: {
         paypalRequired: "PayPal ईमेल आवश्यक है",
         bankRequired: "बैंक नाम, खाता संख्या और नाम आवश्यक हैं",
         usdtRequired: "USDT पता आवश्यक है",
-        saveFailed: "सेव नहीं हो सका",
-      },
-    },
+        saveFailed: "सेव नहीं हो सका" } },
     page: {
       title: "पेमेंट्स",
       requestWithdrawal: "निकासी अनुरोध",
@@ -577,9 +536,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
       setDefault: "डिफॉल्ट सेट करें",
       edit: "संपादित करें",
       delete: "हटाएं",
-      deleteConfirm: "क्या यह भुगतान विधि हटानी है?",
-    },
-  },
+      deleteConfirm: "क्या यह भुगतान विधि हटानी है?" } },
   id: {
     typeLabels: { paypal: "PayPal", bankTransfer: "Transfer bank", usdt: "USDT", default: "Default" },
     statusLabels: { paid: "Dibayar", approved: "Disetujui", pending: "Menunggu", rejected: "Ditolak" },
@@ -600,9 +557,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         min: "Penarikan minimum adalah $50.00",
         insufficient: "Saldo tidak cukup",
         selectMethod: "Pilih metode pembayaran",
-        failed: "Penarikan gagal",
-      },
-    },
+        failed: "Penarikan gagal" } },
     paymentModal: {
       editTitle: "Ubah metode pembayaran",
       addTitle: "Tambah metode pembayaran",
@@ -625,15 +580,12 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
         accountHolderName: "John Doe",
         routingNumber: "021000021",
         bankAddress: "123 Main St, New York, NY",
-        usdtAddress: "T...",
-      },
+        usdtAddress: "T..." },
       errors: {
         paypalRequired: "Email PayPal wajib diisi",
         bankRequired: "Nama bank, nomor rekening, dan nama pemilik wajib diisi",
         usdtRequired: "Alamat USDT wajib diisi",
-        saveFailed: "Gagal menyimpan",
-      },
-    },
+        saveFailed: "Gagal menyimpan" } },
     page: {
       title: "Pembayaran",
       requestWithdrawal: "Ajukan penarikan",
@@ -652,10 +604,7 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
       setDefault: "Jadikan default",
       edit: "Ubah",
       delete: "Hapus",
-      deleteConfirm: "Hapus metode pembayaran ini?",
-    },
-  },
-};
+      deleteConfirm: "Hapus metode pembayaran ini?" } } };
 
 const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
   en: "en-US",
@@ -664,8 +613,7 @@ const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
   es: "es-ES",
   pt: "pt-BR",
   hi: "hi-IN",
-  id: "id-ID",
-};
+  id: "id-ID" };
 
 function maskValue(val: string | undefined) {
   if (!val || val.length < 6) return val || "****";
@@ -703,8 +651,7 @@ function WithdrawModal({
   methods,
   token,
   onSuccess,
-  t,
-}: {
+  t }: {
   open: boolean;
   onClose: () => void;
   balance: number;
@@ -817,8 +764,7 @@ function EditPaymentModal({
   method,
   token,
   onSuccess,
-  t,
-}: {
+  t }: {
   open: boolean;
   onClose: () => void;
   method: PaymentMethod | null;
@@ -837,8 +783,7 @@ function EditPaymentModal({
     bankAddress: "",
     usdtAddress: "",
     usdtNetwork: "TRC20",
-    isDefault: false,
-  });
+    isDefault: false });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -854,8 +799,7 @@ function EditPaymentModal({
         bankAddress: method.bankAddress || "",
         usdtAddress: method.usdtAddress || "",
         usdtNetwork: method.usdtNetwork || "TRC20",
-        isDefault: method.isDefault,
-      });
+        isDefault: method.isDefault });
     } else if (open) {
       setTab("paypal");
       setForm({ paypalEmail: "", bankName: "", accountNumber: "", accountHolderName: "", routingNumber: "", bankAddress: "", usdtAddress: "", usdtNetwork: "TRC20", isDefault: false });
@@ -986,8 +930,7 @@ function EditPaymentModal({
 }
 
 export default function PaymentsPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
   const { token } = useAuth();

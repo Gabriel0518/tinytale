@@ -1,16 +1,17 @@
 "use client";
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter} from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useToast } from "@/components/ui/Toast";
 import { subscriptionApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 interface Plan {
   _id: string;
@@ -94,8 +95,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       serviceUnavailable: "Service is temporarily unavailable. Please try again later.",
       checkoutFailed: "Failed to create checkout session",
       networkError: "Unable to connect to the server. Please check your network and try again.",
-      subscribeFailed: "Subscription failed. Please try again.",
-    },
+      subscribeFailed: "Subscription failed. Please try again." },
     perks: [
       { title: "Ad-Free Viewing", desc: "Enjoy uninterrupted cinematic stories" },
       { title: "Early Access", desc: "Watch new episodes 48h before" },
@@ -105,8 +105,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       { title: "50% Off Over Limit", desc: "Half price beyond free monthly quota" },
     ],
     standardFeatures: ["Ad-Free Viewing", "Full HD Streaming", "Coin Purchase Discount", "Cancel anytime"],
-    proFeatures: ["All Standard features", "Early Access (48h prior)", "4K Ultra HD & HDR", "30 Free Dramas / Month", "50% Off Over Limit"],
-  },
+    proFeatures: ["All Standard features", "Early Access (48h prior)", "4K Ultra HD & HDR", "30 Free Dramas / Month", "50% Off Over Limit"] },
   zh: {
     close: "关闭",
     savePercent: (percent) => `省 ${percent}%`,
@@ -136,8 +135,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       serviceUnavailable: "服务暂时不可用，请稍后重试。",
       checkoutFailed: "创建结账会话失败",
       networkError: "无法连接服务器，请检查网络后重试。",
-      subscribeFailed: "订阅失败，请稍后再试。",
-    },
+      subscribeFailed: "订阅失败，请稍后再试。" },
     perks: [
       { title: "无广告观看", desc: "沉浸式观看，不被打断" },
       { title: "抢先观看", desc: "新剧集提前 48 小时解锁" },
@@ -147,8 +145,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       { title: "超额部分 5 折", desc: "超出免费额度后半价解锁" },
     ],
     standardFeatures: ["无广告观看", "全高清播放", "金币充值优惠", "可随时取消"],
-    proFeatures: ["包含标准版全部权益", "新剧提前 48 小时", "4K 超清与 HDR", "每月 30 部免费看", "超额部分 5 折"],
-  },
+    proFeatures: ["包含标准版全部权益", "新剧提前 48 小时", "4K 超清与 HDR", "每月 30 部免费看", "超额部分 5 折"] },
   ja: {
     close: "閉じる",
     savePercent: (percent) => `${percent}% お得`,
@@ -178,8 +175,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       serviceUnavailable: "現在サービスを利用できません。後でもう一度お試しください。",
       checkoutFailed: "チェックアウトセッションの作成に失敗しました",
       networkError: "サーバーに接続できません。ネットワークをご確認ください。",
-      subscribeFailed: "購読に失敗しました。時間をおいて再試行してください。",
-    },
+      subscribeFailed: "購読に失敗しました。時間をおいて再試行してください。" },
     perks: [
       { title: "広告なし視聴", desc: "途切れない視聴体験" },
       { title: "先行アクセス", desc: "新エピソードを48時間先行視聴" },
@@ -189,8 +185,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       { title: "超過分50%オフ", desc: "無料枠超過後は半額" },
     ],
     standardFeatures: ["広告なし視聴", "フルHD配信", "コイン購入割引", "いつでも解約可能"],
-    proFeatures: ["スタンダード特典すべて", "48時間先行アクセス", "4K Ultra HD & HDR", "毎月30作品無料", "超過分50%オフ"],
-  },
+    proFeatures: ["スタンダード特典すべて", "48時間先行アクセス", "4K Ultra HD & HDR", "毎月30作品無料", "超過分50%オフ"] },
   es: {
     close: "Cerrar",
     savePercent: (percent) => `Ahorra ${percent}%`,
@@ -220,8 +215,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       serviceUnavailable: "Servicio temporalmente no disponible. Inténtalo más tarde.",
       checkoutFailed: "No se pudo crear la sesión de pago",
       networkError: "No se pudo conectar con el servidor. Revisa tu red e inténtalo de nuevo.",
-      subscribeFailed: "Falló la suscripción. Inténtalo nuevamente.",
-    },
+      subscribeFailed: "Falló la suscripción. Inténtalo nuevamente." },
     perks: [
       { title: "Sin anuncios", desc: "Disfruta historias sin interrupciones" },
       { title: "Acceso anticipado", desc: "Nuevos episodios 48h antes" },
@@ -231,8 +225,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       { title: "50% fuera del cupo", desc: "Mitad de precio al superar el cupo" },
     ],
     standardFeatures: ["Sin anuncios", "Streaming Full HD", "Descuento en monedas", "Cancela cuando quieras"],
-    proFeatures: ["Todo lo del plan estándar", "Acceso anticipado (48h)", "4K Ultra HD y HDR", "30 dramas gratis/mes", "50% fuera del cupo"],
-  },
+    proFeatures: ["Todo lo del plan estándar", "Acceso anticipado (48h)", "4K Ultra HD y HDR", "30 dramas gratis/mes", "50% fuera del cupo"] },
   pt: {
     close: "Fechar",
     savePercent: (percent) => `Economize ${percent}%`,
@@ -262,8 +255,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       serviceUnavailable: "Serviço temporariamente indisponível. Tente novamente mais tarde.",
       checkoutFailed: "Falha ao criar sessão de checkout",
       networkError: "Não foi possível conectar ao servidor. Verifique sua rede e tente novamente.",
-      subscribeFailed: "Falha na assinatura. Tente novamente.",
-    },
+      subscribeFailed: "Falha na assinatura. Tente novamente." },
     perks: [
       { title: "Sem anúncios", desc: "Assista sem interrupções" },
       { title: "Acesso antecipado", desc: "Novos episódios 48h antes" },
@@ -273,8 +265,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       { title: "50% acima do limite", desc: "Metade do preço após o limite" },
     ],
     standardFeatures: ["Sem anúncios", "Streaming Full HD", "Desconto em moedas", "Cancele quando quiser"],
-    proFeatures: ["Todos os recursos do Padrão", "Acesso antecipado (48h)", "4K Ultra HD e HDR", "30 dramas grátis/mês", "50% acima do limite"],
-  },
+    proFeatures: ["Todos os recursos do Padrão", "Acesso antecipado (48h)", "4K Ultra HD e HDR", "30 dramas grátis/mês", "50% acima do limite"] },
   hi: {
     close: "बंद करें",
     savePercent: (percent) => `${percent}% बचत`,
@@ -304,8 +295,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       serviceUnavailable: "सेवा अभी उपलब्ध नहीं है। कृपया बाद में प्रयास करें।",
       checkoutFailed: "चेकआउट सत्र बनाना विफल रहा",
       networkError: "सर्वर से कनेक्ट नहीं हो सका। कृपया नेटवर्क जांचें।",
-      subscribeFailed: "सदस्यता विफल रही। कृपया पुनः प्रयास करें।",
-    },
+      subscribeFailed: "सदस्यता विफल रही। कृपया पुनः प्रयास करें।" },
     perks: [
       { title: "बिना विज्ञापन", desc: "बिना रुकावट देखें" },
       { title: "अर्ली एक्सेस", desc: "नए एपिसोड 48 घंटे पहले" },
@@ -315,8 +305,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       { title: "सीमा के बाद 50% छूट", desc: "मासिक मुफ्त सीमा के बाद आधी कीमत" },
     ],
     standardFeatures: ["बिना विज्ञापन", "Full HD स्ट्रीमिंग", "कॉइन खरीद छूट", "कभी भी रद्द करें"],
-    proFeatures: ["स्टैंडर्ड के सभी लाभ", "48 घंटे अर्ली एक्सेस", "4K Ultra HD और HDR", "30 ड्रामा मुफ्त/माह", "सीमा के बाद 50% छूट"],
-  },
+    proFeatures: ["स्टैंडर्ड के सभी लाभ", "48 घंटे अर्ली एक्सेस", "4K Ultra HD और HDR", "30 ड्रामा मुफ्त/माह", "सीमा के बाद 50% छूट"] },
   id: {
     close: "Tutup",
     savePercent: (percent) => `Hemat ${percent}%`,
@@ -346,8 +335,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       serviceUnavailable: "Layanan sementara tidak tersedia. Coba lagi nanti.",
       checkoutFailed: "Gagal membuat sesi checkout",
       networkError: "Tidak dapat terhubung ke server. Periksa jaringan lalu coba lagi.",
-      subscribeFailed: "Langganan gagal. Silakan coba lagi.",
-    },
+      subscribeFailed: "Langganan gagal. Silakan coba lagi." },
     perks: [
       { title: "Tanpa iklan", desc: "Nikmati cerita tanpa gangguan" },
       { title: "Akses lebih awal", desc: "Tonton episode baru 48 jam lebih cepat" },
@@ -357,9 +345,7 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
       { title: "Diskon 50% di atas batas", desc: "Harga setengah setelah kuota gratis habis" },
     ],
     standardFeatures: ["Tanpa iklan", "Streaming Full HD", "Diskon pembelian koin", "Bisa batal kapan saja"],
-    proFeatures: ["Semua fitur Standar", "Akses lebih awal (48 jam)", "4K Ultra HD & HDR", "30 drama gratis/bulan", "Diskon 50% di atas batas"],
-  },
-};
+    proFeatures: ["Semua fitur Standar", "Akses lebih awal (48 jam)", "4K Ultra HD & HDR", "30 drama gratis/bulan", "Diskon 50% di atas batas"] } };
 
 const PERK_ICONS = [
   "M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5",
@@ -377,12 +363,10 @@ const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
   es: "es-ES",
   pt: "pt-BR",
   hi: "hi-IN",
-  id: "id-ID",
-};
+  id: "id-ID" };
 
 export default function SubscriptionPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
   const formatUsd = useCallback(
@@ -391,8 +375,7 @@ export default function SubscriptionPage() {
         style: "currency",
         currency: "USD",
         minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value),
+        maximumFractionDigits: 2 }).format(value),
     [dateLocale]
   );
 
@@ -432,8 +415,7 @@ export default function SubscriptionPage() {
             features: locale === "en" && p.features?.length ? p.features : (isYearly ? t.proFeatures : t.standardFeatures),
             recommended: p.recommended ?? isYearly,
             savings: savingsLabel,
-            monthlyEquivalent: monthlyEquivalentLabel,
-          };
+            monthlyEquivalent: monthlyEquivalentLabel };
         });
         setPlans(normalized);
         setApiAvailable(true);

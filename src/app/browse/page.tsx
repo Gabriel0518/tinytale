@@ -5,14 +5,16 @@ export const dynamic = 'force-dynamic';
 import { Suspense, useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams, usePathname } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { dramasApi, categoriesApi } from '@/lib/api';
 import { Drama, Category } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
 import { Footer } from '@/components/features/Footer';
 import { getDramaBadge } from '@/lib/utils';
 import { mockDramas, mockCategories } from '@/lib/mockData';
-import { detectClientLocale, localizePath, SupportedLocale } from '@/lib/i18n';
+import { localizePath, SupportedLocale } from '@/lib/i18n';
+import { localizeCategoryLabel, normalizeCategoryKey } from '@/lib/categoryI18n';
+import { useLocale } from '@/hooks/useLocale';
 
 type ViewMode = 'grid' | 'list';
 type StatusFilter = 'all' | 'ongoing' | 'completed' | 'upcoming';
@@ -21,8 +23,7 @@ type SortOption = 'popular' | 'latest' | 'top-rated';
 // Badge config for drama status/tags
 const badgeStyles: Record<string, { label: string; className: string }> = {
   hot: { label: 'HOT', className: 'bg-red-600 text-white' },
-  new: { label: 'NEW', className: 'bg-green-600 text-white' },
-};
+  new: { label: 'NEW', className: 'bg-green-600 text-white' } };
 
 const BROWSE_TEXT: Record<SupportedLocale, Record<string, string>> = {
   en: { title: 'Browse Library', subtitle: 'Discover thousands of bite-sized dramas tailored for you.', genre: 'Genre', status: 'Status', sortBy: 'Sort by', all: 'All', ongoing: 'Ongoing', completed: 'Completed', upcoming: 'Upcoming', popular: 'Popular', latest: 'Latest', topRated: 'Top Rated', showing: 'Showing', results: 'results', gridView: 'Grid view', listView: 'List view', noUpcoming: 'No upcoming dramas at the moment. Check back soon!', noResults: 'No dramas found matching your filters.', dramaFallback: 'Drama', epShort: 'episodes', loadMore: 'Load More', episodesWord: 'Episodes' },
@@ -31,12 +32,10 @@ const BROWSE_TEXT: Record<SupportedLocale, Record<string, string>> = {
   es: { title: 'Explorar catálogo', subtitle: 'Descubre miles de dramas cortos para ti.', genre: 'Género', status: 'Estado', sortBy: 'Ordenar', all: 'Todo', ongoing: 'En emisión', completed: 'Completado', upcoming: 'Próximamente', popular: 'Popular', latest: 'Reciente', topRated: 'Mejor valorado', showing: 'Mostrando', results: 'resultados', gridView: 'Vista cuadrícula', listView: 'Vista lista', noUpcoming: 'No hay próximos dramas por ahora', noResults: 'No se encontraron dramas con estos filtros', dramaFallback: 'Drama', epShort: 'episodios', loadMore: 'Cargar más', episodesWord: 'Episodios' },
   pt: { title: 'Explorar catálogo', subtitle: 'Descubra dramas curtos para você.', genre: 'Gênero', status: 'Status', sortBy: 'Ordenar por', all: 'Todos', ongoing: 'Em andamento', completed: 'Concluído', upcoming: 'Em breve', popular: 'Popular', latest: 'Mais recente', topRated: 'Melhor avaliado', showing: 'Mostrando', results: 'resultados', gridView: 'Visão em grade', listView: 'Visão em lista', noUpcoming: 'Sem dramas futuros no momento', noResults: 'Nenhum drama encontrado para os filtros', dramaFallback: 'Drama', epShort: 'episódios', loadMore: 'Carregar mais', episodesWord: 'Episódios' },
   hi: { title: 'लाइब्रेरी ब्राउज़ करें', subtitle: 'आपके लिए शॉर्ट ड्रामा खोजें।', genre: 'शैली', status: 'स्थिति', sortBy: 'क्रमबद्ध करें', all: 'सभी', ongoing: 'चल रहा है', completed: 'पूर्ण', upcoming: 'जल्द आ रहा', popular: 'लोकप्रिय', latest: 'नवीनतम', topRated: 'शीर्ष रेटेड', showing: 'दिखाए जा रहे', results: 'परिणाम', gridView: 'ग्रिड दृश्य', listView: 'सूची दृश्य', noUpcoming: 'अभी कोई आगामी ड्रामा नहीं', noResults: 'फ़िल्टर के अनुसार कोई ड्रामा नहीं मिला', dramaFallback: 'ड्रामा', epShort: 'एपिसोड', loadMore: 'और लोड करें', episodesWord: 'एपिसोड' },
-  id: { title: 'Jelajahi katalog', subtitle: 'Temukan drama pendek pilihan untukmu.', genre: 'Genre', status: 'Status', sortBy: 'Urutkan', all: 'Semua', ongoing: 'Berjalan', completed: 'Selesai', upcoming: 'Segera hadir', popular: 'Populer', latest: 'Terbaru', topRated: 'Rating tertinggi', showing: 'Menampilkan', results: 'hasil', gridView: 'Tampilan grid', listView: 'Tampilan daftar', noUpcoming: 'Belum ada drama yang akan datang', noResults: 'Tidak ada drama sesuai filter', dramaFallback: 'Drama', epShort: 'episode', loadMore: 'Muat lebih banyak', episodesWord: 'Episode' },
-};
+  id: { title: 'Jelajahi katalog', subtitle: 'Temukan drama pendek pilihan untukmu.', genre: 'Genre', status: 'Status', sortBy: 'Urutkan', all: 'Semua', ongoing: 'Berjalan', completed: 'Selesai', upcoming: 'Segera hadir', popular: 'Populer', latest: 'Terbaru', topRated: 'Rating tertinggi', showing: 'Menampilkan', results: 'hasil', gridView: 'Tampilan grid', listView: 'Tampilan daftar', noUpcoming: 'Belum ada drama yang akan datang', noResults: 'Tidak ada drama sesuai filter', dramaFallback: 'Drama', epShort: 'episode', loadMore: 'Muat lebih banyak', episodesWord: 'Episode' } };
 
 function BrowseContent() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = BROWSE_TEXT[locale] || BROWSE_TEXT.en;
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
@@ -85,7 +84,12 @@ function BrowseContent() {
   // Filter & sort (wrapped in useMemo)
   const filtered = useMemo(() => dramas
     .filter(d => {
-      if (selectedCategory !== 'all' && !d.categories?.some(c => c.toLowerCase() === selectedCategory.toLowerCase())) return false;
+      if (
+        selectedCategory !== 'all' &&
+        !d.categories?.some((c) => normalizeCategoryKey(c) === normalizeCategoryKey(selectedCategory))
+      ) {
+        return false;
+      }
       if (statusFilter === 'ongoing' && d.isCompleted) return false;
       if (statusFilter === 'completed' && !d.isCompleted) return false;
       if (statusFilter === 'upcoming') {
@@ -109,7 +113,7 @@ function BrowseContent() {
 
   const genrePills = [
     { key: 'all', label: t.all },
-    ...categories.map(c => ({ key: c.slug, label: c.name })),
+    ...categories.map((c) => ({ key: c.slug, label: localizeCategoryLabel(c.name, locale, c.slug) })),
   ];
 
   const statusOptions: { key: StatusFilter; label: string }[] = [

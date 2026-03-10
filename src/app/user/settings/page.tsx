@@ -2,14 +2,15 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter} from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useToast } from "@/components/ui/Toast";
 import { profileApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import { detectClientLocale, localizePath, SupportedLocale, SUPPORTED_LOCALES } from "@/lib/i18n";
+import {localizePath, SupportedLocale, SUPPORTED_LOCALES } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 type Section = "profile" | "security" | "notifications" | "preferences";
 
@@ -150,8 +151,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       preferences: "Preferences",
       history: "Watch History",
       purchases: "Purchase History",
-      logout: "Sign Out",
-    },
+      logout: "Sign Out" },
     profile: {
       sectionTitle: "Profile Information",
       changeAvatar: "Change avatar",
@@ -166,8 +166,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cancel: "Cancel",
       saveChanges: "Save Changes",
       saving: "Saving...",
-      vipMember: "VIP Member",
-    },
+      vipMember: "VIP Member" },
     security: {
       passwordTitle: "Password",
       lastChanged: "Last changed 3 months ago",
@@ -196,8 +195,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       connect: "Connect",
       dangerZone: "Danger Zone",
       dangerDesc: "Permanently delete your account and all associated data",
-      deleteAccount: "Delete Account",
-    },
+      deleteAccount: "Delete Account" },
     notifications: {
       pushTitle: "Push Notifications",
       pushDesc: "Manage your mobile and desktop notifications",
@@ -220,8 +218,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       systemMessages: "System Messages",
       systemMessagesDesc: "Important system updates and announcements",
       systemMessagesFixed: "System messages cannot be disabled",
-      savePreferences: "Save Preferences",
-    },
+      savePreferences: "Save Preferences" },
     preferences: {
       playback: "Playback",
       autoplay: "Autoplay Next Episode",
@@ -243,19 +240,16 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cache: "Cache",
       cacheUsed: "156 MB used",
       clearCache: "Clear Cache",
-      savePreferences: "Save Preferences",
-    },
+      savePreferences: "Save Preferences" },
     modal: {
       deleteTitle: "Delete Account?",
       deleteDesc: "This action is permanent and cannot be undone. All your data, watch history, and purchases will be lost.",
       cancel: "Cancel",
-      delete: "Delete",
-    },
+      delete: "Delete" },
     sessions: {
       activeNow: "Active Now",
       active2h: "Active 2 hours ago",
-      active3d: "Active 3 days ago",
-    },
+      active3d: "Active 3 days ago" },
     toasts: {
       profileUpdated: "Profile updated successfully",
       failedUpdate: "Failed to update",
@@ -264,9 +258,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       notifSaved: "Notification preferences saved",
       prefsSaved: "Preferences saved",
       cacheCleared: "Cache cleared",
-      generic: "An error occurred",
-    },
-  },
+      generic: "An error occurred" } },
   zh: {
     title: "账号设置",
     sidebar: {
@@ -276,8 +268,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       preferences: "偏好",
       history: "观看历史",
       purchases: "购买记录",
-      logout: "退出登录",
-    },
+      logout: "退出登录" },
     profile: {
       sectionTitle: "个人信息",
       changeAvatar: "更换头像",
@@ -292,8 +283,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cancel: "取消",
       saveChanges: "保存更改",
       saving: "保存中...",
-      vipMember: "VIP 会员",
-    },
+      vipMember: "VIP 会员" },
     security: {
       passwordTitle: "密码",
       lastChanged: "上次修改：3个月前",
@@ -322,8 +312,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       connect: "绑定",
       dangerZone: "危险操作",
       dangerDesc: "永久删除账号及所有关联数据",
-      deleteAccount: "删除账号",
-    },
+      deleteAccount: "删除账号" },
     notifications: {
       pushTitle: "推送通知",
       pushDesc: "管理移动端和桌面的通知",
@@ -346,8 +335,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       systemMessages: "系统消息",
       systemMessagesDesc: "重要系统更新与公告",
       systemMessagesFixed: "系统消息不可关闭",
-      savePreferences: "保存偏好",
-    },
+      savePreferences: "保存偏好" },
     preferences: {
       playback: "播放",
       autoplay: "自动播放下一集",
@@ -369,19 +357,16 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cache: "缓存",
       cacheUsed: "已使用 156 MB",
       clearCache: "清除缓存",
-      savePreferences: "保存偏好",
-    },
+      savePreferences: "保存偏好" },
     modal: {
       deleteTitle: "确认删除账号？",
       deleteDesc: "此操作不可恢复。你的所有数据、观看历史和购买记录将被永久删除。",
       cancel: "取消",
-      delete: "删除",
-    },
+      delete: "删除" },
     sessions: {
       activeNow: "当前活跃",
       active2h: "2小时前活跃",
-      active3d: "3天前活跃",
-    },
+      active3d: "3天前活跃" },
     toasts: {
       profileUpdated: "资料更新成功",
       failedUpdate: "更新失败",
@@ -390,9 +375,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       notifSaved: "通知偏好已保存",
       prefsSaved: "偏好设置已保存",
       cacheCleared: "缓存已清除",
-      generic: "发生错误",
-    },
-  },
+      generic: "发生错误" } },
   ja: {
     title: "アカウント設定",
     sidebar: {
@@ -402,8 +385,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       preferences: "設定",
       history: "視聴履歴",
       purchases: "購入履歴",
-      logout: "ログアウト",
-    },
+      logout: "ログアウト" },
     profile: {
       sectionTitle: "プロフィール情報",
       changeAvatar: "アバターを変更",
@@ -418,8 +400,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cancel: "キャンセル",
       saveChanges: "変更を保存",
       saving: "保存中...",
-      vipMember: "VIP会員",
-    },
+      vipMember: "VIP会員" },
     security: {
       passwordTitle: "パスワード",
       lastChanged: "最終変更: 3か月前",
@@ -448,8 +429,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       connect: "連携",
       dangerZone: "危険ゾーン",
       dangerDesc: "アカウントと関連データを完全に削除します",
-      deleteAccount: "アカウント削除",
-    },
+      deleteAccount: "アカウント削除" },
     notifications: {
       pushTitle: "プッシュ通知",
       pushDesc: "モバイル・デスクトップ通知を管理",
@@ -472,8 +452,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       systemMessages: "システムメッセージ",
       systemMessagesDesc: "重要な更新・お知らせ",
       systemMessagesFixed: "システムメッセージは無効化できません",
-      savePreferences: "設定を保存",
-    },
+      savePreferences: "設定を保存" },
     preferences: {
       playback: "再生",
       autoplay: "次のエピソードを自動再生",
@@ -495,19 +474,16 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cache: "キャッシュ",
       cacheUsed: "156 MB 使用中",
       clearCache: "キャッシュを削除",
-      savePreferences: "設定を保存",
-    },
+      savePreferences: "設定を保存" },
     modal: {
       deleteTitle: "アカウントを削除しますか？",
       deleteDesc: "この操作は取り消せません。すべてのデータ、視聴履歴、購入情報が失われます。",
       cancel: "キャンセル",
-      delete: "削除",
-    },
+      delete: "削除" },
     sessions: {
       activeNow: "現在アクティブ",
       active2h: "2時間前にアクティブ",
-      active3d: "3日前にアクティブ",
-    },
+      active3d: "3日前にアクティブ" },
     toasts: {
       profileUpdated: "プロフィールを更新しました",
       failedUpdate: "更新に失敗しました",
@@ -516,9 +492,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       notifSaved: "通知設定を保存しました",
       prefsSaved: "設定を保存しました",
       cacheCleared: "キャッシュを削除しました",
-      generic: "エラーが発生しました",
-    },
-  },
+      generic: "エラーが発生しました" } },
   es: {
     title: "Configuración de cuenta",
     sidebar: {
@@ -528,8 +502,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       preferences: "Preferencias",
       history: "Historial",
       purchases: "Compras",
-      logout: "Cerrar sesión",
-    },
+      logout: "Cerrar sesión" },
     profile: {
       sectionTitle: "Información de perfil",
       changeAvatar: "Cambiar avatar",
@@ -544,8 +517,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cancel: "Cancelar",
       saveChanges: "Guardar cambios",
       saving: "Guardando...",
-      vipMember: "Miembro VIP",
-    },
+      vipMember: "Miembro VIP" },
     security: {
       passwordTitle: "Contraseña",
       lastChanged: "Último cambio hace 3 meses",
@@ -574,8 +546,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       connect: "Conectar",
       dangerZone: "Zona de peligro",
       dangerDesc: "Elimina tu cuenta y todos los datos asociados",
-      deleteAccount: "Eliminar cuenta",
-    },
+      deleteAccount: "Eliminar cuenta" },
     notifications: {
       pushTitle: "Notificaciones push",
       pushDesc: "Gestiona notificaciones en móvil y escritorio",
@@ -598,8 +569,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       systemMessages: "Mensajes del sistema",
       systemMessagesDesc: "Actualizaciones y avisos importantes",
       systemMessagesFixed: "Los mensajes del sistema no se pueden desactivar",
-      savePreferences: "Guardar preferencias",
-    },
+      savePreferences: "Guardar preferencias" },
     preferences: {
       playback: "Reproducción",
       autoplay: "Autorreproducir siguiente episodio",
@@ -621,19 +591,16 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cache: "Caché",
       cacheUsed: "156 MB usados",
       clearCache: "Limpiar caché",
-      savePreferences: "Guardar preferencias",
-    },
+      savePreferences: "Guardar preferencias" },
     modal: {
       deleteTitle: "¿Eliminar cuenta?",
       deleteDesc: "Esta acción es permanente. Se perderán tus datos, historial y compras.",
       cancel: "Cancelar",
-      delete: "Eliminar",
-    },
+      delete: "Eliminar" },
     sessions: {
       activeNow: "Activo ahora",
       active2h: "Activo hace 2 horas",
-      active3d: "Activo hace 3 días",
-    },
+      active3d: "Activo hace 3 días" },
     toasts: {
       profileUpdated: "Perfil actualizado",
       failedUpdate: "No se pudo actualizar",
@@ -642,9 +609,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       notifSaved: "Preferencias de notificación guardadas",
       prefsSaved: "Preferencias guardadas",
       cacheCleared: "Caché borrada",
-      generic: "Ocurrió un error",
-    },
-  },
+      generic: "Ocurrió un error" } },
   pt: {
     title: "Configurações da conta",
     sidebar: {
@@ -654,8 +619,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       preferences: "Preferências",
       history: "Histórico",
       purchases: "Compras",
-      logout: "Sair",
-    },
+      logout: "Sair" },
     profile: {
       sectionTitle: "Informações do perfil",
       changeAvatar: "Alterar avatar",
@@ -670,8 +634,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cancel: "Cancelar",
       saveChanges: "Salvar alterações",
       saving: "Salvando...",
-      vipMember: "Membro VIP",
-    },
+      vipMember: "Membro VIP" },
     security: {
       passwordTitle: "Senha",
       lastChanged: "Alterada há 3 meses",
@@ -700,8 +663,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       connect: "Conectar",
       dangerZone: "Zona de perigo",
       dangerDesc: "Excluir permanentemente sua conta e dados",
-      deleteAccount: "Excluir conta",
-    },
+      deleteAccount: "Excluir conta" },
     notifications: {
       pushTitle: "Notificações push",
       pushDesc: "Gerencie notificações no celular e desktop",
@@ -724,8 +686,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       systemMessages: "Mensagens do sistema",
       systemMessagesDesc: "Atualizações e avisos importantes",
       systemMessagesFixed: "Mensagens do sistema não podem ser desativadas",
-      savePreferences: "Salvar preferências",
-    },
+      savePreferences: "Salvar preferências" },
     preferences: {
       playback: "Reprodução",
       autoplay: "Reproduzir próximo episódio automaticamente",
@@ -747,19 +708,16 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cache: "Cache",
       cacheUsed: "156 MB usados",
       clearCache: "Limpar cache",
-      savePreferences: "Salvar preferências",
-    },
+      savePreferences: "Salvar preferências" },
     modal: {
       deleteTitle: "Excluir conta?",
       deleteDesc: "Esta ação é permanente e não pode ser desfeita.",
       cancel: "Cancelar",
-      delete: "Excluir",
-    },
+      delete: "Excluir" },
     sessions: {
       activeNow: "Ativo agora",
       active2h: "Ativo há 2 horas",
-      active3d: "Ativo há 3 dias",
-    },
+      active3d: "Ativo há 3 dias" },
     toasts: {
       profileUpdated: "Perfil atualizado com sucesso",
       failedUpdate: "Falha ao atualizar",
@@ -768,9 +726,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       notifSaved: "Preferências de notificação salvas",
       prefsSaved: "Preferências salvas",
       cacheCleared: "Cache limpo",
-      generic: "Ocorreu um erro",
-    },
-  },
+      generic: "Ocorreu um erro" } },
   hi: {
     title: "अकाउंट सेटिंग्स",
     sidebar: {
@@ -780,8 +736,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       preferences: "पसंद",
       history: "देखने का इतिहास",
       purchases: "खरीद इतिहास",
-      logout: "साइन आउट",
-    },
+      logout: "साइन आउट" },
     profile: {
       sectionTitle: "प्रोफाइल जानकारी",
       changeAvatar: "अवतार बदलें",
@@ -796,8 +751,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cancel: "रद्द करें",
       saveChanges: "परिवर्तन सहेजें",
       saving: "सहेजा जा रहा है...",
-      vipMember: "VIP सदस्य",
-    },
+      vipMember: "VIP सदस्य" },
     security: {
       passwordTitle: "पासवर्ड",
       lastChanged: "अंतिम बदलाव 3 महीने पहले",
@@ -826,8 +780,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       connect: "कनेक्ट",
       dangerZone: "डेंजर ज़ोन",
       dangerDesc: "अपना अकाउंट और डेटा स्थायी रूप से हटाएं",
-      deleteAccount: "अकाउंट हटाएं",
-    },
+      deleteAccount: "अकाउंट हटाएं" },
     notifications: {
       pushTitle: "पुश सूचनाएं",
       pushDesc: "मोबाइल और डेस्कटॉप सूचनाएं प्रबंधित करें",
@@ -850,8 +803,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       systemMessages: "सिस्टम संदेश",
       systemMessagesDesc: "महत्वपूर्ण सिस्टम अपडेट और घोषणाएं",
       systemMessagesFixed: "सिस्टम संदेश बंद नहीं किए जा सकते",
-      savePreferences: "पसंद सहेजें",
-    },
+      savePreferences: "पसंद सहेजें" },
     preferences: {
       playback: "प्लेबैक",
       autoplay: "अगला एपिसोड ऑटोप्ले",
@@ -873,19 +825,16 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cache: "कैश",
       cacheUsed: "156 MB उपयोग में",
       clearCache: "कैश साफ करें",
-      savePreferences: "पसंद सहेजें",
-    },
+      savePreferences: "पसंद सहेजें" },
     modal: {
       deleteTitle: "अकाउंट हटाएं?",
       deleteDesc: "यह क्रिया स्थायी है और वापस नहीं की जा सकती।",
       cancel: "रद्द करें",
-      delete: "हटाएं",
-    },
+      delete: "हटाएं" },
     sessions: {
       activeNow: "अभी सक्रिय",
       active2h: "2 घंटे पहले सक्रिय",
-      active3d: "3 दिन पहले सक्रिय",
-    },
+      active3d: "3 दिन पहले सक्रिय" },
     toasts: {
       profileUpdated: "प्रोफाइल सफलतापूर्वक अपडेट हुई",
       failedUpdate: "अपडेट विफल",
@@ -894,9 +843,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       notifSaved: "नोटिफिकेशन सेटिंग्स सहेजी गईं",
       prefsSaved: "पसंद सहेजी गई",
       cacheCleared: "कैश साफ किया गया",
-      generic: "एक त्रुटि हुई",
-    },
-  },
+      generic: "एक त्रुटि हुई" } },
   id: {
     title: "Pengaturan akun",
     sidebar: {
@@ -906,8 +853,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       preferences: "Preferensi",
       history: "Riwayat tonton",
       purchases: "Riwayat pembelian",
-      logout: "Keluar",
-    },
+      logout: "Keluar" },
     profile: {
       sectionTitle: "Informasi profil",
       changeAvatar: "Ganti avatar",
@@ -922,8 +868,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cancel: "Batal",
       saveChanges: "Simpan perubahan",
       saving: "Menyimpan...",
-      vipMember: "Anggota VIP",
-    },
+      vipMember: "Anggota VIP" },
     security: {
       passwordTitle: "Kata sandi",
       lastChanged: "Terakhir diubah 3 bulan lalu",
@@ -952,8 +897,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       connect: "Hubungkan",
       dangerZone: "Zona berbahaya",
       dangerDesc: "Hapus akun dan semua data secara permanen",
-      deleteAccount: "Hapus akun",
-    },
+      deleteAccount: "Hapus akun" },
     notifications: {
       pushTitle: "Notifikasi push",
       pushDesc: "Kelola notifikasi di mobile dan desktop",
@@ -976,8 +920,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       systemMessages: "Pesan sistem",
       systemMessagesDesc: "Update dan pengumuman penting",
       systemMessagesFixed: "Pesan sistem tidak bisa dinonaktifkan",
-      savePreferences: "Simpan preferensi",
-    },
+      savePreferences: "Simpan preferensi" },
     preferences: {
       playback: "Pemutaran",
       autoplay: "Putar otomatis episode berikutnya",
@@ -999,19 +942,16 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       cache: "Cache",
       cacheUsed: "156 MB digunakan",
       clearCache: "Bersihkan cache",
-      savePreferences: "Simpan preferensi",
-    },
+      savePreferences: "Simpan preferensi" },
     modal: {
       deleteTitle: "Hapus akun?",
       deleteDesc: "Aksi ini permanen dan tidak bisa dibatalkan.",
       cancel: "Batal",
-      delete: "Hapus",
-    },
+      delete: "Hapus" },
     sessions: {
       activeNow: "Aktif sekarang",
       active2h: "Aktif 2 jam lalu",
-      active3d: "Aktif 3 hari lalu",
-    },
+      active3d: "Aktif 3 hari lalu" },
     toasts: {
       profileUpdated: "Profil berhasil diperbarui",
       failedUpdate: "Gagal memperbarui",
@@ -1020,10 +960,7 @@ const COPY: Record<SupportedLocale, SettingsCopy> = {
       notifSaved: "Preferensi notifikasi disimpan",
       prefsSaved: "Preferensi disimpan",
       cacheCleared: "Cache dibersihkan",
-      generic: "Terjadi kesalahan",
-    },
-  },
-};
+      generic: "Terjadi kesalahan" } } };
 
 function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
@@ -1038,8 +975,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 }
 
 export default function SettingsPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const copy = COPY[locale] || COPY.en;
   const languageOptions = useMemo(() => {
     const fallbackLabels: Record<SupportedLocale, string> = {
@@ -1049,14 +985,12 @@ export default function SettingsPage() {
       es: "Español",
       pt: "Português",
       hi: "हिंदी",
-      id: "Bahasa Indonesia",
-    };
+      id: "Bahasa Indonesia" };
 
     const labels = new Intl.DisplayNames([locale], { type: "language" });
     return SUPPORTED_LOCALES.map((code) => ({
       value: code,
-      label: labels.of(code) || fallbackLabels[code],
-    }));
+      label: labels.of(code) || fallbackLabels[code] }));
   }, [locale]);
 
   const { user, token, logout, updateUser } = useAuth();
@@ -1096,8 +1030,7 @@ export default function SettingsPage() {
   const [notifs, setNotifs] = useState({
     push: { newReleases: true, recommendations: true, accountActivity: true },
     email: { newsletter: false, promoOffers: true, weeklyDigests: false },
-    inApp: { systemMessages: true },
-  });
+    inApp: { systemMessages: true } });
 
   const [autoplay, setAutoplay] = useState(true);
   const [videoQuality, setVideoQuality] = useState("auto");

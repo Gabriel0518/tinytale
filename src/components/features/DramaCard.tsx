@@ -1,11 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo } from "react";
-import { usePathname } from "next/navigation";
 import type { Drama } from "@/types";
-import { detectClientLocale } from "@/lib/i18n";
 import { localizeCategoryLabel } from "@/lib/categoryI18n";
+import { useLocale } from "@/hooks/useLocale";
 
 function validCover(url?: string): string {
   if (!url || url.startsWith('blob:')) return '/placeholder-cover.svg';
@@ -18,8 +16,7 @@ interface DramaCardProps {
 }
 
 export function DramaCard({ drama, onClick }: DramaCardProps) {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const episodesLabelMap: Record<string, string> = {
     en: "episodes",
     zh: "集",
@@ -27,8 +24,7 @@ export function DramaCard({ drama, onClick }: DramaCardProps) {
     es: "episodios",
     pt: "episódios",
     hi: "एपिसोड",
-    id: "episode",
-  };
+    id: "episode" };
   const episodesLabel = episodesLabelMap[locale] || episodesLabelMap.en;
 
   return (

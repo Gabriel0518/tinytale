@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { usePathname } from "next/navigation";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import { localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 interface EditorialBannerProps {
   title: string;
@@ -20,18 +19,15 @@ const EDITORIAL_BANNER_TEXT: Record<SupportedLocale, Record<string, string>> = {
   es: { editorial: "Editorial", cta: "Explorar ahora" },
   pt: { editorial: "Editorial", cta: "Explorar agora" },
   hi: { editorial: "संपादकीय", cta: "अभी देखें" },
-  id: { editorial: "Editorial", cta: "Jelajahi sekarang" },
-};
+  id: { editorial: "Editorial", cta: "Jelajahi sekarang" } };
 
 export function EditorialBanner({
   title,
   subtitle,
   backgroundImage,
   href = "/browse",
-  className,
-}: EditorialBannerProps) {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  className }: EditorialBannerProps) {
+  const locale = useLocale();
   const t = EDITORIAL_BANNER_TEXT[locale] || EDITORIAL_BANNER_TEXT.en;
   const targetHref = href.startsWith("http") ? href : localizePath(href, locale);
 

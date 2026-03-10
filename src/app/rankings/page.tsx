@@ -5,13 +5,13 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
 import { dramasApi } from '@/lib/api';
 import { Drama } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
 import { Footer } from '@/components/features/Footer';
 import { mockDramas } from '@/lib/mockData';
-import { detectClientLocale, localizePath, SupportedLocale } from '@/lib/i18n';
+import {localizePath, SupportedLocale } from '@/lib/i18n';
+import { useLocale } from "@/hooks/useLocale";
 
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
 
@@ -33,8 +33,7 @@ const RANKINGS_TEXT: Record<SupportedLocale, Record<string, string>> = {
     viewFullList: 'View Full List',
     dramaFallback: 'Drama',
     pageTitle: 'Drama Leaderboards',
-    pageDesc: 'Discover the most popular short dramas updated daily.',
-  },
+    pageDesc: 'Discover the most popular short dramas updated daily.' },
   zh: {
     unknown: '未知',
     today: '今天',
@@ -52,8 +51,7 @@ const RANKINGS_TEXT: Record<SupportedLocale, Record<string, string>> = {
     viewFullList: '查看完整榜单',
     dramaFallback: '短剧',
     pageTitle: '短剧排行榜',
-    pageDesc: '发现每日更新的人气短剧。',
-  },
+    pageDesc: '发现每日更新的人气短剧。' },
   ja: {
     unknown: '不明',
     today: '今日',
@@ -71,8 +69,7 @@ const RANKINGS_TEXT: Record<SupportedLocale, Record<string, string>> = {
     viewFullList: '一覧を見る',
     dramaFallback: 'ドラマ',
     pageTitle: 'ドラマランキング',
-    pageDesc: '人気ショートドラマを毎日更新。',
-  },
+    pageDesc: '人気ショートドラマを毎日更新。' },
   es: {
     unknown: 'Desconocido',
     today: 'Hoy',
@@ -90,8 +87,7 @@ const RANKINGS_TEXT: Record<SupportedLocale, Record<string, string>> = {
     viewFullList: 'Ver lista completa',
     dramaFallback: 'Drama',
     pageTitle: 'Clasificación de dramas',
-    pageDesc: 'Descubre los dramas cortos más populares.',
-  },
+    pageDesc: 'Descubre los dramas cortos más populares.' },
   pt: {
     unknown: 'Desconhecido',
     today: 'Hoje',
@@ -109,8 +105,7 @@ const RANKINGS_TEXT: Record<SupportedLocale, Record<string, string>> = {
     viewFullList: 'Ver lista completa',
     dramaFallback: 'Drama',
     pageTitle: 'Ranking de dramas',
-    pageDesc: 'Descubra os dramas curtos mais populares.',
-  },
+    pageDesc: 'Descubra os dramas curtos mais populares.' },
   hi: {
     unknown: 'अज्ञात',
     today: 'आज',
@@ -128,8 +123,7 @@ const RANKINGS_TEXT: Record<SupportedLocale, Record<string, string>> = {
     viewFullList: 'पूरी सूची देखें',
     dramaFallback: 'ड्रामा',
     pageTitle: 'ड्रामा लीडरबोर्ड',
-    pageDesc: 'लोकप्रिय शॉर्ट ड्रामा देखें।',
-  },
+    pageDesc: 'लोकप्रिय शॉर्ट ड्रामा देखें।' },
   id: {
     unknown: 'Tidak diketahui',
     today: 'Hari ini',
@@ -147,9 +141,7 @@ const RANKINGS_TEXT: Record<SupportedLocale, Record<string, string>> = {
     viewFullList: 'Lihat daftar lengkap',
     dramaFallback: 'Drama',
     pageTitle: 'Papan peringkat drama',
-    pageDesc: 'Temukan drama pendek paling populer.',
-  },
-};
+    pageDesc: 'Temukan drama pendek paling populer.' } };
 
 function formatViews(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
@@ -175,8 +167,7 @@ function rankColor(rank: number): string {
 }
 
 export default function Rankings() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = RANKINGS_TEXT[locale] || RANKINGS_TEXT.en;
   const [allDramas, setAllDramas] = useState<Drama[]>([]);
   const [loading, setLoading] = useState(true);

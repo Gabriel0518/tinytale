@@ -2,8 +2,8 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useRef, useCallback, Suspense, useMemo } from "react";
-import { useParams, useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useState, useEffect, useRef, useCallback, Suspense} from "react";
+import { useParams, useRouter, useSearchParams} from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { dramasApi, reviewsApi, userApi, coinsApi, episodesApi } from "@/lib/api";
@@ -17,7 +17,8 @@ import { formatDuration } from "@/lib/utils";
 import { CloudflarePlayer, PlayerRoot, usePlayerContext } from "@/components/player";
 import type { CloudflarePlayerHandle } from "@/components/player";
 import { ControlBar } from "@/components/player/Controls";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 const DRAMA_TEXT: Record<SupportedLocale, Record<string, string>> = {
   en: {
@@ -68,8 +69,7 @@ const DRAMA_TEXT: Record<SupportedLocale, Record<string, string>> = {
     likes: "likes",
     showLess: "Show Less",
     showMoreReviews: "Show More Reviews",
-    moreLikeThis: "More Like This",
-  },
+    moreLikeThis: "More Like This" },
   zh: {
     loading: "加载中...",
     dramaNotFound: "未找到短剧",
@@ -118,14 +118,12 @@ const DRAMA_TEXT: Record<SupportedLocale, Record<string, string>> = {
     likes: "点赞",
     showLess: "收起",
     showMoreReviews: "查看更多评论",
-    moreLikeThis: "你可能也喜欢",
-  },
+    moreLikeThis: "你可能也喜欢" },
   ja: { loading: "読み込み中...", dramaNotFound: "作品が見つかりません", failedLoadDrama: "読み込みに失敗しました", signInUnlock: "解放するにはログインしてください", signInFavorite: "マイリスト追加にはログインしてください", signInReview: "レビュー投稿にはログインしてください", unlockSuccess: "解放しました！", unlockFail: "解放に失敗しました", unlockAllNone: "すべて解放済みです", unlockAllFail: "一括解放に失敗しました", unlockAllSuccessSuffix: "話を解放しました", insufficientCoins: "コイン不足です。", removedFromList: "マイリストから削除しました", addedToList: "マイリストに追加しました", updateFavoriteFail: "更新に失敗しました", reviewSubmitted: "レビューを投稿しました", reviewFail: "レビュー投稿に失敗しました", home: "ホーム", episodes: "エピソード", updatedToEp: "更新", free: "無料", unlocked: "解放済み", coins: "コイン", vip: "VIP", unlockAll: "一括解放", allUnlocked: "全エピソード解放済み", trending: "トレンド", episodesCount: "話", completed: "完結", inMyList: "マイリスト済み", myList: "マイリスト", linkCopied: "リンクをコピーしました", copyFail: "コピーに失敗しました", share: "共有", cast: "キャスト", lead: "主演", supporting: "助演", reviews: "レビュー", writeReview: "レビューを書く", yourRating: "あなたの評価:", reviewPlaceholder: "この作品の感想を共有してください...", cancel: "キャンセル", submitReview: "投稿", noReviews: "まだレビューがありません", likes: "いいね", showLess: "閉じる", showMoreReviews: "レビューをもっと見る", moreLikeThis: "おすすめ作品" },
   es: { loading: "Cargando...", dramaNotFound: "Drama no encontrado", failedLoadDrama: "No se pudieron cargar los detalles", signInUnlock: "Inicia sesión para desbloquear episodios", signInFavorite: "Inicia sesión para guardar favoritos", signInReview: "Inicia sesión para escribir reseñas", unlockSuccess: "¡Episodio desbloqueado!", unlockFail: "No se pudo desbloquear", unlockAllNone: "¡Todos los episodios ya están desbloqueados!", unlockAllFail: "Error al desbloquear episodios", unlockAllSuccessSuffix: "episodios desbloqueados", insufficientCoins: "Monedas insuficientes", removedFromList: "Eliminado de Mi lista", addedToList: "Añadido a Mi lista", updateFavoriteFail: "No se pudo actualizar favoritos", reviewSubmitted: "¡Reseña enviada!", reviewFail: "No se pudo enviar la reseña", home: "Inicio", episodes: "Episodios", updatedToEp: "Actualizado al Ep", free: "GRATIS", unlocked: "Desbloqueado", coins: "monedas", vip: "VIP", unlockAll: "Desbloquear todo", allUnlocked: "Todos los episodios desbloqueados", trending: "Tendencia", episodesCount: "Episodios", completed: "Completado", inMyList: "En Mi lista", myList: "Mi lista", linkCopied: "¡Enlace copiado!", copyFail: "No se pudo copiar el enlace", share: "Compartir", cast: "Reparto", lead: "Principal", supporting: "Secundario", reviews: "Reseñas", writeReview: "Escribir reseña", yourRating: "Tu puntuación:", reviewPlaceholder: "Comparte tu opinión sobre este drama...", cancel: "Cancelar", submitReview: "Enviar reseña", noReviews: "Aún no hay reseñas", likes: "me gusta", showLess: "Mostrar menos", showMoreReviews: "Mostrar más reseñas", moreLikeThis: "Más como esto" },
   pt: { loading: "Carregando...", dramaNotFound: "Drama não encontrado", failedLoadDrama: "Falha ao carregar detalhes", signInUnlock: "Faça login para desbloquear episódios", signInFavorite: "Faça login para adicionar favoritos", signInReview: "Faça login para escrever avaliação", unlockSuccess: "Episódio desbloqueado!", unlockFail: "Falha ao desbloquear episódio", unlockAllNone: "Todos os episódios já estão desbloqueados!", unlockAllFail: "Falha ao desbloquear episódios", unlockAllSuccessSuffix: "episódios desbloqueados", insufficientCoins: "Moedas insuficientes", removedFromList: "Removido da Minha Lista", addedToList: "Adicionado à Minha Lista", updateFavoriteFail: "Falha ao atualizar favoritos", reviewSubmitted: "Avaliação enviada!", reviewFail: "Falha ao enviar avaliação", home: "Início", episodes: "Episódios", updatedToEp: "Atualizado até Ep", free: "GRÁTIS", unlocked: "Desbloqueado", coins: "moedas", vip: "VIP", unlockAll: "Desbloquear tudo", allUnlocked: "Todos episódios desbloqueados", trending: "Em alta", episodesCount: "Episódios", completed: "Concluído", inMyList: "Na Minha Lista", myList: "Minha Lista", linkCopied: "Link copiado!", copyFail: "Falha ao copiar link", share: "Compartilhar", cast: "Elenco", lead: "Principal", supporting: "Coadjuvante", reviews: "Avaliações", writeReview: "Escrever avaliação", yourRating: "Sua nota:", reviewPlaceholder: "Compartilhe sua opinião sobre este drama...", cancel: "Cancelar", submitReview: "Enviar avaliação", noReviews: "Ainda sem avaliações", likes: "curtidas", showLess: "Mostrar menos", showMoreReviews: "Mostrar mais avaliações", moreLikeThis: "Mais como este" },
   hi: { loading: "लोड हो रहा है...", dramaNotFound: "ड्रामा नहीं मिला", failedLoadDrama: "ड्रामा विवरण लोड नहीं हुआ", signInUnlock: "एपिसोड अनलॉक करने के लिए लॉगिन करें", signInFavorite: "फेवरेट जोड़ने के लिए लॉगिन करें", signInReview: "रिव्यू लिखने के लिए लॉगिन करें", unlockSuccess: "एपिसोड अनलॉक हो गया!", unlockFail: "एपिसोड अनलॉक नहीं हुआ", unlockAllNone: "सभी एपिसोड पहले से अनलॉक हैं", unlockAllFail: "एपिसोड अनलॉक नहीं हो पाए", unlockAllSuccessSuffix: "एपिसोड अनलॉक हुए", insufficientCoins: "कॉइन्स अपर्याप्त हैं", removedFromList: "मेरी सूची से हटाया गया", addedToList: "मेरी सूची में जोड़ा गया", updateFavoriteFail: "फेवरेट अपडेट नहीं हुआ", reviewSubmitted: "रिव्यू जमा हो गया!", reviewFail: "रिव्यू जमा नहीं हुआ", home: "होम", episodes: "एपिसोड", updatedToEp: "अपडेटेड एप", free: "फ्री", unlocked: "अनलॉक", coins: "कॉइन्स", vip: "VIP", unlockAll: "सभी अनलॉक करें", allUnlocked: "सभी एपिसोड अनलॉक हैं", trending: "ट्रेंडिंग", episodesCount: "एपिसोड", completed: "पूर्ण", inMyList: "मेरी सूची में", myList: "मेरी सूची", linkCopied: "लिंक कॉपी हो गया!", copyFail: "लिंक कॉपी नहीं हुआ", share: "शेयर", cast: "कास्ट", lead: "मुख्य", supporting: "सहायक", reviews: "रिव्यू", writeReview: "रिव्यू लिखें", yourRating: "आपकी रेटिंग:", reviewPlaceholder: "इस ड्रामा पर अपनी राय लिखें...", cancel: "रद्द करें", submitReview: "रिव्यू सबमिट करें", noReviews: "अभी कोई रिव्यू नहीं है", likes: "लाइक्स", showLess: "कम दिखाएँ", showMoreReviews: "और रिव्यू दिखाएँ", moreLikeThis: "इसी तरह के और" },
-  id: { loading: "Memuat...", dramaNotFound: "Drama tidak ditemukan", failedLoadDrama: "Gagal memuat detail drama", signInUnlock: "Masuk untuk membuka episode", signInFavorite: "Masuk untuk menambah favorit", signInReview: "Masuk untuk menulis ulasan", unlockSuccess: "Episode berhasil dibuka!", unlockFail: "Gagal membuka episode", unlockAllNone: "Semua episode sudah terbuka!", unlockAllFail: "Gagal membuka semua episode", unlockAllSuccessSuffix: "episode dibuka", insufficientCoins: "Koin tidak cukup", removedFromList: "Dihapus dari Daftar Saya", addedToList: "Ditambahkan ke Daftar Saya", updateFavoriteFail: "Gagal memperbarui favorit", reviewSubmitted: "Ulasan berhasil dikirim!", reviewFail: "Gagal mengirim ulasan", home: "Beranda", episodes: "Episode", updatedToEp: "Update sampai Ep", free: "GRATIS", unlocked: "Terbuka", coins: "koin", vip: "VIP", unlockAll: "Buka semua", allUnlocked: "Semua episode terbuka", trending: "Trending", episodesCount: "Episode", completed: "Selesai", inMyList: "Di Daftar Saya", myList: "Daftar Saya", linkCopied: "Tautan disalin!", copyFail: "Gagal menyalin tautan", share: "Bagikan", cast: "Pemeran", lead: "Utama", supporting: "Pendukung", reviews: "Ulasan", writeReview: "Tulis ulasan", yourRating: "Nilai Anda:", reviewPlaceholder: "Bagikan pendapatmu tentang drama ini...", cancel: "Batal", submitReview: "Kirim ulasan", noReviews: "Belum ada ulasan", likes: "suka", showLess: "Tampilkan lebih sedikit", showMoreReviews: "Tampilkan lebih banyak ulasan", moreLikeThis: "Mirip dengan ini" },
-};
+  id: { loading: "Memuat...", dramaNotFound: "Drama tidak ditemukan", failedLoadDrama: "Gagal memuat detail drama", signInUnlock: "Masuk untuk membuka episode", signInFavorite: "Masuk untuk menambah favorit", signInReview: "Masuk untuk menulis ulasan", unlockSuccess: "Episode berhasil dibuka!", unlockFail: "Gagal membuka episode", unlockAllNone: "Semua episode sudah terbuka!", unlockAllFail: "Gagal membuka semua episode", unlockAllSuccessSuffix: "episode dibuka", insufficientCoins: "Koin tidak cukup", removedFromList: "Dihapus dari Daftar Saya", addedToList: "Ditambahkan ke Daftar Saya", updateFavoriteFail: "Gagal memperbarui favorit", reviewSubmitted: "Ulasan berhasil dikirim!", reviewFail: "Gagal mengirim ulasan", home: "Beranda", episodes: "Episode", updatedToEp: "Update sampai Ep", free: "GRATIS", unlocked: "Terbuka", coins: "koin", vip: "VIP", unlockAll: "Buka semua", allUnlocked: "Semua episode terbuka", trending: "Trending", episodesCount: "Episode", completed: "Selesai", inMyList: "Di Daftar Saya", myList: "Daftar Saya", linkCopied: "Tautan disalin!", copyFail: "Gagal menyalin tautan", share: "Bagikan", cast: "Pemeran", lead: "Utama", supporting: "Pendukung", reviews: "Ulasan", writeReview: "Tulis ulasan", yourRating: "Nilai Anda:", reviewPlaceholder: "Bagikan pendapatmu tentang drama ini...", cancel: "Batal", submitReview: "Kirim ulasan", noReviews: "Belum ada ulasan", likes: "suka", showLess: "Tampilkan lebih sedikit", showMoreReviews: "Tampilkan lebih banyak ulasan", moreLikeThis: "Mirip dengan ini" } };
 
 function StarRating({ rating, onRate, interactive = false }: { rating: number; onRate?: (r: number) => void; interactive?: boolean }) {
   const [hover, setHover] = useState(0);
@@ -165,8 +163,7 @@ function PlayerInner({
   onPrevious,
   onNext,
   hasPrevious,
-  hasNext,
-}: {
+  hasNext }: {
   playerRef: React.RefObject<CloudflarePlayerHandle | null>;
   streamInfo: StreamPlaybackInfo | null;
   activeEpisode: Episode | null;
@@ -255,8 +252,7 @@ function PlayerInner({
 }
 
 function DramaDetailContent() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = DRAMA_TEXT[locale] || DRAMA_TEXT.en;
   const params = useParams();
   const router = useRouter();

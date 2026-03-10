@@ -2,15 +2,17 @@
 
 export const dynamic = 'force-dynamic';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { dramasApi, categoriesApi } from '@/lib/api';
 import { Drama, Category } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
 import { Footer } from '@/components/features/Footer';
 import { DramaCard } from '@/components/features/DramaCard';
-import { detectClientLocale, localizePath, SupportedLocale } from '@/lib/i18n';
+import { localizePath, SupportedLocale } from '@/lib/i18n';
+import { localizeCategoryLabel } from '@/lib/categoryI18n';
+import { useLocale } from '@/hooks/useLocale';
 
 const CATEGORY_TEXT: Record<SupportedLocale, Record<string, string>> = {
   en: {
@@ -24,8 +26,7 @@ const CATEGORY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     noDramas: 'No dramas found in this category',
     loadMore: 'Load More',
     remaining: 'remaining',
-    errorFallback: 'Failed to load dramas. Please try again.',
-  },
+    errorFallback: 'Failed to load dramas. Please try again.' },
   zh: {
     categories: '分类',
     allDramas: '全部短剧',
@@ -37,8 +38,7 @@ const CATEGORY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     noDramas: '该分类暂无短剧',
     loadMore: '加载更多',
     remaining: '剩余',
-    errorFallback: '加载短剧失败，请重试。',
-  },
+    errorFallback: '加载短剧失败，请重试。' },
   ja: {
     categories: 'カテゴリ',
     allDramas: 'すべてのドラマ',
@@ -50,8 +50,7 @@ const CATEGORY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     noDramas: 'このカテゴリには作品がありません',
     loadMore: 'もっと見る',
     remaining: '件',
-    errorFallback: '読み込みに失敗しました。再試行してください。',
-  },
+    errorFallback: '読み込みに失敗しました。再試行してください。' },
   es: {
     categories: 'Categorías',
     allDramas: 'Todos los dramas',
@@ -63,8 +62,7 @@ const CATEGORY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     noDramas: 'No hay dramas en esta categoría',
     loadMore: 'Cargar más',
     remaining: 'restantes',
-    errorFallback: 'No se pudieron cargar los dramas.',
-  },
+    errorFallback: 'No se pudieron cargar los dramas.' },
   pt: {
     categories: 'Categorias',
     allDramas: 'Todos os dramas',
@@ -76,8 +74,7 @@ const CATEGORY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     noDramas: 'Nenhum drama nesta categoria',
     loadMore: 'Carregar mais',
     remaining: 'restantes',
-    errorFallback: 'Falha ao carregar dramas.',
-  },
+    errorFallback: 'Falha ao carregar dramas.' },
   hi: {
     categories: 'श्रेणियाँ',
     allDramas: 'सभी ड्रामा',
@@ -89,8 +86,7 @@ const CATEGORY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     noDramas: 'इस श्रेणी में कोई ड्रामा नहीं मिला',
     loadMore: 'और लोड करें',
     remaining: 'बाकी',
-    errorFallback: 'ड्रामा लोड नहीं हो पाया।',
-  },
+    errorFallback: 'ड्रामा लोड नहीं हो पाया।' },
   id: {
     categories: 'Kategori',
     allDramas: 'Semua drama',
@@ -102,13 +98,10 @@ const CATEGORY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     noDramas: 'Tidak ada drama di kategori ini',
     loadMore: 'Muat lebih banyak',
     remaining: 'tersisa',
-    errorFallback: 'Gagal memuat drama.',
-  },
-};
+    errorFallback: 'Gagal memuat drama.' } };
 
 function CategoryContent() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = CATEGORY_TEXT[locale] || CATEGORY_TEXT.en;
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -214,7 +207,7 @@ function CategoryContent() {
                         : 'text-text-secondary hover:bg-bg-secondary'
                     }`}
                   >
-                    {category.name}
+                    {localizeCategoryLabel(category.name, locale, category.slug)}
                   </button>
                 ))}
               </nav>
@@ -225,7 +218,7 @@ function CategoryContent() {
               {/* Header */}
               <div className="mb-6 flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-text-primary">
-                  {currentCategory?.name || t.allDramas}
+                  {currentCategory ? localizeCategoryLabel(currentCategory.name, locale, currentCategory.slug) : t.allDramas}
                 </h1>
                 <select
                   value={sortBy}
@@ -262,7 +255,7 @@ function CategoryContent() {
                         : 'bg-bg-secondary text-text-secondary'
                     }`}
                   >
-                    {category.name}
+                    {localizeCategoryLabel(category.name, locale, category.slug)}
                   </button>
                 ))}
               </div>

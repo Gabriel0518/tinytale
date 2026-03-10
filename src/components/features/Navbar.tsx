@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { userApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import { detectClientLocale, localizePath, removeLocalePrefix, SupportedLocale } from "@/lib/i18n";
+import { localizePath, removeLocalePrefix, SupportedLocale } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
+import { useLocale } from "@/hooks/useLocale";
 
 interface NavbarProps {
   activePath?: string;
@@ -34,8 +35,7 @@ const NAV_LABELS: Record<SupportedLocale, Record<string, string>> = {
   id: { home: "Beranda", browse: "Jelajahi", rankings: "Peringkat", myList: "Daftar Saya", affiliate: "Afiliasi", signIn: "Masuk", getStarted: "Mulai" },
   zh: { home: "首页", browse: "浏览", rankings: "排行", myList: "我的收藏", affiliate: "推广", signIn: "登录", getStarted: "开始使用" },
   ja: { home: "ホーム", browse: "閲覧", rankings: "ランキング", myList: "マイリスト", affiliate: "アフィリエイト", signIn: "ログイン", getStarted: "はじめる" },
-  hi: { home: "होम", browse: "ब्राउज़", rankings: "रैंकिंग", myList: "मेरी सूची", affiliate: "अफिलिएट", signIn: "साइन इन", getStarted: "शुरू करें" },
-};
+  hi: { home: "होम", browse: "ब्राउज़", rankings: "रैंकिंग", myList: "मेरी सूची", affiliate: "अफिलिएट", signIn: "साइन इन", getStarted: "शुरू करें" } };
 
 export function Navbar({
   activePath,
@@ -43,10 +43,9 @@ export function Navbar({
   showSearch = true,
   showAuthButtons = true,
   className,
-  renderSearch,
-}: NavbarProps) {
+  renderSearch }: NavbarProps) {
   const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const navText = NAV_LABELS[locale] || NAV_LABELS.en;
   const normalizedPath = removeLocalePrefix(pathname || "/");
   const toLocalePath = (href: string) => localizePath(href, locale);

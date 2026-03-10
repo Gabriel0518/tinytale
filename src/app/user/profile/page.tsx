@@ -1,17 +1,17 @@
 "use client";
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect} from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { userApi, coinsApi } from "@/lib/api";
 import { Drama, User } from "@/types";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import { localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 type Tab = "library" | "wallet";
 
@@ -107,8 +107,7 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
       noHistory: "No watch history yet",
       continueWatching: "Continue Watching",
       unknownDrama: "Unknown",
-      episode: "Episode",
-    },
+      episode: "Episode" },
     wallet: {
       totalBalance: "Total Balance",
       coins: "Coins",
@@ -130,21 +129,16 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
         helpFaq: "Help Center & FAQ",
         contact: "Contact Support",
         coupons: "My Coupons",
-        privacy: "Account Privacy",
-      },
+        privacy: "Account Privacy" },
       eventBanner: "Watch & Win: Get 500 Free Coins this weekend!",
       txDescriptions: {
         recharge: "Coin Recharge",
         unlock: "Episode Unlock",
         refund: "Refund",
-        fallback: "Transaction",
-      },
+        fallback: "Transaction" },
       txStatuses: {
         completed: "Success",
-        pending: "Pending",
-      },
-    },
-  },
+        pending: "Pending" } } },
   zh: {
     loading: "加载中...",
     vipMember: "VIP 会员",
@@ -159,8 +153,7 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
       noHistory: "暂无观看历史",
       continueWatching: "继续观看",
       unknownDrama: "未知短剧",
-      episode: "第",
-    },
+      episode: "第" },
     wallet: {
       totalBalance: "总余额",
       coins: "金币",
@@ -182,21 +175,16 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
         helpFaq: "帮助中心与 FAQ",
         contact: "联系支持",
         coupons: "我的优惠",
-        privacy: "账号隐私",
-      },
+        privacy: "账号隐私" },
       eventBanner: "观剧赢福利：本周末送你 500 免费金币！",
       txDescriptions: {
         recharge: "金币充值",
         unlock: "剧集解锁",
         refund: "退款",
-        fallback: "交易",
-      },
+        fallback: "交易" },
       txStatuses: {
         completed: "成功",
-        pending: "处理中",
-      },
-    },
-  },
+        pending: "处理中" } } },
   ja: {
     loading: "読み込み中...",
     vipMember: "VIP会員",
@@ -211,8 +199,7 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
       noHistory: "視聴履歴はまだありません",
       continueWatching: "続きを見る",
       unknownDrama: "不明",
-      episode: "第",
-    },
+      episode: "第" },
     wallet: {
       totalBalance: "総残高",
       coins: "コイン",
@@ -234,21 +221,16 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
         helpFaq: "ヘルプセンターとFAQ",
         contact: "サポートに連絡",
         coupons: "マイクーポン",
-        privacy: "アカウントプライバシー",
-      },
+        privacy: "アカウントプライバシー" },
       eventBanner: "視聴して獲得: 今週末は無料コイン500枚！",
       txDescriptions: {
         recharge: "コインチャージ",
         unlock: "エピソード解放",
         refund: "返金",
-        fallback: "取引",
-      },
+        fallback: "取引" },
       txStatuses: {
         completed: "成功",
-        pending: "保留中",
-      },
-    },
-  },
+        pending: "保留中" } } },
   es: {
     loading: "Cargando...",
     vipMember: "Miembro VIP",
@@ -263,8 +245,7 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
       noHistory: "Aún no hay historial de visualización",
       continueWatching: "Seguir viendo",
       unknownDrama: "Desconocido",
-      episode: "Episodio",
-    },
+      episode: "Episodio" },
     wallet: {
       totalBalance: "Saldo total",
       coins: "Monedas",
@@ -286,21 +267,16 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
         helpFaq: "Centro de ayuda y FAQ",
         contact: "Contactar soporte",
         coupons: "Mis cupones",
-        privacy: "Privacidad de cuenta",
-      },
+        privacy: "Privacidad de cuenta" },
       eventBanner: "Mira y gana: ¡500 monedas gratis este fin de semana!",
       txDescriptions: {
         recharge: "Recarga de monedas",
         unlock: "Desbloqueo de episodio",
         refund: "Reembolso",
-        fallback: "Transacción",
-      },
+        fallback: "Transacción" },
       txStatuses: {
         completed: "Éxito",
-        pending: "Pendiente",
-      },
-    },
-  },
+        pending: "Pendiente" } } },
   pt: {
     loading: "Carregando...",
     vipMember: "Membro VIP",
@@ -315,8 +291,7 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
       noHistory: "Ainda não há histórico",
       continueWatching: "Continuar assistindo",
       unknownDrama: "Desconhecido",
-      episode: "Episódio",
-    },
+      episode: "Episódio" },
     wallet: {
       totalBalance: "Saldo total",
       coins: "Moedas",
@@ -338,21 +313,16 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
         helpFaq: "Central de ajuda e FAQ",
         contact: "Falar com suporte",
         coupons: "Meus cupons",
-        privacy: "Privacidade da conta",
-      },
+        privacy: "Privacidade da conta" },
       eventBanner: "Assista e ganhe: 500 moedas grátis neste fim de semana!",
       txDescriptions: {
         recharge: "Recarga de moedas",
         unlock: "Desbloqueio de episódio",
         refund: "Reembolso",
-        fallback: "Transação",
-      },
+        fallback: "Transação" },
       txStatuses: {
         completed: "Sucesso",
-        pending: "Pendente",
-      },
-    },
-  },
+        pending: "Pendente" } } },
   hi: {
     loading: "लोड हो रहा है...",
     vipMember: "VIP सदस्य",
@@ -367,8 +337,7 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
       noHistory: "अभी कोई देखने का इतिहास नहीं",
       continueWatching: "देखना जारी रखें",
       unknownDrama: "अज्ञात",
-      episode: "एपिसोड",
-    },
+      episode: "एपिसोड" },
     wallet: {
       totalBalance: "कुल बैलेंस",
       coins: "कॉइन्स",
@@ -390,21 +359,16 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
         helpFaq: "हेल्प सेंटर और FAQ",
         contact: "सपोर्ट से संपर्क करें",
         coupons: "मेरे कूपन",
-        privacy: "अकाउंट प्राइवेसी",
-      },
+        privacy: "अकाउंट प्राइवेसी" },
       eventBanner: "देखो और जीतो: इस वीकेंड 500 फ्री कॉइन्स!",
       txDescriptions: {
         recharge: "कॉइन रिचार्ज",
         unlock: "एपिसोड अनलॉक",
         refund: "रिफंड",
-        fallback: "लेनदेन",
-      },
+        fallback: "लेनदेन" },
       txStatuses: {
         completed: "सफल",
-        pending: "लंबित",
-      },
-    },
-  },
+        pending: "लंबित" } } },
   id: {
     loading: "Memuat...",
     vipMember: "Anggota VIP",
@@ -419,8 +383,7 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
       noHistory: "Belum ada riwayat tonton",
       continueWatching: "Lanjutkan menonton",
       unknownDrama: "Tidak dikenal",
-      episode: "Episode",
-    },
+      episode: "Episode" },
     wallet: {
       totalBalance: "Total saldo",
       coins: "Koin",
@@ -442,22 +405,16 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
         helpFaq: "Pusat bantuan & FAQ",
         contact: "Hubungi dukungan",
         coupons: "Kupon saya",
-        privacy: "Privasi akun",
-      },
+        privacy: "Privasi akun" },
       eventBanner: "Tonton & Menang: Dapatkan 500 koin gratis akhir pekan ini!",
       txDescriptions: {
         recharge: "Isi ulang koin",
         unlock: "Buka episode",
         refund: "Refund",
-        fallback: "Transaksi",
-      },
+        fallback: "Transaksi" },
       txStatuses: {
         completed: "Berhasil",
-        pending: "Menunggu",
-      },
-    },
-  },
-};
+        pending: "Menunggu" } } } };
 
 const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
   en: "en-US",
@@ -466,12 +423,10 @@ const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
   es: "es-ES",
   pt: "pt-BR",
   hi: "hi-IN",
-  id: "id-ID",
-};
+  id: "id-ID" };
 
 export default function ProfilePage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
 
@@ -603,11 +558,10 @@ function LibraryTab({
   favorites,
   history,
   locale,
-  t,
-}: {
+  t }: {
   favorites: Drama[];
   history: WatchHistoryItem[];
-  locale: ReturnType<typeof detectClientLocale>;
+  locale: SupportedLocale;
   t: ProfileCopy;
 }) {
   const [sub, setSub] = useState<"favorites" | "history">("favorites");
@@ -677,12 +631,11 @@ function WalletTab({
   token,
   locale,
   t,
-  dateLocale,
-}: {
+  dateLocale }: {
   user: User;
   isVip: boolean;
   token: string | null;
-  locale: ReturnType<typeof detectClientLocale>;
+  locale: SupportedLocale;
   t: ProfileCopy;
   dateLocale: string;
 }) {
@@ -707,8 +660,7 @@ function WalletTab({
                   : tx.type || t.wallet.txDescriptions.fallback,
             type: tx.type === "recharge" ? "topup" : tx.type === "unlock" ? "spend" : tx.type || "spend",
             amount: Number(tx.amount || 0),
-            status: tx.status === "completed" ? t.wallet.txStatuses.completed : tx.status || t.wallet.txStatuses.pending,
-          })));
+            status: tx.status === "completed" ? t.wallet.txStatuses.completed : tx.status || t.wallet.txStatuses.pending })));
         }
       } catch {
         // keep empty on error

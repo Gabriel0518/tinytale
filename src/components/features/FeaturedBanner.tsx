@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { usePathname } from "next/navigation";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import { localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 interface FeaturedBannerProps {
   title: string;
@@ -20,18 +19,15 @@ const FEATURED_BANNER_TEXT: Record<SupportedLocale, Record<string, string>> = {
   es: { featured: "Destacado", cta: "Explorar ahora" },
   pt: { featured: "Destaque", cta: "Explorar agora" },
   hi: { featured: "फ़ीचर्ड", cta: "अभी देखें" },
-  id: { featured: "Pilihan", cta: "Jelajahi sekarang" },
-};
+  id: { featured: "Pilihan", cta: "Jelajahi sekarang" } };
 
 export function FeaturedBanner({
   title,
   subtitle,
   backgroundImage,
   href = "/browse",
-  className,
-}: FeaturedBannerProps) {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  className }: FeaturedBannerProps) {
+  const locale = useLocale();
   const t = FEATURED_BANNER_TEXT[locale] || FEATURED_BANNER_TEXT.en;
   const targetHref = href.startsWith("http") ? href : localizePath(href, locale);
 

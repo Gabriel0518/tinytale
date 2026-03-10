@@ -2,16 +2,17 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback} from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter} from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import dynamicImport from "next/dynamic";
 import { useFacebookLogin } from "@/lib/facebookSdk";
 import { useToast } from "@/components/ui/Toast";
 import { TURNSTILE_SITE_KEY } from "@/lib/api";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 // Dynamically import GoogleLoginButton to avoid SSR issues
 const GoogleLoginButton = dynamicImport(
@@ -36,8 +37,7 @@ declare global {
 }
 
 export default function LoginPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = LOGIN_TEXT[locale] || LOGIN_TEXT.en;
   const router = useRouter();
   const { login, googleLogin, facebookLogin } = useAuth();
@@ -65,8 +65,7 @@ export default function LoginPage() {
         sitekey: TURNSTILE_SITE_KEY,
         callback: (token: string) => setTurnstileToken(token),
         'expired-callback': () => setTurnstileToken(''),
-        'error-callback': () => setTurnstileToken(''),
-      });
+        'error-callback': () => setTurnstileToken('') });
     };
 
     // If script already loaded
@@ -350,8 +349,7 @@ const LOGIN_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "An error occurred",
     loginFailed: "Login failed. Please try again.",
     googleLoginFailed: "Google login failed. Please try again.",
-    facebookLoginFailed: "Facebook login failed. Please try again.",
-  },
+    facebookLoginFailed: "Facebook login failed. Please try again." },
   zh: {
     signUp: "注册",
     signIn: "登录",
@@ -372,8 +370,7 @@ const LOGIN_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "发生错误",
     loginFailed: "登录失败，请重试。",
     googleLoginFailed: "Google 登录失败，请重试。",
-    facebookLoginFailed: "Facebook 登录失败，请重试。",
-  },
+    facebookLoginFailed: "Facebook 登录失败，请重试。" },
   ja: {
     signUp: "新規登録",
     signIn: "ログイン",
@@ -394,8 +391,7 @@ const LOGIN_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "エラーが発生しました",
     loginFailed: "ログインに失敗しました。再試行してください。",
     googleLoginFailed: "Google ログインに失敗しました。",
-    facebookLoginFailed: "Facebook ログインに失敗しました。",
-  },
+    facebookLoginFailed: "Facebook ログインに失敗しました。" },
   es: {
     signUp: "Registrarse",
     signIn: "Entrar",
@@ -416,8 +412,7 @@ const LOGIN_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "Ocurrió un error",
     loginFailed: "Error de inicio de sesión. Inténtalo de nuevo.",
     googleLoginFailed: "Falló el inicio con Google.",
-    facebookLoginFailed: "Falló el inicio con Facebook.",
-  },
+    facebookLoginFailed: "Falló el inicio con Facebook." },
   pt: {
     signUp: "Cadastrar",
     signIn: "Entrar",
@@ -438,8 +433,7 @@ const LOGIN_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "Ocorreu um erro",
     loginFailed: "Falha no login. Tente novamente.",
     googleLoginFailed: "Falha no login com Google.",
-    facebookLoginFailed: "Falha no login com Facebook.",
-  },
+    facebookLoginFailed: "Falha no login com Facebook." },
   hi: {
     signUp: "साइन अप",
     signIn: "साइन इन",
@@ -460,8 +454,7 @@ const LOGIN_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "कोई त्रुटि हुई",
     loginFailed: "लॉगिन विफल हुआ।",
     googleLoginFailed: "Google लॉगिन विफल हुआ।",
-    facebookLoginFailed: "Facebook लॉगिन विफल हुआ।",
-  },
+    facebookLoginFailed: "Facebook लॉगिन विफल हुआ।" },
   id: {
     signUp: "Daftar",
     signIn: "Masuk",
@@ -482,6 +475,4 @@ const LOGIN_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "Terjadi kesalahan",
     loginFailed: "Gagal masuk. Coba lagi.",
     googleLoginFailed: "Login Google gagal.",
-    facebookLoginFailed: "Login Facebook gagal.",
-  },
-};
+    facebookLoginFailed: "Login Facebook gagal." } };

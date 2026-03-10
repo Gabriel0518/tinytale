@@ -2,15 +2,16 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useMemo } from "react";
+import { useState} from "react";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter} from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import dynamicImport from "next/dynamic";
 import { useFacebookLogin } from "@/lib/facebookSdk";
 import { verificationApi } from "@/lib/api";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 // Dynamically import GoogleLoginButton to avoid SSR issues
 const GoogleLoginButton = dynamicImport(
@@ -19,8 +20,7 @@ const GoogleLoginButton = dynamicImport(
 );
 
 export default function RegisterPage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = REGISTER_TEXT[locale] || REGISTER_TEXT.en;
   const router = useRouter();
   const { register, googleLogin, facebookLogin } = useAuth();
@@ -341,8 +341,7 @@ const REGISTER_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "An error occurred",
     sendCodeFailed: "Failed to send verification code. Please try again.",
     googleFailed: "Google sign up failed. Please try again.",
-    facebookFailed: "Facebook sign up failed. Please try again.",
-  },
+    facebookFailed: "Facebook sign up failed. Please try again." },
   zh: {
     signIn: "登录",
     createAccount: "创建账号",
@@ -371,8 +370,7 @@ const REGISTER_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "发生错误",
     sendCodeFailed: "发送验证码失败，请重试。",
     googleFailed: "Google 注册失败，请重试。",
-    facebookFailed: "Facebook 注册失败，请重试。",
-  },
+    facebookFailed: "Facebook 注册失败，请重试。" },
   ja: {
     signIn: "ログイン",
     createAccount: "アカウント作成",
@@ -401,8 +399,7 @@ const REGISTER_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "エラーが発生しました",
     sendCodeFailed: "認証コード送信に失敗しました。",
     googleFailed: "Google 登録に失敗しました。",
-    facebookFailed: "Facebook 登録に失敗しました。",
-  },
+    facebookFailed: "Facebook 登録に失敗しました。" },
   es: {
     signIn: "Entrar",
     createAccount: "Crear cuenta",
@@ -431,8 +428,7 @@ const REGISTER_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "Ocurrió un error",
     sendCodeFailed: "No se pudo enviar el código.",
     googleFailed: "Falló el registro con Google.",
-    facebookFailed: "Falló el registro con Facebook.",
-  },
+    facebookFailed: "Falló el registro con Facebook." },
   pt: {
     signIn: "Entrar",
     createAccount: "Criar conta",
@@ -461,8 +457,7 @@ const REGISTER_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "Ocorreu um erro",
     sendCodeFailed: "Falha ao enviar código.",
     googleFailed: "Falha no cadastro com Google.",
-    facebookFailed: "Falha no cadastro com Facebook.",
-  },
+    facebookFailed: "Falha no cadastro com Facebook." },
   hi: {
     signIn: "साइन इन",
     createAccount: "खाता बनाएँ",
@@ -491,8 +486,7 @@ const REGISTER_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "त्रुटि हुई",
     sendCodeFailed: "कोड भेजने में विफल।",
     googleFailed: "Google साइन अप विफल।",
-    facebookFailed: "Facebook साइन अप विफल।",
-  },
+    facebookFailed: "Facebook साइन अप विफल।" },
   id: {
     signIn: "Masuk",
     createAccount: "Buat akun",
@@ -521,6 +515,4 @@ const REGISTER_TEXT: Record<SupportedLocale, Record<string, string>> = {
     genericError: "Terjadi kesalahan",
     sendCodeFailed: "Gagal mengirim kode verifikasi.",
     googleFailed: "Daftar Google gagal.",
-    facebookFailed: "Daftar Facebook gagal.",
-  },
-};
+    facebookFailed: "Daftar Facebook gagal." } };

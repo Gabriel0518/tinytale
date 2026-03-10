@@ -2,8 +2,8 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo } from "react";
-import { useParams, useRouter, usePathname } from "next/navigation";
+import { useState, useEffect} from "react";
+import { useParams, useRouter} from "next/navigation";
 import Link from "next/link";
 import { dramasApi, episodesApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
@@ -11,7 +11,8 @@ import { useToast } from "@/components/ui/Toast";
 import { Drama, Episode } from "@/types";
 import type { StreamPlaybackInfo } from "@/types";
 import SimplePlayer from "@/components/player/SimplePlayer";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
   en: {
@@ -23,8 +24,7 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "Back to",
     episode: "Episode",
     episodes: "Episodes",
-    coins: "coins",
-  },
+    coins: "coins" },
   zh: {
     episodeNotFound: "未找到该剧集",
     failedToLoad: "加载剧集失败",
@@ -34,8 +34,7 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "返回",
     episode: "第",
     episodes: "剧集列表",
-    coins: "金币",
-  },
+    coins: "金币" },
   ja: {
     episodeNotFound: "エピソードが見つかりません",
     failedToLoad: "読み込みに失敗しました",
@@ -45,8 +44,7 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "戻る",
     episode: "エピソード",
     episodes: "エピソード一覧",
-    coins: "コイン",
-  },
+    coins: "コイン" },
   es: {
     episodeNotFound: "Episodio no encontrado",
     failedToLoad: "No se pudo cargar el episodio",
@@ -56,8 +54,7 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "Volver a",
     episode: "Episodio",
     episodes: "Episodios",
-    coins: "monedas",
-  },
+    coins: "monedas" },
   pt: {
     episodeNotFound: "Episódio não encontrado",
     failedToLoad: "Falha ao carregar episódio",
@@ -67,8 +64,7 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "Voltar para",
     episode: "Episódio",
     episodes: "Episódios",
-    coins: "moedas",
-  },
+    coins: "moedas" },
   hi: {
     episodeNotFound: "एपिसोड नहीं मिला",
     failedToLoad: "एपिसोड लोड नहीं हो पाया",
@@ -78,8 +74,7 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "वापस जाएँ",
     episode: "एपिसोड",
     episodes: "एपिसोड सूची",
-    coins: "कॉइन्स",
-  },
+    coins: "कॉइन्स" },
   id: {
     episodeNotFound: "Episode tidak ditemukan",
     failedToLoad: "Gagal memuat episode",
@@ -89,13 +84,10 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "Kembali ke",
     episode: "Episode",
     episodes: "Daftar episode",
-    coins: "koin",
-  },
-};
+    coins: "koin" } };
 
 export default function PlayEpisodePage() {
-  const pathname = usePathname();
-  const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
+  const locale = useLocale();
   const t = PLAY_TEXT[locale] || PLAY_TEXT.en;
   const params = useParams();
   const router = useRouter();

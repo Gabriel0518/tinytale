@@ -17,6 +17,9 @@ const CATEGORY_TRANSLATIONS: Record<SupportedLocale, Record<string, string>> = {
     youth: 'Youth',
     revenge: 'Revenge',
     urban: 'Urban',
+    ceo: 'CEO',
+    werewolf: 'Werewolf',
+    suspense: 'Suspense',
   },
   zh: {
     all: '全部',
@@ -34,6 +37,9 @@ const CATEGORY_TRANSLATIONS: Record<SupportedLocale, Record<string, string>> = {
     youth: '青春',
     revenge: '复仇',
     urban: '都市',
+    ceo: '总裁',
+    werewolf: '狼人',
+    suspense: '悬念',
   },
   ja: {
     all: 'すべて',
@@ -51,6 +57,9 @@ const CATEGORY_TRANSLATIONS: Record<SupportedLocale, Record<string, string>> = {
     youth: '青春',
     revenge: '復讐',
     urban: '都会',
+    ceo: 'CEO',
+    werewolf: '人狼',
+    suspense: 'サスペンス',
   },
   es: {
     all: 'Todo',
@@ -68,6 +77,9 @@ const CATEGORY_TRANSLATIONS: Record<SupportedLocale, Record<string, string>> = {
     youth: 'Juvenil',
     revenge: 'Venganza',
     urban: 'Urbano',
+    ceo: 'CEO',
+    werewolf: 'Hombre lobo',
+    suspense: 'Suspenso',
   },
   pt: {
     all: 'Todos',
@@ -85,6 +97,9 @@ const CATEGORY_TRANSLATIONS: Record<SupportedLocale, Record<string, string>> = {
     youth: 'Juventude',
     revenge: 'Vingança',
     urban: 'Urbano',
+    ceo: 'CEO',
+    werewolf: 'Lobisomem',
+    suspense: 'Suspense',
   },
   hi: {
     all: 'सभी',
@@ -102,6 +117,9 @@ const CATEGORY_TRANSLATIONS: Record<SupportedLocale, Record<string, string>> = {
     youth: 'युवा',
     revenge: 'बदला',
     urban: 'शहरी',
+    ceo: 'सीईओ',
+    werewolf: 'वेयरवुल्फ',
+    suspense: 'सस्पेंस',
   },
   id: {
     all: 'Semua',
@@ -119,6 +137,9 @@ const CATEGORY_TRANSLATIONS: Record<SupportedLocale, Record<string, string>> = {
     youth: 'Remaja',
     revenge: 'Balas dendam',
     urban: 'Perkotaan',
+    ceo: 'CEO',
+    werewolf: 'Manusia serigala',
+    suspense: 'Suspense',
   },
 };
 
