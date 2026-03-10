@@ -14,6 +14,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
 
 const sidebarPages = ["/affiliate/dashboard", "/affiliate/reports", "/affiliate/creatives", "/affiliate/payments"];
+const approvalRequiredPages = ["/affiliate/dashboard", "/affiliate/creatives", "/affiliate/payments"];
 const COPY: Record<SupportedLocale, { back: string; promoter: string }> = {
   en: { back: "Back to TinyTale", promoter: "Promoter" },
   zh: { back: "返回 TinyTale", promoter: "推广员" },
@@ -81,13 +82,13 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
           router.push(localizePath("/affiliate/dashboard", locale));
           return;
         }
-        if (sidebarPages.some((p) => pathname.startsWith(p)) && status !== "approved") {
+        if (approvalRequiredPages.some((p) => pathname.startsWith(p)) && status !== "approved") {
           if (status === "pending") router.push(localizePath("/affiliate/pending", locale));
           else router.push(localizePath("/affiliate/apply", locale));
           return;
         }
       } catch {
-        if (sidebarPages.some((p) => pathname.startsWith(p))) {
+        if (approvalRequiredPages.some((p) => pathname.startsWith(p))) {
           router.push(localizePath("/affiliate/apply", locale));
           return;
         }
