@@ -45,6 +45,8 @@ type CreativesCopy = {
   proTipTitle: string;
   proTipText: string;
   coverImage: string;
+  coverSuffix: string;
+  bannerSuffix: string;
 };
 
 const COPY: Record<SupportedLocale, CreativesCopy> = {
@@ -77,6 +79,8 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipTitle: "Pro Tip:",
     proTipText: "Use unique source tags to track which channels perform best.",
     coverImage: "Cover Image",
+    coverSuffix: "Cover",
+    bannerSuffix: "Banner",
   },
   zh: {
     pageTitle: "素材中心",
@@ -107,6 +111,8 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipTitle: "小贴士：",
     proTipText: "为不同渠道使用唯一来源标记，便于分析转化效果。",
     coverImage: "封面图",
+    coverSuffix: "封面",
+    bannerSuffix: "横幅",
   },
   ja: {
     pageTitle: "クリエイティブ素材",
@@ -137,6 +143,8 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipTitle: "ヒント：",
     proTipText: "チャネルごとに異なる source タグを使うと効果測定しやすくなります。",
     coverImage: "カバー画像",
+    coverSuffix: "カバー",
+    bannerSuffix: "バナー",
   },
   es: {
     pageTitle: "Recursos creativos",
@@ -167,6 +175,8 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipTitle: "Consejo:",
     proTipText: "Usa etiquetas de fuente únicas para medir mejor el rendimiento por canal.",
     coverImage: "Imagen de portada",
+    coverSuffix: "Portada",
+    bannerSuffix: "Banner",
   },
   pt: {
     pageTitle: "Materiais criativos",
@@ -197,6 +207,8 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipTitle: "Dica:",
     proTipText: "Use tags de origem únicas para medir melhor o desempenho por canal.",
     coverImage: "Imagem de capa",
+    coverSuffix: "Capa",
+    bannerSuffix: "Banner",
   },
   hi: {
     pageTitle: "क्रिएटिव एसेट्स",
@@ -227,6 +239,8 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipTitle: "प्रो टिप:",
     proTipText: "हर चैनल के लिए अलग source टैग उपयोग करें ताकि प्रदर्शन ट्रैक हो सके।",
     coverImage: "कवर इमेज",
+    coverSuffix: "कवर",
+    bannerSuffix: "बैनर",
   },
   id: {
     pageTitle: "Aset kreatif",
@@ -257,6 +271,8 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
     proTipTitle: "Tips:",
     proTipText: "Gunakan tag sumber unik untuk melacak performa tiap kanal.",
     coverImage: "Gambar sampul",
+    coverSuffix: "Sampul",
+    bannerSuffix: "Banner",
   },
 };
 
@@ -322,7 +338,7 @@ export default function CreativesPage() {
     if (drama?.cover && (activeTab === "all" || activeTab === "posters")) {
       coverItems.push({
         _id: `cover-${drama._id}`,
-        title: `${drama.title} - Cover`,
+        title: `${drama.title} - ${t.coverSuffix}`,
         type: "posters",
         thumbnail: drama.cover,
         width: 400,
@@ -335,7 +351,7 @@ export default function CreativesPage() {
     if (drama?.horizontalCover && (activeTab === "all" || activeTab === "banners")) {
       coverItems.push({
         _id: `hcover-${drama._id}`,
-        title: `${drama.title} - Banner`,
+        title: `${drama.title} - ${t.bannerSuffix}`,
         type: "banners",
         thumbnail: drama.horizontalCover,
         width: 1920,
@@ -350,7 +366,7 @@ export default function CreativesPage() {
     const merged = [...coverItems.filter((c) => !apiIds.has(c._id)), ...apiCreatives];
     setCreatives(merged);
     setLoading(false);
-  }, [selectedDrama, activeTab, dramas, apiCreatives, t.coverImage]);
+  }, [selectedDrama, activeTab, dramas, apiCreatives, t.coverImage, t.coverSuffix, t.bannerSuffix]);
 
   const handleDownload = async (url: string, filename: string) => {
     try {

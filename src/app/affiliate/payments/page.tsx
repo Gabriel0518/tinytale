@@ -673,9 +673,10 @@ function maskValue(val: string | undefined) {
 }
 
 function getTypeLabel(type: string, t: PaymentsCopy) {
-  if (type === "paypal") return t.typeLabels.paypal;
-  if (type === "bank_transfer") return t.typeLabels.bankTransfer;
-  if (type === "usdt") return t.typeLabels.usdt;
+  const normalizedType = type.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (normalizedType === "paypal") return t.typeLabels.paypal;
+  if (normalizedType === "bank_transfer") return t.typeLabels.bankTransfer;
+  if (normalizedType === "usdt") return t.typeLabels.usdt;
   return type;
 }
 
@@ -1107,7 +1108,7 @@ export default function PaymentsPage() {
                     <td className="px-5 py-3 text-white">${w.amount.toFixed(2)}</td>
                     <td className="px-5 py-3 text-gray-400">${(w.fee ?? 0).toFixed(2)}</td>
                     <td className="px-5 py-3 text-white">${(w.netAmount ?? w.amount - (w.fee ?? 0)).toFixed(2)}</td>
-                    <td className="px-5 py-3 text-gray-300">{w.method || "—"}</td>
+                    <td className="px-5 py-3 text-gray-300">{w.method ? getTypeLabel(w.method, t) : "—"}</td>
                     <td className="px-5 py-3">
                       <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[w.status] || ""}`}>
                         {t.statusLabels[w.status] || w.status}

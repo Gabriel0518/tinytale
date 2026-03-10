@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import { profileApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import { detectClientLocale, localizePath, SupportedLocale } from "@/lib/i18n";
+import { detectClientLocale, localizePath, SupportedLocale, SUPPORTED_LOCALES } from "@/lib/i18n";
 
 type Section = "profile" | "security" | "notifications" | "preferences";
 
@@ -1041,6 +1041,23 @@ export default function SettingsPage() {
   const pathname = usePathname();
   const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
   const copy = COPY[locale] || COPY.en;
+  const languageOptions = useMemo(() => {
+    const fallbackLabels: Record<SupportedLocale, string> = {
+      en: "English",
+      zh: "中文",
+      ja: "日本語",
+      es: "Español",
+      pt: "Português",
+      hi: "हिंदी",
+      id: "Bahasa Indonesia",
+    };
+
+    const labels = new Intl.DisplayNames([locale], { type: "language" });
+    return SUPPORTED_LOCALES.map((code) => ({
+      value: code,
+      label: labels.of(code) || fallbackLabels[code],
+    }));
+  }, [locale]);
 
   const { user, token, logout, updateUser } = useAuth();
   const { loading: authLoading } = useAuthGuard();
@@ -1444,13 +1461,18 @@ export default function SettingsPage() {
                     <div>
                       <label htmlFor="settings-audio-lang" className="block text-sm text-gray-400 mb-1.5">{copy.preferences.audioLanguage}</label>
                       <select id="settings-audio-lang" value={audioLang} onChange={e => setAudioLang(e.target.value)} className="w-full bg-zinc-800/50 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:border-red-500 focus:outline-none appearance-none cursor-pointer">
-                        <option value="en">English</option><option value="zh">中文</option><option value="ko">한국어</option><option value="ja">日本語</option><option value="es">Español</option>
+                        {languageOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
                       </select>
                     </div>
                     <div>
                       <label htmlFor="settings-subtitle-lang" className="block text-sm text-gray-400 mb-1.5">{copy.preferences.subtitleLanguage}</label>
                       <select id="settings-subtitle-lang" value={subtitleLang} onChange={e => setSubtitleLang(e.target.value)} className="w-full bg-zinc-800/50 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:border-red-500 focus:outline-none appearance-none cursor-pointer">
-                        <option value="en">English</option><option value="zh">中文</option><option value="ko">한국어</option><option value="ja">日本語</option><option value="es">Español</option><option value="off">{copy.preferences.subtitleOff}</option>
+                        {languageOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                        <option value="off">{copy.preferences.subtitleOff}</option>
                       </select>
                     </div>
                   </div>

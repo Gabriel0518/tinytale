@@ -593,7 +593,7 @@ export default function CoinsPage() {
                       value={redeemCode}
                       onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
                       placeholder={t.enterCode}
-                      aria-label="Redeem code"
+                      aria-label={t.enterCode}
                       className="flex-1 bg-zinc-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-yellow-500 focus:outline-none"
                     />
                     <button onClick={handleRedeem} disabled={!redeemCode.trim()} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-black text-sm font-medium rounded-lg transition disabled:opacity-50">{t.redeem}</button>

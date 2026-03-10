@@ -534,8 +534,8 @@ export default function ProfilePage() {
                   )}
                 </div>
                 {isVip && (
-                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-yellow-500 to-yellow-600 px-2 py-0.5 text-[10px] font-bold text-black">
-                    VIP
+                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-yellow-500 to-yellow-600 px-2 py-0.5 text-[9px] font-bold text-black whitespace-nowrap">
+                    {t.vipMember}
                   </div>
                 )}
               </div>
@@ -651,7 +651,7 @@ function LibraryTab({
           <div className="space-y-3">
             {history.map((item, i) => (
               <Link key={i} href={localizePath(`/drama/${item._id || item.dramaId}`, locale)} className="flex gap-4 rounded-xl bg-white/[0.03] border border-white/5 p-4 transition hover:bg-white/[0.06]">
-                <Image src={item.cover || item.drama?.cover || "https://picsum.photos/seed/drama/200/300"} alt={item.title || item.drama?.title || "Drama"} width={56} height={80} className="h-20 w-14 rounded-lg object-cover" />
+                <Image src={item.cover || item.drama?.cover || "https://picsum.photos/seed/drama/200/300"} alt={item.title || item.drama?.title || t.library.unknownDrama} width={56} height={80} className="h-20 w-14 rounded-lg object-cover" />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-medium text-white truncate">{item.title || item.drama?.title || t.library.unknownDrama}</h3>
                   <p className="mt-1 text-sm text-gray-500">{t.library.episode} {item.lastEpisode || item.episode?.episodeNumber || "-"}</p>

@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
@@ -26,6 +26,8 @@ interface Plan {
 }
 
 type SubscriptionCopy = {
+  close: string;
+  savePercent: (percent: number) => string;
   premiumMember: string;
   vipHeroTitle: string;
   vipHeroDesc: string;
@@ -64,6 +66,8 @@ type SubscriptionCopy = {
 
 const COPY: Record<SupportedLocale, SubscriptionCopy> = {
   en: {
+    close: "Close",
+    savePercent: (percent) => `Save ${percent}%`,
     premiumMember: "Premium Member",
     vipHeroTitle: "YOU'RE A VIP MEMBER",
     vipHeroDesc: "Manage your subscription or renew your premium membership below.",
@@ -104,6 +108,8 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
     proFeatures: ["All Standard features", "Early Access (48h prior)", "4K Ultra HD & HDR", "30 Free Dramas / Month", "50% Off Over Limit"],
   },
   zh: {
+    close: "关闭",
+    savePercent: (percent) => `省 ${percent}%`,
     premiumMember: "尊享会员",
     vipHeroTitle: "你已是 VIP 会员",
     vipHeroDesc: "可在下方管理订阅或续费你的会员服务。",
@@ -144,6 +150,8 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
     proFeatures: ["包含标准版全部权益", "新剧提前 48 小时", "4K 超清与 HDR", "每月 30 部免费看", "超额部分 5 折"],
   },
   ja: {
+    close: "閉じる",
+    savePercent: (percent) => `${percent}% お得`,
     premiumMember: "プレミアム会員",
     vipHeroTitle: "VIP会員です",
     vipHeroDesc: "下記でサブスク管理または更新ができます。",
@@ -184,6 +192,8 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
     proFeatures: ["スタンダード特典すべて", "48時間先行アクセス", "4K Ultra HD & HDR", "毎月30作品無料", "超過分50%オフ"],
   },
   es: {
+    close: "Cerrar",
+    savePercent: (percent) => `Ahorra ${percent}%`,
     premiumMember: "Miembro premium",
     vipHeroTitle: "YA ERES MIEMBRO VIP",
     vipHeroDesc: "Gestiona o renueva tu suscripción abajo.",
@@ -224,6 +234,8 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
     proFeatures: ["Todo lo del plan estándar", "Acceso anticipado (48h)", "4K Ultra HD y HDR", "30 dramas gratis/mes", "50% fuera del cupo"],
   },
   pt: {
+    close: "Fechar",
+    savePercent: (percent) => `Economize ${percent}%`,
     premiumMember: "Membro premium",
     vipHeroTitle: "VOCÊ É MEMBRO VIP",
     vipHeroDesc: "Gerencie ou renove sua assinatura abaixo.",
@@ -264,6 +276,8 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
     proFeatures: ["Todos os recursos do Padrão", "Acesso antecipado (48h)", "4K Ultra HD e HDR", "30 dramas grátis/mês", "50% acima do limite"],
   },
   hi: {
+    close: "बंद करें",
+    savePercent: (percent) => `${percent}% बचत`,
     premiumMember: "प्रीमियम सदस्य",
     vipHeroTitle: "आप VIP सदस्य हैं",
     vipHeroDesc: "नीचे अपनी सदस्यता मैनेज या रिन्यू करें।",
@@ -304,6 +318,8 @@ const COPY: Record<SupportedLocale, SubscriptionCopy> = {
     proFeatures: ["स्टैंडर्ड के सभी लाभ", "48 घंटे अर्ली एक्सेस", "4K Ultra HD और HDR", "30 ड्रामा मुफ्त/माह", "सीमा के बाद 50% छूट"],
   },
   id: {
+    close: "Tutup",
+    savePercent: (percent) => `Hemat ${percent}%`,
     premiumMember: "Anggota premium",
     vipHeroTitle: "KAMU ANGGOTA VIP",
     vipHeroDesc: "Kelola atau perpanjang langgananmu di bawah.",
@@ -369,6 +385,16 @@ export default function SubscriptionPage() {
   const locale = useMemo(() => detectClientLocale(pathname), [pathname]);
   const t = COPY[locale] || COPY.en;
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
+  const formatUsd = useCallback(
+    (value: number) =>
+      new Intl.NumberFormat(dateLocale, {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(value),
+    [dateLocale]
+  );
 
   const { user, token } = useAuth();
   const { loading: authLoading } = useAuthGuard();
@@ -389,17 +415,24 @@ export default function SubscriptionPage() {
         const normalized: Plan[] = rawPlans.map((p: any) => {
           const days = p.durationDays || p.duration || 30;
           const isYearly = days >= 365;
+          const apiSavingsValue = Number.parseFloat(String(p.savings || "").replace(/[^\d.]/g, ""));
+          const savingsLabel = isYearly
+            ? (Number.isFinite(apiSavingsValue) ? t.savePercent(Math.round(apiSavingsValue)) : t.savePercent(16))
+            : null;
+          const monthlyEquivalentLabel = isYearly
+            ? `${formatUsd(p.price / 12)}/${t.periodShort.month}`
+            : null;
           return {
             _id: p._id,
-            name: p.name,
+            name: locale === "en" && p.name ? p.name : (isYearly ? t.proAnnualName : t.standardName),
             price: p.price,
             period: p.period || (isYearly ? "year" : "month"),
             duration: days,
             durationDays: days,
-            features: p.features?.length ? p.features : (isYearly ? t.proFeatures : t.standardFeatures),
+            features: locale === "en" && p.features?.length ? p.features : (isYearly ? t.proFeatures : t.standardFeatures),
             recommended: p.recommended ?? isYearly,
-            savings: p.savings ?? (isYearly ? "Save 16%" : null),
-            monthlyEquivalent: p.monthlyEquivalent ?? (isYearly ? `$${(p.price / 12).toFixed(2)}/month` : null),
+            savings: savingsLabel,
+            monthlyEquivalent: monthlyEquivalentLabel,
           };
         });
         setPlans(normalized);
@@ -412,14 +445,14 @@ export default function SubscriptionPage() {
         setApiAvailable(false);
         setPlans([
           { _id: "sp1", name: t.standardName, price: 9.99, period: "month", duration: 30, features: t.standardFeatures, recommended: false, savings: null, monthlyEquivalent: null },
-          { _id: "sp2", name: t.proAnnualName, price: 99.99, period: "year", duration: 365, features: t.proFeatures, recommended: true, savings: "Save 16%", monthlyEquivalent: "$8.33/month" },
+          { _id: "sp2", name: t.proAnnualName, price: 99.99, period: "year", duration: 365, features: t.proFeatures, recommended: true, savings: t.savePercent(16), monthlyEquivalent: `${formatUsd(99.99 / 12)}/${t.periodShort.month}` },
         ]);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [user, t.proFeatures, t.standardFeatures, t.standardName, t.proAnnualName]);
+  }, [user, locale, t, formatUsd]);
 
   const handleSubscribe = async (planId: string) => {
     if (!token) return;
@@ -473,7 +506,7 @@ export default function SubscriptionPage() {
       `}</style>
       <Navbar />
 
-      <button onClick={() => router.back()} className="fixed top-24 right-6 z-50 w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition" aria-label="close">
+      <button onClick={() => router.back()} className="fixed top-24 right-6 z-50 w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition" aria-label={t.close}>
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
       </button>
 
