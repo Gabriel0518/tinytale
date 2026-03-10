@@ -132,7 +132,7 @@ const COPY: Record<SupportedLocale, ReportsCopy> = {
     searchPlaceholder: "Cari berdasarkan nama drama...",
     exportCsv: "Ekspor CSV",
     tabs: { all: "Semua", confirmed: "Terkonfirmasi", pending: "Menunggu", rejected: "Ditolak" },
-    tableHeaders: ["Tanggal", "Nama drama", "Tautan referral", "ID pengguna", "Jumlah order", "Rate", "Komisi", "Status"],
+    tableHeaders: ["Tanggal", "Nama drama", "Tautan referral", "ID pengguna", "Jumlah order", "Rasio", "Komisi", "Status"],
     noRecords: "Tidak ada data komisi.",
     pageOf: (page, total) => `Halaman ${page} dari ${total}`,
     previous: "Sebelumnya",

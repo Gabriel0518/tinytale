@@ -2,14 +2,13 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useRef, useCallback} from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { useRouter} from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import dynamicImport from "next/dynamic";
 import { useFacebookLogin } from "@/lib/facebookSdk";
-import { useToast } from "@/components/ui/Toast";
 import { TURNSTILE_SITE_KEY } from "@/lib/api";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
@@ -40,8 +39,8 @@ export default function LoginPage() {
   const locale = useLocale();
   const t = LOGIN_TEXT[locale] || LOGIN_TEXT.en;
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login, googleLogin, facebookLogin } = useAuth();
-  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -50,6 +49,13 @@ export default function LoginPage() {
   const [turnstileToken, setTurnstileToken] = useState("");
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
+  const postLoginTarget = useMemo(() => {
+    const redirect = (searchParams.get("redirect") || searchParams.get("returnUrl") || "").trim();
+    if (redirect.startsWith("/") && !redirect.startsWith("//")) {
+      return redirect;
+    }
+    return localizePath("/user/profile", locale);
+  }, [searchParams, locale]);
 
   // Load Turnstile script and render widget
   useEffect(() => {
@@ -110,7 +116,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password, turnstileToken);
-      router.push(localizePath("/user/profile", locale));
+      router.push(postLoginTarget);
     } catch (err: unknown) {
       // Reset Turnstile on error
       resetTurnstile();
@@ -126,7 +132,7 @@ export default function LoginPage() {
     setError("");
     try {
       await googleLogin(accessToken);
-      router.push(localizePath("/user/profile", locale));
+      router.push(postLoginTarget);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t.genericError;
       setError(message || t.googleLoginFailed);
@@ -145,7 +151,7 @@ export default function LoginPage() {
       setError("");
       try {
         await facebookLogin(accessToken);
-        router.push(localizePath("/user/profile", locale));
+        router.push(postLoginTarget);
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : t.genericError;
         setError(message || t.facebookLoginFailed);

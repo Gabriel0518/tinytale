@@ -1,12 +1,11 @@
 "use client";
 export const dynamic = 'force-dynamic';
 
-
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
-import {localizePath } from "@/lib/i18n";
+import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { Line } from "react-chartjs-2";
 import {
@@ -16,7 +15,8 @@ import {
   PointElement,
   LineElement,
   Tooltip,
-  Filler } from "chart.js";
+  Filler,
+} from "chart.js";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler);
 
@@ -39,6 +39,164 @@ interface DashboardData {
   notifications: { _id: string; title: string; message: string; createdAt: string }[];
 }
 
+type DashboardCopy = {
+  title: string;
+  changeSuffix: string;
+  statClicks: string;
+  statRegistrations: string;
+  statPaidUsers: string;
+  statCommission: string;
+  chartLabel: string;
+  earningsTrend: string;
+  days7: string;
+  days30: string;
+  quickLink: string;
+  copy: string;
+  copied: string;
+  latestNotifications: string;
+  viewAll: string;
+  noNotifications: string;
+};
+
+const COPY: Record<SupportedLocale, DashboardCopy> = {
+  en: {
+    title: "Dashboard",
+    changeSuffix: "vs last period",
+    statClicks: "Total Clicks",
+    statRegistrations: "Total Registrations",
+    statPaidUsers: "Paid Users",
+    statCommission: "Total Commission",
+    chartLabel: "Earnings",
+    earningsTrend: "Earnings Trend",
+    days7: "7 Days",
+    days30: "30 Days",
+    quickLink: "Quick Link",
+    copy: "Copy",
+    copied: "Copied!",
+    latestNotifications: "Latest Notifications",
+    viewAll: "View All",
+    noNotifications: "No notifications yet.",
+  },
+  zh: {
+    title: "推广总览",
+    changeSuffix: "较上期",
+    statClicks: "总点击",
+    statRegistrations: "总注册",
+    statPaidUsers: "付费用户",
+    statCommission: "总佣金",
+    chartLabel: "收益",
+    earningsTrend: "收益趋势",
+    days7: "7 天",
+    days30: "30 天",
+    quickLink: "推广链接",
+    copy: "复制",
+    copied: "已复制",
+    latestNotifications: "最新通知",
+    viewAll: "查看全部",
+    noNotifications: "暂无通知。",
+  },
+  ja: {
+    title: "ダッシュボード",
+    changeSuffix: "前期間比",
+    statClicks: "総クリック",
+    statRegistrations: "総登録",
+    statPaidUsers: "課金ユーザー",
+    statCommission: "総コミッション",
+    chartLabel: "収益",
+    earningsTrend: "収益推移",
+    days7: "7日",
+    days30: "30日",
+    quickLink: "紹介リンク",
+    copy: "コピー",
+    copied: "コピーしました",
+    latestNotifications: "最新通知",
+    viewAll: "すべて表示",
+    noNotifications: "通知はまだありません。",
+  },
+  es: {
+    title: "Panel",
+    changeSuffix: "vs período anterior",
+    statClicks: "Clics totales",
+    statRegistrations: "Registros totales",
+    statPaidUsers: "Usuarios de pago",
+    statCommission: "Comisión total",
+    chartLabel: "Ingresos",
+    earningsTrend: "Tendencia de ingresos",
+    days7: "7 días",
+    days30: "30 días",
+    quickLink: "Enlace rápido",
+    copy: "Copiar",
+    copied: "Copiado",
+    latestNotifications: "Notificaciones recientes",
+    viewAll: "Ver todo",
+    noNotifications: "Aún no hay notificaciones.",
+  },
+  pt: {
+    title: "Painel",
+    changeSuffix: "vs período anterior",
+    statClicks: "Cliques totais",
+    statRegistrations: "Registros totais",
+    statPaidUsers: "Usuários pagantes",
+    statCommission: "Comissão total",
+    chartLabel: "Receita",
+    earningsTrend: "Tendência de receita",
+    days7: "7 dias",
+    days30: "30 dias",
+    quickLink: "Link rápido",
+    copy: "Copiar",
+    copied: "Copiado",
+    latestNotifications: "Últimas notificações",
+    viewAll: "Ver tudo",
+    noNotifications: "Sem notificações no momento.",
+  },
+  hi: {
+    title: "डैशबोर्ड",
+    changeSuffix: "पिछली अवधि की तुलना में",
+    statClicks: "कुल क्लिक",
+    statRegistrations: "कुल रजिस्ट्रेशन",
+    statPaidUsers: "पेड यूज़र",
+    statCommission: "कुल कमीशन",
+    chartLabel: "कमाई",
+    earningsTrend: "कमाई ट्रेंड",
+    days7: "7 दिन",
+    days30: "30 दिन",
+    quickLink: "क्विक लिंक",
+    copy: "कॉपी करें",
+    copied: "कॉपी हो गया",
+    latestNotifications: "नवीनतम नोटिफिकेशन",
+    viewAll: "सभी देखें",
+    noNotifications: "अभी तक कोई नोटिफिकेशन नहीं।",
+  },
+  id: {
+    title: "Dasbor",
+    changeSuffix: "vs periode sebelumnya",
+    statClicks: "Total klik",
+    statRegistrations: "Total pendaftaran",
+    statPaidUsers: "Pengguna berbayar",
+    statCommission: "Total komisi",
+    chartLabel: "Pendapatan",
+    earningsTrend: "Tren pendapatan",
+    days7: "7 hari",
+    days30: "30 hari",
+    quickLink: "Tautan cepat",
+    copy: "Salin",
+    copied: "Tersalin",
+    latestNotifications: "Notifikasi terbaru",
+    viewAll: "Lihat semua",
+    noNotifications: "Belum ada notifikasi.",
+  },
+};
+
+const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
+  en: "en-US",
+  zh: "zh-CN",
+  ja: "ja-JP",
+  es: "es-ES",
+  pt: "pt-BR",
+  hi: "hi-IN",
+  id: "id-ID",
+};
+
 function SkeletonCard() {
   return (
     <div className="bg-[#13131d] border border-gray-800/50 rounded-xl p-5 animate-pulse">
@@ -53,10 +211,13 @@ function StatCard({
   label,
   value,
   change,
-  prefix = "" }: {
+  changeSuffix,
+  prefix = "",
+}: {
   label: string;
   value: string;
   change: number;
+  changeSuffix: string;
   prefix?: string;
 }) {
   const isPositive = change >= 0;
@@ -64,10 +225,12 @@ function StatCard({
     <div className="bg-[#13131d] border border-gray-800/50 rounded-xl p-5">
       <p className="text-sm text-gray-400 mb-1">{label}</p>
       <p className="text-2xl font-bold text-white">
-        {prefix}{value}
+        {prefix}
+        {value}
       </p>
       <p className={`text-xs mt-2 ${isPositive ? "text-green-400" : "text-red-400"}`}>
-        {isPositive ? "+" : ""}{change.toFixed(1)}% vs last period
+        {isPositive ? "+" : ""}
+        {change.toFixed(1)}% {changeSuffix}
       </p>
     </div>
   );
@@ -75,6 +238,8 @@ function StatCard({
 
 export default function AffiliateDashboardPage() {
   const locale = useLocale();
+  const t = COPY[locale] || COPY.en;
+  const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
   const { token } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,10 +264,12 @@ export default function AffiliateDashboardPage() {
             paidUsers: d.totalPaidUsers || 0,
             paidUsersChange: d.changePercent || 0,
             totalCommission: d.totalCommission || 0,
-            commissionChange: d.changePercent || 0 },
+            commissionChange: d.changePercent || 0,
+          },
           earningsTrend: { labels, data: values },
           referralLink: d.referralLink || "",
-          notifications: [] });
+          notifications: [],
+        });
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -120,8 +287,7 @@ export default function AffiliateDashboardPage() {
   };
 
   const now = new Date();
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const dateRange = `${monthNames[now.getMonth()]} 1 - ${monthNames[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()}`;
+  const dateRange = now.toLocaleDateString(dateLocale, { year: "numeric", month: "short", day: "numeric" });
 
   const chartLabels = data?.earningsTrend?.labels ?? [];
   const chartValues = data?.earningsTrend?.data ?? [];
@@ -132,7 +298,7 @@ export default function AffiliateDashboardPage() {
     labels: displayLabels,
     datasets: [
       {
-        label: "Earnings",
+        label: t.chartLabel,
         data: displayValues,
         borderColor: "#8b5cf6",
         backgroundColor: (ctx: any) => {
@@ -149,8 +315,10 @@ export default function AffiliateDashboardPage() {
         pointRadius: 3,
         pointBackgroundColor: "#8b5cf6",
         pointBorderColor: "#8b5cf6",
-        borderWidth: 2 },
-    ] };
+        borderWidth: 2,
+      },
+    ],
+  };
 
   const chartOptions = {
     responsive: true,
@@ -163,27 +331,33 @@ export default function AffiliateDashboardPage() {
         borderColor: "#374151",
         borderWidth: 1,
         callbacks: {
-          label: (ctx: any) => `$${ctx.parsed.y.toFixed(2)}` } } },
+          label: (ctx: any) => `$${ctx.parsed.y.toFixed(2)}`,
+        },
+      },
+    },
     scales: {
       x: {
         grid: { color: "rgba(75,85,99,0.2)" },
-        ticks: { color: "#9ca3af", font: { size: 11 } } },
+        ticks: { color: "#9ca3af", font: { size: 11 } },
+      },
       y: {
         grid: { color: "rgba(75,85,99,0.2)" },
         ticks: {
           color: "#9ca3af",
           font: { size: 11 },
-          callback: (val: any) => `$${val}` } } } };
+          callback: (val: any) => `$${val}`,
+        },
+      },
+    },
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-white">{t.title}</h1>
         <span className="text-sm text-gray-400">{dateRange}</span>
       </div>
 
-      {/* Stat Cards */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -193,53 +367,52 @@ export default function AffiliateDashboardPage() {
       ) : data ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            label="Total Clicks"
+            label={t.statClicks}
             value={data.stats.totalClicks.toLocaleString()}
             change={data.stats.clicksChange}
+            changeSuffix={t.changeSuffix}
           />
           <StatCard
-            label="Total Registrations"
+            label={t.statRegistrations}
             value={data.stats.totalRegistrations.toLocaleString()}
             change={data.stats.registrationsChange}
+            changeSuffix={t.changeSuffix}
           />
           <StatCard
-            label="Paid Users"
+            label={t.statPaidUsers}
             value={data.stats.paidUsers.toLocaleString()}
             change={data.stats.paidUsersChange}
+            changeSuffix={t.changeSuffix}
           />
           <StatCard
-            label="Total Commission"
+            label={t.statCommission}
             value={data.stats.totalCommission.toFixed(2)}
             change={data.stats.commissionChange}
+            changeSuffix={t.changeSuffix}
             prefix="$"
           />
         </div>
       ) : null}
 
-      {/* Earnings Trend */}
       <div className="bg-[#13131d] border border-gray-800/50 rounded-xl p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-white">Earnings Trend</h2>
+          <h2 className="text-lg font-semibold text-white">{t.earningsTrend}</h2>
           <div className="flex gap-1 bg-[#1a1a2e] rounded-lg p-1">
             <button
               onClick={() => setChartRange("7")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                chartRange === "7"
-                  ? "bg-purple-600 text-white"
-                  : "text-gray-400 hover:text-white"
+                chartRange === "7" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white"
               }`}
             >
-              7 Days
+              {t.days7}
             </button>
             <button
               onClick={() => setChartRange("30")}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
-                chartRange === "30"
-                  ? "bg-purple-600 text-white"
-                  : "text-gray-400 hover:text-white"
+                chartRange === "30" ? "bg-purple-600 text-white" : "text-gray-400 hover:text-white"
               }`}
             >
-              30 Days
+              {t.days30}
             </button>
           </div>
         </div>
@@ -252,11 +425,9 @@ export default function AffiliateDashboardPage() {
         )}
       </div>
 
-      {/* Quick Link & Notifications */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Quick Link */}
         <div className="bg-[#13131d] border border-gray-800/50 rounded-xl p-5">
-          <h2 className="text-lg font-semibold text-white mb-3">Quick Link</h2>
+          <h2 className="text-lg font-semibold text-white mb-3">{t.quickLink}</h2>
           {loading ? (
             <div className="h-10 bg-gray-700/20 rounded animate-pulse" />
           ) : (
@@ -270,26 +441,23 @@ export default function AffiliateDashboardPage() {
               <button
                 onClick={handleCopy}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  copied
-                    ? "bg-green-600 text-white"
-                    : "bg-purple-600 hover:bg-purple-700 text-white"
+                  copied ? "bg-green-600 text-white" : "bg-purple-600 hover:bg-purple-700 text-white"
                 }`}
               >
-                {copied ? "Copied!" : "Copy"}
+                {copied ? t.copied : t.copy}
               </button>
             </div>
           )}
         </div>
 
-        {/* Latest Notifications */}
         <div className="bg-[#13131d] border border-gray-800/50 rounded-xl p-5">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold text-white">Latest Notifications</h2>
+            <h2 className="text-lg font-semibold text-white">{t.latestNotifications}</h2>
             <Link
               href={localizePath("/user/notifications", locale)}
               className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
             >
-              View All
+              {t.viewAll}
             </Link>
           </div>
           {loading ? (
@@ -301,22 +469,17 @@ export default function AffiliateDashboardPage() {
           ) : data?.notifications?.length ? (
             <div className="space-y-3">
               {data.notifications.slice(0, 3).map((n) => (
-                <div
-                  key={n._id}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-[#1a1a2e]/50"
-                >
+                <div key={n._id} className="flex items-start gap-3 p-3 rounded-lg bg-[#1a1a2e]/50">
                   <div className="w-2 h-2 mt-1.5 rounded-full bg-purple-500 shrink-0" />
                   <div className="min-w-0">
                     <p className="text-sm text-gray-200 font-medium truncate">{n.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {new Date(n.createdAt).toLocaleDateString()}
-                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">{new Date(n.createdAt).toLocaleDateString(dateLocale)}</p>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">No notifications yet.</p>
+            <p className="text-sm text-gray-500">{t.noNotifications}</p>
           )}
         </div>
       </div>
