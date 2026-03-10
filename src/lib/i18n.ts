@@ -78,14 +78,29 @@ export function getCookieLocale(): SupportedLocale | null {
 }
 
 export function detectClientLocale(pathname?: string): SupportedLocale {
-  const pathLocale = pathname ? extractLocaleFromPath(pathname) : null;
-  if (pathLocale) return pathLocale;
+  const candidates: Array<string | undefined> = [pathname];
+  if (typeof window !== 'undefined') {
+    candidates.push(window.location.pathname);
+  }
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const pathLocale = extractLocaleFromPath(candidate);
+    if (pathLocale) return pathLocale;
+  }
 
   const cookieLocale = getCookieLocale();
   if (cookieLocale) return cookieLocale;
 
+  if (typeof document !== 'undefined') {
+    const htmlLang = document.documentElement.lang?.trim().toLowerCase();
+    if (isSupportedLocale(htmlLang)) {
+      return htmlLang;
+    }
+  }
+
   if (typeof navigator !== 'undefined') {
-    const browserLocale = parseAcceptLanguageHeader(navigator.language);
+    const browserLocale = parseAcceptLanguageHeader(navigator.languages?.join(',') || navigator.language);
     if (browserLocale) return browserLocale;
   }
 
