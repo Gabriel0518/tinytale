@@ -88,6 +88,22 @@ class ApiClient {
     return data;
   }
 
+  async patch<T>(endpoint: string, body?: any, options: FetchOptions = {}): Promise<T> {
+    const { token, ...requestOptions } = options;
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'PATCH',
+      ...requestOptions,
+      headers: this.getHeaders({ ...requestOptions, token }),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Request failed');
+    }
+    return data;
+  }
+
   async delete<T>(endpoint: string, options: FetchOptions = {}): Promise<T> {
     const { token, ...requestOptions } = options;
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
@@ -333,6 +349,56 @@ export const adminApi = {
 
   getLanguageRegionLibrary: (force = false, token = getAdminToken()) =>
     api.get(`/api/i18n/region-library${force ? '?force=1' : ''}`, { token }),
+
+  // Settings - Country Catalog
+  getCountryCatalog: (
+    params?: { q?: string; tier?: number | ''; enabled?: 'true' | 'false' | ''; page?: number; limit?: number },
+    token = getAdminToken()
+  ) => {
+    const query = params
+      ? new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(params)
+              .filter(([, v]) => v !== undefined && v !== null && v !== '')
+              .map(([k, v]) => [k, String(v)])
+          )
+        ).toString()
+      : '';
+    return api.get(`/api/admin/settings/countries${query ? `?${query}` : ''}`, { token });
+  },
+
+  updateCountryCatalogItem: (id: string, data: any, token = getAdminToken()) =>
+    api.put(`/api/admin/settings/countries/${id}`, data, { token }),
+
+  setCountryCatalogEnabled: (id: string, enabled: boolean, token = getAdminToken()) =>
+    api.patch(`/api/admin/settings/countries/${id}/enabled`, { enabled }, { token }),
+
+  importCountryCatalog: (rows: any[], mode: 'upsert' | 'replace' = 'upsert', token = getAdminToken()) =>
+    api.post('/api/admin/settings/countries/import', { rows, mode }, { token }),
+
+  exportCountryCatalog: async (format: 'tsv' | 'csv' | 'json' = 'tsv', token = getAdminToken()) => {
+    const response = await fetch(`${API_URL}/api/admin/settings/countries/export?format=${format}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      let message = 'Request failed';
+      try {
+        const err = await response.json();
+        message = err?.error?.message || message;
+      } catch {}
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('content-disposition') || '';
+    const matched = contentDisposition.match(/filename="?([^"]+)"?/i);
+    const filename = matched?.[1] || `country-catalog.${format}`;
+    return { blob, filename };
+  },
 
   // Settings - VIP Plans
   getVipPlans: (token = getAdminToken()) =>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { adminApi } from "@/lib/adminApi";
 import { ALL_COUNTRIES } from "@/lib/countries";
@@ -49,7 +49,21 @@ interface RegionLibrarySummary {
   activeCustomRulesCount: number;
 }
 
-type TabKey = "recharge" | "vip" | "playback" | "promotion" | "email" | "payment" | "social" | "language_region";
+type TabKey = "recharge" | "vip" | "playback" | "promotion" | "email" | "payment" | "social" | "language_region" | "country_catalog";
+
+interface CountryCatalogItem {
+  _id: string;
+  countryEn: string;
+  countryCn: string;
+  alpha2: string;
+  alpha3: string;
+  timezone: string;
+  currencyCode: string;
+  currencySymbol: string;
+  currencyName: string;
+  tier: number;
+  enabled: boolean;
+}
 
 const LANGUAGE_OPTIONS: { value: SupportedLanguageCode; label: string }[] = [
   { value: "en", label: "English (en)" },
@@ -169,6 +183,15 @@ const CONFIG_GROUPS: { key: TabKey; label: string; icon: JSX.Element }[] = [
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8M12 3c2.25 2.25 3.5 5.25 3.5 9s-1.25 6.75-3.5 9m0-18c-2.25 2.25-3.5 5.25-3.5 9s1.25 6.75 3.5 9" />
+      </svg>
+    ),
+  },
+  {
+    key: "country_catalog",
+    label: "Country Catalog",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 4.5h16.5m-16.5 6h16.5m-16.5 6h16.5m-16.5 3h16.5" />
       </svg>
     ),
   },
@@ -361,6 +384,19 @@ export default function AdminSettingsPage() {
   const [languageRegionRules, setLanguageRegionRules] = useState<LanguageRegionRule[]>([]);
   const [regionLibrarySummary, setRegionLibrarySummary] = useState<RegionLibrarySummary | null>(null);
 
+  /* ── Country catalog ── */
+  const [countryKeyword, setCountryKeyword] = useState("");
+  const [countryTierFilter, setCountryTierFilter] = useState<"" | "1" | "2" | "3">("");
+  const [countryEnabledFilter, setCountryEnabledFilter] = useState<"" | "true" | "false">("");
+  const [countryItems, setCountryItems] = useState<CountryCatalogItem[]>([]);
+  const [countryPage, setCountryPage] = useState(1);
+  const [countryLimit] = useState(20);
+  const [countryTotal, setCountryTotal] = useState(0);
+  const [countryTotalPages, setCountryTotalPages] = useState(1);
+  const [countryBusy, setCountryBusy] = useState(false);
+  const [editingCountry, setEditingCountry] = useState<CountryCatalogItem | null>(null);
+  const countryImportInputRef = useRef<HTMLInputElement | null>(null);
+
   /* ── toast helper ── */
   const showToast = (msg: string) => {
     setToast(msg);
@@ -462,6 +498,40 @@ export default function AdminSettingsPage() {
     } catch {}
   }, []);
 
+  const loadCountryCatalog = useCallback(async (params?: {
+    page?: number;
+    q?: string;
+    tier?: "" | "1" | "2" | "3";
+    enabled?: "" | "true" | "false";
+  }) => {
+    const targetPage = params?.page ?? countryPage;
+    const q = params?.q ?? countryKeyword;
+    const tier = params?.tier ?? countryTierFilter;
+    const enabled = params?.enabled ?? countryEnabledFilter;
+    setCountryBusy(true);
+    setLoading(true);
+    try {
+      const res: any = await adminApi.getCountryCatalog({
+        q: q || undefined,
+        tier: tier ? Number(tier) : undefined,
+        enabled: enabled || undefined,
+        page: targetPage,
+        limit: countryLimit,
+      });
+      const data = res?.data || {};
+      const pagination = data?.pagination || {};
+      setCountryItems(Array.isArray(data?.items) ? data.items : []);
+      setCountryPage(Number(pagination.page || targetPage || 1));
+      setCountryTotal(Number(pagination.total || 0));
+      setCountryTotalPages(Number(pagination.totalPages || 1));
+    } catch {
+      showToast("Failed to load country catalog");
+    } finally {
+      setCountryBusy(false);
+      setLoading(false);
+    }
+  }, [countryPage, countryKeyword, countryTierFilter, countryEnabledFilter, countryLimit]);
+
   /* ── save settings helper ── */
   const saveSettings = async (settingsArr: { key: string; value: any; category: string }[]) => {
     setSaving(true);
@@ -477,11 +547,15 @@ export default function AdminSettingsPage() {
 
   /* ── load on tab change ── */
   useEffect(() => {
+    if (activeTab === "country_catalog") {
+      loadCountryCatalog({ page: 1 });
+      return;
+    }
     const category = activeTab === "language_region" ? "i18n" : activeTab;
     loadSettings(category);
     if (activeTab === "vip") loadVipPlans();
     if (activeTab === "language_region") loadRegionLibrarySummary();
-  }, [activeTab, loadSettings, loadVipPlans, loadRegionLibrarySummary]);
+  }, [activeTab, loadSettings, loadVipPlans, loadRegionLibrarySummary, loadCountryCatalog]);
 
   /* ═══════════════════════════════════════════════════════════
      RENDER
@@ -554,6 +628,7 @@ export default function AdminSettingsPage() {
           {!loading && activeTab === "payment" && renderPayment()}
           {!loading && activeTab === "social" && renderSocial()}
           {!loading && activeTab === "language_region" && renderLanguageRegion()}
+          {!loading && activeTab === "country_catalog" && renderCountryCatalog()}
         </div>
       </div>
     </div>
@@ -1194,6 +1269,375 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         </SectionCard>
+      </>
+    );
+  }
+
+  /* ───────── Tab 9: Country Catalog ───────── */
+  function renderCountryCatalog() {
+    const splitDelimitedLine = (line: string, delimiter: "," | "\t") => {
+      if (delimiter === "\t") return line.split("\t");
+      const result: string[] = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i += 1) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i += 1;
+            continue;
+          }
+          inQuotes = !inQuotes;
+          continue;
+        }
+        if (ch === delimiter && !inQuotes) {
+          result.push(current);
+          current = "";
+          continue;
+        }
+        current += ch;
+      }
+      result.push(current);
+      return result;
+    };
+
+    const normalizeHeaderKey = (value: string) =>
+      String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+
+    const parseImportRows = async (file: File): Promise<any[]> => {
+      const text = await file.text();
+      if (!text.trim()) return [];
+
+      if (file.name.toLowerCase().endsWith(".json")) {
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed?.data?.items)) return parsed.data.items;
+        if (Array.isArray(parsed?.data)) return parsed.data;
+        if (Array.isArray(parsed?.items)) return parsed.items;
+        return [];
+      }
+
+      const delimiter: "," | "\t" = text.includes("\t") ? "\t" : ",";
+      const lines = text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (lines.length <= 1) return [];
+
+      const headers = splitDelimitedLine(lines[0], delimiter).map(normalizeHeaderKey);
+      const rows: any[] = [];
+
+      for (const line of lines.slice(1)) {
+        const cols = splitDelimitedLine(line, delimiter);
+        const row: any = {};
+        headers.forEach((key, idx) => {
+          row[key] = String(cols[idx] ?? "").trim();
+        });
+        rows.push({
+          countryEn: row.countryen || row.country || row.countryname || "",
+          countryCn: row.countrycn || "",
+          alpha2: row.alpha2 || "",
+          alpha3: row.alpha3 || "",
+          timezone: row.timezone || "",
+          currencyCode: row.currencycode || "",
+          currencySymbol: row.currencysymbol || "",
+          currencyName: row.currencyname || "",
+          tier: Number.parseInt(String(row.tier || "3"), 10) || 3,
+          enabled: !["false", "0", "no", "off", "disabled"].includes(String(row.enabled || "true").toLowerCase()),
+        });
+      }
+      return rows;
+    };
+
+    const handleSearch = async () => {
+      await loadCountryCatalog({ page: 1 });
+    };
+
+    const handleResetFilters = async () => {
+      setCountryKeyword("");
+      setCountryTierFilter("");
+      setCountryEnabledFilter("");
+      await loadCountryCatalog({ page: 1, q: "", tier: "", enabled: "" });
+    };
+
+    const handleToggleEnabled = async (item: CountryCatalogItem) => {
+      try {
+        await adminApi.setCountryCatalogEnabled(item._id, !item.enabled);
+        setCountryItems((prev) =>
+          prev.map((row) => (row._id === item._id ? { ...row, enabled: !item.enabled } : row))
+        );
+        showToast(`Country ${!item.enabled ? "enabled" : "disabled"}`);
+      } catch {
+        showToast("Failed to update country status");
+      }
+    };
+
+    const handleSaveCountry = async () => {
+      if (!editingCountry?._id) return;
+      try {
+        await adminApi.updateCountryCatalogItem(editingCountry._id, {
+          countryEn: editingCountry.countryEn,
+          countryCn: editingCountry.countryCn,
+          alpha2: editingCountry.alpha2,
+          alpha3: editingCountry.alpha3,
+          timezone: editingCountry.timezone,
+          currencyCode: editingCountry.currencyCode,
+          currencySymbol: editingCountry.currencySymbol,
+          currencyName: editingCountry.currencyName,
+          tier: editingCountry.tier,
+          enabled: editingCountry.enabled,
+        });
+        setEditingCountry(null);
+        showToast("Country updated");
+        await loadCountryCatalog({ page: countryPage });
+      } catch {
+        showToast("Failed to update country");
+      }
+    };
+
+    const handleImportClick = () => {
+      countryImportInputRef.current?.click();
+    };
+
+    const handleImportFile = async (e: any) => {
+      const file = e.target.files?.[0];
+      e.target.value = "";
+      if (!file) return;
+
+      try {
+        setCountryBusy(true);
+        const rows = await parseImportRows(file);
+        if (!rows.length) {
+          showToast("No valid rows found in import file");
+          return;
+        }
+        const res: any = await adminApi.importCountryCatalog(rows, "upsert");
+        const summary = res?.data || {};
+        showToast(`Import done: ${summary.valid ?? rows.length} valid, ${summary.inserted ?? 0} inserted, ${summary.updated ?? 0} updated`);
+        await loadCountryCatalog({ page: 1 });
+      } catch {
+        showToast("Failed to import country catalog");
+      } finally {
+        setCountryBusy(false);
+      }
+    };
+
+    const handleExport = async (format: "tsv" | "csv" | "json") => {
+      try {
+        setCountryBusy(true);
+        const { blob, filename } = await adminApi.exportCountryCatalog(format);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename || `country-catalog.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        showToast(`Exported ${format.toUpperCase()} successfully`);
+      } catch {
+        showToast("Failed to export country catalog");
+      } finally {
+        setCountryBusy(false);
+      }
+    };
+
+    return (
+      <>
+        <input
+          ref={countryImportInputRef}
+          type="file"
+          accept=".json,.tsv,.csv,text/tab-separated-values,text/csv,application/json"
+          className="hidden"
+          onChange={handleImportFile}
+        />
+
+        <SectionCard title="Country Catalog Management">
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-[2fr,1fr,1fr,auto]">
+              <div>
+                <FieldLabel>Search</FieldLabel>
+                <TextInput value={countryKeyword} onChange={setCountryKeyword} placeholder="Country name / Alpha code / Currency code" />
+              </div>
+              <div>
+                <FieldLabel>Tier</FieldLabel>
+                <SelectInput
+                  value={countryTierFilter}
+                  onChange={(value) => setCountryTierFilter(value as "" | "1" | "2" | "3")}
+                  options={[
+                    { value: "", label: "All Tiers" },
+                    { value: "1", label: "Tier 1" },
+                    { value: "2", label: "Tier 2" },
+                    { value: "3", label: "Tier 3" },
+                  ]}
+                />
+              </div>
+              <div>
+                <FieldLabel>Status</FieldLabel>
+                <SelectInput
+                  value={countryEnabledFilter}
+                  onChange={(value) => setCountryEnabledFilter(value as "" | "true" | "false")}
+                  options={[
+                    { value: "", label: "All Status" },
+                    { value: "true", label: "Enabled" },
+                    { value: "false", label: "Disabled" },
+                  ]}
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <PrimaryBtn onClick={handleSearch}>Search</PrimaryBtn>
+                <SecondaryBtn onClick={handleResetFilters}>Reset</SecondaryBtn>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-gray-400">
+                Total records: <span className="font-medium text-gray-200">{countryTotal}</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <SecondaryBtn onClick={handleImportClick}>Import</SecondaryBtn>
+                <SecondaryBtn onClick={() => handleExport("tsv")}>Export TSV</SecondaryBtn>
+                <SecondaryBtn onClick={() => handleExport("json")}>Export JSON</SecondaryBtn>
+                <SecondaryBtn onClick={() => loadCountryCatalog({ page: countryPage })}>Refresh</SecondaryBtn>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-gray-700/50">
+              <table className="w-full text-sm">
+                <thead className="bg-[#1a1a2e]">
+                  <tr className="text-left text-xs uppercase tracking-wider text-gray-500">
+                    <th className="px-3 py-3">Alpha2</th>
+                    <th className="px-3 py-3">Country EN</th>
+                    <th className="px-3 py-3">Country CN</th>
+                    <th className="px-3 py-3">Tier</th>
+                    <th className="px-3 py-3">Currency</th>
+                    <th className="px-3 py-3">Timezone</th>
+                    <th className="px-3 py-3">Status</th>
+                    <th className="px-3 py-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700/40 bg-[#13131d]">
+                  {!countryItems.length && (
+                    <tr>
+                      <td colSpan={8} className="px-3 py-8 text-center text-gray-500">
+                        No countries found.
+                      </td>
+                    </tr>
+                  )}
+                  {countryItems.map((item) => (
+                    <tr key={item._id} className="text-gray-300">
+                      <td className="px-3 py-3 font-medium">{item.alpha2}</td>
+                      <td className="px-3 py-3">{item.countryEn}</td>
+                      <td className="px-3 py-3 text-gray-400">{item.countryCn || "-"}</td>
+                      <td className="px-3 py-3">Tier {item.tier}</td>
+                      <td className="px-3 py-3">{item.currencyCode} {item.currencySymbol ? `(${item.currencySymbol})` : ""}</td>
+                      <td className="px-3 py-3 text-gray-400">{item.timezone || "-"}</td>
+                      <td className="px-3 py-3">
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${item.enabled ? "bg-emerald-500/20 text-emerald-400" : "bg-gray-700/60 text-gray-400"}`}>
+                          {item.enabled ? "Enabled" : "Disabled"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setEditingCountry({ ...item })} className="text-xs font-medium text-indigo-400 hover:text-indigo-300">
+                            Edit
+                          </button>
+                          <button onClick={() => handleToggleEnabled(item)} className="text-xs font-medium text-amber-400 hover:text-amber-300">
+                            {item.enabled ? "Disable" : "Enable"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                Page {countryPage} / {countryTotalPages}
+              </p>
+              <div className="flex gap-2">
+                <SecondaryBtn onClick={() => loadCountryCatalog({ page: Math.max(1, countryPage - 1) })}>Prev</SecondaryBtn>
+                <SecondaryBtn onClick={() => loadCountryCatalog({ page: Math.min(countryTotalPages, countryPage + 1) })}>Next</SecondaryBtn>
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        {editingCountry && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-3xl rounded-xl border border-gray-700/50 bg-[#13131d] p-6 shadow-2xl">
+              <h3 className="mb-5 text-lg font-semibold text-gray-200">Edit Country</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <FieldLabel>Country EN</FieldLabel>
+                  <TextInput value={editingCountry.countryEn} onChange={(value) => setEditingCountry({ ...editingCountry, countryEn: value })} />
+                </div>
+                <div>
+                  <FieldLabel>Country CN</FieldLabel>
+                  <TextInput value={editingCountry.countryCn} onChange={(value) => setEditingCountry({ ...editingCountry, countryCn: value })} />
+                </div>
+                <div>
+                  <FieldLabel>Alpha2</FieldLabel>
+                  <TextInput value={editingCountry.alpha2} onChange={(value) => setEditingCountry({ ...editingCountry, alpha2: value.toUpperCase() })} />
+                </div>
+                <div>
+                  <FieldLabel>Alpha3</FieldLabel>
+                  <TextInput value={editingCountry.alpha3} onChange={(value) => setEditingCountry({ ...editingCountry, alpha3: value.toUpperCase() })} />
+                </div>
+                <div>
+                  <FieldLabel>Timezone</FieldLabel>
+                  <TextInput value={editingCountry.timezone} onChange={(value) => setEditingCountry({ ...editingCountry, timezone: value })} />
+                </div>
+                <div>
+                  <FieldLabel>Tier</FieldLabel>
+                  <SelectInput
+                    value={String(editingCountry.tier)}
+                    onChange={(value) => setEditingCountry({ ...editingCountry, tier: Number(value) || 3 })}
+                    options={[
+                      { value: "1", label: "Tier 1" },
+                      { value: "2", label: "Tier 2" },
+                      { value: "3", label: "Tier 3" },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <FieldLabel>Currency Code</FieldLabel>
+                  <TextInput value={editingCountry.currencyCode} onChange={(value) => setEditingCountry({ ...editingCountry, currencyCode: value.toUpperCase() })} />
+                </div>
+                <div>
+                  <FieldLabel>Currency Symbol</FieldLabel>
+                  <TextInput value={editingCountry.currencySymbol} onChange={(value) => setEditingCountry({ ...editingCountry, currencySymbol: value })} />
+                </div>
+                <div className="md:col-span-2">
+                  <FieldLabel>Currency Name</FieldLabel>
+                  <TextInput value={editingCountry.currencyName} onChange={(value) => setEditingCountry({ ...editingCountry, currencyName: value })} />
+                </div>
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-200">Enabled</p>
+                      <p className="text-xs text-gray-500">Disabled countries will not appear in public country query APIs.</p>
+                    </div>
+                    <Toggle checked={editingCountry.enabled} onChange={(value) => setEditingCountry({ ...editingCountry, enabled: value })} />
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end gap-3">
+                <SecondaryBtn onClick={() => setEditingCountry(null)}>Cancel</SecondaryBtn>
+                <PrimaryBtn onClick={handleSaveCountry} disabled={countryBusy || saving}>
+                  {countryBusy || saving ? "Saving..." : "Save Country"}
+                </PrimaryBtn>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
   }
