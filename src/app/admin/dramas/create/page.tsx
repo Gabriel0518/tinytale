@@ -164,6 +164,20 @@ export default function CreateDramaPage() {
   const router = useRouter();
   const { toast } = useToast();
   const stepVideoCleanupRef = useRef<(() => Promise<boolean>) | null>(null);
+  const publishLockRef = useRef(false);
+
+  const navigateToDramaManagement = useCallback(() => {
+    router.replace("/admin/dramas");
+
+    // Fallback: if client navigation is blocked/stuck, force hard redirect.
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        if (window.location.pathname.includes("/admin/dramas/create")) {
+          window.location.assign("/admin/dramas");
+        }
+      }, 600);
+    }
+  }, [router]);
 
   const validateStep = useCallback((stepNum: number): string | null => {
     if (stepNum === 1) {
@@ -216,6 +230,10 @@ export default function CreateDramaPage() {
   }, [form]);
 
   const handlePublish = async (status: "published" | "draft") => {
+    if (publishLockRef.current || saving) {
+      return;
+    }
+
     if (status === "published") {
       for (const stepNum of [1, 2, 3, 4]) {
         const error = validateStep(stepNum);
@@ -228,8 +246,10 @@ export default function CreateDramaPage() {
       }
     }
 
+    publishLockRef.current = true;
     setStepError(null);
     setSaving(true);
+    let publishSucceeded = false;
     try {
       const result = await adminApi.createDrama({
         title: form.dramaName,
@@ -252,6 +272,9 @@ export default function CreateDramaPage() {
       }) as any;
 
       const dramaId = result?.data?._id || result?._id;
+      if (!dramaId) {
+        throw new Error("Create drama succeeded but no drama id was returned.");
+      }
 
       // Create Episode records for each uploaded/split episode
       if (dramaId && form.episodes.length > 0) {
@@ -271,12 +294,16 @@ export default function CreateDramaPage() {
         await Promise.all(episodePromises);
       }
 
+      publishSucceeded = true;
       toast("Drama created successfully", "success");
-      router.push("/admin/dramas");
+      navigateToDramaManagement();
     } catch (err: any) {
       toast(err.message || "Failed to create drama", "error");
     } finally {
-      setSaving(false);
+      if (!publishSucceeded) {
+        publishLockRef.current = false;
+        setSaving(false);
+      }
     }
   };
 
@@ -536,7 +563,7 @@ export default function CreateDramaPage() {
               Create New Drama
             </h1>
           </div>
-          <button onClick={() => handlePublish("draft")} disabled={saving || !!coverUploading} className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50">
+          <button type="button" onClick={() => void handlePublish("draft")} disabled={saving || !!coverUploading} className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50">
             {saving ? "Saving..." : coverUploading ? "Uploading cover..." : "Save as Draft"}
           </button>
         </div>
@@ -643,6 +670,7 @@ export default function CreateDramaPage() {
       <footer className="sticky bottom-0 z-50 border-t border-gray-800 bg-[#0f0f17]/95 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
           <button
+            type="button"
             onClick={() => void handleCancelFlow()}
             disabled={cancelingFlow}
             className="rounded-lg border border-gray-700 px-5 py-2 text-sm font-medium text-gray-300 transition-colors hover:border-gray-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
@@ -653,6 +681,7 @@ export default function CreateDramaPage() {
           <div className="flex items-center gap-3">
             {step > 1 && (
               <button
+                type="button"
                 onClick={prevStep}
                 className="rounded-lg border border-gray-700 px-5 py-2 text-sm font-medium text-gray-300 transition-colors hover:border-gray-500 hover:text-white"
               >
@@ -661,13 +690,14 @@ export default function CreateDramaPage() {
             )}
             {step < 4 ? (
               <button
+                type="button"
                 onClick={nextStep}
                 className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
               >
                 Next Step &rarr;
               </button>
             ) : (
-              <button onClick={() => handlePublish("published")} disabled={saving || !!coverUploading} className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50">
+              <button type="button" onClick={() => void handlePublish("published")} disabled={saving || !!coverUploading} className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:opacity-50">
                 {saving ? "Publishing..." : coverUploading ? "Uploading cover..." : "Publish"}
               </button>
             )}
