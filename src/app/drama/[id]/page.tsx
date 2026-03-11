@@ -2,14 +2,14 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useRef, useCallback, Suspense} from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense} from "react";
 import { useParams, useRouter, useSearchParams} from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { dramasApi, reviewsApi, userApi, coinsApi, episodesApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
-import { Drama, Episode, Review, StreamPlaybackInfo } from "@/types";
+import { Drama, Episode, EpisodeAccessResult, Review, StreamPlaybackInfo } from "@/types";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import { DramaCard } from "@/components/features/DramaCard";
@@ -251,13 +251,20 @@ function PlayerInner({
   );
 }
 
+function getEpisodeEffectiveUnlockPrice(episode: Episode, access?: EpisodeAccessResult): number {
+  if (typeof access?.unlockPrice === "number" && Number.isFinite(access.unlockPrice)) {
+    return access.unlockPrice;
+  }
+  return episode.unlockPrice;
+}
+
 function DramaDetailContent() {
   const locale = useLocale();
   const t = DRAMA_TEXT[locale] || DRAMA_TEXT.en;
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, token, refreshUser } = useAuth();
+  const { token, refreshUser } = useAuth();
   const { toast } = useToast();
   const dramaId = params.id as string;
   const playerRef = useRef<CloudflarePlayerHandle>(null) as React.RefObject<CloudflarePlayerHandle>;
@@ -277,6 +284,11 @@ function DramaDetailContent() {
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [unlockingAll, setUnlockingAll] = useState(false);
   const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
+  const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
+  const unlockedEpisodeIdsKey = useMemo(
+    () => Array.from(unlockedEpisodeIds).sort().join(","),
+    [unlockedEpisodeIds]
+  );
 
   // Fetch drama data
   useEffect(() => {
@@ -343,6 +355,46 @@ function DramaDetailContent() {
     fetchUnlocked();
   }, [token, dramaId, episodes.length]);
 
+  // Fetch effective access/price for locked episodes (VIP free quota / VIP discount)
+  useEffect(() => {
+    if (!token || episodes.length === 0) {
+      setEpisodeAccessMap({});
+      return;
+    }
+
+    const lockedPaidEpisodes = episodes.filter((ep) => !ep.isFree && !unlockedEpisodeIds.has(ep._id));
+    if (lockedPaidEpisodes.length === 0) {
+      setEpisodeAccessMap({});
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        lockedPaidEpisodes.map(async (ep) => {
+          try {
+            const res = await episodesApi.checkAccess(ep._id, token);
+            const access = (res as any)?.data ?? res;
+            return [ep._id, access as EpisodeAccessResult] as const;
+          } catch {
+            return [ep._id, { hasAccess: false, reason: "locked", unlockPrice: ep.unlockPrice } as EpisodeAccessResult] as const;
+          }
+        })
+      );
+      if (cancelled) return;
+
+      const nextMap: Record<string, EpisodeAccessResult> = {};
+      for (const [episodeId, access] of entries) {
+        nextMap[episodeId] = access;
+      }
+      setEpisodeAccessMap(nextMap);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, episodes, unlockedEpisodeIdsKey]);
+
   // Fetch stream info when active episode changes
   useEffect(() => {
     if (!activeEpisode) {
@@ -373,9 +425,19 @@ function DramaDetailContent() {
         router.push(`${localizePath('/auth/login', locale)}?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
-      const confirmed = window.confirm(
-        `${t.unlockAll}: ${episode.unlockPrice} ${t.coins}?`
-      );
+      const access = episodeAccessMap[episode._id];
+      const effectivePrice = getEpisodeEffectiveUnlockPrice(episode, access);
+      let confirmMessage = `${t.unlockAll}: ${effectivePrice} ${t.coins}?`;
+      if (access?.reason === "vip_monthly_free_available") {
+        confirmMessage = `${t.unlockAll}: 0 ${t.coins}? (${t.vip} ${t.free})`;
+      } else if (
+        access?.reason === "vip_discount" &&
+        typeof access.originalUnlockPrice === "number" &&
+        access.originalUnlockPrice > effectivePrice
+      ) {
+        confirmMessage = `${t.unlockAll}: ${effectivePrice} ${t.coins}? (${t.vip} ${access.originalUnlockPrice} -> ${effectivePrice})`;
+      }
+      const confirmed = window.confirm(confirmMessage);
       if (!confirmed) return;
       // Call unlock API (P1-19)
       try {
@@ -383,18 +445,31 @@ function DramaDetailContent() {
         const unlockData = res?.data || res;
         toast(t.unlockSuccess, "success");
         await refreshUser();
-        setUnlockedEpisodeIds(prev => new Set(prev).add(episode._id));
+        if ((unlockData?.unlockedCount || 1) > 1) {
+          setUnlockedEpisodeIds((prev) => {
+            const next = new Set(prev);
+            episodes.filter((ep) => !ep.isFree).forEach((ep) => next.add(ep._id));
+            return next;
+          });
+        } else {
+          setUnlockedEpisodeIds((prev) => new Set(prev).add(episode._id));
+        }
       } catch (err: unknown) {
         toast(err instanceof Error ? err.message : t.unlockFail, "error");
         return;
       }
     }
     setActiveEpisode(episode);
-  }, [token, toast, router, user, refreshUser, unlockedEpisodeIds, t.signInUnlock, t.unlockSuccess, t.unlockFail]);
+  }, [token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.unlockSuccess, t.unlockFail]);
 
   // Unlock all paid episodes
-  const lockedEpisodes = episodes.filter(ep => !ep.isFree && ep.unlockPrice > 0 && !unlockedEpisodeIds.has(ep._id));
-  const totalUnlockCost = lockedEpisodes.reduce((sum, ep) => sum + ep.unlockPrice, 0);
+  const lockedEpisodes = episodes.filter(ep => !ep.isFree && !unlockedEpisodeIds.has(ep._id));
+  const totalUnlockCost = lockedEpisodes.reduce(
+    (sum, ep) => sum + getEpisodeEffectiveUnlockPrice(ep, episodeAccessMap[ep._id]),
+    0
+  );
+  const originalTotalUnlockCost = lockedEpisodes.reduce((sum, ep) => sum + ep.unlockPrice, 0);
+  const unlockAllDiscountCoins = Math.max(originalTotalUnlockCost - totalUnlockCost, 0);
 
   const handleUnlockAll = useCallback(async () => {
     if (!token) {
@@ -407,9 +482,11 @@ function DramaDetailContent() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `${t.unlockAll}: ${lockedEpisodes.length} ${t.episodes} (${totalUnlockCost} ${t.coins})?`
-    );
+    let confirmMessage = `${t.unlockAll}: ${lockedEpisodes.length} ${t.episodes} (${totalUnlockCost} ${t.coins})?`;
+    if (unlockAllDiscountCoins > 0) {
+      confirmMessage += `\n${t.vip}: -${unlockAllDiscountCoins} ${t.coins}`;
+    }
+    const confirmed = window.confirm(confirmMessage);
     if (!confirmed) return;
 
     setUnlockingAll(true);
@@ -442,7 +519,7 @@ function DramaDetailContent() {
     } finally {
       setUnlockingAll(false);
     }
-  }, [token, dramaId, lockedEpisodes.length, totalUnlockCost, toast, router, refreshUser, t.signInUnlock, t.unlockAllNone, t.unlockAllSuccessSuffix, t.insufficientCoins, t.unlockAllFail]);
+  }, [token, dramaId, lockedEpisodes.length, totalUnlockCost, unlockAllDiscountCoins, toast, router, refreshUser, t.signInUnlock, t.unlockAllNone, t.unlockAll, t.episodes, t.coins, t.vip, t.unlockAllSuccessSuffix, t.insufficientCoins, t.unlockAllFail]);
 
   // Fix favorite toggle logic (P0-05) + auth check (P1-18)
   const toggleFavorite = async () => {
@@ -608,8 +685,12 @@ function DramaDetailContent() {
                             </svg>
                             {t.unlocked}
                           </span>
-                        ) : ep.unlockPrice > 0 ? (
-                          <span className="rounded bg-yellow-600/80 px-1.5 py-0.5 text-[10px] font-medium text-white">{ep.unlockPrice} {t.coins}</span>
+                        ) : episodeAccessMap[ep._id]?.reason === "vip_monthly_free_available" ? (
+                          <span className="rounded bg-purple-600/80 px-1.5 py-0.5 text-[10px] font-medium text-white">{t.vip} {t.free}</span>
+                        ) : getEpisodeEffectiveUnlockPrice(ep, episodeAccessMap[ep._id]) > 0 ? (
+                          <span className="rounded bg-yellow-600/80 px-1.5 py-0.5 text-[10px] font-medium text-white">
+                            {getEpisodeEffectiveUnlockPrice(ep, episodeAccessMap[ep._id])} {t.coins}
+                          </span>
                         ) : (
                           <span className="rounded bg-purple-600/80 px-1.5 py-0.5 text-[10px] font-medium text-white">{t.vip}</span>
                         )}
@@ -630,7 +711,9 @@ function DramaDetailContent() {
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                         </svg>
-                        {t.unlockAll} ({totalUnlockCost} {t.coins})
+                        {unlockAllDiscountCoins > 0
+                          ? `${t.unlockAll} (${originalTotalUnlockCost} -> ${totalUnlockCost} ${t.coins})`
+                          : `${t.unlockAll} (${totalUnlockCost} ${t.coins})`}
                       </>
                     )}
                   </button>

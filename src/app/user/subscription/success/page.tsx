@@ -13,7 +13,7 @@ import { useLocale } from "@/hooks/useLocale";
 
 type VipCopy = {
   title: string;
-  paidOk: (amount: number) => string;
+  paidOk: (amountLabel: string) => string;
   activated: string;
   perks: string;
   viewSubscription: string;
@@ -26,7 +26,7 @@ type VipCopy = {
 const COPY: Record<SupportedLocale, VipCopy> = {
   en: {
     title: "Welcome to TinyTale Premium!",
-    paidOk: (amount) => `$${amount.toFixed(2)} paid successfully. Your VIP membership is now active.`,
+    paidOk: (amountLabel) => `${amountLabel} paid successfully. Your VIP membership is now active.`,
     activated: "VIP Activated",
     perks: "Enjoy ad-free viewing, early access, and all premium benefits",
     viewSubscription: "View Subscription",
@@ -36,7 +36,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     backToSubscription: "Back to Subscription" },
   zh: {
     title: "欢迎加入 TinyTale Premium！",
-    paidOk: (amount) => `已成功支付 $${amount.toFixed(2)}，你的 VIP 会员已开通。`,
+    paidOk: (amountLabel) => `已成功支付 ${amountLabel}，你的 VIP 会员已开通。`,
     activated: "VIP 已激活",
     perks: "享受无广告、抢先看和全部高级权益",
     viewSubscription: "查看订阅",
@@ -46,7 +46,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     backToSubscription: "返回订阅页" },
   ja: {
     title: "TinyTale Premiumへようこそ！",
-    paidOk: (amount) => `$${amount.toFixed(2)} の支払いが完了し、VIPが有効になりました。`,
+    paidOk: (amountLabel) => `${amountLabel} の支払いが完了し、VIPが有効になりました。`,
     activated: "VIP有効化済み",
     perks: "広告なし・先行視聴・プレミアム特典を利用できます",
     viewSubscription: "サブスクを見る",
@@ -56,7 +56,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     backToSubscription: "サブスクへ戻る" },
   es: {
     title: "¡Bienvenido a TinyTale Premium!",
-    paidOk: (amount) => `Pago de $${amount.toFixed(2)} completado. Tu membresía VIP ya está activa.`,
+    paidOk: (amountLabel) => `Pago de ${amountLabel} completado. Tu membresía VIP ya está activa.`,
     activated: "VIP activado",
     perks: "Disfruta sin anuncios, acceso anticipado y todos los beneficios premium",
     viewSubscription: "Ver suscripción",
@@ -66,7 +66,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     backToSubscription: "Volver a Suscripción" },
   pt: {
     title: "Bem-vindo ao TinyTale Premium!",
-    paidOk: (amount) => `Pagamento de $${amount.toFixed(2)} concluído. Sua assinatura VIP está ativa.`,
+    paidOk: (amountLabel) => `Pagamento de ${amountLabel} concluído. Sua assinatura VIP está ativa.`,
     activated: "VIP ativado",
     perks: "Aproveite sem anúncios, acesso antecipado e todos os benefícios premium",
     viewSubscription: "Ver assinatura",
@@ -76,7 +76,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     backToSubscription: "Voltar para Assinatura" },
   hi: {
     title: "TinyTale Premium में आपका स्वागत है!",
-    paidOk: (amount) => `$${amount.toFixed(2)} का भुगतान सफल। आपका VIP अब सक्रिय है।`,
+    paidOk: (amountLabel) => `${amountLabel} का भुगतान सफल। आपका VIP अब सक्रिय है।`,
     activated: "VIP सक्रिय",
     perks: "बिना विज्ञापन, पहले एक्सेस और सभी प्रीमियम लाभ पाएं",
     viewSubscription: "सदस्यता देखें",
@@ -86,7 +86,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
     backToSubscription: "सदस्यता पर वापस जाएँ" },
   id: {
     title: "Selamat datang di TinyTale Premium!",
-    paidOk: (amount) => `Pembayaran $${amount.toFixed(2)} berhasil. Keanggotaan VIP kamu kini aktif.`,
+    paidOk: (amountLabel) => `Pembayaran ${amountLabel} berhasil. Keanggotaan VIP kamu kini aktif.`,
     activated: "VIP aktif",
     perks: "Nikmati bebas iklan, akses awal, dan semua manfaat premium",
     viewSubscription: "Lihat langganan",
@@ -103,6 +103,31 @@ function VIPSuccessContent() {
   const sessionId = searchParams.get("session_id");
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [amount, setAmount] = useState(0);
+  const [currency, setCurrency] = useState("USD");
+
+  const amountLocale = ({
+    en: "en-US",
+    zh: "zh-CN",
+    ja: "ja-JP",
+    es: "es-ES",
+    pt: "pt-BR",
+    hi: "hi-IN",
+    id: "id-ID",
+  } as const)[locale] || "en-US";
+
+  const formatAmount = (value: number, currencyCode: string) => {
+    const normalized = (currencyCode || "USD").toUpperCase();
+    try {
+      return new Intl.NumberFormat(amountLocale, {
+        style: "currency",
+        currency: normalized,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(Number(value || 0));
+    } catch {
+      return `${normalized} ${Number(value || 0).toFixed(2)}`;
+    }
+  };
 
   useEffect(() => {
     if (!sessionId || !token) return;
@@ -112,6 +137,7 @@ function VIPSuccessContent() {
         const d = res.data;
         if (d.status === "paid" && d.transactionStatus === "completed") {
           setAmount(d.amount);
+          setCurrency((d.currency || "USD").toUpperCase());
           setStatus("success");
           await refreshUser();
         } else {
@@ -137,7 +163,7 @@ function VIPSuccessContent() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold mb-3">{t.title}</h1>
-          <p className="text-gray-400 mb-6">{t.paidOk(amount)}</p>
+          <p className="text-gray-400 mb-6">{t.paidOk(formatAmount(amount, currency))}</p>
           <div className="bg-zinc-900/60 rounded-xl border border-yellow-500/20 p-6 mb-8">
             <div className="flex items-center justify-center gap-2 text-2xl font-bold text-yellow-400">
               <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z" /></svg>

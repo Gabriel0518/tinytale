@@ -13,7 +13,7 @@ import { useLocale } from "@/hooks/useLocale";
 
 type SuccessCopy = {
   paymentSuccess: string;
-  paidOk: (amount: number) => string;
+  paidOk: (amountLabel: string) => string;
   bonusCoins: (bonus: number) => string;
   buyMore: string;
   startWatching: string;
@@ -25,7 +25,7 @@ type SuccessCopy = {
 const COPY: Record<SupportedLocale, SuccessCopy> = {
   en: {
     paymentSuccess: "Payment Successful",
-    paidOk: (amount) => `$${amount.toFixed(2)} paid successfully`,
+    paidOk: (amountLabel) => `${amountLabel} paid successfully`,
     bonusCoins: (bonus) => `+${bonus.toLocaleString()} Bonus Coins`,
     buyMore: "Buy More",
     startWatching: "Start Watching",
@@ -34,7 +34,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     backToCoins: "Back to Coins" },
   zh: {
     paymentSuccess: "支付成功",
-    paidOk: (amount) => `已成功支付 $${amount.toFixed(2)}`,
+    paidOk: (amountLabel) => `已成功支付 ${amountLabel}`,
     bonusCoins: (bonus) => `+${bonus.toLocaleString()} 奖励金币`,
     buyMore: "继续购买",
     startWatching: "开始观看",
@@ -43,7 +43,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     backToCoins: "返回金币页" },
   ja: {
     paymentSuccess: "支払い完了",
-    paidOk: (amount) => `$${amount.toFixed(2)} の支払いが完了しました`,
+    paidOk: (amountLabel) => `${amountLabel} の支払いが完了しました`,
     bonusCoins: (bonus) => `+${bonus.toLocaleString()} ボーナスコイン`,
     buyMore: "さらに購入",
     startWatching: "視聴を開始",
@@ -52,7 +52,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     backToCoins: "コインページへ戻る" },
   es: {
     paymentSuccess: "Pago exitoso",
-    paidOk: (amount) => `Pago de $${amount.toFixed(2)} completado`,
+    paidOk: (amountLabel) => `Pago de ${amountLabel} completado`,
     bonusCoins: (bonus) => `+${bonus.toLocaleString()} monedas extra`,
     buyMore: "Comprar más",
     startWatching: "Comenzar a ver",
@@ -61,7 +61,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     backToCoins: "Volver a Monedas" },
   pt: {
     paymentSuccess: "Pagamento concluído",
-    paidOk: (amount) => `Pagamento de $${amount.toFixed(2)} concluído`,
+    paidOk: (amountLabel) => `Pagamento de ${amountLabel} concluído`,
     bonusCoins: (bonus) => `+${bonus.toLocaleString()} moedas bônus`,
     buyMore: "Comprar mais",
     startWatching: "Começar a assistir",
@@ -70,7 +70,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     backToCoins: "Voltar para Moedas" },
   hi: {
     paymentSuccess: "भुगतान सफल",
-    paidOk: (amount) => `$${amount.toFixed(2)} का भुगतान सफल रहा`,
+    paidOk: (amountLabel) => `${amountLabel} का भुगतान सफल रहा`,
     bonusCoins: (bonus) => `+${bonus.toLocaleString()} बोनस कॉइन्स`,
     buyMore: "और खरीदें",
     startWatching: "देखना शुरू करें",
@@ -79,7 +79,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
     backToCoins: "कॉइन्स पर वापस जाएँ" },
   id: {
     paymentSuccess: "Pembayaran berhasil",
-    paidOk: (amount) => `Pembayaran $${amount.toFixed(2)} berhasil`,
+    paidOk: (amountLabel) => `Pembayaran ${amountLabel} berhasil`,
     bonusCoins: (bonus) => `+${bonus.toLocaleString()} koin bonus`,
     buyMore: "Beli lagi",
     startWatching: "Mulai menonton",
@@ -97,6 +97,31 @@ function PaymentSuccessContent() {
   const [coins, setCoins] = useState(0);
   const [bonus, setBonus] = useState(0);
   const [amount, setAmount] = useState(0);
+  const [currency, setCurrency] = useState("USD");
+
+  const amountLocale = ({
+    en: "en-US",
+    zh: "zh-CN",
+    ja: "ja-JP",
+    es: "es-ES",
+    pt: "pt-BR",
+    hi: "hi-IN",
+    id: "id-ID",
+  } as const)[locale] || "en-US";
+
+  const formatAmount = (value: number, currencyCode: string) => {
+    const normalized = (currencyCode || "USD").toUpperCase();
+    try {
+      return new Intl.NumberFormat(amountLocale, {
+        style: "currency",
+        currency: normalized,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(Number(value || 0));
+    } catch {
+      return `${normalized} ${Number(value || 0).toFixed(2)}`;
+    }
+  };
 
   useEffect(() => {
     if (!sessionId || !token) return;
@@ -108,6 +133,7 @@ function PaymentSuccessContent() {
           setCoins(d.coins);
           setBonus(d.bonus);
           setAmount(d.amount);
+          setCurrency((d.currency || "USD").toUpperCase());
           setStatus("success");
           await refreshUser();
         } else {
@@ -133,7 +159,7 @@ function PaymentSuccessContent() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold mb-3">{t.paymentSuccess}</h1>
-          <p className="text-gray-400 mb-6">{t.paidOk(amount)}</p>
+          <p className="text-gray-400 mb-6">{t.paidOk(formatAmount(amount, currency))}</p>
           <div className="bg-zinc-900/60 rounded-xl border border-yellow-500/20 p-6 mb-8">
             <div className="flex items-center justify-center gap-2 text-2xl font-bold text-yellow-400">
               <span>+{coins.toLocaleString()}</span>

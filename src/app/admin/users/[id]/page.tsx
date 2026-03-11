@@ -12,6 +12,7 @@ interface UserData {
   email: string;
   avatar?: string;
   coins: number;
+  silverCoins: number;
   status: "active" | "banned";
   vipStatus: "vip" | "standard" | "none";
   vipExpiry: string | null;
@@ -151,6 +152,7 @@ export default function UserDetailPage() {
 
   // Coin modal fields
   const [coinType, setCoinType] = useState<"add" | "deduct">("add");
+  const [coinWallet, setCoinWallet] = useState<"gold" | "silver">("gold");
   const [coinAmount, setCoinAmount] = useState("");
   const [coinReason, setCoinReason] = useState("");
   const [coinNote, setCoinNote] = useState("");
@@ -186,6 +188,7 @@ export default function UserDetailPage() {
           email: u.email || "",
           avatar: u.avatar || "",
           coins: u.coins || 0,
+          silverCoins: u.silverCoins || 0,
           status: u.status || "active",
           vipStatus: u.vipStatus === "active" ? "vip" : u.vipStatus === "expired" ? "none" : u.vipStatus || "none",
           vipExpiry: u.vipExpireDate || u.vipExpiry || null,
@@ -335,20 +338,35 @@ export default function UserDetailPage() {
   const handleCoinAdjust = async () => {
     if (!coinAmount || !coinReason) return;
     const adjustedAmount = coinType === "deduct" ? -Math.abs(Number(coinAmount)) : Math.abs(Number(coinAmount));
+    const payload =
+      coinWallet === "silver"
+        ? {
+            silverCoinAdjustment: adjustedAmount,
+            reason: coinReason,
+            note: coinNote,
+          }
+        : {
+            coinAdjustment: adjustedAmount,
+            reason: coinReason,
+            note: coinNote,
+          };
     try {
-      await adminApi.updateUser(id as string, {
-        coinAdjustment: adjustedAmount,
-        reason: coinReason,
-        note: coinNote,
-      });
+      await adminApi.updateUser(id as string, payload);
     } catch {
       // fallback: apply locally
     }
     setUser((prev) =>
-      prev ? { ...prev, coins: prev.coins + adjustedAmount } : prev
+      prev
+        ? {
+            ...prev,
+            coins: coinWallet === "gold" ? prev.coins + adjustedAmount : prev.coins,
+            silverCoins: coinWallet === "silver" ? prev.silverCoins + adjustedAmount : prev.silverCoins,
+          }
+        : prev
     );
     setShowCoinModal(false);
     setCoinType("add");
+    setCoinWallet("gold");
     setCoinAmount("");
     setCoinReason("");
     setCoinNote("");
@@ -405,8 +423,8 @@ export default function UserDetailPage() {
         <div className="animate-pulse space-y-4">
           <div className="h-4 w-48 rounded bg-gray-700" />
           <div className="h-32 rounded-xl bg-[#13131d]" />
-          <div className="grid grid-cols-6 gap-4">
-            {[...Array(6)].map((_, i) => (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-7">
+            {[...Array(7)].map((_, i) => (
               <div key={i} className="h-24 rounded-xl bg-[#13131d]" />
             ))}
           </div>
@@ -520,7 +538,7 @@ export default function UserDetailPage() {
       </div>
 
       {/* ── Stats Cards ─────────────────────────────────── */}
-      <div className="mb-6 grid grid-cols-6 gap-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-7">
         {/* Membership */}
         <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-4">
           <div className="mb-2 flex items-center gap-2">
@@ -546,6 +564,19 @@ export default function UserDetailPage() {
             <span className="text-xs text-gray-500">Coins Balance</span>
           </div>
           <p className="text-lg font-semibold text-white">{user.coins.toLocaleString()}</p>
+        </div>
+
+        {/* Silver Coins Balance */}
+        <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-4">
+          <div className="mb-2 flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-500/20">
+              <svg className="h-4 w-4 text-slate-300" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm0 2.2a1.1 1.1 0 011.1 1.1v.15a3.35 3.35 0 011.96 1.07.9.9 0 11-1.38 1.16 1.56 1.56 0 00-1.23-.56c-.64 0-1.05.33-1.05.76 0 .45.42.67 1.41.94 1.28.34 2.84.9 2.84 2.78 0 1.5-1.04 2.56-2.65 2.83v.17a1.1 1.1 0 11-2.2 0v-.2a3.62 3.62 0 01-2.31-1.2.9.9 0 111.38-1.16c.4.47 1.03.74 1.71.74.7 0 1.17-.31 1.17-.8 0-.56-.55-.77-1.62-1.07-1.2-.34-2.63-.91-2.63-2.67 0-1.45 1.05-2.5 2.56-2.77v-.12A1.1 1.1 0 0110 4.2z" />
+              </svg>
+            </div>
+            <span className="text-xs text-gray-500">Silver Balance</span>
+          </div>
+          <p className="text-lg font-semibold text-white">{user.silverCoins.toLocaleString()}</p>
         </div>
 
         {/* Total Recharge */}
@@ -957,7 +988,27 @@ export default function UserDetailPage() {
               <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
                 <p className="text-xs text-gray-500 mb-1">Current Balance</p>
                 <p className="text-xs text-gray-400 mb-2">User: {user.nickname} (ID: {user.userId})</p>
-                <p className="text-2xl font-bold text-yellow-400">{user.coins.toLocaleString()} <span className="text-base">&#8383;</span></p>
+                <div className="space-y-1">
+                  <p className={`text-lg font-semibold ${coinWallet === "gold" ? "text-yellow-400" : "text-gray-300"}`}>
+                    Gold: {user.coins.toLocaleString()}
+                  </p>
+                  <p className={`text-lg font-semibold ${coinWallet === "silver" ? "text-slate-300" : "text-gray-500"}`}>
+                    Silver: {user.silverCoins.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Wallet */}
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-400">Wallet</label>
+                <select
+                  value={coinWallet}
+                  onChange={(e) => setCoinWallet(e.target.value as "gold" | "silver")}
+                  className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none"
+                >
+                  <option value="gold">Gold Coins</option>
+                  <option value="silver">Silver Coins</option>
+                </select>
               </div>
 
               {/* Type */}
@@ -985,7 +1036,9 @@ export default function UserDetailPage() {
                     min="0"
                     className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-2.5 pr-16 text-sm text-white placeholder-gray-600 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-500">COINS</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-500">
+                    {coinWallet === "gold" ? "GOLD" : "SILVER"}
+                  </span>
                 </div>
               </div>
 

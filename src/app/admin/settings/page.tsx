@@ -33,6 +33,43 @@ interface VipPrivileges {
   termsUrl: string;
 }
 
+const DEFAULT_VIP_PRIVILEGES: VipPrivileges = {
+  adFree: true,
+  highQuality: true,
+  earlyAccess: false,
+  coinDiscount: 10,
+  freeMonthlyDramas: 30,
+  overLimitDiscount: 50,
+  termsUrl: "",
+};
+
+function normalizeNonNegativeInt(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return Math.floor(parsed);
+}
+
+function normalizePercent(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed < 0) return 0;
+  if (parsed > 100) return 100;
+  return parsed;
+}
+
+function discountRateToPercent(value: unknown, fallbackPercent: number): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallbackPercent;
+  if (parsed >= 0 && parsed <= 1) return parsed * 100;
+  return normalizePercent(parsed, fallbackPercent);
+}
+
+function normalizeBoolean(value: unknown, fallback: boolean): boolean {
+  if (value === true || value === "true" || value === 1 || value === "1") return true;
+  if (value === false || value === "false" || value === 0 || value === "0") return false;
+  return fallback;
+}
+
 type SupportedLanguageCode = "en" | "zh" | "ja" | "es" | "pt" | "hi" | "id";
 
 interface LanguageRegionRule {
@@ -335,9 +372,7 @@ export default function AdminSettingsPage() {
   /* ── VIP state ── */
   const [vipPlans, setVipPlans] = useState<VipPlan[]>([]);
   const [editingPlan, setEditingPlan] = useState<VipPlan | null>(null);
-  const [vipPrivileges, setVipPrivileges] = useState<VipPrivileges>({
-    adFree: true, highQuality: true, earlyAccess: false, coinDiscount: 10, freeMonthlyDramas: 30, overLimitDiscount: 50, termsUrl: "",
-  });
+  const [vipPrivileges, setVipPrivileges] = useState<VipPrivileges>(DEFAULT_VIP_PRIVILEGES);
 
   /* ── Playback state ── */
   const [videoQuality, setVideoQuality] = useState("720p");
@@ -422,9 +457,47 @@ export default function AdminSettingsPage() {
           try { setTiers(typeof map.get("recharge_tiers") === "string" ? JSON.parse(map.get("recharge_tiers")) : map.get("recharge_tiers")); } catch {}
         }
       } else if (category === "vip") {
+        const nextPrivileges: VipPrivileges = { ...DEFAULT_VIP_PRIVILEGES };
+
         if (map.has("vip_privileges")) {
-          try { setVipPrivileges(typeof map.get("vip_privileges") === "string" ? JSON.parse(map.get("vip_privileges")) : map.get("vip_privileges")); } catch {}
+          try {
+            const raw = map.get("vip_privileges");
+            const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+            if (parsed && typeof parsed === "object") {
+              nextPrivileges.adFree = normalizeBoolean((parsed as any).adFree, nextPrivileges.adFree);
+              nextPrivileges.highQuality = normalizeBoolean((parsed as any).highQuality, nextPrivileges.highQuality);
+              nextPrivileges.earlyAccess = normalizeBoolean((parsed as any).earlyAccess, nextPrivileges.earlyAccess);
+              nextPrivileges.coinDiscount = normalizePercent((parsed as any).coinDiscount, nextPrivileges.coinDiscount);
+              nextPrivileges.freeMonthlyDramas = normalizeNonNegativeInt(
+                (parsed as any).freeMonthlyDramas,
+                nextPrivileges.freeMonthlyDramas
+              );
+              nextPrivileges.overLimitDiscount = normalizePercent(
+                (parsed as any).overLimitDiscount,
+                nextPrivileges.overLimitDiscount
+              );
+              nextPrivileges.termsUrl = String((parsed as any).termsUrl || nextPrivileges.termsUrl);
+            }
+          } catch {}
         }
+
+        if (map.has("vip_monthly_free_drama_quota")) {
+          nextPrivileges.freeMonthlyDramas = normalizeNonNegativeInt(
+            map.get("vip_monthly_free_drama_quota"),
+            nextPrivileges.freeMonthlyDramas
+          );
+        }
+        if (map.has("vip_over_limit_discount_rate")) {
+          nextPrivileges.overLimitDiscount = normalizePercent(
+            discountRateToPercent(
+              map.get("vip_over_limit_discount_rate"),
+              nextPrivileges.overLimitDiscount
+            ),
+            nextPrivileges.overLimitDiscount
+          );
+        }
+
+        setVipPrivileges(nextPrivileges);
       } else if (category === "playback") {
         if (map.has("video_quality")) setVideoQuality(map.get("video_quality") as string);
         if (map.has("auto_play")) setAutoPlay(map.get("auto_play") === "true" || map.get("auto_play") === true);
@@ -839,8 +912,32 @@ export default function AdminSettingsPage() {
       } catch { showToast("Failed to update plan"); }
     };
 
-    const handleSavePerks = () =>
-      saveSettings([{ key: "vip_privileges", value: JSON.stringify(vipPrivileges), category: "vip" }]);
+    const handleSavePerks = () => {
+      const normalizedPrivileges: VipPrivileges = {
+        ...vipPrivileges,
+        coinDiscount: normalizePercent(vipPrivileges.coinDiscount, DEFAULT_VIP_PRIVILEGES.coinDiscount),
+        freeMonthlyDramas: normalizeNonNegativeInt(
+          vipPrivileges.freeMonthlyDramas,
+          DEFAULT_VIP_PRIVILEGES.freeMonthlyDramas
+        ),
+        overLimitDiscount: normalizePercent(
+          vipPrivileges.overLimitDiscount,
+          DEFAULT_VIP_PRIVILEGES.overLimitDiscount
+        ),
+        termsUrl: String(vipPrivileges.termsUrl || "").trim(),
+      };
+
+      setVipPrivileges(normalizedPrivileges);
+      return saveSettings([
+        { key: "vip_privileges", value: JSON.stringify(normalizedPrivileges), category: "vip" },
+        { key: "vip_monthly_free_drama_quota", value: normalizedPrivileges.freeMonthlyDramas, category: "vip" },
+        {
+          key: "vip_over_limit_discount_rate",
+          value: Number((normalizedPrivileges.overLimitDiscount / 100).toFixed(4)),
+          category: "vip",
+        },
+      ]);
+    };
 
     return (
       <>

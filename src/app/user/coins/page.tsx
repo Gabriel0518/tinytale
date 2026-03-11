@@ -1,7 +1,7 @@
 "use client";
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect} from "react";
+import { useCallback, useState, useEffect} from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -13,12 +13,19 @@ import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 
 interface CoinPackage {
+  id?: string;
   _id: string;
   coins: number;
   price: number;
   bonus: number;
   tag: string | null;
   originalPrice: number | null;
+}
+
+interface PricingContext {
+  tier: 1 | 2 | 3;
+  countryCode: string;
+  currencyCode: string;
 }
 
 type PaymentMethod = "stripe" | "paypal" | "apple_pay";
@@ -69,7 +76,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     notes: [
       "Coins are non-refundable once purchased.",
       "Bonus coins are valid for 30 days from the date of purchase.",
-      "All prices are in USD. Taxes may apply based on your region.",
+      "Prices use USD as the base. Stripe Checkout may show local currency based on your location.",
     ],
     orderSummary: "Order Summary",
     selectedCoins: (coins) => `${coins.toLocaleString()} Coins`,
@@ -105,7 +112,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     notes: [
       "金币购买后不支持退款。",
       "赠送金币自购买之日起 30 天内有效。",
-      "价格以 USD 计，税费可能因地区而异。",
+      "价格以 USD 为基准，Stripe 结账时可能根据地区显示本地货币。",
     ],
     orderSummary: "订单摘要",
     selectedCoins: (coins) => `${coins.toLocaleString()} 金币`,
@@ -141,7 +148,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     notes: [
       "購入したコインは返金できません。",
       "ボーナスコインは購入日から30日間有効です。",
-      "価格はすべてUSD表示です。地域により税金が適用される場合があります。",
+      "価格はUSD基準です。Stripeチェックアウトでは地域に応じて現地通貨表示になる場合があります。",
     ],
     orderSummary: "注文概要",
     selectedCoins: (coins) => `${coins.toLocaleString()} コイン`,
@@ -177,7 +184,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     notes: [
       "Las monedas no son reembolsables una vez compradas.",
       "Las monedas de bono son válidas por 30 días desde la compra.",
-      "Todos los precios están en USD. Pueden aplicar impuestos según tu región.",
+      "Los precios usan USD como base. Stripe Checkout puede mostrar moneda local según tu ubicación.",
     ],
     orderSummary: "Resumen del pedido",
     selectedCoins: (coins) => `${coins.toLocaleString()} monedas`,
@@ -213,7 +220,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     notes: [
       "As moedas não são reembolsáveis após a compra.",
       "As moedas bônus são válidas por 30 dias a partir da compra.",
-      "Todos os preços estão em USD. Impostos podem variar por região.",
+      "Os preços usam USD como base. O Stripe Checkout pode mostrar moeda local conforme sua região.",
     ],
     orderSummary: "Resumo do pedido",
     selectedCoins: (coins) => `${coins.toLocaleString()} moedas`,
@@ -249,7 +256,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     notes: [
       "एक बार खरीदे गए कॉइन्स रिफंड नहीं होते।",
       "बोनस कॉइन्स खरीद की तारीख से 30 दिन तक मान्य हैं।",
-      "सभी कीमतें USD में हैं। क्षेत्र के अनुसार टैक्स लागू हो सकता है।",
+      "कीमतें USD को आधार मानती हैं। Stripe Checkout आपके क्षेत्र के अनुसार स्थानीय मुद्रा दिखा सकता है।",
     ],
     orderSummary: "ऑर्डर सारांश",
     selectedCoins: (coins) => `${coins.toLocaleString()} कॉइन्स`,
@@ -285,7 +292,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
     notes: [
       "Koin tidak dapat dikembalikan setelah dibeli.",
       "Koin bonus berlaku 30 hari sejak tanggal pembelian.",
-      "Semua harga dalam USD. Pajak dapat berlaku sesuai wilayah.",
+      "Harga menggunakan USD sebagai dasar. Stripe Checkout dapat menampilkan mata uang lokal sesuai wilayahmu.",
     ],
     orderSummary: "Ringkasan pesanan",
     selectedCoins: (coins) => `${coins.toLocaleString()} koin`,
@@ -309,35 +316,72 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
       invalidCode: "Kode tidak valid atau kedaluwarsa",
       genericError: "Terjadi kesalahan" } } };
 
+const CHECKOUT_CONTEXT_COPY: Record<SupportedLocale, (countryCode: string, currencyCode: string) => string> = {
+  en: (countryCode, currencyCode) => `Checkout region: ${countryCode}, settlement display currency may be ${currencyCode}.`,
+  zh: (countryCode, currencyCode) => `结账地区：${countryCode}，最终展示货币可能为 ${currencyCode}。`,
+  ja: (countryCode, currencyCode) => `チェックアウト地域: ${countryCode}、表示通貨は ${currencyCode} になる可能性があります。`,
+  es: (countryCode, currencyCode) => `Región de checkout: ${countryCode}. La moneda mostrada puede ser ${currencyCode}.`,
+  pt: (countryCode, currencyCode) => `Região do checkout: ${countryCode}. A moeda exibida pode ser ${currencyCode}.`,
+  hi: (countryCode, currencyCode) => `चेकआउट क्षेत्र: ${countryCode}। अंतिम प्रदर्शित मुद्रा ${currencyCode} हो सकती है।`,
+  id: (countryCode, currencyCode) => `Wilayah checkout: ${countryCode}. Mata uang yang ditampilkan bisa ${currencyCode}.`,
+};
+
 export default function CoinsPage() {
   const locale = useLocale();
   const t = COPY[locale] || COPY.en;
+  const checkoutContextHint = CHECKOUT_CONTEXT_COPY[locale] || CHECKOUT_CONTEXT_COPY.en;
+  const localeTag = ({
+    en: "en-US",
+    zh: "zh-CN",
+    ja: "ja-JP",
+    es: "es-ES",
+    pt: "pt-BR",
+    hi: "hi-IN",
+    id: "id-ID",
+  } as const)[locale] || "en-US";
+  const formatUsd = useCallback(
+    (value: number) =>
+      new Intl.NumberFormat(localeTag, {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(Number(value || 0)),
+    [localeTag]
+  );
 
   const { user, token, refreshUser } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const { toast } = useToast();
   const [packages, setPackages] = useState<CoinPackage[]>([]);
+  const [pricingContext, setPricingContext] = useState<PricingContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
   const [redeemCode, setRedeemCode] = useState("");
   const [showRedeem, setShowRedeem] = useState(false);
   const [balance, setBalance] = useState(0);
+  const [silverBalance, setSilverBalance] = useState(0);
 
   useEffect(() => {
     if (!user) return;
     setBalance(user.coins || 0);
+    setSilverBalance(user.silverCoins || 0);
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
       try {
-        const res = await coinsApi.getPackages();
-        const pkgs = res.data || [];
+        const res = await coinsApi.getPackages() as { data?: CoinPackage[]; pricingContext?: PricingContext };
+        const pkgs = (res.data || [])
+          .map((item) => ({ ...item, _id: String(item._id || item.id || "") }))
+          .filter((item) => item._id);
         setPackages(pkgs);
+        setPricingContext(res.pricingContext || null);
         if (pkgs.length > 0) setSelectedPkg(pkgs[1]?._id || pkgs[0]._id);
       } catch {
+        setPricingContext(null);
         setPackages([
           { _id: "p1", coins: 100, price: 0.99, bonus: 0, tag: null, originalPrice: null },
           { _id: "p2", coins: 550, price: 4.99, bonus: 50, tag: "Popular", originalPrice: 5.99 },
@@ -422,6 +466,20 @@ export default function CoinsPage() {
                 <span className="text-4xl font-bold bg-clip-text text-transparent bg-[length:200%_auto] animate-shine bg-[linear-gradient(90deg,#FFD700_0%,#FFF8DC_25%,#FFD700_50%,#FFF8DC_75%,#FFD700_100%)]">{balance.toLocaleString()}</span>
                 <span className="text-yellow-300/60 text-lg">{t.coinsUnit}</span>
               </div>
+              <div className="mt-3 flex items-center gap-2">
+                <svg className="h-6 w-6 text-gray-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" fill="url(#silverGrad)" />
+                  <text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#334155">S</text>
+                  <defs>
+                    <linearGradient id="silverGrad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#f1f5f9" />
+                      <stop offset="100%" stopColor="#94a3b8" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <span className="text-lg font-semibold text-gray-100">{silverBalance.toLocaleString()}</span>
+                <span className="text-sm text-gray-400">Silver Coins</span>
+              </div>
             </div>
             <Link href={localizePath("/user/purchases", locale)} className="flex items-center gap-2 text-sm text-yellow-300/70 hover:text-yellow-200 transition">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -461,9 +519,9 @@ export default function CoinsPage() {
                       <p className="text-xs text-red-400 font-medium mb-2">+{pkg.bonus.toLocaleString()} {t.bonus}</p>
                     )}
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-white">${pkg.price}</span>
+                      <span className="text-lg font-bold text-white">{formatUsd(pkg.price)}</span>
                       {pkg.originalPrice && (
-                        <span className="text-xs text-gray-500 line-through">${pkg.originalPrice}</span>
+                        <span className="text-xs text-gray-500 line-through">{formatUsd(pkg.originalPrice)}</span>
                       )}
                     </div>
                     {isSelected && (
@@ -481,6 +539,11 @@ export default function CoinsPage() {
                 <svg className="w-5 h-5 text-yellow-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
                 <div className="text-sm text-gray-400 space-y-1">
                   {t.notes.map((note) => <p key={note}>{note}</p>)}
+                  {pricingContext && (
+                    <p>
+                      {checkoutContextHint(pricingContext.countryCode, pricingContext.currencyCode)}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -497,7 +560,7 @@ export default function CoinsPage() {
                         <svg className="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="url(#coinGrad3)" /><text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text><defs><linearGradient id="coinGrad3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFD700" /><stop offset="100%" stopColor="#F59E0B" /></linearGradient></defs></svg>
                         <span className="text-sm">{t.selectedCoins(selected.coins)}</span>
                       </div>
-                      <span className="text-sm font-medium">${selected.price}</span>
+                      <span className="text-sm font-medium">{formatUsd(selected.price)}</span>
                     </div>
                     {selected.bonus > 0 && (
                       <div className="flex items-center justify-between text-sm">
@@ -507,7 +570,7 @@ export default function CoinsPage() {
                     )}
                     <div className="flex items-center justify-between pt-3 border-t border-white/10">
                       <span className="font-semibold">{t.total}</span>
-                      <span className="text-xl font-bold text-yellow-400">${selected.price}</span>
+                      <span className="text-xl font-bold text-yellow-400">{formatUsd(selected.price)}</span>
                     </div>
                   </div>
                 ) : (
@@ -553,7 +616,7 @@ export default function CoinsPage() {
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                    {t.paySecurely} {selected ? `$${selected.price}` : ""}
+                    {t.paySecurely} {selected ? formatUsd(selected.price) : ""}
                   </>
                 )}
               </button>

@@ -528,6 +528,15 @@ export const adminApi = {
   getFinanceOverview: (token = getAdminToken()) =>
     api.get('/api/admin/finance/overview', { token }),
 
+  getRolloutReadiness: (windowDays = 7, token = getAdminToken()) =>
+    api.get(`/api/admin/rollout/readiness?windowDays=${windowDays}`, { token }),
+
+  getRolloutTrends: (days = 90, token = getAdminToken()) =>
+    api.get(`/api/admin/rollout/trends?days=${days}`, { token }),
+
+  captureRolloutSnapshot: (windowDays = 7, token = getAdminToken()) =>
+    api.post('/api/admin/rollout/snapshots/capture', { windowDays }, { token }),
+
   // VIP Subscriptions
   getSubscriptions: (params?: { status?: string; search?: string; page?: number; limit?: number }, token = getAdminToken()) => {
     const query = params ? new URLSearchParams(

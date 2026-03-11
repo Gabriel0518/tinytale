@@ -26,6 +26,12 @@ interface Plan {
   monthlyEquivalent: string | null;
 }
 
+interface PricingContext {
+  tier: 1 | 2 | 3;
+  countryCode: string;
+  currencyCode: string;
+}
+
 type SubscriptionCopy = {
   close: string;
   savePercent: (percent: number) => string;
@@ -365,10 +371,21 @@ const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
   hi: "hi-IN",
   id: "id-ID" };
 
+const CHECKOUT_LOCAL_CURRENCY_NOTICE: Record<SupportedLocale, (countryCode: string, currencyCode: string) => string> = {
+  en: (countryCode, currencyCode) => `Prices are based on USD. Stripe Checkout may show local currency for ${countryCode} (${currencyCode}).`,
+  zh: (countryCode, currencyCode) => `价格以 USD 为基准。Stripe Checkout 可能会按 ${countryCode} 显示本地货币（${currencyCode}）。`,
+  ja: (countryCode, currencyCode) => `価格はUSD基準です。Stripe Checkoutでは ${countryCode} 向けに現地通貨（${currencyCode}）が表示される場合があります。`,
+  es: (countryCode, currencyCode) => `Los precios se basan en USD. Stripe Checkout puede mostrar moneda local para ${countryCode} (${currencyCode}).`,
+  pt: (countryCode, currencyCode) => `Os preços usam USD como base. O Stripe Checkout pode mostrar moeda local para ${countryCode} (${currencyCode}).`,
+  hi: (countryCode, currencyCode) => `कीमतें USD पर आधारित हैं। Stripe Checkout ${countryCode} के लिए स्थानीय मुद्रा (${currencyCode}) दिखा सकता है।`,
+  id: (countryCode, currencyCode) => `Harga berbasis USD. Stripe Checkout dapat menampilkan mata uang lokal untuk ${countryCode} (${currencyCode}).`,
+};
+
 export default function SubscriptionPage() {
   const locale = useLocale();
   const t = COPY[locale] || COPY.en;
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
+  const checkoutLocalNotice = CHECKOUT_LOCAL_CURRENCY_NOTICE[locale] || CHECKOUT_LOCAL_CURRENCY_NOTICE.en;
   const formatUsd = useCallback(
     (value: number) =>
       new Intl.NumberFormat(dateLocale, {
@@ -388,13 +405,15 @@ export default function SubscriptionPage() {
   const [processing, setProcessing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [apiAvailable, setApiAvailable] = useState(true);
+  const [pricingContext, setPricingContext] = useState<PricingContext | null>(null);
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
       try {
-        const plansRes = await subscriptionApi.getPlans();
+        const plansRes = await subscriptionApi.getPlans() as { data?: any[]; pricingContext?: PricingContext };
         const rawPlans = plansRes.data || [];
+        setPricingContext(plansRes.pricingContext || null);
         const normalized: Plan[] = rawPlans.map((p: any) => {
           const days = p.durationDays || p.duration || 30;
           const isYearly = days >= 365;
@@ -425,6 +444,7 @@ export default function SubscriptionPage() {
         }
       } catch {
         setApiAvailable(false);
+        setPricingContext(null);
         setPlans([
           { _id: "sp1", name: t.standardName, price: 9.99, period: "month", duration: 30, features: t.standardFeatures, recommended: false, savings: null, monthlyEquivalent: null },
           { _id: "sp2", name: t.proAnnualName, price: 99.99, period: "year", duration: 365, features: t.proFeatures, recommended: true, savings: t.savePercent(16), monthlyEquivalent: `${formatUsd(99.99 / 12)}/${t.periodShort.month}` },
@@ -542,6 +562,12 @@ export default function SubscriptionPage() {
         )}
 
         {!isVip && (
+          <div className="mb-6 text-center text-xs text-gray-500">
+            {checkoutLocalNotice(pricingContext?.countryCode || "your region", pricingContext?.currencyCode || "local")}
+          </div>
+        )}
+
+        {!isVip && (
           <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_1fr] gap-6 items-stretch">
             <div className="lg:pt-4">
               <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase mb-5">{t.perksTitle}</p>
@@ -564,7 +590,7 @@ export default function SubscriptionPage() {
               <div className="flex flex-col rounded-2xl border border-white/10 bg-[#12121a] p-7">
                 <p className="text-[10px] font-bold tracking-[0.2em] text-gray-400 uppercase mb-4">{t.standardName}</p>
                 <div className="mb-1">
-                  <span className="text-4xl font-black text-white">${standardPlan.price}</span>
+                  <span className="text-4xl font-black text-white">{formatUsd(standardPlan.price)}</span>
                   <span className="text-sm text-gray-500 ml-1">/{standardPlan.period === "month" ? t.periodShort.month : t.periodShort.year}</span>
                 </div>
                 <div className="h-3" />
@@ -597,7 +623,7 @@ export default function SubscriptionPage() {
                 )}
                 <p className="text-[10px] font-bold tracking-[0.2em] text-yellow-400 uppercase mb-4">{t.proAnnualName}</p>
                 <div className="mb-1">
-                  <span className="text-4xl font-black text-white">${proPlan.price}</span>
+                  <span className="text-4xl font-black text-white">{formatUsd(proPlan.price)}</span>
                   <span className="text-sm text-gray-500 ml-1">/{proPlan.period === "year" ? t.periodShort.year : t.periodShort.month}</span>
                 </div>
                 {proPlan.monthlyEquivalent ? (

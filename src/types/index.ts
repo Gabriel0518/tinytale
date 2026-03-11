@@ -43,6 +43,31 @@ export interface StreamPlaybackInfo {
   subtitles: SubtitleTrack[];
 }
 
+export interface VipBenefitPolicy {
+  monthlyFreeDramaQuota: number;
+  overLimitDiscountRate: number;
+}
+
+export interface VipBenefitUsage {
+  monthKey: string;
+  usedDramaCount: number;
+  remainingDramaCount: number;
+}
+
+export interface VipBenefitPayload {
+  mode: 'vip_monthly_free' | 'vip_discount' | string;
+  policy?: VipBenefitPolicy;
+  usage?: VipBenefitUsage | null;
+}
+
+export interface EpisodeAccessResult {
+  hasAccess: boolean;
+  reason?: string;
+  unlockPrice?: number;
+  originalUnlockPrice?: number;
+  vipBenefit?: VipBenefitPayload | null;
+}
+
 export interface PlaybackProgress {
   episodeId: string;
   currentTime: number;
@@ -77,6 +102,7 @@ export interface User {
   nickname: string;
   avatar?: string;
   coins?: number;
+  silverCoins?: number;
   role?: 'user' | 'admin';
   status?: 'active' | 'banned';
   vipStatus?: 'none' | 'active' | 'expired';

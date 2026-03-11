@@ -1,4 +1,4 @@
-import type { IpGeoData, StreamPlaybackInfo } from '@/types';
+import type { EpisodeAccessResult, IpGeoData, StreamPlaybackInfo } from '@/types';
 import { detectClientLocale } from '@/lib/i18n';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
@@ -194,7 +194,7 @@ export const episodesApi = {
 
   // Check access permission for an episode
   checkAccess: (episodeId: string, token: string) =>
-    api.get<{ hasAccess: boolean; reason?: string }>(`/api/episodes/${episodeId}/access`, {
+    api.get<EpisodeAccessResult>(`/api/episodes/${episodeId}/access`, {
       headers: { Authorization: `Bearer ${token}` },
     }),
 

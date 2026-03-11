@@ -14,7 +14,10 @@ interface OrderData {
   paidAt: string;
   product: string;
   type: string;
-  price: string;
+  priceAmount: number;
+  integrationCurrency: string;
+  presentmentAmount: number;
+  presentmentCurrency: string;
   baseCoins: number;
   bonusCoins: number;
   totalReceived: number;
@@ -66,7 +69,10 @@ export default function OrderDetailPage() {
             paidAt: txn.paidAt ? new Date(txn.paidAt).toLocaleString() : "",
             product: txn.description || txn.product || "",
             type: capitalize(txn.type || "recharge"),
-            price: txn.amount ? `$${txn.amount}` : "$0.00",
+            priceAmount: Number(txn.amount || 0),
+            integrationCurrency: (txn.integrationCurrency || "usd").toLowerCase(),
+            presentmentAmount: Number(txn.presentmentAmount || 0),
+            presentmentCurrency: (txn.presentmentCurrency || "").toLowerCase(),
             baseCoins: txn.coinAmount || 0,
             bonusCoins: txn.bonusCoins || 0,
             totalReceived: (txn.coinAmount || 0) + (txn.bonusCoins || 0),
@@ -114,7 +120,7 @@ export default function OrderDetailPage() {
   // ─── Refund Handler ─────────────────────────────────────
   const openRefundModal = () => {
     if (!order) return;
-    setRefundAmount(order.price.replace("$", ""));
+    setRefundAmount(order.priceAmount.toFixed(2));
     setCoinHandling("auto_deduct");
     setRefundReason("");
     setRefundDetails("");
@@ -143,7 +149,7 @@ export default function OrderDetailPage() {
     }
   };
 
-  const priceNum = order ? Number(order.price.replace("$", "")) : 0;
+  const priceNum = order ? Number(order.priceAmount || 0) : 0;
   const refundRatio = priceNum > 0 ? Number(refundAmount) / priceNum : 0;
   const coinClawback = order ? Math.round(order.totalReceived * (isNaN(refundRatio) ? 0 : Math.min(refundRatio, 1))) : 0;
 
@@ -263,7 +269,13 @@ export default function OrderDetailPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Price</span>
-                <span className="text-sm font-semibold text-white">{order.price}</span>
+                <span className="text-sm font-semibold text-white">{formatMoney(order.priceAmount, order.integrationCurrency || "usd")}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-400">Presentment</span>
+                <span className="text-sm text-gray-300">
+                  {formatMoney(order.presentmentAmount > 0 ? order.presentmentAmount : order.priceAmount, order.presentmentCurrency || order.integrationCurrency || "usd")}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Base Coins</span>
@@ -340,6 +352,14 @@ export default function OrderDetailPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-400">Base Currency</span>
+                <span className="text-sm text-gray-300">{(order.integrationCurrency || "usd").toUpperCase()}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-400">Presentment Currency</span>
+                <span className="text-sm text-gray-300">{(order.presentmentCurrency || order.integrationCurrency || "usd").toUpperCase()}</span>
+              </div>
+              <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Transaction ID</span>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-mono text-gray-300">{truncatedTxnId}</span>
@@ -407,7 +427,7 @@ export default function OrderDetailPage() {
               <div className="flex items-center justify-between rounded-xl border border-gray-700/50 bg-[#1a1a2e] px-4 py-3">
                 <div>
                   <p className="text-xs text-gray-400">Original Amount</p>
-                  <p className="text-xl font-bold text-white">{order.price}</p>
+                  <p className="text-xl font-bold text-white">{formatMoney(order.priceAmount, order.integrationCurrency || "usd")}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600/20 text-xs font-bold text-indigo-400">{order.user.name.charAt(0)}</div>
@@ -431,7 +451,7 @@ export default function OrderDetailPage() {
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">USD</span>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Max refundable: {order.price}</p>
+                <p className="mt-1 text-xs text-gray-500">Max refundable: {formatMoney(order.priceAmount, order.integrationCurrency || "usd")}</p>
               </div>
 
               {/* Coin Handling */}
@@ -485,7 +505,7 @@ export default function OrderDetailPage() {
                     <div className="text-xs text-amber-200/80">
                       <p className="font-medium text-amber-300">Coin Clawback Logic</p>
                       <p className="mt-1">
-                        Refunding ${Number(refundAmount || 0).toFixed(2)} of {order.price} ({Math.round((isNaN(refundRatio) ? 0 : Math.min(refundRatio, 1)) * 100)}%) will claw back <span className="font-semibold text-amber-200">{coinClawback.toLocaleString()} coins</span> from the user&apos;s {order.totalReceived.toLocaleString()} coins received.
+                        Refunding {formatMoney(Number(refundAmount || 0), order.integrationCurrency || "usd")} of {formatMoney(order.priceAmount, order.integrationCurrency || "usd")} ({Math.round((isNaN(refundRatio) ? 0 : Math.min(refundRatio, 1)) * 100)}%) will claw back <span className="font-semibold text-amber-200">{coinClawback.toLocaleString()} coins</span> from the user&apos;s {order.totalReceived.toLocaleString()} coins received.
                       </p>
                       <p className="mt-1">User current balance: <span className="font-semibold text-amber-200">{order.user.coinBalance.toLocaleString()} coins</span></p>
                       {coinHandling === "auto_deduct" && coinClawback > order.user.coinBalance && (
@@ -545,4 +565,18 @@ function formatPaymentMethod(method: string): string {
     system: "System",
   };
   return map[method] || (method ? method.charAt(0).toUpperCase() + method.slice(1) : "Unknown");
+}
+
+function formatMoney(amount: number, currencyCode: string): string {
+  const normalized = (currencyCode || "usd").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: normalized,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(amount || 0));
+  } catch {
+    return `${normalized} ${Number(amount || 0).toFixed(2)}`;
+  }
 }

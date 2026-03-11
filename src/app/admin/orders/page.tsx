@@ -13,6 +13,12 @@ interface Order {
   userEmail: string;
   type: string;
   amount: number;
+  integrationCurrency: string;
+  presentmentCurrency: string;
+  presentmentAmount: number;
+  countryCode: string;
+  pricingTier: number;
+  adaptivePricingApplied: boolean;
   coins: number;
   channel: string;
   status: "Completed" | "Pending" | "Failed" | "Refunded";
@@ -28,13 +34,35 @@ interface Filters {
   dateTo: string;
   amountMin: string;
   amountMax: string;
+  integrationCurrency: string;
+  presentmentCurrency: string;
+  countryCode: string;
+  pricingTier: string;
+  adaptivePricingApplied: string;
 }
 
 const CHANNELS = ["All", "Stripe", "Credit Card", "PayPal", "Apple Pay", "Google Pay", "Coins", "System"];
 const STATUSES = ["All", "Completed", "Pending", "Failed", "Refunded"];
+const CURRENCIES = ["All", "USD", "EUR", "GBP", "JPY", "KRW", "CAD", "AUD", "BRL", "INR", "IDR", "MXN"];
+const TIERS = ["All", "1", "2", "3"];
+const ADAPTIVE_OPTIONS = ["All", "Applied", "Not Applied"];
 const PAGE_SIZE = 10;
 
-const emptyFilters: Filters = { orderId: "", userSearch: "", channel: "All", status: "All", dateFrom: "", dateTo: "", amountMin: "", amountMax: "" };
+const emptyFilters: Filters = {
+  orderId: "",
+  userSearch: "",
+  channel: "All",
+  status: "All",
+  dateFrom: "",
+  dateTo: "",
+  amountMin: "",
+  amountMax: "",
+  integrationCurrency: "All",
+  presentmentCurrency: "All",
+  countryCode: "",
+  pricingTier: "All",
+  adaptivePricingApplied: "All",
+};
 
 // ── Status badge colours ───────────────────────────────────────────────────────
 const statusBadge: Record<string, string> = {
@@ -65,6 +93,23 @@ export default function OrdersPage() {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [summary, setSummary] = useState<{
+    totalUsdAmount: number;
+    totalPresentmentAmount: number;
+    adaptivePricingAppliedCount: number;
+    adaptivePricingAppliedRate: number;
+    currencyBreakdown: Array<{ _id: string; count: number; totalUsdAmount: number; totalPresentmentAmount: number }>;
+    pricingTierBreakdown: Array<{ _id: number; count: number; totalUsdAmount: number }>;
+    topCountries: Array<{ _id: string; count: number; totalUsdAmount: number }>;
+  }>({
+    totalUsdAmount: 0,
+    totalPresentmentAmount: 0,
+    adaptivePricingAppliedCount: 0,
+    adaptivePricingAppliedRate: 0,
+    currencyBreakdown: [],
+    pricingTierBreakdown: [],
+    topCountries: [],
+  });
 
   // Refund modal state
   const [refundModalOpen, setRefundModalOpen] = useState(false);
@@ -96,6 +141,13 @@ export default function OrdersPage() {
         if (f.dateTo) params.dateTo = f.dateTo;
         if (f.amountMin) params.amountMin = f.amountMin;
         if (f.amountMax) params.amountMax = f.amountMax;
+        if (f.integrationCurrency && f.integrationCurrency !== "All") params.integrationCurrency = f.integrationCurrency.toLowerCase();
+        if (f.presentmentCurrency && f.presentmentCurrency !== "All") params.presentmentCurrency = f.presentmentCurrency.toLowerCase();
+        if (f.countryCode.trim()) params.countryCode = f.countryCode.trim().toUpperCase();
+        if (f.pricingTier && f.pricingTier !== "All") params.pricingTier = Number(f.pricingTier);
+        if (f.adaptivePricingApplied && f.adaptivePricingApplied !== "All") {
+          params.adaptivePricingApplied = f.adaptivePricingApplied === "Applied";
+        }
 
         const res: any = await adminApi.getTransactions(params);
         if (!cancelled) {
@@ -108,6 +160,12 @@ export default function OrdersPage() {
               userEmail: t.userId?.email ?? t.user?.email ?? t.userEmail ?? "",
               type: capitalize(t.type || "recharge"),
               amount: t.amount ?? 0,
+              integrationCurrency: (t.integrationCurrency || "usd").toLowerCase(),
+              presentmentCurrency: (t.presentmentCurrency || "").toLowerCase(),
+              presentmentAmount: t.presentmentAmount ?? 0,
+              countryCode: (t.countryCode || "").toUpperCase(),
+              pricingTier: Number(t.pricingTier) || 0,
+              adaptivePricingApplied: Boolean(t.adaptivePricingApplied),
               coins: (t.coinAmount || 0) + (t.bonusCoins || 0),
               channel: channelDisplayName[t.paymentMethod] || capitalize(t.paymentMethod || "stripe"),
               status: capitalize(t.status) as Order["status"],
@@ -115,9 +173,30 @@ export default function OrdersPage() {
             }))
           );
           setTotalOrders(res.data?.total ?? list.length);
+          setSummary({
+            totalUsdAmount: Number(res.data?.summary?.totalUsdAmount || 0),
+            totalPresentmentAmount: Number(res.data?.summary?.totalPresentmentAmount || 0),
+            adaptivePricingAppliedCount: Number(res.data?.summary?.adaptivePricingAppliedCount || 0),
+            adaptivePricingAppliedRate: Number(res.data?.summary?.adaptivePricingAppliedRate || 0),
+            currencyBreakdown: Array.isArray(res.data?.summary?.currencyBreakdown) ? res.data.summary.currencyBreakdown : [],
+            pricingTierBreakdown: Array.isArray(res.data?.summary?.pricingTierBreakdown) ? res.data.summary.pricingTierBreakdown : [],
+            topCountries: Array.isArray(res.data?.summary?.topCountries) ? res.data.summary.topCountries : [],
+          });
         }
       } catch {
-        if (!cancelled) { setOrders([]); setTotalOrders(0); }
+        if (!cancelled) {
+          setOrders([]);
+          setTotalOrders(0);
+          setSummary({
+            totalUsdAmount: 0,
+            totalPresentmentAmount: 0,
+            adaptivePricingAppliedCount: 0,
+            adaptivePricingAppliedRate: 0,
+            currencyBreakdown: [],
+            pricingTierBreakdown: [],
+            topCountries: [],
+          });
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -128,7 +207,7 @@ export default function OrdersPage() {
 
   // Server-side pagination: orders already filtered and paginated by API
   const totalPages = Math.max(1, Math.ceil(totalOrders / PAGE_SIZE));
-  const totalAmount = useMemo(() => orders.reduce((s, o) => s + o.amount, 0), [orders]);
+  const pageUsdAmount = useMemo(() => orders.reduce((s, o) => s + o.amount, 0), [orders]);
 
   // Selection helpers
   const allOnPageSelected = orders.length > 0 && orders.every((o) => selectedIds.has(o.id));
@@ -254,6 +333,38 @@ export default function OrdersPage() {
               </div>
             </div>
 
+            {/* Row 3 */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Base Currency</label>
+                <select className={selectCls} value={filters.integrationCurrency} onChange={(e) => setFilters({ ...filters, integrationCurrency: e.target.value })}>
+                  {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Presentment Currency</label>
+                <select className={selectCls} value={filters.presentmentCurrency} onChange={(e) => setFilters({ ...filters, presentmentCurrency: e.target.value })}>
+                  {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Country Code</label>
+                <input className={inputCls} placeholder="US / JP / BR..." value={filters.countryCode} onChange={(e) => setFilters({ ...filters, countryCode: e.target.value.toUpperCase() })} />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Pricing Tier</label>
+                <select className={selectCls} value={filters.pricingTier} onChange={(e) => setFilters({ ...filters, pricingTier: e.target.value })}>
+                  {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-400">Adaptive Pricing</label>
+                <select className={selectCls} value={filters.adaptivePricingApplied} onChange={(e) => setFilters({ ...filters, adaptivePricingApplied: e.target.value })}>
+                  {ADAPTIVE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+            </div>
+
             {/* Buttons */}
             <div className="flex justify-end gap-3 pt-1">
               <button onClick={resetFilters} className="rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700/40 transition">Reset</button>
@@ -265,15 +376,47 @@ export default function OrdersPage() {
 
       {/* ── Summary Bar ──────────────────────────────────────────────── */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-gray-700/50 bg-[#13131d] px-5 py-3">
-        <p className="text-sm text-gray-400">
-          Total Orders: <span className="font-semibold text-gray-200">{totalOrders.toLocaleString()}</span>
-          {" \u00B7 "}
-          Total Amount: <span className="font-semibold text-gray-200">${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        </p>
+        <div className="space-y-1">
+          <p className="text-sm text-gray-400">
+            Total Orders: <span className="font-semibold text-gray-200">{totalOrders.toLocaleString()}</span>
+            {" \u00B7 "}
+            Filtered USD Volume: <span className="font-semibold text-gray-200">{formatMoney(summary.totalUsdAmount || 0, "usd")}</span>
+            {" \u00B7 "}
+            Current Page USD: <span className="font-semibold text-gray-200">{formatMoney(pageUsdAmount || 0, "usd")}</span>
+          </p>
+          <p className="text-xs text-gray-500">
+            Adaptive Applied: <span className="text-indigo-300">{summary.adaptivePricingAppliedCount.toLocaleString()}</span>
+            {" / "}
+            <span>{totalOrders.toLocaleString()}</span>
+            {" ("}
+            <span className="text-indigo-300">{summary.adaptivePricingAppliedRate.toFixed(2)}%</span>
+            {")"}
+          </p>
+          {summary.currencyBreakdown.length > 0 && (
+            <p className="text-xs text-gray-500">
+              Top currencies: {summary.currencyBreakdown.slice(0, 3).map((item) => `${String(item._id || 'usd').toUpperCase()} (${item.count})`).join(" · ")}
+            </p>
+          )}
+        </div>
         <button
           onClick={() => {
-            const headers = ["Order ID", "User", "Email", "Type", "Amount", "Coins", "Channel", "Status", "Time"];
-            const rows = orders.map((o) => [o.id, o.userName, o.userEmail, o.type, o.amount.toFixed(2), o.coins, o.channel, o.status, o.createdAt].join(","));
+            const headers = ["Order ID", "User", "Email", "Type", "Presentment Amount", "Presentment Currency", "Base Amount (USD)", "Country", "Tier", "Adaptive", "Coins", "Channel", "Status", "Time"];
+            const rows = orders.map((o) => [
+              o.id,
+              o.userName,
+              o.userEmail,
+              o.type,
+              (o.presentmentAmount > 0 ? o.presentmentAmount : o.amount).toFixed(2),
+              (o.presentmentCurrency || o.integrationCurrency || "usd").toUpperCase(),
+              o.amount.toFixed(2),
+              o.countryCode || "",
+              o.pricingTier || "",
+              o.adaptivePricingApplied ? "yes" : "no",
+              o.coins,
+              o.channel,
+              o.status,
+              o.createdAt,
+            ].join(","));
             const csv = [headers.join(","), ...rows].join("\n");
             const blob = new Blob([csv], { type: "text/csv" });
             const url = URL.createObjectURL(blob);
@@ -296,7 +439,9 @@ export default function OrdersPage() {
               <th className="px-4 py-3">Order ID</th>
               <th className="px-4 py-3">User</th>
               <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Amount</th>
+              <th className="px-4 py-3">Presentment</th>
+              <th className="px-4 py-3">Base</th>
+              <th className="px-4 py-3">Region</th>
               <th className="px-4 py-3">Coins</th>
               <th className="px-4 py-3">Channel</th>
               <th className="px-4 py-3">Status</th>
@@ -307,10 +452,10 @@ export default function OrdersPage() {
           <tbody className="divide-y divide-gray-700/30">
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}><td colSpan={10} className="px-4 py-4"><div className="h-4 w-full animate-pulse rounded bg-gray-700/40" /></td></tr>
+                <tr key={i}><td colSpan={12} className="px-4 py-4"><div className="h-4 w-full animate-pulse rounded bg-gray-700/40" /></td></tr>
               ))
             ) : orders.length === 0 ? (
-              <tr><td colSpan={10} className="px-4 py-16 text-center text-gray-500">No orders found</td></tr>
+              <tr><td colSpan={12} className="px-4 py-16 text-center text-gray-500">No orders found</td></tr>
             ) : (
               orders.map((o) => (
                 <tr key={o.id} className="hover:bg-[#1a1a2e]/60 transition-colors">
@@ -328,7 +473,24 @@ export default function OrdersPage() {
                   <td className="whitespace-nowrap px-4 py-3">
                     <span className="rounded-full px-2.5 py-0.5 text-xs font-medium bg-indigo-500/20 text-indigo-400">{o.type}</span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-200">${o.amount.toFixed(2)}</td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <div className="font-medium text-gray-200">
+                      {formatMoney(o.presentmentAmount > 0 ? o.presentmentAmount : o.amount, o.presentmentCurrency || o.integrationCurrency || "usd")}
+                    </div>
+                    <div className="text-xs text-gray-500">{(o.presentmentCurrency || o.integrationCurrency || "usd").toUpperCase()}</div>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-300">
+                    {formatMoney(o.amount, o.integrationCurrency || "usd")}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <div className="text-gray-300">{o.countryCode || "UNKNOWN"}</div>
+                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                      <span>Tier {o.pricingTier || "-"}</span>
+                      <span className={`rounded-full px-1.5 py-0.5 ${o.adaptivePricingApplied ? "bg-indigo-500/20 text-indigo-300" : "bg-gray-700/40 text-gray-400"}`}>
+                        {o.adaptivePricingApplied ? "Adaptive" : "Fixed"}
+                      </span>
+                    </div>
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3 text-gray-300">{o.coins.toLocaleString()}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-gray-300">{o.channel}</td>
                   <td className="whitespace-nowrap px-4 py-3">
@@ -511,6 +673,20 @@ function capitalize(s: string) {
 function formatDate(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatMoney(amount: number, currencyCode: string) {
+  const normalized = (currencyCode || "usd").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: normalized,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Number(amount || 0));
+  } catch {
+    return `${normalized} ${Number(amount || 0).toFixed(2)}`;
+  }
 }
 
 function pageNumbers(current: number, total: number): (number | string)[] {

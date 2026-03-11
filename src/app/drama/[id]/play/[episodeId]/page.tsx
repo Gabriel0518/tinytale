@@ -5,10 +5,10 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect} from "react";
 import { useParams, useRouter} from "next/navigation";
 import Link from "next/link";
-import { dramasApi, episodesApi } from "@/lib/api";
+import { dramasApi, episodesApi, userApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
-import { Drama, Episode } from "@/types";
+import { Drama, Episode, EpisodeAccessResult } from "@/types";
 import type { StreamPlaybackInfo } from "@/types";
 import SimplePlayer from "@/components/player/SimplePlayer";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
@@ -24,7 +24,10 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "Back to",
     episode: "Episode",
     episodes: "Episodes",
-    coins: "coins" },
+    coins: "coins",
+    unlocked: "Unlocked",
+    free: "FREE",
+    vip: "VIP" },
   zh: {
     episodeNotFound: "未找到该剧集",
     failedToLoad: "加载剧集失败",
@@ -34,7 +37,10 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "返回",
     episode: "第",
     episodes: "剧集列表",
-    coins: "金币" },
+    coins: "金币",
+    unlocked: "已解锁",
+    free: "免费",
+    vip: "VIP" },
   ja: {
     episodeNotFound: "エピソードが見つかりません",
     failedToLoad: "読み込みに失敗しました",
@@ -44,7 +50,10 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "戻る",
     episode: "エピソード",
     episodes: "エピソード一覧",
-    coins: "コイン" },
+    coins: "コイン",
+    unlocked: "解放済み",
+    free: "無料",
+    vip: "VIP" },
   es: {
     episodeNotFound: "Episodio no encontrado",
     failedToLoad: "No se pudo cargar el episodio",
@@ -54,7 +63,10 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "Volver a",
     episode: "Episodio",
     episodes: "Episodios",
-    coins: "monedas" },
+    coins: "monedas",
+    unlocked: "Desbloqueado",
+    free: "GRATIS",
+    vip: "VIP" },
   pt: {
     episodeNotFound: "Episódio não encontrado",
     failedToLoad: "Falha ao carregar episódio",
@@ -64,7 +76,10 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "Voltar para",
     episode: "Episódio",
     episodes: "Episódios",
-    coins: "moedas" },
+    coins: "moedas",
+    unlocked: "Desbloqueado",
+    free: "GRÁTIS",
+    vip: "VIP" },
   hi: {
     episodeNotFound: "एपिसोड नहीं मिला",
     failedToLoad: "एपिसोड लोड नहीं हो पाया",
@@ -74,7 +89,10 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "वापस जाएँ",
     episode: "एपिसोड",
     episodes: "एपिसोड सूची",
-    coins: "कॉइन्स" },
+    coins: "कॉइन्स",
+    unlocked: "अनलॉक",
+    free: "फ्री",
+    vip: "VIP" },
   id: {
     episodeNotFound: "Episode tidak ditemukan",
     failedToLoad: "Gagal memuat episode",
@@ -84,7 +102,17 @@ const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
     backToDrama: "Kembali ke",
     episode: "Episode",
     episodes: "Daftar episode",
-    coins: "koin" } };
+    coins: "koin",
+    unlocked: "Terbuka",
+    free: "GRATIS",
+    vip: "VIP" } };
+
+function getEpisodeEffectiveUnlockPrice(episode: Episode, access?: EpisodeAccessResult): number {
+  if (typeof access?.unlockPrice === "number" && Number.isFinite(access.unlockPrice)) {
+    return access.unlockPrice;
+  }
+  return episode.unlockPrice;
+}
 
 export default function PlayEpisodePage() {
   const locale = useLocale();
@@ -102,6 +130,8 @@ export default function PlayEpisodePage() {
   const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [streamInfo, setStreamInfo] = useState<StreamPlaybackInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
+  const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
 
   // 加载短剧和剧集信息
   useEffect(() => {
@@ -143,6 +173,64 @@ export default function PlayEpisodePage() {
       loadData();
     }
   }, [dramaId, episodeId, token, router, toast, locale, t.episodeNotFound, t.failedToLoad]);
+
+  useEffect(() => {
+    if (!token || episodes.length === 0) {
+      setUnlockedEpisodeIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    userApi.getUnlockedEpisodes(token, dramaId)
+      .then((res: any) => {
+        if (cancelled) return;
+        const ids: string[] = res?.data || [];
+        setUnlockedEpisodeIds(new Set(ids));
+      })
+      .catch(() => {
+        if (!cancelled) setUnlockedEpisodeIds(new Set());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, dramaId, episodes.length]);
+
+  useEffect(() => {
+    if (!token || episodes.length === 0) {
+      setEpisodeAccessMap({});
+      return;
+    }
+    const lockedPaidEpisodes = episodes.filter((ep) => !ep.isFree && !unlockedEpisodeIds.has(ep._id));
+    if (lockedPaidEpisodes.length === 0) {
+      setEpisodeAccessMap({});
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        lockedPaidEpisodes.map(async (ep) => {
+          try {
+            const res = await episodesApi.checkAccess(ep._id, token);
+            const access = (res as any)?.data ?? res;
+            return [ep._id, access as EpisodeAccessResult] as const;
+          } catch {
+            return [ep._id, { hasAccess: false, reason: "locked", unlockPrice: ep.unlockPrice } as EpisodeAccessResult] as const;
+          }
+        })
+      );
+
+      if (cancelled) return;
+      const nextMap: Record<string, EpisodeAccessResult> = {};
+      for (const [id, access] of entries) {
+        nextMap[id] = access;
+      }
+      setEpisodeAccessMap(nextMap);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, episodes, unlockedEpisodeIds]);
 
   // 播放进度上报
   const handleTimeUpdate = (time: number, duration: number) => {
@@ -260,9 +348,15 @@ export default function PlayEpisodePage() {
                 <div className="p-2 bg-[#13131d]">
                   <p className="text-sm text-gray-300 truncate">{episode.title}</p>
                   {!episode.isFree && (
-                    <span className="text-xs text-yellow-500">
-                      {episode.unlockPrice} {t.coins}
-                    </span>
+                    unlockedEpisodeIds.has(episode._id) ? (
+                      <span className="text-xs text-green-400">{t.unlocked}</span>
+                    ) : episodeAccessMap[episode._id]?.reason === "vip_monthly_free_available" ? (
+                      <span className="text-xs text-purple-400">{t.vip} {t.free}</span>
+                    ) : (
+                      <span className="text-xs text-yellow-500">
+                        {getEpisodeEffectiveUnlockPrice(episode, episodeAccessMap[episode._id])} {t.coins}
+                      </span>
+                    )
                   )}
                 </div>
               </Link>
