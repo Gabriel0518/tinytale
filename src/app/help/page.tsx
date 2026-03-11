@@ -7,11 +7,12 @@ import Image from "next/image";
 import {useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import { contactApi } from "@/lib/api";
+import { API_URL, contactApi } from "@/lib/api";
 import {SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 
 type TabKey = "about" | "privacy" | "terms" | "faq";
+type CmsSectionKey = "about" | "careers" | "press" | "terms" | "privacy" | "cookies";
 
 type HelpCopy = {
   tabs: Record<TabKey, string>;
@@ -92,6 +93,33 @@ type HelpCopy = {
 };
 
 const TEAM_NAMES = ["Sarah Chen", "Marcus Liu", "Emily Park", "David Kim"];
+const CMS_SETTING_KEYS: Record<CmsSectionKey, string> = {
+  about: "help_about_html",
+  careers: "help_careers_html",
+  press: "help_press_html",
+  terms: "help_terms_html",
+  privacy: "help_privacy_html",
+  cookies: "help_cookie_html",
+};
+
+const SECTION_LABELS: Record<SupportedLocale, { careers: string; press: string; cookies: string }> = {
+  en: { careers: "Careers", press: "Press", cookies: "Cookie Privacy" },
+  zh: { careers: "加入我们", press: "媒体与新闻", cookies: "Cookie 隐私" },
+  ja: { careers: "採用情報", press: "プレス", cookies: "Cookie プライバシー" },
+  es: { careers: "Carreras", press: "Prensa", cookies: "Privacidad de cookies" },
+  pt: { careers: "Carreiras", press: "Imprensa", cookies: "Privacidade de cookies" },
+  hi: { careers: "करियर", press: "प्रेस", cookies: "कुकी गोपनीयता" },
+  id: { careers: "Karier", press: "Pers", cookies: "Privasi Cookie" },
+};
+
+const CMS_DEFAULTS: Record<CmsSectionKey, string> = {
+  about: "<p>TinyTale is focused on premium short drama storytelling for global audiences.</p>",
+  careers: "<p>We are hiring creators, product designers, and engineers who care deeply about storytelling and user experience.</p>",
+  press: "<p>For press inquiries, interviews, and media kits, contact <a href=\"mailto:press@tinytale.com\">press@tinytale.com</a>.</p>",
+  terms: "<p>Using TinyTale means you agree to our service terms, account usage policies, and payment rules.</p>",
+  privacy: "<p>We protect personal data with clear usage boundaries and industry-standard safeguards.</p>",
+  cookies: "<p>We use cookies to keep you signed in, remember preferences, and improve service performance.</p>",
+};
 
 const COPY: Record<SupportedLocale, HelpCopy> = {
   en: {
@@ -673,24 +701,74 @@ export default function HelpPage() {
 
   const [activeTab, setActiveTab] = useState<TabKey>("about");
   const [activeAnchor, setActiveAnchor] = useState("");
+  const [cmsContent, setCmsContent] = useState<Partial<Record<CmsSectionKey, string>>>({});
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: "", email: "", subject: "", message: "", type: "general" });
   const [formStatus, setFormStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const contentRef = useRef<HTMLDivElement>(null);
+  const pendingAnchorRef = useRef<string | null>(null);
+
+  const labels = SECTION_LABELS[locale] || SECTION_LABELS.en;
+  const aboutSidebar = useMemo(
+    () => [...c.sidebar.about, { id: "careers", label: labels.careers }, { id: "press", label: labels.press }],
+    [c.sidebar.about, labels.careers, labels.press]
+  );
+  const privacySidebar = useMemo(
+    () => [...c.sidebar.privacy, { id: "pp-cookies", label: labels.cookies }],
+    [c.sidebar.privacy, labels.cookies]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_URL}/api/settings/help-center`)
+      .then((res) => res.json())
+      .then((res) => {
+        if (cancelled || !res?.success || !res?.data) return;
+        const content: Partial<Record<CmsSectionKey, string>> = {};
+        (Object.keys(CMS_SETTING_KEYS) as CmsSectionKey[]).forEach((key) => {
+          const settingKey = CMS_SETTING_KEYS[key];
+          const value = res.data?.[settingKey];
+          if (typeof value === "string" && value.trim()) {
+            content[key] = value;
+          }
+        });
+        setCmsContent(content);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const scrollToAnchor = useCallback((id: string) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   useEffect(() => {
     const tab = (searchParams.get("tab") || "").toLowerCase();
-    if (tab === "privacy") setActiveTab("privacy");
+    const section = (searchParams.get("section") || "").toLowerCase().trim();
+
+    if (tab === "privacy" || tab === "cookies") setActiveTab("privacy");
     else if (tab === "terms") setActiveTab("terms");
     else if (tab === "faq") setActiveTab("faq");
-    else if (tab === "about") setActiveTab("about");
+    else setActiveTab("about");
+
+    if (section) {
+      pendingAnchorRef.current = section;
+      return;
+    }
+    if (tab === "careers") pendingAnchorRef.current = "careers";
+    else if (tab === "press") pendingAnchorRef.current = "press";
+    else if (tab === "cookies") pendingAnchorRef.current = "pp-cookies";
+    else if (tab === "contact") pendingAnchorRef.current = "contact-section";
   }, [searchParams]);
 
   const sidebarMap = useMemo<Record<TabKey, { id: string; label: string }[]>>(() => ({
-    about: c.sidebar.about,
-    privacy: c.sidebar.privacy,
+    about: aboutSidebar,
+    privacy: privacySidebar,
     terms: c.sidebar.terms,
-    faq: c.sidebar.faq }), [c]);
+    faq: c.sidebar.faq }), [aboutSidebar, c, privacySidebar]);
 
   useEffect(() => {
     const anchors = sidebarMap[activeTab];
@@ -718,6 +796,16 @@ export default function HelpPage() {
   }, [activeTab, sidebarMap]);
 
   useEffect(() => {
+    const pendingAnchor = pendingAnchorRef.current;
+    if (!pendingAnchor) return;
+    const timer = window.setTimeout(() => {
+      scrollToAnchor(pendingAnchor);
+      pendingAnchorRef.current = null;
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [activeTab, scrollToAnchor, sidebarMap]);
+
+  useEffect(() => {
     if (formStatus === "sent" || formStatus === "error") {
       const timer = setTimeout(() => setFormStatus("idle"), 5000);
       return () => clearTimeout(timer);
@@ -735,11 +823,6 @@ export default function HelpPage() {
       setFormStatus("error");
     }
   }, [formData]);
-
-  const scrollToAnchor = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -817,15 +900,15 @@ export default function HelpPage() {
           </div>
 
           <div ref={contentRef} className="flex-1 min-w-0">
-            {activeTab === "about" && <AboutSection c={c} />}
-            {activeTab === "privacy" && <PrivacySection c={c} />}
-            {activeTab === "terms" && <TermsSection c={c} />}
+            {activeTab === "about" && <AboutSection c={c} cmsContent={cmsContent} labels={labels} />}
+            {activeTab === "privacy" && <PrivacySection c={c} cmsContent={cmsContent} labels={labels} />}
+            {activeTab === "terms" && <TermsSection c={c} cmsContent={cmsContent} />}
             {activeTab === "faq" && <FaqSection c={c} openFaq={openFaq} setOpenFaq={setOpenFaq} />}
           </div>
         </div>
       </div>
 
-      <div className="border-t border-white/10 bg-zinc-950">
+      <div id="contact-section" className="scroll-mt-28 border-t border-white/10 bg-zinc-950">
         <div className="max-w-6xl mx-auto px-6 py-16">
           <div className="text-center mb-10">
             <SectionDivider title={c.contact.title} />
@@ -937,7 +1020,24 @@ export default function HelpPage() {
   );
 }
 
-function AboutSection({ c }: { c: HelpCopy }) {
+function RichHtmlContent({ html }: { html: string }) {
+  return (
+    <div
+      className="space-y-3 text-sm leading-relaxed text-zinc-300 [&_a]:text-[#FFD700] [&_a]:underline [&_img]:rounded-xl [&_img]:max-h-64 [&_img]:w-auto [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}
+
+function AboutSection({
+  c,
+  cmsContent,
+  labels,
+}: {
+  c: HelpCopy;
+  cmsContent: Partial<Record<CmsSectionKey, string>>;
+  labels: { careers: string; press: string; cookies: string };
+}) {
   const team = TEAM_NAMES.map((name, index) => ({
     name,
     role: c.about.teamRoles[index] || c.about.teamRoles[0],
@@ -951,7 +1051,11 @@ function AboutSection({ c }: { c: HelpCopy }) {
           <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent z-10" />
           <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "url('https://picsum.photos/seed/mission/800/400')", backgroundSize: "cover" }} />
           <div className="relative z-20 p-8 md:p-12 max-w-lg">
-            <p className="text-lg text-zinc-300 leading-relaxed">{c.about.missionText}</p>
+            {cmsContent.about ? (
+              <RichHtmlContent html={cmsContent.about} />
+            ) : (
+              <p className="text-lg text-zinc-300 leading-relaxed">{c.about.missionText}</p>
+            )}
           </div>
         </div>
       </section>
@@ -989,11 +1093,29 @@ function AboutSection({ c }: { c: HelpCopy }) {
           ))}
         </div>
       </section>
+
+      <section id="careers" className="scroll-mt-28 space-y-3">
+        <SectionDivider title={labels.careers} />
+        <RichHtmlContent html={cmsContent.careers || CMS_DEFAULTS.careers} />
+      </section>
+
+      <section id="press" className="scroll-mt-28 space-y-3">
+        <SectionDivider title={labels.press} />
+        <RichHtmlContent html={cmsContent.press || CMS_DEFAULTS.press} />
+      </section>
     </div>
   );
 }
 
-function PrivacySection({ c }: { c: HelpCopy }) {
+function PrivacySection({
+  c,
+  cmsContent,
+  labels,
+}: {
+  c: HelpCopy;
+  cmsContent: Partial<Record<CmsSectionKey, string>>;
+  labels: { careers: string; press: string; cookies: string };
+}) {
   const sectionClass = "scroll-mt-28 space-y-3";
   const pClass = "text-zinc-400 text-sm leading-relaxed";
 
@@ -1003,7 +1125,7 @@ function PrivacySection({ c }: { c: HelpCopy }) {
 
       <section id="pp-intro" className={sectionClass}>
         <SectionDivider title={c.privacy.introTitle} />
-        <p className={pClass}>{c.privacy.intro}</p>
+        {cmsContent.privacy ? <RichHtmlContent html={cmsContent.privacy} /> : <p className={pClass}>{c.privacy.intro}</p>}
       </section>
 
       <section id="pp-collect" className={sectionClass}>
@@ -1030,11 +1152,22 @@ function PrivacySection({ c }: { c: HelpCopy }) {
         <SectionDivider title={c.privacy.rightsTitle} />
         <p className={pClass}>{c.privacy.rights}</p>
       </section>
+
+      <section id="pp-cookies" className={sectionClass}>
+        <SectionDivider title={labels.cookies} />
+        <RichHtmlContent html={cmsContent.cookies || CMS_DEFAULTS.cookies} />
+      </section>
     </div>
   );
 }
 
-function TermsSection({ c }: { c: HelpCopy }) {
+function TermsSection({
+  c,
+  cmsContent,
+}: {
+  c: HelpCopy;
+  cmsContent: Partial<Record<CmsSectionKey, string>>;
+}) {
   const sectionClass = "scroll-mt-28 space-y-3";
   const pClass = "text-zinc-400 text-sm leading-relaxed";
 
@@ -1044,7 +1177,7 @@ function TermsSection({ c }: { c: HelpCopy }) {
 
       <section id="tos-intro" className={sectionClass}>
         <SectionDivider title={c.terms.introTitle} />
-        <p className={pClass}>{c.terms.intro}</p>
+        {cmsContent.terms ? <RichHtmlContent html={cmsContent.terms} /> : <p className={pClass}>{c.terms.intro}</p>}
       </section>
 
       <section id="tos-account" className={sectionClass}>

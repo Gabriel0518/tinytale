@@ -93,6 +93,7 @@ const navigation: NavBlock[] = [
           { href: "/admin/admins", label: "Admins" },
           { href: "/admin/roles", label: "Roles" },
           { href: "/admin/settings", label: "Settings" },
+          { href: "/admin/settings/help-center", label: "Information & Help Center" },
           { href: "/admin/logs", label: "Audit Logs" },
         ],
       },
@@ -106,6 +107,7 @@ export default function AdminSidebar() {
 
   const isItemActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
+    if (href === "/admin/settings") return pathname === "/admin/settings";
     return pathname?.startsWith(href) || false;
   };
 

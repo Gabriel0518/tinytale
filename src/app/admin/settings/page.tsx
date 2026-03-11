@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { adminApi } from "@/lib/adminApi";
 
 /* ───────── types ───────── */
@@ -395,9 +396,17 @@ export default function AdminSettingsPage() {
       )}
 
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-100">System Settings</h1>
-        <p className="mt-1 text-sm text-gray-400">Global Parameters</p>
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-100">System Settings</h1>
+          <p className="mt-1 text-sm text-gray-400">Global Parameters</p>
+        </div>
+        <Link
+          href="/admin/settings/help-center"
+          className="rounded-lg border border-indigo-500/40 bg-indigo-600/10 px-4 py-2 text-sm font-medium text-indigo-300 transition hover:bg-indigo-600/20"
+        >
+          Information &amp; Help Center
+        </Link>
       </div>
 
       <div className="flex gap-6">

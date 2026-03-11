@@ -182,23 +182,23 @@ export function Footer() {
     {
       title: t.company,
       links: [
-        { label: t.about, href: '/about' },
-        { label: t.careers, href: '/careers' },
-        { label: t.press, href: '/press' },
+        { label: t.about, href: '/help?tab=about&section=mission' },
+        { label: t.careers, href: '/help?tab=about&section=careers' },
+        { label: t.press, href: '/help?tab=about&section=press' },
       ] },
     {
       title: t.support,
       links: [
         { label: t.helpCenter, href: '/help' },
-        { label: t.contact, href: '/help?tab=contact' },
-        { label: t.faq, href: '/help?tab=faq' },
+        { label: t.contact, href: '/help?section=contact-section' },
+        { label: t.faq, href: '/help?tab=faq&section=faq-account' },
       ] },
     {
       title: t.legal,
       links: [
-        { label: t.terms, href: '/terms' },
-        { label: t.privacy, href: '/privacy' },
-        { label: t.cookies, href: '/cookies' },
+        { label: t.terms, href: '/help?tab=terms&section=tos-intro' },
+        { label: t.privacy, href: '/help?tab=privacy&section=pp-intro' },
+        { label: t.cookies, href: '/help?tab=privacy&section=pp-cookies' },
       ] },
   ]), [t]);
 

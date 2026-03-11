@@ -19,6 +19,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const SESSION_COOKIE_NAME = 'tt_session';
+const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+
+function setSessionCookie() {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${SESSION_COOKIE_NAME}=1; Path=/; Max-Age=${SESSION_COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
+function clearSessionCookie() {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -36,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
+      setSessionCookie();
 
       // Refresh user data from server to get latest state (e.g. VIP status changes)
       authApi.getMe(storedToken).then(res => {
@@ -46,6 +60,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }).catch(() => {
         // Silently fail - use cached data
       });
+    } else {
+      clearSessionCookie();
     }
     setLoading(false);
   }, []);
@@ -58,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(authToken);
       localStorage.setItem('token', authToken);
       localStorage.setItem('user', JSON.stringify(userData));
+      setSessionCookie();
     } else {
       throw new Error(response.error?.message || 'Login failed');
     }
@@ -71,6 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(authToken);
       localStorage.setItem('token', authToken);
       localStorage.setItem('user', JSON.stringify(userData));
+      setSessionCookie();
     } else {
       throw new Error(response.error?.message || 'Registration failed');
     }
@@ -84,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(authToken);
       localStorage.setItem('token', authToken);
       localStorage.setItem('user', JSON.stringify(userData));
+      setSessionCookie();
     } else {
       throw new Error(response.error?.message || 'Google login failed');
     }
@@ -97,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(authToken);
       localStorage.setItem('token', authToken);
       localStorage.setItem('user', JSON.stringify(userData));
+      setSessionCookie();
     } else {
       throw new Error(response.error?.message || 'Facebook login failed');
     }
@@ -107,6 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    clearSessionCookie();
   };
 
   const updateUser = (updatedUser: User) => {

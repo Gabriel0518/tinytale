@@ -12,6 +12,31 @@ import {
 const BYPASS_PREFIXES = ['/api', '/_next', '/admin', '/cdn'];
 const BYPASS_EXACT = new Set(['/favicon.ico', '/robots.txt', '/sitemap.xml', '/manifest.json']);
 const PUBLIC_FILE = /\.[^/]+$/;
+const AUTH_COOKIE = 'tt_session';
+const PUBLIC_PATHS = new Set([
+  '/',
+  '/help',
+  '/about',
+  '/careers',
+  '/press',
+  '/terms',
+  '/privacy',
+  '/cookies',
+  '/auth/login',
+  '/auth/register',
+  '/auth/verify-otp',
+  '/auth/reset-password',
+  '/auth/reset-password/verify',
+  '/affiliate',
+]);
+
+function isPublicPath(pathname: string): boolean {
+  const normalized = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+  if (PUBLIC_PATHS.has(normalized)) return true;
+  if (normalized.startsWith('/affiliate/')) return true;
+  if (normalized.startsWith('/auth/')) return true;
+  return false;
+}
 
 function shouldBypass(pathname: string): boolean {
   if (BYPASS_EXACT.has(pathname)) return true;
@@ -51,7 +76,24 @@ export function middleware(request: NextRequest) {
     });
   }
 
-  const urlLocale = extractLocaleFromPath(pathname);
+  const normalizedPath = removeLocalePrefix(pathname);
+  const requestLocale = extractLocaleFromPath(pathname);
+  const detectedLocale = requestLocale || detectRequestLocale(request);
+  const hasSession = request.cookies.get(AUTH_COOKIE)?.value === '1';
+
+  if (!hasSession && !isPublicPath(normalizedPath)) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = localizePath('/auth/login', detectedLocale);
+
+    const localizedReturnPath = requestLocale
+      ? `${pathname}${search}`
+      : `${localizePath(normalizedPath, detectedLocale)}${search}`;
+    redirectUrl.searchParams.set('returnUrl', localizedReturnPath);
+
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  const urlLocale = requestLocale;
 
   if (urlLocale) {
     const rewrittenPath = removeLocalePrefix(pathname);
@@ -76,13 +118,13 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  const detectedLocale = detectRequestLocale(request);
+  const localizedFallback = detectRequestLocale(request);
   const redirectUrl = request.nextUrl.clone();
-  redirectUrl.pathname = localizePath(pathname, detectedLocale);
+  redirectUrl.pathname = localizePath(pathname, localizedFallback);
   redirectUrl.search = search;
 
   const response = NextResponse.redirect(redirectUrl);
-  response.cookies.set('user_lang', detectedLocale, {
+  response.cookies.set('user_lang', localizedFallback, {
     path: '/',
     maxAge: 60 * 60 * 24 * 365,
     sameSite: 'lax',

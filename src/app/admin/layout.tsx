@@ -22,8 +22,11 @@ const pageTitles: Record<string, string> = {
   "/admin/tasks": "Tasks",
   "/admin/campaigns": "Campaigns",
   "/admin/admins": "Admins",
+  "/admin/settings/admin": "Admins",
+  "/admin/settings/admins": "Admins",
   "/admin/roles": "Roles",
   "/admin/settings": "Settings",
+  "/admin/settings/help-center": "Information & Help Center",
   "/admin/logs": "Audit Logs",
 };
 
