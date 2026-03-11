@@ -132,3 +132,17 @@ export interface ApiResponse<T> {
     message: string;
   };
 }
+
+export interface IpGeoData {
+  ip: string;
+  countryCode: string | null;
+  countryName: string | null;
+  region: string | null;
+  city: string | null;
+  timezone: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  isPrivateIp: boolean;
+  source: 'header' | 'provider' | 'private' | 'unknown';
+  resolvedAt: string;
+}

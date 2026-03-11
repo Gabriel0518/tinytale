@@ -7,7 +7,6 @@ import {
   COUNTRY_LANG_MAP,
   DEFAULT_LOCALE,
   isSupportedLocale,
-  parseAcceptLanguageHeader,
   SupportedLocale,
 } from "@/lib/i18n";
 import {
@@ -34,10 +33,12 @@ function resolveHtmlLang(): SupportedLocale {
   const cookieLocale = requestCookies.get("user_lang")?.value?.trim().toLowerCase();
   if (isSupportedLocale(cookieLocale)) return cookieLocale;
 
-  const browserLocale = parseAcceptLanguageHeader(requestHeaders.get("accept-language"));
-  if (browserLocale) return browserLocale;
-
-  const country = requestHeaders.get("cf-ipcountry") || "";
+  const country = (
+    requestHeaders.get("cf-ipcountry") ||
+    requestHeaders.get("x-vercel-ip-country") ||
+    requestHeaders.get("x-country-code") ||
+    ""
+  ).toUpperCase();
   if (country && COUNTRY_LANG_MAP[country]) return COUNTRY_LANG_MAP[country];
 
   return DEFAULT_LOCALE;

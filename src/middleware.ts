@@ -5,7 +5,6 @@ import {
   extractLocaleFromPath,
   isSupportedLocale,
   localizePath,
-  parseAcceptLanguageHeader,
   removeLocalePrefix,
 } from '@/lib/i18n';
 
@@ -13,6 +12,7 @@ const BYPASS_PREFIXES = ['/api', '/_next', '/admin', '/cdn'];
 const BYPASS_EXACT = new Set(['/favicon.ico', '/robots.txt', '/sitemap.xml', '/manifest.json']);
 const PUBLIC_FILE = /\.[^/]+$/;
 const AUTH_COOKIE = 'tt_session';
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002').replace(/\/+$/, '');
 const PUBLIC_PATHS = new Set([
   '/',
   '/help',
@@ -45,19 +45,56 @@ function shouldBypass(pathname: string): boolean {
   return false;
 }
 
-function detectRequestLocale(request: NextRequest) {
+async function detectRequestLocale(request: NextRequest) {
   const cookieLocale = request.cookies.get('user_lang')?.value;
   if (isSupportedLocale(cookieLocale)) {
     return cookieLocale;
   }
 
-  const acceptLanguage = request.headers.get('accept-language');
-  const browserLocale = parseAcceptLanguageHeader(acceptLanguage);
-  if (browserLocale) {
-    return browserLocale;
+  // Prefer backend detection once: it uses DB-backed region-language library.
+  try {
+    const forwardedHeaders = new Headers();
+    const passthroughHeaderKeys = [
+      'cf-ipcountry',
+      'x-vercel-ip-country',
+      'x-country-code',
+      'cf-connecting-ip',
+      'x-forwarded-for',
+      'x-real-ip',
+    ];
+    for (const key of passthroughHeaderKeys) {
+      const value = request.headers.get(key);
+      if (value) forwardedHeaders.set(key, value);
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1200);
+    const response = await fetch(`${API_URL}/api/i18n/detect`, {
+      method: 'GET',
+      headers: forwardedHeaders,
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (response.ok) {
+      const payload = await response.json() as { data?: { detected_language?: string } };
+      const backendLocale = String(payload?.data?.detected_language || '').trim().toLowerCase();
+      if (isSupportedLocale(backendLocale)) {
+        return backendLocale;
+      }
+    }
+  } catch {
+    // noop: fallback to local country-code mapping
   }
 
-  const country = request.headers.get('cf-ipcountry') || '';
+  const country = (
+    request.headers.get('cf-ipcountry') ||
+    request.headers.get('x-vercel-ip-country') ||
+    request.headers.get('x-country-code') ||
+    ''
+  ).toUpperCase();
+
   if (country && COUNTRY_LANG_MAP[country]) {
     return COUNTRY_LANG_MAP[country];
   }
@@ -65,7 +102,7 @@ function detectRequestLocale(request: NextRequest) {
   return DEFAULT_LOCALE;
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (shouldBypass(pathname)) {
@@ -78,7 +115,7 @@ export function middleware(request: NextRequest) {
 
   const normalizedPath = removeLocalePrefix(pathname);
   const requestLocale = extractLocaleFromPath(pathname);
-  const detectedLocale = requestLocale || detectRequestLocale(request);
+  const detectedLocale = requestLocale || await detectRequestLocale(request);
   const hasSession = request.cookies.get(AUTH_COOKIE)?.value === '1';
 
   if (!hasSession && !isPublicPath(normalizedPath)) {
@@ -118,7 +155,7 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  const localizedFallback = detectRequestLocale(request);
+  const localizedFallback = await detectRequestLocale(request);
   const redirectUrl = request.nextUrl.clone();
   redirectUrl.pathname = localizePath(pathname, localizedFallback);
   redirectUrl.search = search;

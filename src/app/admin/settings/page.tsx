@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { adminApi } from "@/lib/adminApi";
+import { ALL_COUNTRIES } from "@/lib/countries";
 
 /* ───────── types ───────── */
 interface RechargeTier {
@@ -32,7 +33,69 @@ interface VipPrivileges {
   termsUrl: string;
 }
 
-type TabKey = "recharge" | "vip" | "playback" | "promotion" | "email" | "payment" | "social";
+type SupportedLanguageCode = "en" | "zh" | "ja" | "es" | "pt" | "hi" | "id";
+
+interface LanguageRegionRule {
+  id: string;
+  country: string;
+  language: SupportedLanguageCode;
+  enabled: boolean;
+}
+
+interface RegionLibrarySummary {
+  totalCountries: number;
+  unmatchedCountries: string[];
+  customRulesCount: number;
+  activeCustomRulesCount: number;
+}
+
+type TabKey = "recharge" | "vip" | "playback" | "promotion" | "email" | "payment" | "social" | "language_region";
+
+const LANGUAGE_OPTIONS: { value: SupportedLanguageCode; label: string }[] = [
+  { value: "en", label: "English (en)" },
+  { value: "es", label: "Español (es)" },
+  { value: "pt", label: "Português (pt)" },
+  { value: "zh", label: "中文 (zh)" },
+  { value: "ja", label: "日本語 (ja)" },
+  { value: "hi", label: "हिन्दी (hi)" },
+  { value: "id", label: "Indonesia (id)" },
+];
+
+function createEmptyLanguageRegionRule(): LanguageRegionRule {
+  return {
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    country: "",
+    language: "en",
+    enabled: true,
+  };
+}
+
+function normalizeLanguageRegionRules(raw: any): LanguageRegionRule[] {
+  const parsed = typeof raw === "string"
+    ? (() => {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return [];
+      }
+    })()
+    : raw;
+
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((item: any, index: number) => {
+      const language = String(item?.language || "").toLowerCase();
+      if (!LANGUAGE_OPTIONS.some((opt) => opt.value === language)) return null;
+      return {
+        id: String(item?.id || `${Date.now()}_${index}`),
+        country: String(item?.country || "").trim(),
+        language: language as SupportedLanguageCode,
+        enabled: item?.enabled !== false,
+      };
+    })
+    .filter(Boolean) as LanguageRegionRule[];
+}
 
 const CONFIG_GROUPS: { key: TabKey; label: string; icon: JSX.Element }[] = [
   {
@@ -96,6 +159,16 @@ const CONFIG_GROUPS: { key: TabKey; label: string; icon: JSX.Element }[] = [
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5a17.92 17.92 0 01-8.716-2.247m0 0A8.966 8.966 0 013 12c0-1.777.514-3.434 1.4-4.832" />
+      </svg>
+    ),
+  },
+  {
+    key: "language_region",
+    label: "Language & Region",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8M12 3c2.25 2.25 3.5 5.25 3.5 9s-1.25 6.75-3.5 9m0-18c-2.25 2.25-3.5 5.25-3.5 9s1.25 6.75 3.5 9" />
       </svg>
     ),
   },
@@ -284,6 +357,10 @@ export default function AdminSettingsPage() {
   const [socialInstagram, setSocialInstagram] = useState("");
   const [socialYoutube, setSocialYoutube] = useState("");
 
+  /* ── Language & region rules ── */
+  const [languageRegionRules, setLanguageRegionRules] = useState<LanguageRegionRule[]>([]);
+  const [regionLibrarySummary, setRegionLibrarySummary] = useState<RegionLibrarySummary | null>(null);
+
   /* ── toast helper ── */
   const showToast = (msg: string) => {
     setToast(msg);
@@ -348,6 +425,12 @@ export default function AdminSettingsPage() {
         if (map.has("social_x")) setSocialX(map.get("social_x") as string);
         if (map.has("social_instagram")) setSocialInstagram(map.get("social_instagram") as string);
         if (map.has("social_youtube")) setSocialYoutube(map.get("social_youtube") as string);
+      } else if (category === "i18n") {
+        if (map.has("language_region_rules")) {
+          setLanguageRegionRules(normalizeLanguageRegionRules(map.get("language_region_rules")));
+        } else {
+          setLanguageRegionRules([]);
+        }
       }
     } catch (err) {
       console.error("Failed to load settings:", err);
@@ -361,6 +444,21 @@ export default function AdminSettingsPage() {
     try {
       const res: any = await adminApi.getVipPlans();
       if (res?.data) setVipPlans(Array.isArray(res.data) ? res.data : res.data.plans || []);
+    } catch {}
+  }, []);
+
+  const loadRegionLibrarySummary = useCallback(async (force = false) => {
+    try {
+      const res: any = await adminApi.getLanguageRegionLibrary(force);
+      const lib = res?.data?.library;
+      if (lib) {
+        setRegionLibrarySummary({
+          totalCountries: Number(lib.totalCountries || 0),
+          unmatchedCountries: Array.isArray(lib.unmatchedCountries) ? lib.unmatchedCountries : [],
+          customRulesCount: Number(lib.customRulesCount || 0),
+          activeCustomRulesCount: Number(lib.activeCustomRulesCount || 0),
+        });
+      }
     } catch {}
   }, []);
 
@@ -379,9 +477,11 @@ export default function AdminSettingsPage() {
 
   /* ── load on tab change ── */
   useEffect(() => {
-    loadSettings(activeTab);
+    const category = activeTab === "language_region" ? "i18n" : activeTab;
+    loadSettings(category);
     if (activeTab === "vip") loadVipPlans();
-  }, [activeTab, loadSettings, loadVipPlans]);
+    if (activeTab === "language_region") loadRegionLibrarySummary();
+  }, [activeTab, loadSettings, loadVipPlans, loadRegionLibrarySummary]);
 
   /* ═══════════════════════════════════════════════════════════
      RENDER
@@ -453,6 +553,7 @@ export default function AdminSettingsPage() {
           {!loading && activeTab === "email" && renderEmail()}
           {!loading && activeTab === "payment" && renderPayment()}
           {!loading && activeTab === "social" && renderSocial()}
+          {!loading && activeTab === "language_region" && renderLanguageRegion()}
         </div>
       </div>
     </div>
@@ -1091,6 +1192,140 @@ export default function AdminSettingsPage() {
               <SecondaryBtn onClick={() => { setDefaultCurrency("USD"); setPaymentLocale("auto"); setEnable3ds(true); }}>Cancel</SecondaryBtn>
               <PrimaryBtn onClick={handleSaveLocalization} disabled={saving}>{saving ? "Saving..." : "Save Settings"}</PrimaryBtn>
             </div>
+          </div>
+        </SectionCard>
+      </>
+    );
+  }
+
+  /* ───────── Tab 8: Language & Region ───────── */
+  function renderLanguageRegion() {
+    const handleAddRule = () => {
+      setLanguageRegionRules((prev) => [...prev, createEmptyLanguageRegionRule()]);
+    };
+
+    const handleDeleteRule = (id: string) => {
+      setLanguageRegionRules((prev) => prev.filter((rule) => rule.id !== id));
+    };
+
+    const handlePatchRule = (id: string, patch: Partial<LanguageRegionRule>) => {
+      setLanguageRegionRules((prev) =>
+        prev.map((rule) => (rule.id === id ? { ...rule, ...patch } : rule))
+      );
+    };
+
+    const handleSave = async () => {
+      const payload = languageRegionRules
+        .map((rule) => ({
+          country: rule.country.trim(),
+          language: rule.language,
+          enabled: rule.enabled,
+        }))
+        .filter((rule) => Boolean(rule.country));
+
+      await saveSettings([
+        {
+          key: "language_region_rules",
+          value: JSON.stringify(payload),
+          category: "i18n",
+        },
+      ]);
+
+      await loadRegionLibrarySummary(true);
+    };
+
+    return (
+      <>
+        <SectionCard
+          title="Language & Region Mapping Rules"
+          action={<PrimaryBtn onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save Rules"}</PrimaryBtn>}
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-gray-400">
+              Edit country-language mapping rules used for first-visit language detection. Existing user cookie preferences are not overridden.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <PrimaryBtn onClick={handleAddRule}>Add Rule</PrimaryBtn>
+              <SecondaryBtn onClick={() => loadRegionLibrarySummary(true)}>Refresh Library Summary</SecondaryBtn>
+            </div>
+
+            <datalist id="language-region-country-list">
+              {ALL_COUNTRIES.map((country) => (
+                <option key={country} value={country} />
+              ))}
+            </datalist>
+
+            <div className="space-y-3">
+              {languageRegionRules.length === 0 && (
+                <div className="rounded-lg border border-dashed border-gray-700/60 bg-[#1a1a2e] px-4 py-5 text-sm text-gray-400">
+                  No custom rules configured. Click <span className="font-medium text-gray-300">Add Rule</span> to create one.
+                </div>
+              )}
+
+              {languageRegionRules.map((rule) => (
+                <div key={rule.id} className="grid gap-3 rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-3 md:grid-cols-[2fr,1.2fr,0.8fr,auto]">
+                  <div>
+                    <FieldLabel>Country / Region</FieldLabel>
+                    <input
+                      list="language-region-country-list"
+                      value={rule.country}
+                      onChange={(e) => handlePatchRule(rule.id, { country: e.target.value })}
+                      placeholder="United States"
+                      className="w-full rounded-lg border border-gray-700/50 bg-[#13131d] px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Language</FieldLabel>
+                    <SelectInput
+                      value={rule.language}
+                      onChange={(value) => handlePatchRule(rule.id, { language: value as SupportedLanguageCode })}
+                      options={LANGUAGE_OPTIONS}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Enabled</FieldLabel>
+                    <div className="mt-1 flex h-[42px] items-center">
+                      <Toggle checked={rule.enabled} onChange={(value) => handlePatchRule(rule.id, { enabled: value })} />
+                    </div>
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      onClick={() => handleDeleteRule(rule.id)}
+                      className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/20"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Current Library Summary">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Countries In Database</p>
+              <p className="mt-2 text-2xl font-semibold text-gray-100">{regionLibrarySummary?.totalCountries ?? 0}</p>
+            </div>
+            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+              <p className="text-xs uppercase tracking-wide text-gray-500">Custom Rules (Active / Total)</p>
+              <p className="mt-2 text-2xl font-semibold text-gray-100">
+                {regionLibrarySummary?.activeCustomRulesCount ?? 0} / {regionLibrarySummary?.customRulesCount ?? 0}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5">
+            <p className="mb-2 text-sm font-medium text-gray-300">Unmatched Countries</p>
+            {regionLibrarySummary?.unmatchedCountries?.length ? (
+              <div className="max-h-40 overflow-auto rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-3 text-sm text-gray-300">
+                {regionLibrarySummary.unmatchedCountries.join(", ")}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">All database countries currently map to a language.</p>
+            )}
           </div>
         </SectionCard>
       </>

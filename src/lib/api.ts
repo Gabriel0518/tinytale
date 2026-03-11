@@ -1,4 +1,4 @@
-import type { StreamPlaybackInfo } from '@/types';
+import type { IpGeoData, StreamPlaybackInfo } from '@/types';
 import { detectClientLocale } from '@/lib/i18n';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
@@ -383,6 +383,12 @@ export const contactApi = {
     api.post('/api/contact/inquiry', data),
 };
 
+// Geolocation API
+export const geoApi = {
+  getMyGeo: () =>
+    api.get<{ success: boolean; data: IpGeoData | null }>('/api/geo/me'),
+};
+
 // Promoter / Affiliate API
 export const promoterApi = {
   apply: (token: string, data: { fullName: string; businessEmail: string; country: string; promotionChannels: string; paymentMethod?: any }) =>
@@ -461,6 +467,7 @@ export const apiCombined = {
   ...settingsApi,
   ...subscriptionApi,
   ...contactApi,
+  ...geoApi,
   ...promoterApi,
   register: authApi.register,
   sendVerificationCode: verificationApi.sendVerificationCode,

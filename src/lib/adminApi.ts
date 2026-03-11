@@ -331,6 +331,9 @@ export const adminApi = {
   saveSettings: (settings: Array<{ key: string; value: any; category?: string }>, token = getAdminToken()) =>
     api.put('/api/admin/settings/settings', { settings }, { token }),
 
+  getLanguageRegionLibrary: (force = false, token = getAdminToken()) =>
+    api.get(`/api/i18n/region-library${force ? '?force=1' : ''}`, { token }),
+
   // Settings - VIP Plans
   getVipPlans: (token = getAdminToken()) =>
     api.get('/api/admin/settings/vip-plans', { token }),
