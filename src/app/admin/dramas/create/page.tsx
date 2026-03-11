@@ -209,15 +209,14 @@ export default function CreateDramaPage() {
   const publishLockRef = useRef(false);
 
   const navigateToDramaManagement = useCallback(() => {
-    router.replace("/admin/dramas");
+    void router.replace("/admin/dramas");
 
-    // Fallback: if client navigation is blocked/stuck, force hard redirect.
     if (typeof window !== "undefined") {
       window.setTimeout(() => {
-        if (window.location.pathname.includes("/admin/dramas/create")) {
+        if (window.location.pathname !== "/admin/dramas") {
           window.location.assign("/admin/dramas");
         }
-      }, 600);
+      }, 200);
     }
   }, [router]);
 
