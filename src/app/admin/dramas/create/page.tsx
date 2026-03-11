@@ -311,29 +311,21 @@ export default function CreateDramaPage() {
         publishOption: form.publishOption,
         scheduleDate: form.scheduleDate,
         totalEpisodes: form.episodes.length,
+        episodes: form.episodes.map((ep, idx) => ({
+          episodeNumber: idx + 1,
+          title: ep.name,
+          duration: ep.duration ? parseDurationToSeconds(ep.duration) : 0,
+          streamVideoId: ep.videoUid || "",
+          thumbnail: ep.cover || "",
+          isFree: form.monetizationModel === "free" || idx < form.freeEpisodeCount,
+          unlockPrice: form.monetizationModel === "free" ? 0 : (ep.price ?? form.defaultPrice),
+          status: ep.status === "ready" ? "Published" : "Processing",
+        })),
       }) as any;
 
       const dramaId = result?.data?._id || result?._id;
       if (!dramaId) {
         throw new Error("Create drama succeeded but no drama id was returned.");
-      }
-
-      // Create Episode records for each uploaded/split episode
-      if (dramaId && form.episodes.length > 0) {
-        const episodePromises = form.episodes.map((ep, idx) =>
-          adminApi.createEpisode({
-            dramaId,
-            episodeNumber: idx + 1,
-            title: ep.name,
-            duration: ep.duration ? parseDurationToSeconds(ep.duration) : 0,
-            streamVideoId: ep.videoUid || "",
-            thumbnail: ep.cover || "",
-            isFree: form.monetizationModel === "free" || idx < form.freeEpisodeCount,
-            unlockPrice: form.monetizationModel === "free" ? 0 : (ep.price ?? form.defaultPrice),
-            status: ep.status === "ready" ? "Published" : "Processing",
-          }).catch((err: any) => console.error(`Failed to create episode ${idx + 1}:`, err))
-        );
-        await Promise.all(episodePromises);
       }
 
       publishSucceeded = true;
