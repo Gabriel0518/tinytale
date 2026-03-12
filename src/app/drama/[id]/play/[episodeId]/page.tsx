@@ -13,6 +13,7 @@ import type { StreamPlaybackInfo } from "@/types";
 import SimplePlayer from "@/components/player/SimplePlayer";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolvePlaybackSource } from "@/lib/playback";
 
 const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
   en: {
@@ -297,7 +298,7 @@ export default function PlayEpisodePage() {
     : ["auto"];
 
   const videoUrl = (() => {
-    const source = streamInfo.playbackUrl || currentEpisode.videoUrl;
+    const source = resolvePlaybackSource(streamInfo, currentEpisode.videoUrl) || currentEpisode.videoUrl;
     if (!source || !source.includes('.m3u8')) return source;
     try {
       const parsed = new URL(source);

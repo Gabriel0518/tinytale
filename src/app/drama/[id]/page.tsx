@@ -19,6 +19,7 @@ import type { CloudflarePlayerHandle } from "@/components/player";
 import { ControlBar } from "@/components/player/Controls";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolvePlaybackSource } from "@/lib/playback";
 
 const DRAMA_TEXT: Record<SupportedLocale, Record<string, string>> = {
   en: {
@@ -212,6 +213,7 @@ function PlayerInner({
 
   // Determine video source: prefer stream, fallback to direct URL
   const videoUrl = activeEpisode?.videoUrl || undefined;
+  const playbackSource = resolvePlaybackSource(streamInfo, videoUrl);
 
   return (
     <>
@@ -219,7 +221,7 @@ function PlayerInner({
         ref={playerRef as React.Ref<CloudflarePlayerHandle>}
         streamVideoId={streamInfo?.videoUid}
         signedToken={streamInfo?.signedToken}
-        videoUrl={streamInfo?.playbackUrl || videoUrl}
+        videoUrl={playbackSource}
         quality={state.quality}
         poster={activeEpisode?.thumbnail || drama.cover}
         subtitles={streamInfo?.subtitles}

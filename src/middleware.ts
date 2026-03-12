@@ -12,7 +12,10 @@ const BYPASS_PREFIXES = ['/api', '/_next', '/admin', '/cdn'];
 const BYPASS_EXACT = new Set(['/favicon.ico', '/robots.txt', '/sitemap.xml', '/manifest.json']);
 const PUBLIC_FILE = /\.[^/]+$/;
 const AUTH_COOKIE = 'tt_session';
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002').replace(/\/+$/, '');
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL
+  || (process.env.NODE_ENV === 'production' ? 'https://api.tinytale.top' : 'http://localhost:7002')
+).replace(/\/+$/, '');
 const PUBLIC_PATHS = new Set([
   '/',
   '/help',

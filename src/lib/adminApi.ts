@@ -1,4 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+const API_URL = process.env.NEXT_PUBLIC_API_URL
+  || (process.env.NODE_ENV === 'production' ? 'https://api.tinytale.top' : 'http://localhost:7002');
 
 interface FetchOptions extends RequestInit {
   token?: string;

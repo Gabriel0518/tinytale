@@ -48,6 +48,13 @@ function applyQualityParam(url: string, quality?: string): string {
   if (!url.includes('.m3u8')) return url;
   try {
     const parsed = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && parsed.protocol === 'http:') {
+      const hostname = parsed.hostname.toLowerCase();
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+      if (!isLocalhost) {
+        parsed.protocol = 'https:';
+      }
+    }
     parsed.searchParams.set('quality', quality || 'auto');
     return parsed.toString();
   } catch {

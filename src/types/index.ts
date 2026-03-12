@@ -38,7 +38,8 @@ export interface SubtitleTrack {
 
 export interface StreamPlaybackInfo {
   videoUid: string;
-  playbackUrl: string;        // HLS manifest URL
+  playbackUrl?: string;       // HLS manifest URL (absolute, backward-compatible)
+  playbackPath?: string;      // HLS manifest path (preferred)
   signedToken?: string;       // Signed token for paid content
   thumbnailUrl?: string;
   duration?: number;

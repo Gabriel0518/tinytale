@@ -1,7 +1,8 @@
 import type { EpisodeAccessResult, IpGeoData, StreamPlaybackInfo } from '@/types';
 import { detectClientLocale } from '@/lib/i18n';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+const API_URL = process.env.NEXT_PUBLIC_API_URL
+  || (process.env.NODE_ENV === 'production' ? 'https://api.tinytale.top' : 'http://localhost:7002');
 
 // Cloudflare Turnstile site key (get from Cloudflare Dashboard)
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
