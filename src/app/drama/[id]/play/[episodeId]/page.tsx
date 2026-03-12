@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter} from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { dramasApi, episodesApi, userApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
@@ -121,11 +121,16 @@ export default function PlayEpisodePage() {
   const t = PLAY_TEXT[locale] || PLAY_TEXT.en;
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, token } = useAuth();
   const { toast } = useToast();
 
   const dramaId = params.id as string;
   const episodeId = params.episodeId as string;
+  const initialSeekTime = Math.max(
+    0,
+    Number(searchParams.get("start") || searchParams.get("t") || 0) || 0
+  );
 
   const [drama, setDrama] = useState<Drama | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -314,6 +319,7 @@ export default function PlayEpisodePage() {
             videoUrl={videoUrl}
             poster={currentEpisode.thumbnail || drama?.cover}
             autoplay={true}
+            initialSeekTime={initialSeekTime}
             onTimeUpdate={handleTimeUpdate}
             onEnded={handleEnded}
             onError={handleError}

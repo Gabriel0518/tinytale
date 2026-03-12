@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { ReactNode, useRef, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Drama } from "@/types";
@@ -18,6 +18,8 @@ interface HomeCarouselProps {
   title: string;
   dramas: Drama[];
   className?: string;
+  getDramaHref?: (drama: Drama) => string;
+  renderCardOverlay?: (drama: Drama) => ReactNode;
 }
 
 const CAROUSEL_TEXT: Record<SupportedLocale, Record<string, string>> = {
@@ -29,7 +31,7 @@ const CAROUSEL_TEXT: Record<SupportedLocale, Record<string, string>> = {
   hi: { scrollLeft: "बाईं ओर स्क्रॉल करें", scrollRight: "दाईं ओर स्क्रॉल करें", episodes: "एपिसोड" },
   id: { scrollLeft: "Gulir ke kiri", scrollRight: "Gulir ke kanan", episodes: "episode" } };
 
-export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
+export function HomeCarousel({ title, dramas, className, getDramaHref, renderCardOverlay }: HomeCarouselProps) {
   const locale = useLocale();
   const t = CAROUSEL_TEXT[locale] || CAROUSEL_TEXT.en;
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -124,7 +126,7 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
           {dramas.map((drama) => (
             <Link
               key={drama._id}
-              href={localizePath(`/drama/${drama._id}`, locale)}
+              href={getDramaHref ? getDramaHref(drama) : localizePath(`/drama/${drama._id}`, locale)}
               className={`shrink-0 snap-start ${cardWidthClass}`}
               draggable={false}
               onClick={(e) => {
@@ -140,6 +142,7 @@ export function HomeCarousel({ title, dramas, className }: HomeCarouselProps) {
                   draggable={false}
                   unoptimized={!drama.cover || drama.cover.startsWith('blob:')}
                 />
+                {renderCardOverlay?.(drama)}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 transition group-hover:opacity-100" />
                 <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 transition group-hover:opacity-100">
                   <p className="truncate text-sm font-medium text-white">{drama.title}</p>

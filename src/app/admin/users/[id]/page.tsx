@@ -981,8 +981,8 @@ export default function UserDetailPage() {
 
       {/* ── Adjust Coins Modal (M3-01) ─────────────────── */}
       {showCoinModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowCoinModal(false)}>
-          <div className="w-full max-w-lg rounded-xl border border-gray-700/50 bg-[#13131d] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm" onClick={() => setShowCoinModal(false)}>
+          <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col rounded-xl border border-gray-700/50 bg-[#13131d] shadow-2xl" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between border-b border-gray-700/50 px-6 py-4">
               <h3 className="text-lg font-semibold text-white">Coin Adjustment</h3>
@@ -991,7 +991,7 @@ export default function UserDetailPage() {
               </button>
             </div>
 
-            <div className="px-6 py-5 space-y-5">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
               {/* Current Balance */}
               <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
                 <p className="text-xs text-gray-500 mb-1">Current Balance</p>

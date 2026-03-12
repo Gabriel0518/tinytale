@@ -13,6 +13,7 @@ interface SimplePlayerProps {
   videoUrl: string;
   poster?: string;
   autoplay?: boolean;
+  initialSeekTime?: number;
   onTimeUpdate?: (time: number, duration: number) => void;
   onEnded?: () => void;
   onError?: (error: string) => void;
@@ -26,6 +27,7 @@ export default function SimplePlayer({
   videoUrl,
   poster,
   autoplay = false,
+  initialSeekTime = 0,
   onTimeUpdate,
   onEnded,
   onError,
@@ -38,6 +40,8 @@ export default function SimplePlayer({
   const lastUrlRef = useRef<string>(videoUrl);
   const resumeTimeRef = useRef<number>(0);
   const resumePlayingRef = useRef<boolean>(autoplay);
+  const initialSeekRef = useRef<number>(Math.max(0, Number(initialSeekTime) || 0));
+  const hasAppliedInitialSeekRef = useRef<boolean>(false);
   const [playing, setPlaying] = useState(autoplay);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
@@ -68,10 +72,17 @@ export default function SimplePlayer({
   };
 
   const handleReady = () => {
-    if (resumeTimeRef.current > 0) {
-      playerRef.current?.seekTo(resumeTimeRef.current, 'seconds');
+    const shouldUseResumeTime = resumeTimeRef.current > 0;
+    const seekTarget = shouldUseResumeTime
+      ? resumeTimeRef.current
+      : (!hasAppliedInitialSeekRef.current ? initialSeekRef.current : 0);
+    if (seekTarget > 0) {
+      playerRef.current?.seekTo(seekTarget, 'seconds');
+    }
+    if (shouldUseResumeTime) {
       resumeTimeRef.current = 0;
     }
+    hasAppliedInitialSeekRef.current = true;
     if (resumePlayingRef.current) {
       setPlaying(true);
     }
@@ -106,6 +117,11 @@ export default function SimplePlayer({
     resumePlayingRef.current = playing;
     lastUrlRef.current = videoUrl;
   }, [videoUrl, playing]);
+
+  useEffect(() => {
+    hasAppliedInitialSeekRef.current = false;
+    initialSeekRef.current = Math.max(0, Number(initialSeekTime) || 0);
+  }, [videoUrl, initialSeekTime]);
 
   return (
     <div className={`relative bg-black ${className}`}>

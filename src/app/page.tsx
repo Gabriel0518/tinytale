@@ -22,6 +22,17 @@ function validCover(url?: string): string | undefined {
   return url;
 }
 
+function clampPercent(value: number): number {
+  return Math.max(0, Math.min(100, value));
+}
+
+function formatSeconds(totalSeconds: number): string {
+  const safe = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
 const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
   en: {
     all: 'All',
@@ -128,8 +139,10 @@ export default function Home() {
     dramaId: string;
     episodeId: string | null;
     drama: Drama | null;
-    episode: { _id?: string; episodeNumber?: number; title?: string } | null;
+    episode: { _id?: string; episodeNumber?: number; title?: string; duration?: number } | null;
     progress: number;
+    resumeSeconds: number;
+    durationSeconds: number;
     updatedAt?: string;
   }>>([]);
   const [customPlaylists, setCustomPlaylists] = useState<{ _id: string; slug: string; name: string; icon: string; dramas: Drama[] }[]>([]);
@@ -222,15 +235,25 @@ export default function Home() {
             const continueRes: any = await userApi.getContinueWatching(token, 50).catch(() => null);
             const list = Array.isArray(continueRes?.data) ? continueRes.data : [];
             setContinueWatching(
-              list.map((item: any) => ({
-                _id: String(item._id || `${item.dramaId}-${item.episodeId || ''}`),
-                dramaId: String(item.dramaId || item.drama?._id || ''),
-                episodeId: item.episodeId ? String(item.episodeId) : null,
-                drama: item.drama || null,
-                episode: item.episode || null,
-                progress: Number(item.progress || 0),
-                updatedAt: item.updatedAt,
-              }))
+              list.map((item: any) => {
+                const episodeDuration = Number(item.durationSeconds ?? item?.episode?.duration ?? 0);
+                const progressPercent = clampPercent(Number(item.progress || 0));
+                const fallbackResumeSeconds = episodeDuration > 0
+                  ? Math.round((episodeDuration * progressPercent) / 100)
+                  : 0;
+                const resumeSeconds = item.resumeSeconds ?? fallbackResumeSeconds ?? 0;
+                return {
+                  _id: String(item._id || `${item.dramaId}-${item.episodeId || ''}`),
+                  dramaId: String(item.dramaId || item.drama?._id || ''),
+                  episodeId: item.episodeId ? String(item.episodeId) : (item.episode?._id ? String(item.episode._id) : null),
+                  drama: item.drama || null,
+                  episode: item.episode || null,
+                  progress: progressPercent,
+                  resumeSeconds: Math.max(0, Number(resumeSeconds)),
+                  durationSeconds: Math.max(0, episodeDuration),
+                  updatedAt: item.updatedAt,
+                };
+              })
             );
           } else {
             setContinueWatching([]);
@@ -288,6 +311,17 @@ export default function Home() {
   const editorsChoice = useMemo(() =>
     filteredDramas.filter(d => (d.rating || 0) >= 8.5).slice(0, 8),
     [filteredDramas]
+  );
+  const continueWatchingMetaMap = useMemo(
+    () => new Map(continueWatching.map((item) => [item.dramaId, item])),
+    [continueWatching]
+  );
+  const continueWatchingDramas = useMemo(
+    () =>
+      continueWatching
+        .map((item) => item.drama)
+        .filter((drama): drama is Drama => Boolean(drama?._id)),
+    [continueWatching]
   );
 
   const categoryPills = [
@@ -420,45 +454,50 @@ export default function Home() {
       </section>
 
       {/* Trending Now */}
-      {!loading && continueWatching.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-6">
-          <div className="mb-6 flex items-center gap-2">
-            <span className="text-xl">⏯️</span>
-            <h2 className="text-xl font-bold text-white">{t.continueWatching}</h2>
-          </div>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
-            {continueWatching.map((item) => {
-              const drama = item.drama;
-              if (!drama?._id) return null;
-              const href = item.episodeId
-                ? localizePath(`/drama/${drama._id}/play/${item.episodeId}`, locale)
-                : localizePath(`/drama/${drama._id}`, locale);
-              return (
-                <Link key={item._id} href={href} className="group">
-                  <div className="relative aspect-[2/3] overflow-hidden rounded-lg">
-                    <img
-                      src={validCover(drama.cover) || validCover(drama.horizontalCover) || "https://picsum.photos/seed/continue/400/600"}
-                      alt={drama.title}
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                    />
-                    <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/85 via-black/40 to-transparent">
-                      <div className="mb-1 text-[10px] text-gray-200">
-                        {item.episode?.episodeNumber ? `EP ${item.episode.episodeNumber}` : "EP ?"}
-                      </div>
-                      <div className="h-1.5 w-full rounded-full bg-white/20">
-                        <div
-                          className="h-1.5 rounded-full bg-red-500"
-                          style={{ width: `${Math.max(0, Math.min(100, item.progress || 0))}%` }}
-                        />
-                      </div>
-                    </div>
+      {!loading && continueWatchingDramas.length > 0 && (
+        <HomeCarousel
+          title={`⏯️ ${t.continueWatching}`}
+          dramas={continueWatchingDramas}
+          getDramaHref={(drama) => {
+            const item = continueWatchingMetaMap.get(drama._id);
+            if (!item?.episodeId) {
+              return localizePath(`/drama/${drama._id}`, locale);
+            }
+            const startSeconds = Math.max(0, Math.floor(item.resumeSeconds || 0));
+            const query = startSeconds > 0 ? `?start=${startSeconds}` : "";
+            return localizePath(`/drama/${drama._id}/play/${item.episodeId}${query}`, locale);
+          }}
+          renderCardOverlay={(drama) => {
+            const item = continueWatchingMetaMap.get(drama._id);
+            if (!item) return null;
+
+            const progressPercent = clampPercent(item.progress || 0);
+            const playedSeconds = Math.max(0, Math.floor(item.resumeSeconds || 0));
+            const totalSeconds = Math.max(0, Math.floor(item.durationSeconds || 0));
+            const episodeLabel = item.episode?.episodeNumber ? `EP ${item.episode.episodeNumber}` : "EP ?";
+            const timeLabel = totalSeconds > 0
+              ? `${formatSeconds(playedSeconds)} / ${formatSeconds(totalSeconds)}`
+              : formatSeconds(playedSeconds);
+
+            return (
+              <>
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/85 via-black/40 to-transparent">
+                  <div className="mb-1 text-[10px] text-gray-200">{episodeLabel}</div>
+                  <div className="h-1.5 w-full rounded-full bg-white/20">
+                    <div className="h-1.5 rounded-full bg-red-500" style={{ width: `${progressPercent}%` }} />
                   </div>
-                  <h3 className="mt-2 truncate text-sm font-medium text-white">{drama.title}</h3>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
+                </div>
+                <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                  <div className="rounded-full bg-black/75 px-3 py-1.5 text-center text-[11px] font-semibold text-white">
+                    <span>{episodeLabel}</span>
+                    <span className="mx-1 text-gray-300">•</span>
+                    <span>{timeLabel}</span>
+                  </div>
+                </div>
+              </>
+            );
+          }}
+        />
       )}
 
       {loading ? (
