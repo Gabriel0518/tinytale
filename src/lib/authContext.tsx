@@ -22,6 +22,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const SESSION_COOKIE_NAME = 'tt_session';
 const SESSION_COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
+function normalizeAuthUser(raw: any): User | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const normalized = {
+    ...raw,
+    _id: String(raw._id || raw.id || ''),
+  };
+  return normalized as User;
+}
+
 function setSessionCookie() {
   if (typeof document === 'undefined') return;
   document.cookie = `${SESSION_COOKIE_NAME}=1; Path=/; Max-Age=${SESSION_COOKIE_MAX_AGE}; SameSite=Lax`;
@@ -47,15 +56,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedUser = localStorage.getItem('user');
 
     if (storedToken && storedUser) {
+      const parsedUser = normalizeAuthUser(JSON.parse(storedUser));
       setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      setUser(parsedUser);
+      if (parsedUser) {
+        localStorage.setItem('user', JSON.stringify(parsedUser));
+      }
       setSessionCookie();
 
       // Refresh user data from server to get latest state (e.g. VIP status changes)
       authApi.getMe(storedToken).then(res => {
         if (res.success && res.data) {
-          setUser(res.data);
-          localStorage.setItem('user', JSON.stringify(res.data));
+          const normalized = normalizeAuthUser(res.data);
+          setUser(normalized);
+          if (normalized) {
+            localStorage.setItem('user', JSON.stringify(normalized));
+          }
         }
       }).catch(() => {
         // Silently fail - use cached data
@@ -70,10 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authApi.login(email, password, turnstileToken);
     if (response.success && response.data) {
       const { user: userData, token: authToken } = response.data;
-      setUser(userData);
+      const normalized = normalizeAuthUser(userData);
+      setUser(normalized);
       setToken(authToken);
       localStorage.setItem('token', authToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      if (normalized) {
+        localStorage.setItem('user', JSON.stringify(normalized));
+      }
       setSessionCookie();
     } else {
       throw new Error(response.error?.message || 'Login failed');
@@ -84,10 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authApi.register(email, password, nickname, referredBy);
     if (response.success && response.data) {
       const { user: userData, token: authToken } = response.data;
-      setUser(userData);
+      const normalized = normalizeAuthUser(userData);
+      setUser(normalized);
       setToken(authToken);
       localStorage.setItem('token', authToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      if (normalized) {
+        localStorage.setItem('user', JSON.stringify(normalized));
+      }
       setSessionCookie();
     } else {
       throw new Error(response.error?.message || 'Registration failed');
@@ -98,10 +120,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authApi.googleLogin(credential);
     if (response.success && response.data) {
       const { user: userData, token: authToken } = response.data;
-      setUser(userData);
+      const normalized = normalizeAuthUser(userData);
+      setUser(normalized);
       setToken(authToken);
       localStorage.setItem('token', authToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      if (normalized) {
+        localStorage.setItem('user', JSON.stringify(normalized));
+      }
       setSessionCookie();
     } else {
       throw new Error(response.error?.message || 'Google login failed');
@@ -112,10 +137,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const response = await authApi.facebookLogin(accessToken);
     if (response.success && response.data) {
       const { user: userData, token: authToken } = response.data;
-      setUser(userData);
+      const normalized = normalizeAuthUser(userData);
+      setUser(normalized);
       setToken(authToken);
       localStorage.setItem('token', authToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      if (normalized) {
+        localStorage.setItem('user', JSON.stringify(normalized));
+      }
       setSessionCookie();
     } else {
       throw new Error(response.error?.message || 'Facebook login failed');
@@ -131,8 +159,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUser = (updatedUser: User) => {
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
+    const normalized = normalizeAuthUser(updatedUser);
+    setUser(normalized);
+    if (normalized) {
+      localStorage.setItem('user', JSON.stringify(normalized));
+    }
   };
 
   const refreshUser = useCallback(async () => {
@@ -141,8 +172,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await authApi.getMe(currentToken);
       if (res.success && res.data) {
-        setUser(res.data);
-        localStorage.setItem('user', JSON.stringify(res.data));
+        const normalized = normalizeAuthUser(res.data);
+        setUser(normalized);
+        if (normalized) {
+          localStorage.setItem('user', JSON.stringify(normalized));
+        }
       }
     } catch {
       // Silently fail

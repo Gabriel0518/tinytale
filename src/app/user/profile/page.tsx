@@ -470,6 +470,7 @@ export default function ProfilePage() {
   }
 
   const isVip = user.vipStatus === "active";
+  const profileId = String(user._id || user.id || "");
 
   return (
     <div className="min-h-screen bg-[#0F1014]">
@@ -502,7 +503,7 @@ export default function ProfilePage() {
                     <span className="rounded bg-yellow-500/20 px-2 py-0.5 text-xs font-semibold text-yellow-500">{t.vipMember}</span>
                   )}
                 </div>
-                <p className="mt-1 text-sm text-gray-500">ID: {user._id?.slice(-6).toUpperCase()}</p>
+                <p className="mt-1 text-sm text-gray-500">ID: {profileId ? profileId.slice(-6).toUpperCase() : "-"}</p>
                 <p className="mt-1 text-sm text-gray-400">{t.profileTagline}</p>
               </div>
 

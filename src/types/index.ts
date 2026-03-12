@@ -98,6 +98,7 @@ export interface Episode {
 // User Types
 export interface User {
   _id: string;
+  id?: string;
   email: string;
   nickname: string;
   avatar?: string;
