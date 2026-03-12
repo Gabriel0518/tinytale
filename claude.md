@@ -1023,20 +1023,14 @@ cd /Users/gabriel/tinytale && npx next dev -p 7003
 
 ### VPS 生产环境部署
 
-| 属性 | 值 |
-|------|-----|
-| **IP** | 93.188.160.112 |
-| **SSH 端口** | 7897 |
-| **用户** | root |
-| **前端路径** | /var/www/tinytale/frontend |
-| **后端路径** | /var/www/tinytale/api |
-| **进程管理** | PM2 (tinytale-api, tinytale-web) |
-| **PM2 配置** | /var/www/tinytale/ecosystem.config.js |
-
-```bash
-# 部署流程
-ssh -p 7897 root@93.188.160.112 "cd /var/www/tinytale/api && git pull && npm run build && cd /var/www/tinytale/frontend && git pull && npm run build && pm2 restart all"
-```
+VPS 连接信息统一维护在环境变量中，不再在文档中写明具体连接参数。
+请使用 `.env` 中以下字段读取连接方式：
+- `VPS_HOST`
+- `VPS_SSH_PORT`
+- `VPS_SSH_USER`
+- `VPS_FRONTEND_PATH`
+- `VPS_BACKEND_PATH`
+- `VPS_PM2_ECOSYSTEM`
 
 ### Vercel 部署流程
 
