@@ -111,7 +111,7 @@ export default function ControlBar({
           />
 
           {/* Settings */}
-          {subtitleTracks.length > 0 && onSubtitleChange ? (
+          {onSubtitleChange ? (
             <SubtitleMenu
               tracks={subtitleTracks}
               activeTrack={activeSubtitleLanguage}

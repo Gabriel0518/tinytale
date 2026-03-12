@@ -31,8 +31,6 @@ export function SubtitleMenu({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  if (tracks.length === 0) return null;
-
   return (
     <div ref={menuRef} className="relative">
       <button
@@ -84,6 +82,11 @@ export function SubtitleMenu({
                 {track.label}
               </button>
             ))}
+            {tracks.length === 0 ? (
+              <div className="rounded px-2.5 py-1.5 text-left text-sm text-white/45">
+                No subtitles available
+              </div>
+            ) : null}
           </div>
         </div>
       )}
