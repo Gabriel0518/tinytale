@@ -2,27 +2,32 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { PLAYBACK_RATES } from '../types/player';
+import type { QualityMenuOption } from '@/lib/playerQuality';
 
 interface SettingsMenuProps {
   playbackRate: number;
   quality: string;
   onPlaybackRateChange: (rate: number) => void;
   onQualityChange: (quality: string) => void;
-  availableQualities?: string[];
+  qualityOptions?: QualityMenuOption[];
 }
 
-const DEFAULT_QUALITIES = ['auto', '1080p', '720p', '480p', '360p'];
+const DEFAULT_QUALITY_OPTIONS: QualityMenuOption[] = [
+  { value: '2K', label: '2K', disabled: true, badge: 'VIP' },
+  { value: '1080p', label: '1080P' },
+  { value: '720p', label: '720P' },
+];
 
 export default function SettingsMenu({
   playbackRate,
   quality,
   onPlaybackRateChange,
   onQualityChange,
-  availableQualities,
+  qualityOptions,
 }: SettingsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const qualities = availableQualities ?? DEFAULT_QUALITIES;
+  const qualities = qualityOptions ?? DEFAULT_QUALITY_OPTIONS;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -85,17 +90,22 @@ export default function SettingsMenu({
             <div className="flex flex-col gap-0.5">
               {qualities.map((q) => (
                 <button
-                  key={q}
+                  key={q.value}
                   className={`rounded px-2.5 py-1.5 text-left text-sm transition-colors ${
-                    quality === q
+                    q.disabled
+                      ? 'cursor-not-allowed text-white/35'
+                      : quality === q.value
                       ? 'bg-amber-500/20 text-amber-400 font-medium'
                       : 'text-white/70 hover:bg-white/10 hover:text-white'
                   }`}
                   onClick={() => {
-                    onQualityChange(q);
+                    if (q.disabled) return;
+                    onQualityChange(q.value);
                   }}
+                  disabled={q.disabled}
                 >
-                  {q === 'auto' ? 'Auto' : q}
+                  <span>{q.label}</span>
+                  {q.badge ? <span className="ml-2 text-[10px] uppercase tracking-wide text-purple-300">{q.badge}</span> : null}
                 </button>
               ))}
             </div>

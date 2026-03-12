@@ -5,6 +5,9 @@ import PlayControls from './PlayControls';
 import ProgressBar from './ProgressBar';
 import VolumeControl from './VolumeControl';
 import SettingsMenu from './SettingsMenu';
+import { SubtitleMenu } from '../SubtitleSystem';
+import type { SubtitleTrack } from '@/types';
+import type { QualityMenuOption } from '@/lib/playerQuality';
 
 interface ControlBarProps {
   playerState: PlayerState;
@@ -14,12 +17,15 @@ interface ControlBarProps {
   onToggleMute: () => void;
   onPlaybackRateChange: (rate: number) => void;
   onQualityChange: (quality: string) => void;
+  subtitleTracks?: SubtitleTrack[];
+  activeSubtitleLanguage?: string | null;
+  onSubtitleChange?: (language: string | null) => void;
   onToggleFullscreen: () => void;
   onPrevious?: () => void;
   onNext?: () => void;
   hasPrevious?: boolean;
   hasNext?: boolean;
-  availableQualities?: string[];
+  qualityOptions?: QualityMenuOption[];
   isFullscreen: boolean;
   title?: string;
 }
@@ -32,12 +38,15 @@ export default function ControlBar({
   onToggleMute,
   onPlaybackRateChange,
   onQualityChange,
+  subtitleTracks = [],
+  activeSubtitleLanguage = null,
+  onSubtitleChange,
   onToggleFullscreen,
   onPrevious,
   onNext,
   hasPrevious,
   hasNext,
-  availableQualities,
+  qualityOptions,
   isFullscreen,
   title,
 }: ControlBarProps) {
@@ -102,12 +111,21 @@ export default function ControlBar({
           />
 
           {/* Settings */}
+          {subtitleTracks.length > 0 && onSubtitleChange ? (
+            <SubtitleMenu
+              tracks={subtitleTracks}
+              activeTrack={activeSubtitleLanguage}
+              onSelectTrack={onSubtitleChange}
+            />
+          ) : null}
+
+          {/* Settings */}
           <SettingsMenu
             playbackRate={playerState.playbackRate}
             quality={playerState.quality}
             onPlaybackRateChange={onPlaybackRateChange}
             onQualityChange={onQualityChange}
-            availableQualities={availableQualities}
+            qualityOptions={qualityOptions}
           />
 
           {/* Fullscreen */}

@@ -14,6 +14,7 @@ import SimplePlayer from "@/components/player/SimplePlayer";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolvePlaybackSource } from "@/lib/playback";
+import { getQualityMenuOptions, resolveDefaultQuality } from "@/lib/playerQuality";
 
 const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
   en: {
@@ -120,7 +121,7 @@ export default function PlayEpisodePage() {
   const t = PLAY_TEXT[locale] || PLAY_TEXT.en;
   const params = useParams();
   const router = useRouter();
-  const { token } = useAuth();
+  const { user, token } = useAuth();
   const { toast } = useToast();
 
   const dramaId = params.id as string;
@@ -130,7 +131,7 @@ export default function PlayEpisodePage() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [streamInfo, setStreamInfo] = useState<StreamPlaybackInfo | null>(null);
-  const [selectedQuality, setSelectedQuality] = useState<string>("auto");
+  const [selectedQuality, setSelectedQuality] = useState<string>("1080p");
   const [loading, setLoading] = useState(true);
   const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
   const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
@@ -234,15 +235,14 @@ export default function PlayEpisodePage() {
     };
   }, [token, episodes, unlockedEpisodeIds]);
 
+  const isVip = user?.role === 'admin' || user?.vipStatus === 'active';
+  const qualityOptions = getQualityMenuOptions(isVip);
   useEffect(() => {
-    if (!streamInfo?.qualityOptions || streamInfo.qualityOptions.length === 0) {
-      setSelectedQuality("auto");
-      return;
+    const isCurrentEnabled = qualityOptions.some((option) => option.value === selectedQuality && !option.disabled);
+    if (!isCurrentEnabled) {
+      setSelectedQuality(resolveDefaultQuality(qualityOptions));
     }
-    if (!streamInfo.qualityOptions.includes(selectedQuality)) {
-      setSelectedQuality("auto");
-    }
-  }, [streamInfo?.qualityOptions, selectedQuality]);
+  }, [qualityOptions, selectedQuality]);
 
   // 播放进度上报
   const handleTimeUpdate = (time: number, duration: number) => {
@@ -293,10 +293,6 @@ export default function PlayEpisodePage() {
     );
   }
 
-  const qualityOptions = streamInfo.qualityOptions && streamInfo.qualityOptions.length > 0
-    ? streamInfo.qualityOptions
-    : ["auto"];
-
   const videoUrl = (() => {
     const source = resolvePlaybackSource(streamInfo, currentEpisode.videoUrl) || currentEpisode.videoUrl;
     if (!source || !source.includes('.m3u8')) return source;
@@ -341,7 +337,7 @@ export default function PlayEpisodePage() {
           <p className="text-gray-400">
             {t.episode} {currentEpisode.episodeNumber} • {Math.floor(currentEpisode.duration / 60)}:{String(currentEpisode.duration % 60).padStart(2, '0')}
           </p>
-          {qualityOptions.length > 1 && (
+          {qualityOptions.length > 0 && (
             <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-gray-700 bg-[#13131d] px-3 py-1.5">
               <span className="text-xs uppercase tracking-wide text-gray-400">Quality</span>
               <select
@@ -350,8 +346,13 @@ export default function PlayEpisodePage() {
                 className="bg-transparent text-sm text-white outline-none"
               >
                 {qualityOptions.map((option) => (
-                  <option key={option} value={option} className="bg-[#13131d]">
-                    {option === "auto" ? "Auto" : option}
+                  <option
+                    key={option.value}
+                    value={option.value}
+                    disabled={option.disabled}
+                    className="bg-[#13131d]"
+                  >
+                    {option.label}{option.badge ? ` (${option.badge})` : ""}
                   </option>
                 ))}
               </select>

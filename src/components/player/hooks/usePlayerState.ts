@@ -11,7 +11,7 @@ const initialState: PlayerState = {
   volume: 1,
   isMuted: false,
   playbackRate: 1,
-  quality: 'auto',
+  quality: '1080p',
   isFullscreen: false,
   isLoading: true,
   error: null,

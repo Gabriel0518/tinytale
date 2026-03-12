@@ -20,6 +20,7 @@ import { ControlBar } from "@/components/player/Controls";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolvePlaybackSource } from "@/lib/playback";
+import { getQualityMenuOptions, resolveDefaultQuality } from "@/lib/playerQuality";
 
 const DRAMA_TEXT: Record<SupportedLocale, Record<string, string>> = {
   en: {
@@ -164,6 +165,7 @@ function PlayerInner({
   onPlaybackProgress,
   onPrevious,
   onNext,
+  isVip,
   hasPrevious,
   hasNext }: {
   playerRef: React.RefObject<CloudflarePlayerHandle | null>;
@@ -173,10 +175,37 @@ function PlayerInner({
   onPlaybackProgress?: (time: number, duration: number) => void;
   onPrevious?: () => void;
   onNext?: () => void;
+  isVip: boolean;
   hasPrevious: boolean;
   hasNext: boolean;
 }) {
   const { state, actions, isFullscreen, toggleFullscreen } = usePlayerContext();
+  const qualityMenuOptions = useMemo(() => getQualityMenuOptions(isVip), [isVip]);
+  const [activeSubtitleLanguage, setActiveSubtitleLanguage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const defaultQuality = resolveDefaultQuality(qualityMenuOptions);
+    const isCurrentEnabled = qualityMenuOptions.some(
+      (option) => option.value === state.quality && !option.disabled
+    );
+    if (!isCurrentEnabled) {
+      actions.setQuality(defaultQuality);
+    }
+  }, [qualityMenuOptions, state.quality, actions]);
+
+  useEffect(() => {
+    const tracks = streamInfo?.subtitles || [];
+    if (tracks.length === 0) {
+      setActiveSubtitleLanguage(null);
+      return;
+    }
+    setActiveSubtitleLanguage((prev) => {
+      if (prev && tracks.some((track) => track.language === prev)) {
+        return prev;
+      }
+      return tracks[0].language;
+    });
+  }, [streamInfo?.subtitles]);
 
   const handlePlayPause = useCallback(() => {
     if (state.isPlaying) {
@@ -210,6 +239,9 @@ function PlayerInner({
   const handleQualityChange = useCallback((quality: string) => {
     actions.setQuality(quality);
   }, [actions]);
+  const handleSubtitleChange = useCallback((language: string | null) => {
+    setActiveSubtitleLanguage(language);
+  }, []);
 
   // Determine video source: prefer stream, fallback to direct URL
   const videoUrl = activeEpisode?.videoUrl || undefined;
@@ -223,6 +255,7 @@ function PlayerInner({
         signedToken={streamInfo?.signedToken}
         videoUrl={playbackSource}
         quality={state.quality}
+        activeSubtitleLanguage={activeSubtitleLanguage}
         poster={activeEpisode?.thumbnail || drama.cover}
         subtitles={streamInfo?.subtitles}
         onEnded={onNext}
@@ -245,12 +278,15 @@ function PlayerInner({
         onToggleMute={handleToggleMute}
         onPlaybackRateChange={handlePlaybackRateChange}
         onQualityChange={handleQualityChange}
+        subtitleTracks={streamInfo?.subtitles}
+        activeSubtitleLanguage={activeSubtitleLanguage}
+        onSubtitleChange={handleSubtitleChange}
         onToggleFullscreen={toggleFullscreen}
         onPrevious={onPrevious}
         onNext={onNext}
         hasPrevious={hasPrevious}
         hasNext={hasNext}
-        availableQualities={streamInfo?.qualityOptions}
+        qualityOptions={qualityMenuOptions}
         isFullscreen={isFullscreen}
         title={activeEpisode ? `Ep ${activeEpisode.episodeNumber} - ${activeEpisode.title}` : undefined}
       />
@@ -271,7 +307,7 @@ function DramaDetailContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { token, refreshUser } = useAuth();
+  const { user, token, refreshUser } = useAuth();
   const { toast } = useToast();
   const dramaId = params.id as string;
   const playerRef = useRef<CloudflarePlayerHandle>(null) as React.RefObject<CloudflarePlayerHandle>;
@@ -605,6 +641,7 @@ function DramaDetailContent() {
   const handleNextEpisode = () => {
     if (hasNext) handleEpisodeClick(episodes[activeEpisodeIndex + 1]);
   };
+  const isVip = user?.role === 'admin' || user?.vipStatus === 'active';
 
   return (
     <div className="min-h-screen bg-[#141414]">
@@ -637,7 +674,7 @@ function DramaDetailContent() {
                   streamInfo={streamInfo}
                   activeEpisode={activeEpisode}
                   drama={drama}
-                  onPlaybackProgress={(time, duration) => {
+                onPlaybackProgress={(time, duration) => {
                     if (!token || !activeEpisode?._id) return;
                     if (!duration || duration <= 0) return;
                     const now = Date.now();
@@ -645,11 +682,12 @@ function DramaDetailContent() {
                     lastProgressReportAtRef.current = now;
                     episodesApi.reportProgress(activeEpisode._id, token, time, duration).catch(() => {});
                   }}
-                  onPrevious={hasPrevious ? handlePreviousEpisode : undefined}
-                  onNext={hasNext ? handleNextEpisode : undefined}
-                  hasPrevious={hasPrevious}
-                  hasNext={hasNext}
-                />
+                onPrevious={hasPrevious ? handlePreviousEpisode : undefined}
+                onNext={hasNext ? handleNextEpisode : undefined}
+                isVip={isVip}
+                hasPrevious={hasPrevious}
+                hasNext={hasNext}
+              />
               </PlayerRoot>
             </div>
 

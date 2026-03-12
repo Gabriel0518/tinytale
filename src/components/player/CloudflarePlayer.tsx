@@ -15,6 +15,7 @@ interface CloudflarePlayerProps {
   videoUrl?: string;
   signedToken?: string;
   quality?: string;
+  activeSubtitleLanguage?: string | null;
   poster?: string;
   autoplay?: boolean;
   subtitles?: SubtitleTrack[];
@@ -34,6 +35,7 @@ export interface CloudflarePlayerHandle {
   setVolume: (vol: number) => void;
   setMuted: (muted: boolean) => void;
   setPlaybackRate: (rate: number) => void;
+  setSubtitleTrack: (language: string | null) => void;
   getPlayer: () => ReturnType<typeof import('video.js').default> | null;
 }
 
@@ -69,6 +71,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       videoUrl,
       signedToken,
       quality = 'auto',
+      activeSubtitleLanguage = null,
       poster,
       autoplay = false,
       subtitles = [],
@@ -101,6 +104,20 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
     }, [onTimeUpdate, onEnded, onError, onReady, onPlay, onPause]);
 
     // Expose imperative methods to parent via ref
+    const applySubtitleSelection = useCallback((language: string | null) => {
+      const player = playerRef.current;
+      if (!player || player.isDisposed()) return;
+
+      const textTracks = player.textTracks();
+      const target = String(language || '').toLowerCase();
+      for (let i = 0; i < textTracks.length; i += 1) {
+        const track = (textTracks as unknown as Record<number, TextTrack | undefined>)[i];
+        if (!track) continue;
+        const trackLanguage = String(track.language || '').toLowerCase();
+        track.mode = target && trackLanguage === target ? 'showing' : 'disabled';
+      }
+    }, []);
+
     useImperativeHandle(ref, () => ({
       play: () => playerRef.current?.play(),
       pause: () => playerRef.current?.pause(),
@@ -108,8 +125,9 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       setVolume: (vol: number) => playerRef.current?.volume(vol),
       setMuted: (muted: boolean) => playerRef.current?.muted(muted),
       setPlaybackRate: (rate: number) => playerRef.current?.playbackRate(rate),
+      setSubtitleTrack: (language: string | null) => applySubtitleSelection(language),
       getPlayer: () => playerRef.current,
-    }));
+    }), [applySubtitleSelection]);
 
     // Resolve base source (without quality param) — prefer backend-provided videoUrl.
     const getBaseSource = useCallback(() => {
@@ -194,6 +212,8 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
             false,
           );
         });
+
+        applySubtitleSelection(activeSubtitleLanguage);
       };
 
       initPlayer();
@@ -208,7 +228,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         }
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getBaseSource, autoplay, poster]);
+    }, [getBaseSource, autoplay, poster, subtitles, applySubtitleSelection, activeSubtitleLanguage]);
 
     // Switch HLS quality without rebuilding the player instance.
     useEffect(() => {
@@ -248,6 +268,10 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         }
       });
     }, [quality]);
+
+    useEffect(() => {
+      applySubtitleSelection(activeSubtitleLanguage);
+    }, [activeSubtitleLanguage, applySubtitleSelection]);
 
     return (
       <div
