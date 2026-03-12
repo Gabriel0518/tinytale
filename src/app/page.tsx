@@ -458,15 +458,7 @@ export default function Home() {
         <HomeCarousel
           title={`⏯️ ${t.continueWatching}`}
           dramas={continueWatchingDramas}
-          getDramaHref={(drama) => {
-            const item = continueWatchingMetaMap.get(drama._id);
-            if (!item?.episodeId) {
-              return localizePath(`/drama/${drama._id}`, locale);
-            }
-            const startSeconds = Math.max(0, Math.floor(item.resumeSeconds || 0));
-            const query = startSeconds > 0 ? `?start=${startSeconds}` : "";
-            return localizePath(`/drama/${drama._id}/play/${item.episodeId}${query}`, locale);
-          }}
+          getDramaHref={(drama) => localizePath(`/drama/${drama._id}`, locale)}
           renderCardOverlay={(drama) => {
             const item = continueWatchingMetaMap.get(drama._id);
             if (!item) return null;
