@@ -10,11 +10,13 @@ export interface Drama {
   rating: number;
   episodes?: Episode[];
   isCompleted: boolean;
+  dramaMode?: 'serial' | 'completed';
   status?: 'draft' | 'published';
   viewCount?: number;
   year?: number;
   director?: string;
   totalEpisodes?: number;
+  expectedTotal?: number | null;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string[];
@@ -79,6 +81,7 @@ export interface Episode {
   _id: string;
   dramaId: string | Drama;
   title: string;
+  description?: string;
   episodeNumber: number;
   videoUrl: string;
   thumbnail: string;

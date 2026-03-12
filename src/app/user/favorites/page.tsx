@@ -11,6 +11,7 @@ import { userApi, dramasApi } from "@/lib/api";
 import { Drama } from "@/types";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
+import { resolveDramaMode } from "@/lib/utils";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 
@@ -237,9 +238,10 @@ const COPY: Record<SupportedLocale, FavoritesCopy> = {
     timeMonthsAgo: (months) => `${months}bln lalu` } };
 
 function getStatusBadge(drama: Drama, t: FavoritesCopy) {
-  if (!drama.isCompleted && drama.viewCount && drama.viewCount > 5000)
+  const mode = resolveDramaMode(drama);
+  if (mode !== "completed" && drama.viewCount && drama.viewCount > 5000)
     return { label: t.statusHot, color: "bg-red-500" };
-  if (!drama.isCompleted) return { label: t.statusOngoing, color: "bg-green-600" };
+  if (mode !== "completed") return { label: t.statusOngoing, color: "bg-green-600" };
   if (drama.createdAt && Date.now() - new Date(drama.createdAt).getTime() < 30 * 86400000)
     return { label: t.statusNew, color: "bg-blue-500" };
   return { label: t.statusCompleted, color: "bg-gray-600" };

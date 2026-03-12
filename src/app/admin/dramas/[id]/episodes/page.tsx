@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
 
-type ModalType = "editInfo" | "editCategories" | "editRankings" | "editComments" | null;
+type ModalType = "editInfo" | "editCategories" | "editRankings" | "editComments" | "subtitles" | null;
 
 // ── Types ──────────────────────────────────────────────
 type EpisodeStatus = "Published" | "Processing" | "Failed" | "Draft";
@@ -15,6 +15,7 @@ interface Episode {
   id: string;
   episodeNumber: number;
   title: string;
+  description: string;
   cover: string;
   duration: number;
   status: EpisodeStatus;
@@ -70,6 +71,9 @@ function ModalCloseBtn({ onClick }: { onClick: () => void }) {
 function EditInfoModal({ episode, onClose, onSave }: { episode: Episode; onClose: () => void; onSave: (id: string, data: any) => Promise<void> }) {
   const [epNumber, setEpNumber] = useState(episode.episodeNumber);
   const [epTitle, setEpTitle] = useState(episode.title);
+  const [epDescription, setEpDescription] = useState(episode.description || "");
+  const [coverUrl, setCoverUrl] = useState(episode.cover || "");
+  const [coverUploading, setCoverUploading] = useState(false);
   const [accessType, setAccessType] = useState<"free" | "paid">(episode.monetization.type);
   const [price, setPrice] = useState(episode.monetization.type === "paid" ? episode.monetization.price : 30);
   const [publishMode, setPublishMode] = useState<"immediate" | "scheduled" | "draft">(
@@ -107,6 +111,8 @@ function EditInfoModal({ episode, onClose, onSave }: { episode: Episode; onClose
       await onSave(episode.id, {
         episodeNumber: epNumber,
         title: epTitle,
+        description: epDescription,
+        thumbnail: coverUrl,
         isFree: accessType === "free",
         unlockPrice: accessType === "paid" ? price : 0,
         status,
@@ -133,6 +139,47 @@ function EditInfoModal({ episode, onClose, onSave }: { episode: Episode; onClose
         )}
 
         <div className="space-y-5">
+          <div>
+            <label className={labelCls}>Cover URL</label>
+            <div className="flex items-center gap-2">
+              <input type="text" value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} className={inputCls} placeholder="https://..." />
+              <label className="cursor-pointer rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 hover:border-gray-500">
+                {coverUploading ? "Uploading..." : "Upload"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setCoverUploading(true);
+                    try {
+                      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+                      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7002";
+                      const body = new FormData();
+                      body.append("file", file);
+                      const res = await fetch(`${apiBase}/api/admin/upload/image`, {
+                        method: "POST",
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        body,
+                      });
+                      const data = await res.json();
+                      if (!res.ok || !data?.data?.url) {
+                        throw new Error(data?.error?.message || "Cover upload failed");
+                      }
+                      setCoverUrl(data.data.url);
+                    } catch (error: any) {
+                      setValidationError(error?.message || "Cover upload failed");
+                    } finally {
+                      setCoverUploading(false);
+                      e.target.value = "";
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             {/* Episode Number */}
             <div>
@@ -144,6 +191,17 @@ function EditInfoModal({ episode, onClose, onSave }: { episode: Episode; onClose
               <label className={labelCls}>Episode Title</label>
               <input type="text" value={epTitle} onChange={(e) => setEpTitle(e.target.value)} className={inputCls} placeholder="Enter title" />
             </div>
+          </div>
+
+          <div>
+            <label className={labelCls}>Episode Description</label>
+            <textarea
+              value={epDescription}
+              onChange={(e) => setEpDescription(e.target.value)}
+              className={inputCls + " resize-none"}
+              rows={3}
+              placeholder="Episode synopsis..."
+            />
           </div>
 
           {/* Access Type */}
@@ -191,6 +249,194 @@ function EditInfoModal({ episode, onClose, onSave }: { episode: Episode; onClose
           <button onClick={handleSave} disabled={saving} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition-colors disabled:opacity-50">
             {saving ? "Saving..." : "Save Changes"}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── M2-02: Assign Categories Modal ──────────────────────
+function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: () => void }) {
+  const [subtitles, setSubtitles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState(false);
+  const [language, setLanguage] = useState("en");
+  const [isDefault, setIsDefault] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const loadSubtitles = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res: any = await adminApi.getEpisodeSubtitles(episode.id);
+      const items = res?.data?.subtitles || [];
+      setSubtitles(items);
+    } catch (err: any) {
+      setError(err?.message || "Failed to load subtitles");
+    } finally {
+      setLoading(false);
+    }
+  }, [episode.id]);
+
+  useEffect(() => {
+    void loadSubtitles();
+  }, [loadSubtitles]);
+
+  const handleUpload = async (file: File) => {
+    setWorking(true);
+    setError(null);
+    try {
+      const uploadRes: any = await adminApi.uploadSubtitleFile(file);
+      const uploaded = uploadRes?.data;
+      if (!uploaded?.url || !uploaded?.format) {
+        throw new Error("Subtitle upload failed");
+      }
+      await adminApi.createEpisodeSubtitle(episode.id, {
+        language,
+        fileUrl: uploaded.url,
+        format: uploaded.format,
+        isDefault,
+      });
+      await loadSubtitles();
+      setIsDefault(false);
+    } catch (err: any) {
+      setError(err?.message || "Failed to upload subtitle");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const setDefaultSubtitle = async (subtitleId: string) => {
+    setWorking(true);
+    setError(null);
+    try {
+      await adminApi.updateEpisodeSubtitle(episode.id, subtitleId, { isDefault: true });
+      await loadSubtitles();
+    } catch (err: any) {
+      setError(err?.message || "Failed to set default subtitle");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const deleteSubtitle = async (subtitleId: string) => {
+    if (!confirm("Delete this subtitle?")) return;
+    setWorking(true);
+    setError(null);
+    try {
+      await adminApi.deleteEpisodeSubtitle(episode.id, subtitleId);
+      await loadSubtitles();
+    } catch (err: any) {
+      setError(err?.message || "Failed to delete subtitle");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const autoTranslate = async (subtitleId: string) => {
+    setWorking(true);
+    setError(null);
+    try {
+      await adminApi.translateEpisodeSubtitle(episode.id, subtitleId);
+      await loadSubtitles();
+    } catch (err: any) {
+      setError(err?.message || "Auto translation failed");
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-800 bg-[#1a1a2e] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <ModalCloseBtn onClick={onClose} />
+        <h2 className="text-lg font-bold text-white mb-1">Manage Subtitles</h2>
+        <p className="text-sm text-gray-500 mb-4">Episode {episode.episodeNumber} — {episode.title}</p>
+
+        <div className="rounded-xl border border-gray-800 bg-[#13131d] p-4 mb-4">
+          <h3 className="text-sm font-semibold text-white mb-3">Upload Subtitle</h3>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleUpload(file);
+              e.target.value = "";
+            }}
+          />
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="rounded-lg border border-gray-700 bg-[#0f0f17] px-3 py-2 text-sm text-white focus:border-indigo-600 focus:outline-none"
+            >
+              <option value="en">English</option>
+              <option value="zh">Chinese</option>
+              <option value="ja">Japanese</option>
+              <option value="es">Spanish</option>
+              <option value="pt">Portuguese</option>
+              <option value="hi">Hindi</option>
+              <option value="id">Indonesian</option>
+            </select>
+            <label className="inline-flex items-center gap-2 text-xs text-gray-400">
+              <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
+              Set as default
+            </label>
+            <button
+              disabled={working}
+              onClick={() => fileRef.current?.click()}
+              className="rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+            >
+              {working ? "Processing..." : "Upload SRT/VTT"}
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-700/50 bg-red-900/30 px-4 py-3 text-sm text-red-300">
+            {error}
+          </div>
+        )}
+
+        <div className="overflow-hidden rounded-xl border border-gray-800">
+          <table className="min-w-full">
+            <thead>
+              <tr className="border-b border-gray-800 bg-[#13131d]">
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Language</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Format</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Lines</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Default</th>
+                <th className="px-4 py-2.5 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800/50">
+              {loading ? (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">Loading subtitles...</td></tr>
+              ) : subtitles.length === 0 ? (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">No subtitles uploaded yet.</td></tr>
+              ) : subtitles.map((item) => (
+                <tr key={item.id} className="hover:bg-white/[0.02]">
+                  <td className="px-4 py-2.5 text-sm text-white">{item.label || item.language}</td>
+                  <td className="px-4 py-2.5 text-sm text-gray-400 uppercase">{item.format}</td>
+                  <td className="px-4 py-2.5 text-sm text-gray-400">{item.lineCount || 0}</td>
+                  <td className="px-4 py-2.5 text-sm">{item.isDefault ? <span className="text-emerald-400">Yes</span> : <span className="text-gray-500">No</span>}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex justify-end gap-2">
+                      {!item.isDefault && (
+                        <button onClick={() => void setDefaultSubtitle(item.id)} disabled={working} className="rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-indigo-500 hover:text-indigo-300 disabled:opacity-60">Set Default</button>
+                      )}
+                      <button onClick={() => void autoTranslate(item.id)} disabled={working} className="rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-indigo-500 hover:text-indigo-300 disabled:opacity-60">Auto Translate</button>
+                      <a href={item.fileUrl} target="_blank" rel="noreferrer" className="rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-gray-500">Open</a>
+                      <button onClick={() => void deleteSubtitle(item.id)} disabled={working} className="rounded border border-red-700/60 px-2.5 py-1 text-xs text-red-300 hover:bg-red-700/20 disabled:opacity-60">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -485,6 +731,7 @@ export default function EpisodesPage() {
           id: ep._id || ep.id,
           episodeNumber: ep.episodeNumber || 0,
           title: ep.title || "",
+          description: ep.description || "",
           cover: ep.thumbnail || ep.cover || "",
           duration: ep.duration || 0,
           status,
@@ -515,7 +762,7 @@ export default function EpisodesPage() {
   const togglePublish = useCallback(async (id: string) => {
     const ep = episodes.find((e) => e.id === id);
     if (!ep) return;
-    const newStatus = ep.status === "Published" ? "draft" : "published";
+    const newStatus = ep.status === "Published" ? "Draft" : "Published";
     try {
       await adminApi.updateEpisode(id, { status: newStatus });
       fetchEpisodes();
@@ -649,9 +896,13 @@ export default function EpisodesPage() {
                     {/* Cover */}
                     <td className="px-4 py-3">
                       <div className="relative h-12 w-20 rounded-md bg-gray-800 flex items-center justify-center overflow-hidden">
-                        <svg className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
+                        {ep.cover ? (
+                          <img src={ep.cover} alt={ep.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <svg className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        )}
                       </div>
                     </td>
 
@@ -745,6 +996,16 @@ export default function EpisodesPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                               </svg>
                               Edit Info
+                            </button>
+
+                            <button
+                              onClick={() => { setActionMenuId(null); setModalEpisode(ep); setActiveModal("subtitles"); }}
+                              className="flex w-full items-center gap-2.5 px-4 py-2 text-sm text-gray-300 hover:bg-white/5"
+                            >
+                              <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                              </svg>
+                              Manage Subtitles
                             </button>
 
                             <div className="my-1 border-t border-gray-800" />
@@ -851,6 +1112,9 @@ export default function EpisodesPage() {
       {/* Modals */}
       {activeModal === "editInfo" && modalEpisode && (
         <EditInfoModal episode={modalEpisode} onSave={handleSaveEpisode} onClose={() => { setActiveModal(null); setModalEpisode(null); }} />
+      )}
+      {activeModal === "subtitles" && modalEpisode && (
+        <EditSubtitlesModal episode={modalEpisode} onClose={() => { setActiveModal(null); setModalEpisode(null); }} />
       )}
       {activeModal === "editCategories" && modalEpisode && (
         <EditCategoriesModal episode={modalEpisode} onClose={() => { setActiveModal(null); setModalEpisode(null); }} />

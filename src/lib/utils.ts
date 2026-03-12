@@ -13,6 +13,13 @@ export function getDramaBadge(drama: Drama): 'hot' | 'new' | null {
   return null;
 }
 
+export function resolveDramaMode(drama: Pick<Drama, 'dramaMode' | 'isCompleted'>): 'serial' | 'completed' {
+  if (drama.dramaMode === 'serial' || drama.dramaMode === 'completed') {
+    return drama.dramaMode;
+  }
+  return drama.isCompleted ? 'completed' : 'serial';
+}
+
 export function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;

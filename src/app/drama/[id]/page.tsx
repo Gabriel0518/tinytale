@@ -13,7 +13,7 @@ import { Drama, Episode, EpisodeAccessResult, Review, StreamPlaybackInfo } from 
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import { DramaCard } from "@/components/features/DramaCard";
-import { formatDuration } from "@/lib/utils";
+import { formatDuration, resolveDramaMode } from "@/lib/utils";
 import { CloudflarePlayer, PlayerRoot, usePlayerContext } from "@/components/player";
 import type { CloudflarePlayerHandle } from "@/components/player";
 import { ControlBar } from "@/components/player/Controls";
@@ -749,7 +749,7 @@ function DramaDetailContent() {
             {drama.year && <span>{drama.year}</span>}
             <span>{drama.categories?.join(" · ")}</span>
             <span>{drama.totalEpisodes || episodes.length} {t.episodesCount}</span>
-            {drama.isCompleted && <span className="text-green-400">{t.completed}</span>}
+            {resolveDramaMode(drama) === "completed" && <span className="text-green-400">{t.completed}</span>}
           </div>
 
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-gray-300">{drama.description}</p>

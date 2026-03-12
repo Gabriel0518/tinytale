@@ -10,7 +10,7 @@ import { dramasApi, categoriesApi } from '@/lib/api';
 import { Drama, Category } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
 import { Footer } from '@/components/features/Footer';
-import { getDramaBadge } from '@/lib/utils';
+import { getDramaBadge, resolveDramaMode } from '@/lib/utils';
 import { mockDramas, mockCategories } from '@/lib/mockData';
 import { localizePath, SupportedLocale } from '@/lib/i18n';
 import { localizeCategoryLabel, normalizeCategoryKey } from '@/lib/categoryI18n';
@@ -90,8 +90,9 @@ function BrowseContent() {
       ) {
         return false;
       }
-      if (statusFilter === 'ongoing' && d.isCompleted) return false;
-      if (statusFilter === 'completed' && !d.isCompleted) return false;
+      const dramaMode = resolveDramaMode(d);
+      if (statusFilter === 'ongoing' && dramaMode === 'completed') return false;
+      if (statusFilter === 'completed' && dramaMode !== 'completed') return false;
       if (statusFilter === 'upcoming') {
         // Filter by future releaseDate, or show nothing if no releaseDate
         if (!d.releaseDate) return false;

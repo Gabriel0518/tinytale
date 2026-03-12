@@ -228,6 +228,9 @@ export const userApi = {
   getHistory: (token: string) =>
     api.get('/api/user/history', { token }),
 
+  getContinueWatching: (token: string, limit = 24) =>
+    api.get(`/api/user/history/continue?limit=${limit}`, { token }),
+
   addHistory: (token: string, dramaId: string, episodeId: string) =>
     api.post('/api/user/history', { dramaId, episodeId }, { token }),
 

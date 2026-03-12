@@ -204,6 +204,9 @@ export const adminApi = {
       dramaId: string;
       uploadSessionId?: string;
       dramaTitle?: string;
+      sourceSubtitleUrl?: string;
+      sourceSubtitleFormat?: 'srt' | 'vtt';
+      subtitleLanguage?: string;
     },
     token = getAdminToken()
   ) =>
@@ -214,6 +217,62 @@ export const adminApi = {
 
   cleanupUploadSession: (uploadSessionId: string, token = getAdminToken()) =>
     api.post('/api/admin/upload/video/cleanup', { uploadSessionId }, { token }),
+
+  uploadSubtitleFile: async (file: File, token = getAdminToken()) => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch(`${API_URL}/api/admin/upload/subtitle`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Subtitle upload failed');
+    }
+    return data;
+  },
+
+  getEpisodeSubtitles: (episodeId: string, token = getAdminToken()) =>
+    api.get(`/api/admin/episodes/${episodeId}/subtitles`, { token }),
+
+  createEpisodeSubtitle: (
+    episodeId: string,
+    payload: {
+      language: string;
+      fileUrl: string;
+      format?: 'srt' | 'vtt';
+      label?: string;
+      source?: 'upload' | 'ai_generated';
+      isDefault?: boolean;
+    },
+    token = getAdminToken()
+  ) => api.post(`/api/admin/episodes/${episodeId}/subtitles`, payload, { token }),
+
+  updateEpisodeSubtitle: (
+    episodeId: string,
+    subtitleId: string,
+    payload: {
+      language?: string;
+      fileUrl?: string;
+      format?: 'srt' | 'vtt';
+      label?: string;
+      source?: 'upload' | 'ai_generated';
+      status?: 'pending' | 'processing' | 'ready' | 'failed';
+      isDefault?: boolean;
+    },
+    token = getAdminToken()
+  ) => api.put(`/api/admin/episodes/${episodeId}/subtitles/${subtitleId}`, payload, { token }),
+
+  deleteEpisodeSubtitle: (episodeId: string, subtitleId: string, token = getAdminToken()) =>
+    api.delete(`/api/admin/episodes/${episodeId}/subtitles/${subtitleId}`, { token }),
+
+  translateEpisodeSubtitle: (
+    episodeId: string,
+    subtitleId: string,
+    targetLanguages?: string[],
+    token = getAdminToken()
+  ) => api.post(`/api/admin/episodes/${episodeId}/subtitles/${subtitleId}/translate`, { targetLanguages }, { token }),
 
   // Users
   getUsers: (params?: { search?: string; status?: string; page?: number; limit?: number }, token = getAdminToken()) => {

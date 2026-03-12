@@ -38,7 +38,7 @@ export default function DramaDetailPage() {
   const [form, setForm] = useState({
     title: "", description: "", cover: "", categories: [] as string[],
     actors: [] as string[], director: "", year: 2024, status: "draft",
-    isCompleted: false, totalEpisodes: 0,
+    dramaMode: "serial" as "serial" | "completed", totalEpisodes: 0,
     seoTitle: "", seoDescription: "", seoKeywords: "",
     isFree: false, defaultUnlockPrice: 100,
   });
@@ -58,7 +58,7 @@ export default function DramaDetailPage() {
             director: res.data.director || "",
             year: res.data.year || 2024,
             status: res.data.status || "draft",
-            isCompleted: res.data.isCompleted || false,
+            dramaMode: res.data.dramaMode || (res.data.isCompleted ? "completed" : "serial"),
             totalEpisodes: res.data.totalEpisodes || 0,
             seoTitle: res.data.seoTitle || "",
             seoDescription: res.data.seoDescription || "",
@@ -334,14 +334,16 @@ export default function DramaDetailPage() {
                 className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2.5 text-gray-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={form.isCompleted}
-                onChange={(e) => setForm({ ...form, isCompleted: e.target.checked })}
-                className="h-4 w-4 rounded border-gray-600 text-indigo-600"
-              />
-              <label className="text-sm font-medium text-gray-300">Completed</label>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-gray-300">Drama Mode</label>
+              <select
+                value={form.dramaMode}
+                onChange={(e) => setForm({ ...form, dramaMode: e.target.value as "serial" | "completed" })}
+                className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2.5 text-gray-200 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="serial">Serial (Ongoing)</option>
+                <option value="completed">Completed</option>
+              </select>
             </div>
           </div>
         </div>

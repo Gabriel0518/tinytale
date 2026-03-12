@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { dramasApi, categoriesApi } from '@/lib/api';
+import { dramasApi, categoriesApi, userApi } from '@/lib/api';
 import { Drama, Category } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
 import { HomeCarousel } from '@/components/features/HomeCarousel';
@@ -33,6 +33,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     trendingNow: 'Trending Now',
     newReleases: 'New Releases',
     recommendations: 'Recommendations',
+    continueWatching: 'Continue Watching',
     editorsChoice: "Editor's Choice",
     browseFallback: '/browse' },
   zh: {
@@ -45,6 +46,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     trendingNow: '热门推荐',
     newReleases: '最新上新',
     recommendations: '推荐内容',
+    continueWatching: '继续观看',
     editorsChoice: '编辑精选',
     browseFallback: '/browse' },
   ja: {
@@ -57,6 +59,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     trendingNow: 'トレンド',
     newReleases: '新着',
     recommendations: 'おすすめ',
+    continueWatching: '視聴を続ける',
     editorsChoice: '編集部のおすすめ',
     browseFallback: '/browse' },
   es: {
@@ -69,6 +72,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     trendingNow: 'Tendencias',
     newReleases: 'Novedades',
     recommendations: 'Recomendaciones',
+    continueWatching: 'Seguir viendo',
     editorsChoice: 'Selección del editor',
     browseFallback: '/browse' },
   pt: {
@@ -81,6 +85,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     trendingNow: 'Em alta',
     newReleases: 'Novidades',
     recommendations: 'Recomendações',
+    continueWatching: 'Continuar assistindo',
     editorsChoice: 'Escolha do editor',
     browseFallback: '/browse' },
   hi: {
@@ -93,6 +98,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     trendingNow: 'ट्रेंडिंग',
     newReleases: 'नई रिलीज़',
     recommendations: 'सिफ़ारिशें',
+    continueWatching: 'देखना जारी रखें',
     editorsChoice: 'एडिटर की पसंद',
     browseFallback: '/browse' },
   id: {
@@ -105,6 +111,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
     trendingNow: 'Sedang tren',
     newReleases: 'Rilis baru',
     recommendations: 'Rekomendasi',
+    continueWatching: 'Lanjut menonton',
     editorsChoice: 'Pilihan editor',
     browseFallback: '/browse' } };
 
@@ -116,6 +123,15 @@ export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [hotRankings, setHotRankings] = useState<Drama[]>([]);
   const [recommendations, setRecommendations] = useState<Drama[]>([]);
+  const [continueWatching, setContinueWatching] = useState<Array<{
+    _id: string;
+    dramaId: string;
+    episodeId: string | null;
+    drama: Drama | null;
+    episode: { _id?: string; episodeNumber?: number; title?: string } | null;
+    progress: number;
+    updatedAt?: string;
+  }>>([]);
   const [customPlaylists, setCustomPlaylists] = useState<{ _id: string; slug: string; name: string; icon: string; dramas: Drama[] }[]>([]);
   const [banners, setBanners] = useState<{ _id: string; title: string; subtitle: string; image: string; linkType: string; linkId: string; slot: string; position: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -199,6 +215,27 @@ export default function Home() {
             image: b.image || '', linkType: b.linkType || 'drama', linkId: b.linkId || '',
             slot: b.slot || 'standard', position: b.position ?? 0 }))
         );
+
+        if (typeof window !== 'undefined') {
+          const token = localStorage.getItem('token') || '';
+          if (token) {
+            const continueRes: any = await userApi.getContinueWatching(token, 50).catch(() => null);
+            const list = Array.isArray(continueRes?.data) ? continueRes.data : [];
+            setContinueWatching(
+              list.map((item: any) => ({
+                _id: String(item._id || `${item.dramaId}-${item.episodeId || ''}`),
+                dramaId: String(item.dramaId || item.drama?._id || ''),
+                episodeId: item.episodeId ? String(item.episodeId) : null,
+                drama: item.drama || null,
+                episode: item.episode || null,
+                progress: Number(item.progress || 0),
+                updatedAt: item.updatedAt,
+              }))
+            );
+          } else {
+            setContinueWatching([]);
+          }
+        }
       } catch {
         if (canceled) return;
         setDramas(mockDramas);
@@ -383,6 +420,47 @@ export default function Home() {
       </section>
 
       {/* Trending Now */}
+      {!loading && continueWatching.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 py-6">
+          <div className="mb-6 flex items-center gap-2">
+            <span className="text-xl">⏯️</span>
+            <h2 className="text-xl font-bold text-white">{t.continueWatching}</h2>
+          </div>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-6">
+            {continueWatching.map((item) => {
+              const drama = item.drama;
+              if (!drama?._id) return null;
+              const href = item.episodeId
+                ? localizePath(`/drama/${drama._id}/play/${item.episodeId}`, locale)
+                : localizePath(`/drama/${drama._id}`, locale);
+              return (
+                <Link key={item._id} href={href} className="group">
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-lg">
+                    <img
+                      src={validCover(drama.cover) || validCover(drama.horizontalCover) || "https://picsum.photos/seed/continue/400/600"}
+                      alt={drama.title}
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/85 via-black/40 to-transparent">
+                      <div className="mb-1 text-[10px] text-gray-200">
+                        {item.episode?.episodeNumber ? `EP ${item.episode.episodeNumber}` : "EP ?"}
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-white/20">
+                        <div
+                          className="h-1.5 rounded-full bg-red-500"
+                          style={{ width: `${Math.max(0, Math.min(100, item.progress || 0))}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <h3 className="mt-2 truncate text-sm font-medium text-white">{drama.title}</h3>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {loading ? (
         <section className="mx-auto max-w-7xl px-4 py-6">
           <div className="mb-6 flex items-center gap-2">

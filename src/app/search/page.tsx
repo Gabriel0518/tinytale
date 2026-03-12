@@ -10,7 +10,7 @@ import { dramasApi } from "@/lib/api";
 import { Drama } from "@/types";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import { getDramaBadge } from "@/lib/utils";
+import { getDramaBadge, resolveDramaMode } from "@/lib/utils";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 
@@ -400,7 +400,7 @@ function SearchContent() {
                             </div>
                             <h3 className="mt-2 truncate text-sm font-medium text-white">{drama.title}</h3>
                             <p className="mt-0.5 text-xs text-gray-500">
-                              {drama.categories?.[0] || t.dramaFallback} · {drama.isCompleted ? t.completed : `${drama.totalEpisodes || "?"} ${t.eps}`}
+                              {drama.categories?.[0] || t.dramaFallback} · {resolveDramaMode(drama) === "completed" ? t.completed : `${drama.totalEpisodes || "?"} ${t.eps}`}
                             </p>
                           </Link>
                         );
