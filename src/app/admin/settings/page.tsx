@@ -127,11 +127,43 @@ function normalizeRechargeTiers(value: any): RechargeTier[] {
     coins: Number(tier?.coins || 0),
     bonus: Number(tier?.bonus || 0),
     label: String(tier?.label || ""),
-    status: tier?.status === "hidden" ? "hidden" : "active",
+    status:
+      tier?.status === "hidden" || tier?.status === "inactive" || tier?.isActive === false
+        ? "hidden"
+        : "active",
     tierPricing: normalizeTierPricing(tier?.tierPricing || tier?.pricingByTier || tier?.prices),
-    stripePriceId: String(tier?.stripePriceId || ""),
+    stripePriceId: String(tier?.stripePriceId || tier?.priceId || ""),
     stripePriceIds: normalizeStripePriceIds(tier?.stripePriceIds || tier?.stripePriceMap || tier?.priceIds),
   }));
+}
+
+function extractSettingsArray(payload: any): Array<{ key: string; value: any }> {
+  const candidates = [
+    payload?.data?.settings,
+    payload?.data,
+    payload?.settings,
+    payload,
+  ];
+  for (const item of candidates) {
+    if (Array.isArray(item)) {
+      return item
+        .filter((row: any) => row && typeof row.key === "string")
+        .map((row: any) => ({ key: String(row.key), value: row.value }));
+    }
+  }
+  return [];
+}
+
+function parseMaybeJson<T>(value: any, fallback: T): T {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+  return value as T;
 }
 
 type SupportedLanguageCode = "en" | "zh" | "ja" | "es" | "pt" | "hi" | "id";
@@ -506,109 +538,100 @@ export default function AdminSettingsPage() {
   const loadSettings = useCallback(async (category: string) => {
     setLoading(true);
     try {
-      const res: any = await adminApi.getSettings(category);
-
-      const settings: { key: string; value: any }[] = res?.data?.settings || res?.data || [];
+      const res: any = await adminApi.getSettings();
+      const settings = extractSettingsArray(res);
       const map = new Map(settings.map((s) => [s.key, s.value]));
+      const read = (...keys: string[]) => {
+        for (const key of keys) {
+          if (map.has(key)) return map.get(key);
+        }
+        return undefined;
+      };
 
       if (category === "recharge") {
-        if (map.has("maintenance_mode")) setMaintenanceMode(map.get("maintenance_mode") === "true" || map.get("maintenance_mode") === true);
-        if (map.has("first_time_double")) setFirstTimeDouble(map.get("first_time_double") === "true" || map.get("first_time_double") === true);
-        if (map.has("base_currency")) setBaseCurrency(map.get("base_currency") as string);
-        if (map.has("exchange_rate")) setExchangeRate(Number(map.get("exchange_rate")));
-        if (map.has("terms_url")) setTermsUrl(map.get("terms_url") as string);
-        if (map.has("recharge_tiers")) {
-          try {
-            const raw = typeof map.get("recharge_tiers") === "string"
-              ? JSON.parse(map.get("recharge_tiers"))
-              : map.get("recharge_tiers");
-            setTiers(normalizeRechargeTiers(raw));
-          } catch {}
-        }
+        setMaintenanceMode(normalizeBoolean(read("maintenance_mode"), false));
+        setFirstTimeDouble(normalizeBoolean(read("first_time_double"), true));
+        setBaseCurrency(String(read("base_currency") || "USD"));
+        setExchangeRate(normalizeNonNegativeInt(read("exchange_rate"), 100));
+        setTermsUrl(String(read("terms_url") || ""));
+
+        const rawTiers = parseMaybeJson(
+          read("recharge_tiers", "recharge_packages", "coin_packages"),
+          []
+        );
+        setTiers(normalizeRechargeTiers(rawTiers));
       } else if (category === "vip") {
         const nextPrivileges: VipPrivileges = { ...DEFAULT_VIP_PRIVILEGES };
 
-        if (map.has("vip_privileges")) {
-          try {
-            const raw = map.get("vip_privileges");
-            const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-            if (parsed && typeof parsed === "object") {
-              nextPrivileges.adFree = normalizeBoolean((parsed as any).adFree, nextPrivileges.adFree);
-              nextPrivileges.highQuality = normalizeBoolean((parsed as any).highQuality, nextPrivileges.highQuality);
-              nextPrivileges.earlyAccess = normalizeBoolean((parsed as any).earlyAccess, nextPrivileges.earlyAccess);
-              nextPrivileges.coinDiscount = normalizePercent((parsed as any).coinDiscount, nextPrivileges.coinDiscount);
-              nextPrivileges.freeMonthlyDramas = normalizeNonNegativeInt(
-                (parsed as any).freeMonthlyDramas,
-                nextPrivileges.freeMonthlyDramas
-              );
-              nextPrivileges.overLimitDiscount = normalizePercent(
-                (parsed as any).overLimitDiscount,
-                nextPrivileges.overLimitDiscount
-              );
-              nextPrivileges.termsUrl = String((parsed as any).termsUrl || nextPrivileges.termsUrl);
-            }
-          } catch {}
-        }
-
-        if (map.has("vip_monthly_free_drama_quota")) {
+        const parsedPrivileges = parseMaybeJson(read("vip_privileges"), null);
+        if (parsedPrivileges && typeof parsedPrivileges === "object") {
+          nextPrivileges.adFree = normalizeBoolean((parsedPrivileges as any).adFree, nextPrivileges.adFree);
+          nextPrivileges.highQuality = normalizeBoolean((parsedPrivileges as any).highQuality, nextPrivileges.highQuality);
+          nextPrivileges.earlyAccess = normalizeBoolean((parsedPrivileges as any).earlyAccess, nextPrivileges.earlyAccess);
+          nextPrivileges.coinDiscount = normalizePercent((parsedPrivileges as any).coinDiscount, nextPrivileges.coinDiscount);
           nextPrivileges.freeMonthlyDramas = normalizeNonNegativeInt(
-            map.get("vip_monthly_free_drama_quota"),
+            (parsedPrivileges as any).freeMonthlyDramas,
             nextPrivileges.freeMonthlyDramas
           );
-        }
-        if (map.has("vip_over_limit_discount_rate")) {
           nextPrivileges.overLimitDiscount = normalizePercent(
-            discountRateToPercent(
-              map.get("vip_over_limit_discount_rate"),
-              nextPrivileges.overLimitDiscount
-            ),
+            (parsedPrivileges as any).overLimitDiscount,
             nextPrivileges.overLimitDiscount
           );
+          nextPrivileges.termsUrl = String((parsedPrivileges as any).termsUrl || nextPrivileges.termsUrl);
         }
+
+        nextPrivileges.freeMonthlyDramas = normalizeNonNegativeInt(
+          read("vip_monthly_free_drama_quota"),
+          nextPrivileges.freeMonthlyDramas
+        );
+        nextPrivileges.overLimitDiscount = normalizePercent(
+          discountRateToPercent(
+            read("vip_over_limit_discount_rate"),
+            nextPrivileges.overLimitDiscount
+          ),
+          nextPrivileges.overLimitDiscount
+        );
+        nextPrivileges.termsUrl = String(read("vip_terms_url") || nextPrivileges.termsUrl || "");
 
         setVipPrivileges(nextPrivileges);
       } else if (category === "playback") {
-        if (map.has("video_quality")) setVideoQuality(map.get("video_quality") as string);
-        if (map.has("auto_play")) setAutoPlay(map.get("auto_play") === "true" || map.get("auto_play") === true);
-        if (map.has("preview_duration")) setPreviewDuration(Number(map.get("preview_duration")));
-        if (map.has("cdn_provider")) setCdnProvider(map.get("cdn_provider") as string);
+        setVideoQuality(String(read("video_quality") || "720p"));
+        setAutoPlay(normalizeBoolean(read("auto_play"), true));
+        setPreviewDuration(normalizeNonNegativeInt(read("preview_duration"), 30));
+        setCdnProvider(String(read("cdn_provider") || "cloudflare"));
       } else if (category === "promotion") {
-        if (map.has("commission_rate")) setCommissionRate(Number(map.get("commission_rate")));
-        if (map.has("min_withdrawal")) setMinWithdrawal(Number(map.get("min_withdrawal")));
-        if (map.has("withdrawal_days")) setWithdrawalDays(Number(map.get("withdrawal_days")));
+        setCommissionRate(normalizeNonNegativeInt(read("commission_rate"), 10));
+        setMinWithdrawal(normalizeNonNegativeInt(read("min_withdrawal"), 50));
+        setWithdrawalDays(normalizeNonNegativeInt(read("withdrawal_days"), 7));
       } else if (category === "email") {
-        if (map.has("smtp_host")) setSmtpHost(map.get("smtp_host") as string);
-        if (map.has("smtp_port")) setSmtpPort(map.get("smtp_port") as string);
-        if (map.has("smtp_user")) setSmtpUser(map.get("smtp_user") as string);
-        if (map.has("smtp_pass")) setSmtpPass(map.get("smtp_pass") as string);
-        if (map.has("from_email")) setFromEmail(map.get("from_email") as string);
-        if (map.has("from_name")) setFromName(map.get("from_name") as string);
-        if (map.has("enable_ssl")) setEnableSsl(map.get("enable_ssl") === "true" || map.get("enable_ssl") === true);
+        setSmtpHost(String(read("smtp_host") || ""));
+        setSmtpPort(String(read("smtp_port") || "587"));
+        setSmtpUser(String(read("smtp_user") || ""));
+        setSmtpPass(String(read("smtp_pass") || ""));
+        setFromEmail(String(read("from_email") || ""));
+        setFromName(String(read("from_name") || ""));
+        setEnableSsl(normalizeBoolean(read("enable_ssl"), true));
       } else if (category === "payment") {
-        if (map.has("stripe_test_mode")) setStripeTestMode(map.get("stripe_test_mode") === "true" || map.get("stripe_test_mode") === true);
-        if (map.has("stripe_pk")) setStripePk(map.get("stripe_pk") as string);
-        if (map.has("stripe_sk")) setStripeSk(map.get("stripe_sk") as string);
-        if (map.has("stripe_webhook")) setStripeWebhook(map.get("stripe_webhook") as string);
-        if (map.has("airwallex_live")) setAirwallexLive(map.get("airwallex_live") === "true" || map.get("airwallex_live") === true);
-        if (map.has("airwallex_client_id")) setAirwallexClientId(map.get("airwallex_client_id") as string);
-        if (map.has("airwallex_api_key")) setAirwallexApiKey(map.get("airwallex_api_key") as string);
-        if (map.has("airwallex_webhook")) setAirwallexWebhook(map.get("airwallex_webhook") as string);
-        if (map.has("default_currency")) setDefaultCurrency(map.get("default_currency") as string);
-        if (map.has("payment_locale")) setPaymentLocale(map.get("payment_locale") as string);
-        if (map.has("enable_3ds")) setEnable3ds(map.get("enable_3ds") === "true" || map.get("enable_3ds") === true);
+        setStripeTestMode(normalizeBoolean(read("stripe_test_mode"), true));
+        setStripePk(String(read("stripe_pk") || ""));
+        setStripeSk(String(read("stripe_sk") || ""));
+        setStripeWebhook(String(read("stripe_webhook") || ""));
+        setAirwallexLive(normalizeBoolean(read("airwallex_live"), false));
+        setAirwallexClientId(String(read("airwallex_client_id") || ""));
+        setAirwallexApiKey(String(read("airwallex_api_key") || ""));
+        setAirwallexWebhook(String(read("airwallex_webhook") || ""));
+        setDefaultCurrency(String(read("default_currency") || "USD"));
+        setPaymentLocale(String(read("payment_locale") || "auto"));
+        setEnable3ds(normalizeBoolean(read("enable_3ds"), true));
       } else if (category === "social") {
-        if (map.has("social_whatsapp")) setSocialWhatsapp(map.get("social_whatsapp") as string);
-        if (map.has("social_telegram")) setSocialTelegram(map.get("social_telegram") as string);
-        if (map.has("social_discord")) setSocialDiscord(map.get("social_discord") as string);
-        if (map.has("social_x")) setSocialX(map.get("social_x") as string);
-        if (map.has("social_instagram")) setSocialInstagram(map.get("social_instagram") as string);
-        if (map.has("social_youtube")) setSocialYoutube(map.get("social_youtube") as string);
+        setSocialWhatsapp(String(read("social_whatsapp") || ""));
+        setSocialTelegram(String(read("social_telegram") || ""));
+        setSocialDiscord(String(read("social_discord") || ""));
+        setSocialX(String(read("social_x") || ""));
+        setSocialInstagram(String(read("social_instagram") || ""));
+        setSocialYoutube(String(read("social_youtube") || ""));
       } else if (category === "i18n") {
-        if (map.has("language_region_rules")) {
-          setLanguageRegionRules(normalizeLanguageRegionRules(map.get("language_region_rules")));
-        } else {
-          setLanguageRegionRules([]);
-        }
+        setLanguageRegionRules(normalizeLanguageRegionRules(read("language_region_rules")));
       }
     } catch (err) {
       console.error("Failed to load settings:", err);
@@ -629,14 +652,22 @@ export default function AdminSettingsPage() {
           price: Number(plan?.price || 0),
           durationDays: Number(plan?.durationDays || plan?.duration || 30),
           coins: Number(plan?.coins || 0),
-          sortOrder: Number(plan?.sortOrder || 0),
-          features: Array.isArray(plan?.features) ? plan.features.map((f: any) => String(f)).filter(Boolean) : [],
+          sortOrder: Number(plan?.sortOrder || plan?.sort || 0),
+          features: Array.isArray(plan?.features)
+            ? plan.features.map((f: any) => String(f)).filter(Boolean)
+            : typeof plan?.features === "string"
+              ? plan.features.split("\n").map((line: string) => line.trim()).filter(Boolean)
+              : [],
           stripePriceId: String(plan?.stripePriceId || ""),
-          stripePriceIds: normalizeStripePriceIds(plan?.stripePriceIds),
-          tierPricing: normalizeTierPricing(plan?.tierPricing),
-          status: plan?.status === "inactive" ? "inactive" : "active",
+          stripePriceIds: normalizeStripePriceIds(plan?.stripePriceIds || plan?.stripePriceMap || plan?.priceIds),
+          tierPricing: normalizeTierPricing(plan?.tierPricing || plan?.pricingByTier || plan?.prices),
+          status: plan?.status
+            ? (plan.status === "inactive" ? "inactive" : "active")
+            : (plan?.isActive === false ? "inactive" : "active"),
         })) as VipPlan[];
-        setVipPlans(normalized);
+        setVipPlans(
+          normalized.sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
+        );
       }
     } catch {}
   }, []);
@@ -947,121 +978,142 @@ export default function AdminSettingsPage() {
 
         {/* Edit Tier Modal */}
         {editingTier && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl border border-gray-700/50 bg-[#13131d] p-6 shadow-2xl">
-              <h3 className="text-lg font-semibold text-gray-200 mb-5">Edit Tier #{editingTier.id}</h3>
-              <div className="space-y-4">
-                <div>
-                  <FieldLabel>Amount (USD)</FieldLabel>
-                  <NumberInput value={editingTier.amount} onChange={(v) => setEditingTier({ ...editingTier, amount: v })} />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <FieldLabel>Coins</FieldLabel>
-                    <NumberInput value={editingTier.coins} onChange={(v) => setEditingTier({ ...editingTier, coins: v })} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-gray-700/50 bg-[#13131d] shadow-2xl">
+              <div className="flex items-center justify-between border-b border-gray-700/50 px-6 py-4">
+                <h3 className="text-lg font-semibold text-gray-200">Edit Tier #{editingTier.id}</h3>
+                <button
+                  type="button"
+                  onClick={() => setEditingTier(null)}
+                  className="text-sm text-gray-400 hover:text-gray-200"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <FieldLabel>Amount (USD)</FieldLabel>
+                      <NumberInput value={editingTier.amount} onChange={(v) => setEditingTier({ ...editingTier, amount: v })} />
+                    </div>
+                    <div>
+                      <FieldLabel>Status</FieldLabel>
+                      <SelectInput value={editingTier.status} onChange={(v) => setEditingTier({ ...editingTier, status: v as "active" | "hidden" })} options={[
+                        { value: "active", label: "Active" },
+                        { value: "hidden", label: "Hidden" },
+                      ]} />
+                    </div>
+                    <div>
+                      <FieldLabel>Coins</FieldLabel>
+                      <NumberInput value={editingTier.coins} onChange={(v) => setEditingTier({ ...editingTier, coins: v })} />
+                    </div>
+                    <div>
+                      <FieldLabel>Bonus Coins</FieldLabel>
+                      <NumberInput value={editingTier.bonus} onChange={(v) => setEditingTier({ ...editingTier, bonus: v })} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <FieldLabel>Label</FieldLabel>
+                      <TextInput value={editingTier.label} onChange={(v) => setEditingTier({ ...editingTier, label: v })} placeholder="e.g. Popular, Best Value" />
+                    </div>
                   </div>
+
                   <div>
-                    <FieldLabel>Bonus Coins</FieldLabel>
-                    <NumberInput value={editingTier.bonus} onChange={(v) => setEditingTier({ ...editingTier, bonus: v })} />
+                    <p className="mb-3 text-sm font-semibold text-gray-300">Tier Pricing (USD)</p>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div>
+                        <FieldLabel>Tier1</FieldLabel>
+                        <NumberInput
+                          value={Number(editingTier.tierPricing?.tier1 || 0)}
+                          onChange={(v) => setEditingTier({
+                            ...editingTier,
+                            tierPricing: {
+                              ...editingTier.tierPricing,
+                              tier1: v > 0 ? v : undefined,
+                            },
+                          })}
+                        />
+                      </div>
+                      <div>
+                        <FieldLabel>Tier2</FieldLabel>
+                        <NumberInput
+                          value={Number(editingTier.tierPricing?.tier2 || 0)}
+                          onChange={(v) => setEditingTier({
+                            ...editingTier,
+                            tierPricing: {
+                              ...editingTier.tierPricing,
+                              tier2: v > 0 ? v : undefined,
+                            },
+                          })}
+                        />
+                      </div>
+                      <div>
+                        <FieldLabel>Tier3</FieldLabel>
+                        <NumberInput
+                          value={Number(editingTier.tierPricing?.tier3 || 0)}
+                          onChange={(v) => setEditingTier({
+                            ...editingTier,
+                            tierPricing: {
+                              ...editingTier.tierPricing,
+                              tier3: v > 0 ? v : undefined,
+                            },
+                          })}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <FieldLabel>Label</FieldLabel>
-                  <TextInput value={editingTier.label} onChange={(v) => setEditingTier({ ...editingTier, label: v })} placeholder="e.g. Popular, Best Value" />
-                </div>
-                <div className="grid grid-cols-3 gap-3">
+
                   <div>
-                    <FieldLabel>Tier1 Price (USD)</FieldLabel>
-                    <NumberInput
-                      value={Number(editingTier.tierPricing?.tier1 || 0)}
-                      onChange={(v) => setEditingTier({
-                        ...editingTier,
-                        tierPricing: {
-                          ...editingTier.tierPricing,
-                          tier1: v > 0 ? v : undefined,
-                        },
-                      })}
-                    />
+                    <p className="mb-3 text-sm font-semibold text-gray-300">Stripe Price IDs</p>
+                    <div className="space-y-4">
+                      <div>
+                        <FieldLabel>Default Price ID</FieldLabel>
+                        <TextInput
+                          value={editingTier.stripePriceId || ""}
+                          onChange={(v) => setEditingTier({ ...editingTier, stripePriceId: v })}
+                          placeholder="price_xxx"
+                        />
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div>
+                          <FieldLabel>Tier1</FieldLabel>
+                          <TextInput
+                            value={editingTier.stripePriceIds?.tier1 || ""}
+                            onChange={(v) => setEditingTier({
+                              ...editingTier,
+                              stripePriceIds: { ...editingTier.stripePriceIds, tier1: v || undefined },
+                            })}
+                            placeholder="price_tier1_xxx"
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Tier2</FieldLabel>
+                          <TextInput
+                            value={editingTier.stripePriceIds?.tier2 || ""}
+                            onChange={(v) => setEditingTier({
+                              ...editingTier,
+                              stripePriceIds: { ...editingTier.stripePriceIds, tier2: v || undefined },
+                            })}
+                            placeholder="price_tier2_xxx"
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Tier3</FieldLabel>
+                          <TextInput
+                            value={editingTier.stripePriceIds?.tier3 || ""}
+                            onChange={(v) => setEditingTier({
+                              ...editingTier,
+                              stripePriceIds: { ...editingTier.stripePriceIds, tier3: v || undefined },
+                            })}
+                            placeholder="price_tier3_xxx"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <FieldLabel>Tier2 Price (USD)</FieldLabel>
-                    <NumberInput
-                      value={Number(editingTier.tierPricing?.tier2 || 0)}
-                      onChange={(v) => setEditingTier({
-                        ...editingTier,
-                        tierPricing: {
-                          ...editingTier.tierPricing,
-                          tier2: v > 0 ? v : undefined,
-                        },
-                      })}
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>Tier3 Price (USD)</FieldLabel>
-                    <NumberInput
-                      value={Number(editingTier.tierPricing?.tier3 || 0)}
-                      onChange={(v) => setEditingTier({
-                        ...editingTier,
-                        tierPricing: {
-                          ...editingTier.tierPricing,
-                          tier3: v > 0 ? v : undefined,
-                        },
-                      })}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <FieldLabel>Stripe Price ID (Default)</FieldLabel>
-                  <TextInput
-                    value={editingTier.stripePriceId || ""}
-                    onChange={(v) => setEditingTier({ ...editingTier, stripePriceId: v })}
-                    placeholder="price_xxx"
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <FieldLabel>Stripe Price ID (Tier1)</FieldLabel>
-                    <TextInput
-                      value={editingTier.stripePriceIds?.tier1 || ""}
-                      onChange={(v) => setEditingTier({
-                        ...editingTier,
-                        stripePriceIds: { ...editingTier.stripePriceIds, tier1: v || undefined },
-                      })}
-                      placeholder="price_tier1_xxx"
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>Stripe Price ID (Tier2)</FieldLabel>
-                    <TextInput
-                      value={editingTier.stripePriceIds?.tier2 || ""}
-                      onChange={(v) => setEditingTier({
-                        ...editingTier,
-                        stripePriceIds: { ...editingTier.stripePriceIds, tier2: v || undefined },
-                      })}
-                      placeholder="price_tier2_xxx"
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>Stripe Price ID (Tier3)</FieldLabel>
-                    <TextInput
-                      value={editingTier.stripePriceIds?.tier3 || ""}
-                      onChange={(v) => setEditingTier({
-                        ...editingTier,
-                        stripePriceIds: { ...editingTier.stripePriceIds, tier3: v || undefined },
-                      })}
-                      placeholder="price_tier3_xxx"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <FieldLabel>Status</FieldLabel>
-                  <SelectInput value={editingTier.status} onChange={(v) => setEditingTier({ ...editingTier, status: v as "active" | "hidden" })} options={[
-                    { value: "active", label: "Active" },
-                    { value: "hidden", label: "Hidden" },
-                  ]} />
                 </div>
               </div>
-              <div className="mt-6 flex justify-end gap-3">
+              <div className="flex justify-end gap-3 border-t border-gray-700/50 bg-[#13131d] px-6 py-4">
                 <SecondaryBtn onClick={() => setEditingTier(null)}>Cancel</SecondaryBtn>
                 <PrimaryBtn onClick={handleSaveEdit}>Save Changes</PrimaryBtn>
               </div>
@@ -1286,134 +1338,154 @@ export default function AdminSettingsPage() {
 
         {/* Edit Plan Modal */}
         {editingPlan && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-xl border border-gray-700/50 bg-[#13131d] p-6 shadow-2xl">
-              <h3 className="text-lg font-semibold text-gray-200 mb-5">Edit Plan</h3>
-              <div className="space-y-4">
-                <div>
-                  <FieldLabel>Plan Name</FieldLabel>
-                  <TextInput value={editingPlan.name} onChange={(v) => setEditingPlan({ ...editingPlan, name: v })} placeholder="e.g. Monthly, Quarterly" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <FieldLabel>Price (USD)</FieldLabel>
-                    <NumberInput value={editingPlan.price} onChange={(v) => setEditingPlan({ ...editingPlan, price: v })} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-gray-700/50 bg-[#13131d] shadow-2xl">
+              <div className="flex items-center justify-between border-b border-gray-700/50 px-6 py-4">
+                <h3 className="text-lg font-semibold text-gray-200">Edit Plan</h3>
+                <button
+                  type="button"
+                  onClick={() => setEditingPlan(null)}
+                  className="text-sm text-gray-400 hover:text-gray-200"
+                >
+                  Close
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                <div className="space-y-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <FieldLabel>Plan Name</FieldLabel>
+                      <TextInput value={editingPlan.name} onChange={(v) => setEditingPlan({ ...editingPlan, name: v })} placeholder="e.g. Monthly, Quarterly" />
+                    </div>
+                    <div>
+                      <FieldLabel>Status</FieldLabel>
+                      <SelectInput value={editingPlan.status} onChange={(v) => setEditingPlan({ ...editingPlan, status: v as "active" | "inactive" })} options={[
+                        { value: "active", label: "Active" },
+                        { value: "inactive", label: "Inactive" },
+                      ]} />
+                    </div>
+                    <div>
+                      <FieldLabel>Price (USD)</FieldLabel>
+                      <NumberInput value={editingPlan.price} onChange={(v) => setEditingPlan({ ...editingPlan, price: v })} />
+                    </div>
+                    <div>
+                      <FieldLabel>Duration (Days)</FieldLabel>
+                      <NumberInput value={editingPlan.durationDays} onChange={(v) => setEditingPlan({ ...editingPlan, durationDays: v })} />
+                    </div>
+                    <div>
+                      <FieldLabel>Coins Included</FieldLabel>
+                      <NumberInput value={Number(editingPlan.coins || 0)} onChange={(v) => setEditingPlan({ ...editingPlan, coins: v })} />
+                    </div>
+                    <div>
+                      <FieldLabel>Sort Order</FieldLabel>
+                      <NumberInput value={Number(editingPlan.sortOrder || 0)} onChange={(v) => setEditingPlan({ ...editingPlan, sortOrder: v })} />
+                    </div>
                   </div>
+
                   <div>
-                    <FieldLabel>Duration (Days)</FieldLabel>
-                    <NumberInput value={editingPlan.durationDays} onChange={(v) => setEditingPlan({ ...editingPlan, durationDays: v })} />
+                    <p className="mb-3 text-sm font-semibold text-gray-300">Tier Pricing (USD)</p>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div>
+                        <FieldLabel>Tier1</FieldLabel>
+                        <NumberInput
+                          value={Number(editingPlan.tierPricing?.tier1 || 0)}
+                          onChange={(v) => setEditingPlan({
+                            ...editingPlan,
+                            tierPricing: { ...editingPlan.tierPricing, tier1: v > 0 ? v : undefined },
+                          })}
+                        />
+                      </div>
+                      <div>
+                        <FieldLabel>Tier2</FieldLabel>
+                        <NumberInput
+                          value={Number(editingPlan.tierPricing?.tier2 || 0)}
+                          onChange={(v) => setEditingPlan({
+                            ...editingPlan,
+                            tierPricing: { ...editingPlan.tierPricing, tier2: v > 0 ? v : undefined },
+                          })}
+                        />
+                      </div>
+                      <div>
+                        <FieldLabel>Tier3</FieldLabel>
+                        <NumberInput
+                          value={Number(editingPlan.tierPricing?.tier3 || 0)}
+                          onChange={(v) => setEditingPlan({
+                            ...editingPlan,
+                            tierPricing: { ...editingPlan.tierPricing, tier3: v > 0 ? v : undefined },
+                          })}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
+
                   <div>
-                    <FieldLabel>Coins Included</FieldLabel>
-                    <NumberInput value={Number(editingPlan.coins || 0)} onChange={(v) => setEditingPlan({ ...editingPlan, coins: v })} />
+                    <p className="mb-3 text-sm font-semibold text-gray-300">Stripe Price IDs</p>
+                    <div className="space-y-4">
+                      <div>
+                        <FieldLabel>Default Price ID</FieldLabel>
+                        <TextInput
+                          value={editingPlan.stripePriceId || ""}
+                          onChange={(v) => setEditingPlan({ ...editingPlan, stripePriceId: v })}
+                          placeholder="price_xxx"
+                        />
+                      </div>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div>
+                          <FieldLabel>Tier1</FieldLabel>
+                          <TextInput
+                            value={editingPlan.stripePriceIds?.tier1 || ""}
+                            onChange={(v) => setEditingPlan({
+                              ...editingPlan,
+                              stripePriceIds: { ...editingPlan.stripePriceIds, tier1: v || undefined },
+                            })}
+                            placeholder="price_tier1_xxx"
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Tier2</FieldLabel>
+                          <TextInput
+                            value={editingPlan.stripePriceIds?.tier2 || ""}
+                            onChange={(v) => setEditingPlan({
+                              ...editingPlan,
+                              stripePriceIds: { ...editingPlan.stripePriceIds, tier2: v || undefined },
+                            })}
+                            placeholder="price_tier2_xxx"
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Tier3</FieldLabel>
+                          <TextInput
+                            value={editingPlan.stripePriceIds?.tier3 || ""}
+                            onChange={(v) => setEditingPlan({
+                              ...editingPlan,
+                              stripePriceIds: { ...editingPlan.stripePriceIds, tier3: v || undefined },
+                            })}
+                            placeholder="price_tier3_xxx"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
+
                   <div>
-                    <FieldLabel>Sort Order</FieldLabel>
-                    <NumberInput value={Number(editingPlan.sortOrder || 0)} onChange={(v) => setEditingPlan({ ...editingPlan, sortOrder: v })} />
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <FieldLabel>Tier1 Price (USD)</FieldLabel>
-                    <NumberInput
-                      value={Number(editingPlan.tierPricing?.tier1 || 0)}
-                      onChange={(v) => setEditingPlan({
+                    <FieldLabel>Plan Features (one per line)</FieldLabel>
+                    <textarea
+                      value={(editingPlan.features || []).join("\n")}
+                      onChange={(e) => setEditingPlan({
                         ...editingPlan,
-                        tierPricing: { ...editingPlan.tierPricing, tier1: v > 0 ? v : undefined },
+                        features: e.target.value
+                          .split("\n")
+                          .map((line) => line.trim())
+                          .filter(Boolean),
                       })}
+                      rows={6}
+                      className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      placeholder={"Ad-Free Viewing\n4K Ultra HD\nMonthly Free Dramas"}
                     />
                   </div>
-                  <div>
-                    <FieldLabel>Tier2 Price (USD)</FieldLabel>
-                    <NumberInput
-                      value={Number(editingPlan.tierPricing?.tier2 || 0)}
-                      onChange={(v) => setEditingPlan({
-                        ...editingPlan,
-                        tierPricing: { ...editingPlan.tierPricing, tier2: v > 0 ? v : undefined },
-                      })}
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>Tier3 Price (USD)</FieldLabel>
-                    <NumberInput
-                      value={Number(editingPlan.tierPricing?.tier3 || 0)}
-                      onChange={(v) => setEditingPlan({
-                        ...editingPlan,
-                        tierPricing: { ...editingPlan.tierPricing, tier3: v > 0 ? v : undefined },
-                      })}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <FieldLabel>Stripe Price ID (Default)</FieldLabel>
-                  <TextInput
-                    value={editingPlan.stripePriceId || ""}
-                    onChange={(v) => setEditingPlan({ ...editingPlan, stripePriceId: v })}
-                    placeholder="price_xxx"
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <FieldLabel>Stripe Price ID (Tier1)</FieldLabel>
-                    <TextInput
-                      value={editingPlan.stripePriceIds?.tier1 || ""}
-                      onChange={(v) => setEditingPlan({
-                        ...editingPlan,
-                        stripePriceIds: { ...editingPlan.stripePriceIds, tier1: v || undefined },
-                      })}
-                      placeholder="price_tier1_xxx"
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>Stripe Price ID (Tier2)</FieldLabel>
-                    <TextInput
-                      value={editingPlan.stripePriceIds?.tier2 || ""}
-                      onChange={(v) => setEditingPlan({
-                        ...editingPlan,
-                        stripePriceIds: { ...editingPlan.stripePriceIds, tier2: v || undefined },
-                      })}
-                      placeholder="price_tier2_xxx"
-                    />
-                  </div>
-                  <div>
-                    <FieldLabel>Stripe Price ID (Tier3)</FieldLabel>
-                    <TextInput
-                      value={editingPlan.stripePriceIds?.tier3 || ""}
-                      onChange={(v) => setEditingPlan({
-                        ...editingPlan,
-                        stripePriceIds: { ...editingPlan.stripePriceIds, tier3: v || undefined },
-                      })}
-                      placeholder="price_tier3_xxx"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <FieldLabel>Plan Features (one per line)</FieldLabel>
-                  <textarea
-                    value={(editingPlan.features || []).join("\n")}
-                    onChange={(e) => setEditingPlan({
-                      ...editingPlan,
-                      features: e.target.value
-                        .split("\n")
-                        .map((line) => line.trim())
-                        .filter(Boolean),
-                    })}
-                    rows={5}
-                    className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    placeholder={"Ad-Free Viewing\n4K Ultra HD\nMonthly Free Dramas"}
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Status</FieldLabel>
-                  <SelectInput value={editingPlan.status} onChange={(v) => setEditingPlan({ ...editingPlan, status: v as "active" | "inactive" })} options={[
-                    { value: "active", label: "Active" },
-                    { value: "inactive", label: "Inactive" },
-                  ]} />
                 </div>
               </div>
-              <div className="mt-6 flex justify-end gap-3">
+              <div className="flex justify-end gap-3 border-t border-gray-700/50 bg-[#13131d] px-6 py-4">
                 <SecondaryBtn onClick={() => setEditingPlan(null)}>Cancel</SecondaryBtn>
                 <PrimaryBtn onClick={handleSaveEditPlan}>Save Changes</PrimaryBtn>
               </div>
