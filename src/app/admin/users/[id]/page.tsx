@@ -290,8 +290,16 @@ export default function UserDetailPage() {
           break;
         }
         case "Login Logs": {
-          // Login logs aren't tracked in the current backend, show empty state
-          setLoginLogsData([]);
+          const res: any = await adminApi.getUserLoginLogs(id as string, { page: 1, limit: 50 });
+          const items = res.data?.loginLogs || res.data?.records || res.data || [];
+          setLoginLogsData(items.map((r: any) => ({
+            date: (r.occurredAt || r.createdAt) ? new Date(r.occurredAt || r.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "",
+            ip: r.ip || "-",
+            device: r.device || "Unknown",
+            browser: r.browser || "Unknown",
+            location: r.location || "-",
+            status: r.success === false ? "Failed" : "Success",
+          })));
           break;
         }
         case "Operation Logs": {

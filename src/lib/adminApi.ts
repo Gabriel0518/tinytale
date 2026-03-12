@@ -638,6 +638,11 @@ export const adminApi = {
     return api.get(`/api/admin/users/${userId}/comments${query ? `?${query}` : ''}`, { token });
   },
 
+  getUserLoginLogs: (userId: string, params?: { page?: number; limit?: number }, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(params as any).toString() : '';
+    return api.get(`/api/admin/users/${userId}/login-logs${query ? `?${query}` : ''}`, { token });
+  },
+
   getUserOperationLogs: (userId: string, params?: { page?: number; limit?: number }, token = getAdminToken()) => {
     const query = params ? new URLSearchParams(params as any).toString() : '';
     return api.get(`/api/admin/users/${userId}/operation-logs${query ? `?${query}` : ''}`, { token });

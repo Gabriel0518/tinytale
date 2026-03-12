@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect} from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter} from "next/navigation";
 import Link from "next/link";
 import { dramasApi, episodesApi, userApi } from "@/lib/api";
@@ -129,6 +129,7 @@ export default function PlayEpisodePage() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [streamInfo, setStreamInfo] = useState<StreamPlaybackInfo | null>(null);
+  const [selectedQuality, setSelectedQuality] = useState<string>("auto");
   const [loading, setLoading] = useState(true);
   const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
   const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
@@ -232,6 +233,16 @@ export default function PlayEpisodePage() {
     };
   }, [token, episodes, unlockedEpisodeIds]);
 
+  useEffect(() => {
+    if (!streamInfo?.qualityOptions || streamInfo.qualityOptions.length === 0) {
+      setSelectedQuality("auto");
+      return;
+    }
+    if (!streamInfo.qualityOptions.includes(selectedQuality)) {
+      setSelectedQuality("auto");
+    }
+  }, [streamInfo?.qualityOptions, selectedQuality]);
+
   // 播放进度上报
   const handleTimeUpdate = (time: number, duration: number) => {
     if (token && currentEpisode) {
@@ -281,7 +292,21 @@ export default function PlayEpisodePage() {
     );
   }
 
-  const videoUrl = streamInfo.playbackUrl || currentEpisode.videoUrl;
+  const qualityOptions = streamInfo.qualityOptions && streamInfo.qualityOptions.length > 0
+    ? streamInfo.qualityOptions
+    : ["auto"];
+
+  const videoUrl = (() => {
+    const source = streamInfo.playbackUrl || currentEpisode.videoUrl;
+    if (!source || !source.includes('.m3u8')) return source;
+    try {
+      const parsed = new URL(source);
+      parsed.searchParams.set('quality', selectedQuality);
+      return parsed.toString();
+    } catch {
+      return source;
+    }
+  })();
 
   return (
     <div className="min-h-screen bg-[#0f0f17]">
@@ -315,6 +340,22 @@ export default function PlayEpisodePage() {
           <p className="text-gray-400">
             {t.episode} {currentEpisode.episodeNumber} • {Math.floor(currentEpisode.duration / 60)}:{String(currentEpisode.duration % 60).padStart(2, '0')}
           </p>
+          {qualityOptions.length > 1 && (
+            <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-gray-700 bg-[#13131d] px-3 py-1.5">
+              <span className="text-xs uppercase tracking-wide text-gray-400">Quality</span>
+              <select
+                value={selectedQuality}
+                onChange={(e) => setSelectedQuality(e.target.value)}
+                className="bg-transparent text-sm text-white outline-none"
+              >
+                {qualityOptions.map((option) => (
+                  <option key={option} value={option} className="bg-[#13131d]">
+                    {option === "auto" ? "Auto" : option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* 剧集列表 */}

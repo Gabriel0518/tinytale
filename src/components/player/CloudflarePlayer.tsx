@@ -14,6 +14,7 @@ interface CloudflarePlayerProps {
   streamVideoId?: string;
   videoUrl?: string;
   signedToken?: string;
+  quality?: string;
   poster?: string;
   autoplay?: boolean;
   subtitles?: SubtitleTrack[];
@@ -43,12 +44,24 @@ function buildHlsUrl(videoId: string, token?: string): string {
   return token ? `${base}?token=${token}` : base;
 }
 
+function applyQualityParam(url: string, quality?: string): string {
+  if (!url.includes('.m3u8')) return url;
+  try {
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    parsed.searchParams.set('quality', quality || 'auto');
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
 const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProps>(
   function CloudflarePlayer(
     {
       streamVideoId,
       videoUrl,
       signedToken,
+      quality = 'auto',
       poster,
       autoplay = false,
       subtitles = [],
@@ -93,16 +106,19 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
     const getSource = useCallback(() => {
       if (videoUrl) {
         const isHls = videoUrl.includes('.m3u8');
-        return { src: videoUrl, type: isHls ? 'application/x-mpegURL' as const : 'video/mp4' as const };
+        return {
+          src: isHls ? applyQualityParam(videoUrl, quality) : videoUrl,
+          type: isHls ? 'application/x-mpegURL' as const : 'video/mp4' as const,
+        };
       }
       if (streamVideoId) {
         return {
-          src: buildHlsUrl(streamVideoId, signedToken),
+          src: applyQualityParam(buildHlsUrl(streamVideoId, signedToken), quality),
           type: 'application/x-mpegURL' as const,
         };
       }
       return null;
-    }, [streamVideoId, signedToken, videoUrl]);
+    }, [streamVideoId, signedToken, videoUrl, quality]);
 
     // Initialise Video.js player
     useEffect(() => {

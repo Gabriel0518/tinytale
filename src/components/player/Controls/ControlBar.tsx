@@ -19,6 +19,7 @@ interface ControlBarProps {
   onNext?: () => void;
   hasPrevious?: boolean;
   hasNext?: boolean;
+  availableQualities?: string[];
   isFullscreen: boolean;
   title?: string;
 }
@@ -36,6 +37,7 @@ export default function ControlBar({
   onNext,
   hasPrevious,
   hasNext,
+  availableQualities,
   isFullscreen,
   title,
 }: ControlBarProps) {
@@ -105,6 +107,7 @@ export default function ControlBar({
             quality={playerState.quality}
             onPlaybackRateChange={onPlaybackRateChange}
             onQualityChange={onQualityChange}
+            availableQualities={availableQualities}
           />
 
           {/* Fullscreen */}

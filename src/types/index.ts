@@ -43,6 +43,8 @@ export interface StreamPlaybackInfo {
   thumbnailUrl?: string;
   duration?: number;
   subtitles: SubtitleTrack[];
+  qualityOptions?: string[];
+  maxQuality?: string;
 }
 
 export interface VipBenefitPolicy {

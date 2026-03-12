@@ -160,6 +160,7 @@ function PlayerInner({
   streamInfo,
   activeEpisode,
   drama,
+  onPlaybackProgress,
   onPrevious,
   onNext,
   hasPrevious,
@@ -168,6 +169,7 @@ function PlayerInner({
   streamInfo: StreamPlaybackInfo | null;
   activeEpisode: Episode | null;
   drama: Drama;
+  onPlaybackProgress?: (time: number, duration: number) => void;
   onPrevious?: () => void;
   onNext?: () => void;
   hasPrevious: boolean;
@@ -218,12 +220,14 @@ function PlayerInner({
         streamVideoId={streamInfo?.videoUid}
         signedToken={streamInfo?.signedToken}
         videoUrl={streamInfo?.playbackUrl || videoUrl}
+        quality={state.quality}
         poster={activeEpisode?.thumbnail || drama.cover}
         subtitles={streamInfo?.subtitles}
         onEnded={onNext}
         onTimeUpdate={(time, duration) => {
           actions.setCurrentTime(time);
           actions.setDuration(duration);
+          onPlaybackProgress?.(time, duration);
         }}
         onPlay={() => actions.setPlaying(true)}
         onPause={() => actions.setPlaying(false)}
@@ -244,6 +248,7 @@ function PlayerInner({
         onNext={onNext}
         hasPrevious={hasPrevious}
         hasNext={hasNext}
+        availableQualities={streamInfo?.qualityOptions}
         isFullscreen={isFullscreen}
         title={activeEpisode ? `Ep ${activeEpisode.episodeNumber} - ${activeEpisode.title}` : undefined}
       />
@@ -268,6 +273,7 @@ function DramaDetailContent() {
   const { toast } = useToast();
   const dramaId = params.id as string;
   const playerRef = useRef<CloudflarePlayerHandle>(null) as React.RefObject<CloudflarePlayerHandle>;
+  const lastProgressReportAtRef = useRef<number>(0);
 
   const [drama, setDrama] = useState<Drama | null>(null);
   const [streamInfo, setStreamInfo] = useState<StreamPlaybackInfo | null>(null);
@@ -629,6 +635,14 @@ function DramaDetailContent() {
                   streamInfo={streamInfo}
                   activeEpisode={activeEpisode}
                   drama={drama}
+                  onPlaybackProgress={(time, duration) => {
+                    if (!token || !activeEpisode?._id) return;
+                    if (!duration || duration <= 0) return;
+                    const now = Date.now();
+                    if (now - lastProgressReportAtRef.current < 5000) return;
+                    lastProgressReportAtRef.current = now;
+                    episodesApi.reportProgress(activeEpisode._id, token, time, duration).catch(() => {});
+                  }}
                   onPrevious={hasPrevious ? handlePreviousEpisode : undefined}
                   onNext={hasNext ? handleNextEpisode : undefined}
                   hasPrevious={hasPrevious}
