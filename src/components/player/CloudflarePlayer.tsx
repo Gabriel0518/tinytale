@@ -84,6 +84,8 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
   ) {
     const videoRef = useRef<HTMLDivElement | null>(null);
     const playerRef = useRef<ReturnType<typeof import('video.js').default> | null>(null);
+    const baseSourceRef = useRef<{ src: string; type: 'application/x-mpegURL' | 'video/mp4' } | null>(null);
+    const appliedSourceRef = useRef<string | null>(null);
     const callbacksRef = useRef({
       onTimeUpdate,
       onEnded,
@@ -109,30 +111,35 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       getPlayer: () => playerRef.current,
     }));
 
-    // Resolve the video source — prefer backend-provided videoUrl (has correct subdomain)
-    const getSource = useCallback(() => {
+    // Resolve base source (without quality param) — prefer backend-provided videoUrl.
+    const getBaseSource = useCallback(() => {
       if (videoUrl) {
         const isHls = videoUrl.includes('.m3u8');
         return {
-          src: isHls ? applyQualityParam(videoUrl, quality) : videoUrl,
+          src: videoUrl,
           type: isHls ? 'application/x-mpegURL' as const : 'video/mp4' as const,
         };
       }
       if (streamVideoId) {
         return {
-          src: applyQualityParam(buildHlsUrl(streamVideoId, signedToken), quality),
+          src: buildHlsUrl(streamVideoId, signedToken),
           type: 'application/x-mpegURL' as const,
         };
       }
       return null;
-    }, [streamVideoId, signedToken, videoUrl, quality]);
+    }, [streamVideoId, signedToken, videoUrl]);
 
     // Initialise Video.js player
     useEffect(() => {
       if (typeof window === 'undefined') return;
 
-      const source = getSource();
-      if (!source || !videoRef.current) return;
+      const baseSource = getBaseSource();
+      if (!baseSource || !videoRef.current) return;
+      baseSourceRef.current = baseSource;
+      const source = baseSource.type === 'application/x-mpegURL'
+        ? { ...baseSource, src: applyQualityParam(baseSource.src, quality) }
+        : baseSource;
+      appliedSourceRef.current = source.src;
 
       let disposed = false;
 
@@ -201,7 +208,46 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         }
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getSource, autoplay, poster]);
+    }, [getBaseSource, autoplay, poster]);
+
+    // Switch HLS quality without rebuilding the player instance.
+    useEffect(() => {
+      const player = playerRef.current;
+      const baseSource = baseSourceRef.current;
+      if (!player || player.isDisposed() || !baseSource || baseSource.type !== 'application/x-mpegURL') {
+        return;
+      }
+
+      const nextSrc = applyQualityParam(baseSource.src, quality);
+      if (appliedSourceRef.current === nextSrc) {
+        return;
+      }
+
+      const currentTime = player.currentTime() ?? 0;
+      const wasPaused = player.paused();
+      const wasEnded = player.ended();
+
+      appliedSourceRef.current = nextSrc;
+      player.src({ src: nextSrc, type: 'application/x-mpegURL' });
+      player.one('loadedmetadata', () => {
+        if (!player || player.isDisposed()) return;
+
+        const duration = player.duration() ?? 0;
+        if (currentTime > 0) {
+          const targetTime = duration > 0
+            ? Math.max(0, Math.min(currentTime, Math.max(0, duration - 0.2)))
+            : currentTime;
+          player.currentTime(targetTime);
+        }
+
+        if (!wasPaused && !wasEnded) {
+          const playbackPromise = player.play();
+          if (playbackPromise && typeof (playbackPromise as Promise<void>).catch === 'function') {
+            (playbackPromise as Promise<void>).catch(() => undefined);
+          }
+        }
+      });
+    }, [quality]);
 
     return (
       <div

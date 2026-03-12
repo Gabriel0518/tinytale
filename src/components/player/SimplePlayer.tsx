@@ -35,6 +35,9 @@ export default function SimplePlayer({
   className = '',
 }: SimplePlayerProps) {
   const playerRef = useRef<any>(null);
+  const lastUrlRef = useRef<string>(videoUrl);
+  const resumeTimeRef = useRef<number>(0);
+  const resumePlayingRef = useRef<boolean>(autoplay);
   const [playing, setPlaying] = useState(autoplay);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
@@ -65,6 +68,13 @@ export default function SimplePlayer({
   };
 
   const handleReady = () => {
+    if (resumeTimeRef.current > 0) {
+      playerRef.current?.seekTo(resumeTimeRef.current, 'seconds');
+      resumeTimeRef.current = 0;
+    }
+    if (resumePlayingRef.current) {
+      setPlaying(true);
+    }
     console.log('Player ready');
     onReady?.();
   };
@@ -88,6 +98,14 @@ export default function SimplePlayer({
     console.error('Player error:', error);
     onError?.(error?.message || 'Video playback error');
   };
+
+  // Keep playback position when switching quality (URL changes with query params).
+  useEffect(() => {
+    if (lastUrlRef.current === videoUrl) return;
+    resumeTimeRef.current = playerRef.current?.getCurrentTime?.() || 0;
+    resumePlayingRef.current = playing;
+    lastUrlRef.current = videoUrl;
+  }, [videoUrl, playing]);
 
   return (
     <div className={`relative bg-black ${className}`}>
