@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 import {SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 interface PaymentMethod {
   _id: string;
@@ -934,6 +935,7 @@ export default function PaymentsPage() {
   const t = COPY[locale] || COPY.en;
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
   const { token } = useAuth();
+  const confirmDialog = useConfirm();
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
@@ -970,7 +972,14 @@ export default function PaymentsPage() {
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const handleDelete = async (id: string) => {
-    if (!token || !confirm(t.page.deleteConfirm)) return;
+    if (!token) return;
+    const confirmed = await confirmDialog({
+      title: "Delete Payment Method",
+      message: t.page.deleteConfirm,
+      confirmText: "Delete",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     try {
       await promoterApi.deletePaymentMethod(token, id);
       fetchAll();

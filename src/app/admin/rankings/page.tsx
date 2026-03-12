@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { adminApi } from "@/lib/adminApi";
 import { ALL_COUNTRIES } from "@/lib/countries";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 // ── Types ──────────────────────────────────────────────
 interface PlaylistItem {
@@ -70,6 +71,7 @@ const ICON_MAP = { fire: FireIcon, sparkle: SparkleIcon, trending: TrendingUpIco
 
 // ── Component ──────────────────────────────────────────
 export default function AdminRankingsPage() {
+  const confirmDialog = useConfirm();
   const [playlists, setPlaylists] = useState<PlaylistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -192,7 +194,13 @@ export default function AdminRankingsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this playlist?")) return;
+    const confirmed = await confirmDialog({
+      title: "Delete Playlist",
+      message: "Delete this playlist?",
+      confirmText: "Delete",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     try { await adminApi.deletePlaylist(id); fetchPlaylists(); } catch (e: any) { alert(e?.message || "Failed to delete"); }
   };
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { COUNTRY_GROUPS } from "@/lib/countries";
 import { adminApi } from "@/lib/adminApi";
 import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import VideoUploader from "@/components/admin/VideoUploader";
 import * as tus from "tus-js-client";
 
@@ -202,6 +203,7 @@ export default function CreateDramaPage() {
   const [hasPendingUploadData, setHasPendingUploadData] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const confirmDialog = useConfirm();
   const stepVideoCleanupRef = useRef<(() => Promise<boolean>) | null>(null);
   const publishLockRef = useRef(false);
 
@@ -422,8 +424,14 @@ export default function CreateDramaPage() {
     }
   };
 
-  const removeEpisode = (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this episode card?")) return;
+  const removeEpisode = async (id: string) => {
+    const confirmed = await confirmDialog({
+      title: "Delete Episode Card",
+      message: "Are you sure you want to delete this episode card?",
+      confirmText: "Delete",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     updateForm(
       "episodes",
       form.episodes.filter((e) => e.id !== id)

@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 type ModalType = "editInfo" | "editCategories" | "editRankings" | "editComments" | "subtitles" | null;
 
@@ -273,6 +274,7 @@ function EditInfoModal({ episode, onClose, onSave }: { episode: Episode; onClose
 
 // ── M2-02: Assign Categories Modal ──────────────────────
 function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: () => void }) {
+  const confirmDialog = useConfirm();
   const [subtitles, setSubtitles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
@@ -337,7 +339,13 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
   };
 
   const deleteSubtitle = async (subtitleId: string) => {
-    if (!confirm("Delete this subtitle?")) return;
+    const confirmed = await confirmDialog({
+      title: "Delete Subtitle",
+      message: "Delete this subtitle?",
+      confirmText: "Delete",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     setWorking(true);
     setError(null);
     try {
@@ -725,6 +733,7 @@ function EditCommentsModal({ episode, onClose }: { episode: Episode; onClose: ()
 }
 
 export default function EpisodesPage() {
+  const confirmDialog = useConfirm();
   const { id: dramaId } = useParams();
   const [search, setSearch] = useState("");
   const [activeModal, setActiveModal] = useState<ModalType>(null);
@@ -800,7 +809,13 @@ export default function EpisodesPage() {
   }, [fetchEpisodes]);
 
   const handleDeleteEpisode = useCallback(async (id: string) => {
-    if (!confirm("Are you sure you want to delete this episode? The video will also be removed from cloud storage.")) return;
+    const confirmed = await confirmDialog({
+      title: "Delete Episode",
+      message: "Are you sure you want to delete this episode? The video will also be removed from cloud storage.",
+      confirmText: "Delete",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     try {
       await adminApi.deleteEpisode(id);
       fetchEpisodes();
@@ -808,7 +823,7 @@ export default function EpisodesPage() {
       // silently fail
     }
     setActionMenuId(null);
-  }, [fetchEpisodes]);
+  }, [confirmDialog, fetchEpisodes]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return episodes;

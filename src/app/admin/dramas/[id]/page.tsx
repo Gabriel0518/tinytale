@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
 import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 type TabId = "basic" | "payment" | "seo" | "translations";
 
@@ -20,6 +21,7 @@ const TRANSLATION_LANGUAGES = [
 export default function DramaDetailPage() {
   const { id } = useParams();
   const { toast } = useToast();
+  const confirmDialog = useConfirm();
   const [drama, setDrama] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -186,7 +188,13 @@ export default function DramaDetailPage() {
       toast("No translation to delete for this language", "error");
       return;
     }
-    if (!window.confirm(`Delete ${translationLang} translation?`)) return;
+    const confirmed = await confirmDialog({
+      title: "Delete Translation",
+      message: `Delete ${translationLang} translation?`,
+      confirmText: "Delete",
+      tone: "danger",
+    });
+    if (!confirmed) return;
 
     setTranslationSaving(true);
     try {

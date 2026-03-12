@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { api } from "@/lib/adminApi";
 import TaskConfigModal from "@/components/admin/TaskConfigModal";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type TabType = "daily" | "newbie" | "achievement";
@@ -74,6 +75,7 @@ const PAGE_SIZE = 4;
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function AdminTasksPage() {
+  const confirmDialog = useConfirm();
   const [activeTab, setActiveTab] = useState<TabType>("daily");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [search, setSearch] = useState("");
@@ -164,7 +166,13 @@ export default function AdminTasksPage() {
 
   // Delete task
   const handleDelete = async (task: Task) => {
-    if (!confirm(`Delete task "${task.name}"?`)) return;
+    const confirmed = await confirmDialog({
+      title: "Delete Task",
+      message: `Delete task "${task.name}"?`,
+      confirmText: "Delete",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     const backup = [...tasks];
     setTasks((prev) => prev.filter((t) => t.id !== task.id));
     try {

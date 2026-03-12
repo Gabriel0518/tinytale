@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { adminApi } from "@/lib/adminApi";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 interface SubscriptionUser {
   _id: string;
@@ -70,6 +71,7 @@ function getInitials(name: string) {
 }
 
 export default function SubscriptionsPage() {
+  const confirmDialog = useConfirm();
   const [data, setData] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -123,7 +125,13 @@ export default function SubscriptionsPage() {
   };
 
   const handleCancel = async (id: string) => {
-    if (!confirm("Are you sure you want to cancel this subscription?")) return;
+    const confirmed = await confirmDialog({
+      title: "Cancel Subscription",
+      message: "Are you sure you want to cancel this subscription?",
+      confirmText: "Cancel Subscription",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     setCancellingId(id);
     try {
       await adminApi.cancelSubscription(id);

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { adminApi } from "@/lib/adminApi";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 
 interface BannerItem {
   _id: string;
@@ -37,6 +38,7 @@ const EMPTY_FORM: BannerFormData = {
 };
 
 export default function AdminBannersPage() {
+  const confirmDialog = useConfirm();
   const [banners, setBanners] = useState<BannerItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -145,7 +147,13 @@ export default function AdminBannersPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this banner?")) return;
+    const confirmed = await confirmDialog({
+      title: "Delete Banner",
+      message: "Delete this banner?",
+      confirmText: "Delete",
+      tone: "danger",
+    });
+    if (!confirmed) return;
     try {
       await adminApi.deleteBanner(id);
       fetchBanners();

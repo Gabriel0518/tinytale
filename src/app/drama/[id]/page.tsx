@@ -9,6 +9,7 @@ import Image from "next/image";
 import { dramasApi, reviewsApi, userApi, coinsApi, episodesApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
+import { useConfirm } from "@/components/ui/ConfirmDialog";
 import { Drama, Episode, EpisodeAccessResult, Review, StreamPlaybackInfo } from "@/types";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
@@ -309,6 +310,7 @@ function DramaDetailContent() {
   const searchParams = useSearchParams();
   const { user, token, refreshUser } = useAuth();
   const { toast } = useToast();
+  const confirmDialog = useConfirm();
   const dramaId = params.id as string;
   const playerRef = useRef<CloudflarePlayerHandle>(null) as React.RefObject<CloudflarePlayerHandle>;
   const lastProgressReportAtRef = useRef<number>(0);
@@ -481,7 +483,12 @@ function DramaDetailContent() {
       ) {
         confirmMessage = `${t.unlockAll}: ${effectivePrice} ${t.coins}? (${t.vip} ${access.originalUnlockPrice} -> ${effectivePrice})`;
       }
-      const confirmed = window.confirm(confirmMessage);
+      const confirmed = await confirmDialog({
+        title: t.unlockAll,
+        message: confirmMessage,
+        confirmText: t.unlockAll,
+        cancelText: t.cancel,
+      });
       if (!confirmed) return;
       // Call unlock API (P1-19)
       try {
@@ -504,7 +511,7 @@ function DramaDetailContent() {
       }
     }
     setActiveEpisode(episode);
-  }, [token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.unlockSuccess, t.unlockFail]);
+  }, [token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, confirmDialog, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.cancel, t.unlockSuccess, t.unlockFail]);
 
   // Unlock all paid episodes
   const lockedEpisodes = episodes.filter(ep => !ep.isFree && !unlockedEpisodeIds.has(ep._id));
@@ -530,7 +537,12 @@ function DramaDetailContent() {
     if (unlockAllDiscountCoins > 0) {
       confirmMessage += `\n${t.vip}: -${unlockAllDiscountCoins} ${t.coins}`;
     }
-    const confirmed = window.confirm(confirmMessage);
+    const confirmed = await confirmDialog({
+      title: t.unlockAll,
+      message: confirmMessage,
+      confirmText: t.unlockAll,
+      cancelText: t.cancel,
+    });
     if (!confirmed) return;
 
     setUnlockingAll(true);
@@ -563,7 +575,7 @@ function DramaDetailContent() {
     } finally {
       setUnlockingAll(false);
     }
-  }, [token, dramaId, lockedEpisodes.length, totalUnlockCost, unlockAllDiscountCoins, toast, router, refreshUser, t.signInUnlock, t.unlockAllNone, t.unlockAll, t.episodes, t.coins, t.vip, t.unlockAllSuccessSuffix, t.insufficientCoins, t.unlockAllFail]);
+  }, [token, dramaId, lockedEpisodes.length, totalUnlockCost, unlockAllDiscountCoins, toast, router, refreshUser, confirmDialog, t.signInUnlock, t.unlockAllNone, t.unlockAll, t.episodes, t.coins, t.vip, t.cancel, t.unlockAllSuccessSuffix, t.insufficientCoins, t.unlockAllFail]);
 
   // Fix favorite toggle logic (P0-05) + auth check (P1-18)
   const toggleFavorite = async () => {

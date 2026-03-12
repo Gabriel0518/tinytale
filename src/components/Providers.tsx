@@ -3,6 +3,7 @@
 import { AuthProvider } from '@/lib/authContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ToastProvider } from '@/components/ui/Toast';
+import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
 
 const FALLBACK_GOOGLE_CLIENT_ID =
   '995123954885-eslkphffjblocspkukd7l2ms49sgcmv0.apps.googleusercontent.com';
@@ -18,9 +19,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
       <AuthProvider>
-        <ToastProvider>
-          {children}
-        </ToastProvider>
+        <ConfirmProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </ConfirmProvider>
       </AuthProvider>
     </GoogleOAuthProvider>
   );
