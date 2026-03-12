@@ -1138,7 +1138,7 @@ export default function AdminSettingsPage() {
           tierPricing: {},
           stripePriceId: "",
           stripePriceIds: {},
-          status: "inactive",
+          status: "active",
         });
         loadVipPlans();
         showToast("Plan added");
