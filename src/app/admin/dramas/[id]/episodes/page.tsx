@@ -31,6 +31,22 @@ function fmtDur(seconds: number): string {
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
+function parseDuration(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, Math.floor(value));
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+    if (trimmed.includes(":")) {
+      const parts = trimmed.split(":").map((part) => Number(part));
+      if (parts.some((part) => Number.isNaN(part))) return 0;
+      if (parts.length === 2) return Math.max(0, parts[0] * 60 + parts[1]);
+      if (parts.length === 3) return Math.max(0, parts[0] * 3600 + parts[1] * 60 + parts[2]);
+    }
+    const numeric = Number(trimmed);
+    return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
+  }
+  return 0;
+}
 function fmtTotal(eps: Episode[]): string {
   const t = eps.reduce((s, e) => s + e.duration, 0);
   return `${Math.floor(t / 3600)}h ${Math.floor((t % 3600) / 60)}m`;
@@ -733,7 +749,7 @@ export default function EpisodesPage() {
           title: ep.title || "",
           description: ep.description || "",
           cover: ep.thumbnail || ep.cover || "",
-          duration: ep.duration || 0,
+          duration: parseDuration(ep.duration),
           status,
           errorMessage: ep.errorMessage,
           plays: ep.plays || ep.viewCount || 0,
@@ -954,6 +970,16 @@ export default function EpisodesPage() {
                     {/* Actions */}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end" ref={actionMenuId === ep.id ? actionMenuRef : undefined}>
+                        <button
+                          onClick={() => {
+                            setActionMenuId(null);
+                            setModalEpisode(ep);
+                            setActiveModal("subtitles");
+                          }}
+                          className="mr-2 rounded-lg border border-gray-700 px-2.5 py-1 text-xs font-medium text-gray-300 transition-colors hover:border-indigo-500 hover:text-indigo-300"
+                        >
+                          Subtitles
+                        </button>
                         <button
                           onClick={() => setActionMenuId(actionMenuId === ep.id ? null : ep.id)}
                           className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"

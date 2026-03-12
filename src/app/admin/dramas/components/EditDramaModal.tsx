@@ -12,9 +12,16 @@ interface Drama {
   horizontalCover?: string;
   description?: string;
   categories?: string[];
+  regions?: string[];
+  tags?: string[];
+  activity?: string;
   seoTitle?: string;
   seoDescription?: string;
   seoKeywords?: string;
+  monetizationModel?: "free" | "partial" | "premium";
+  freeEpisodeCount?: number;
+  defaultPrice?: number;
+  vipEarlyAccess?: boolean;
   genre: string;
   episodes: number;
   status: "Published" | "Draft" | "Suspended";
@@ -105,14 +112,6 @@ function CoinIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  );
-}
-
-function DragIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-      <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
     </svg>
   );
 }
@@ -220,40 +219,66 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
   const verticalCoverRef = useRef<HTMLInputElement>(null);
   const horizontalCoverRef = useRef<HTMLInputElement>(null);
 
-  const mockEpisodes: Episode[] = Array.from({ length: drama.episodes }, (_, i) => ({
-    id: `ep-${i + 1}`,
-    name: `Episode ${i + 1}`,
-    fileName: `episode_${i + 1}_final.mp4`,
-    size: `${(Math.random() * 200 + 50).toFixed(0)} MB`,
-    subtitleFile: i < 3 ? `EN, KR` : null,
-    price: null,
-    cover: null,
-    description: "",
-    duration: `${Math.floor(Math.random() * 10 + 8)}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
-    status: "ready" as const,
-    uploadProgress: 100,
-  }));
-
   const cleanCover = (url?: string | null): string => (url && !url.startsWith('blob:') ? url : "");
+  const buildEpisodePlaceholders = (count: number): Episode[] =>
+    Array.from({ length: Math.max(0, Number(count || 0)) }, (_, i) => ({
+      id: `ep-placeholder-${i + 1}`,
+      name: `Episode ${i + 1}`,
+      fileName: "",
+      size: "",
+      subtitleFile: null,
+      price: null,
+      cover: null,
+      description: "",
+      duration: "",
+      status: "ready",
+      uploadProgress: 100,
+    }));
 
   const [form, setForm] = useState<FormData>({
     verticalCover: cleanCover(drama.cover) || null,
     horizontalCover: cleanCover(drama.horizontalCover) || null,
     dramaName: drama.title,
-    synopsis: "",
-    categories: [drama.genre],
-    regions: [],
-    tags: "",
-    activity: "none",
-    episodes: mockEpisodes,
-    monetizationModel: "partial",
-    freeEpisodeCount: 3,
-    defaultPrice: 15,
-    vipEarlyAccess: false,
-    seoTitle: drama.title,
-    seoDescription: "",
-    seoKeywords: "",
+    synopsis: drama.description || "",
+    categories: (drama.categories && drama.categories.length > 0) ? drama.categories : [drama.genre],
+    regions: drama.regions || [],
+    tags: Array.isArray(drama.tags) ? drama.tags.join(", ") : "",
+    activity: drama.activity || "none",
+    episodes: buildEpisodePlaceholders(drama.episodes),
+    monetizationModel: drama.monetizationModel || "partial",
+    freeEpisodeCount: Number.isFinite(drama.freeEpisodeCount) ? Number(drama.freeEpisodeCount) : 3,
+    defaultPrice: Number.isFinite(drama.defaultPrice) ? Number(drama.defaultPrice) : 15,
+    vipEarlyAccess: Boolean(drama.vipEarlyAccess),
+    seoTitle: drama.seoTitle || drama.title,
+    seoDescription: drama.seoDescription || "",
+    seoKeywords: drama.seoKeywords || "",
   });
+
+  useEffect(() => {
+    setForm({
+      verticalCover: cleanCover(drama.cover) || null,
+      horizontalCover: cleanCover(drama.horizontalCover) || null,
+      dramaName: drama.title,
+      synopsis: drama.description || "",
+      categories: (drama.categories && drama.categories.length > 0) ? drama.categories : [drama.genre],
+      regions: drama.regions || [],
+      tags: Array.isArray(drama.tags) ? drama.tags.join(", ") : "",
+      activity: drama.activity || "none",
+      episodes: buildEpisodePlaceholders(drama.episodes),
+      monetizationModel: drama.monetizationModel || "partial",
+      freeEpisodeCount: Number.isFinite(drama.freeEpisodeCount) ? Number(drama.freeEpisodeCount) : 3,
+      defaultPrice: Number.isFinite(drama.defaultPrice) ? Number(drama.defaultPrice) : 15,
+      vipEarlyAccess: Boolean(drama.vipEarlyAccess),
+      seoTitle: drama.seoTitle || drama.title,
+      seoDescription: drama.seoDescription || "",
+      seoKeywords: drama.seoKeywords || "",
+    });
+    setCategoryInput("");
+    setStep(1);
+    setStepError(null);
+    setUploadError(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drama.id]);
 
   const updateForm = useCallback(
     <K extends keyof FormData>(key: K, value: FormData[K]) => {
@@ -326,32 +351,6 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
     updateForm("categories", form.categories.filter((c) => c !== cat));
   };
 
-  const addMockEpisode = () => {
-    const num = form.episodes.length + 1;
-    const ep: Episode = {
-      id: `ep-${Date.now()}`,
-      name: `Episode ${num}`,
-      fileName: `episode_${num}_final.mp4`,
-      size: `${(Math.random() * 200 + 50).toFixed(0)} MB`,
-      subtitleFile: null,
-      price: null,
-      cover: null,
-      description: "",
-      duration: `${Math.floor(Math.random() * 10 + 8)}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
-      status: "ready" as const,
-      uploadProgress: 100,
-    };
-    updateForm("episodes", [...form.episodes, ep]);
-  };
-
-  const removeEpisode = (id: string) => {
-    updateForm("episodes", form.episodes.filter((e) => e.id !== id));
-  };
-
-  const updateEpisode = (id: string, updates: Partial<Episode>) => {
-    updateForm("episodes", form.episodes.map((e) => (e.id === id ? { ...e, ...updates } : e)));
-  };
-
   const validateStep = (stepNum: number): string | null => {
     if (stepNum === 1) {
       if (!form.verticalCover) return "Vertical cover is required.";
@@ -361,12 +360,7 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
       if (form.categories.length === 0) return "At least one category is required.";
       return null;
     }
-    if (stepNum === 2) {
-      if (form.episodes.length === 0) return "Please upload at least one episode.";
-      const invalidEpisode = form.episodes.find((episode) => !episode.name.trim() || episode.status !== "ready");
-      if (invalidEpisode) return "All episodes must have a name and be ready before proceeding.";
-      return null;
-    }
+    if (stepNum === 2) return null;
     if (stepNum === 3) {
       if (form.monetizationModel !== "free" && form.defaultPrice < 1) return "Default episode price must be at least 1 coin.";
       if (form.monetizationModel === "partial" && form.freeEpisodeCount > form.episodes.length) {
@@ -411,6 +405,16 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
       horizontalCover: cleanCover(form.horizontalCover) || cleanCover(drama.horizontalCover) || "",
       description: form.synopsis || "",
       categories: form.categories,
+      regions: form.regions,
+      tags: form.tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      activity: form.activity || "none",
+      monetizationModel: form.monetizationModel,
+      freeEpisodeCount: form.freeEpisodeCount,
+      defaultPrice: form.defaultPrice,
+      vipEarlyAccess: form.vipEarlyAccess,
       seoTitle: form.seoTitle || "",
       seoDescription: form.seoDescription || "",
       seoKeywords: form.seoKeywords || "",
@@ -495,11 +499,8 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
           )}
           {step === 2 && (
             <StepVideoSubtitles
-              form={form}
-              updateForm={updateForm}
-              addMockEpisode={addMockEpisode}
-              removeEpisode={removeEpisode}
-              updateEpisode={updateEpisode}
+              dramaId={drama.id}
+              episodeCount={form.episodes.length}
             />
           )}
           {step === 3 && (
@@ -709,217 +710,42 @@ function StepBasicInfo({
 }
 
 // ── Step 2: Video & Subtitles ──────────────────────────
-type UploadMode = "full" | "episode";
-
-function StepVideoSubtitles({ form, updateForm, addMockEpisode, removeEpisode, updateEpisode }: {
-  form: FormData;
-  updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
-  addMockEpisode: () => void;
-  removeEpisode: (id: string) => void;
-  updateEpisode: (id: string, updates: Partial<Episode>) => void;
-}) {
-  const [uploadMode, setUploadMode] = useState<UploadMode>("full");
-  const [splitDuration, setSplitDuration] = useState(45);
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
-  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
-  const [uploadFileProgress, setUploadFileProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFullUpload = () => {
-    setUploadingFileName("series_pilot_raw.mp4");
-    setUploadFileProgress(0);
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 8 + 3;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-        setUploadFileProgress(100);
-        setTimeout(() => {
-          const totalMinutes = Math.floor(Math.random() * 60 + 60);
-          const count = Math.ceil(totalMinutes / splitDuration);
-          const episodes: Episode[] = Array.from({ length: count }, (_, i) => ({
-            id: `ep-${Date.now()}-${i}`,
-            name: `Episode ${i + 1}`,
-            fileName: `episode_${i + 1}.mp4`,
-            size: `${(Math.random() * 150 + 30).toFixed(0)} MB`,
-            subtitleFile: null,
-            price: null,
-            cover: null,
-            description: "",
-            duration: `${i === count - 1 ? totalMinutes - splitDuration * i : splitDuration}:${String(Math.floor(Math.random() * 60)).padStart(2, "0")}`,
-            status: (i < count - 1 ? "ready" : "processing") as Episode["status"],
-            uploadProgress: i < count - 1 ? 100 : Math.floor(Math.random() * 60 + 20),
-          }));
-          updateForm("episodes", episodes);
-          setUploadingFileName(null);
-        }, 500);
-      } else {
-        setUploadFileProgress(progress);
-      }
-    }, 200);
+function StepVideoSubtitles({ dramaId, episodeCount }: { dramaId: string; episodeCount: number }) {
+  const openEpisodeManagement = () => {
+    if (typeof window !== "undefined") {
+      window.location.href = `/admin/dramas/${dramaId}/episodes`;
+    }
   };
-
-  const handleDragStart = (idx: number) => setDragIdx(idx);
-  const handleDragOver = (e: React.DragEvent, idx: number) => { e.preventDefault(); setDragOverIdx(idx); };
-  const handleDrop = (idx: number) => {
-    if (dragIdx === null || dragIdx === idx) { setDragIdx(null); setDragOverIdx(null); return; }
-    const eps = [...form.episodes];
-    const [moved] = eps.splice(dragIdx, 1);
-    eps.splice(idx, 0, moved);
-    updateForm("episodes", eps);
-    setDragIdx(null);
-    setDragOverIdx(null);
-  };
-  const handleDragEnd = () => { setDragIdx(null); setDragOverIdx(null); };
-
-  const readyCount = form.episodes.filter((e) => e.status === "ready").length;
 
   return (
-    <div className="space-y-8">
-      <div className="rounded-xl bg-[#1a1a2e] p-6">
-        <div className="mb-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-            </svg>
-            <h2 className="text-base font-semibold text-white">Upload Videos</h2>
-          </div>
-          <span className="rounded bg-red-500/20 px-2 py-0.5 text-xs font-medium text-red-400">Required</span>
-        </div>
-
-        <div className="mb-5 flex items-center gap-3">
-          <button onClick={() => setUploadMode("full")} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${uploadMode === "full" ? "bg-indigo-600 text-white" : "border border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200"}`}>
-            Upload Full Series
-          </button>
-          <button onClick={() => setUploadMode("episode")} className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${uploadMode === "episode" ? "bg-indigo-600 text-white" : "border border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200"}`}>
-            Upload Multiple Episodes
+    <div className="space-y-6">
+      <div className="rounded-xl border border-indigo-600/30 bg-indigo-600/5 p-6">
+        <h2 className="text-base font-semibold text-white">Video & Subtitle Management</h2>
+        <p className="mt-2 text-sm text-gray-300">
+          Episode video upload, duration processing, subtitle upload/replace/translation, and per-episode cover/description are managed in the dedicated Episodes page.
+        </p>
+        <div className="mt-4 flex items-center gap-3">
+          <span className="rounded-full bg-gray-800 px-3 py-1 text-xs text-gray-300">
+            Current episodes: {episodeCount}
+          </span>
+          <button
+            type="button"
+            onClick={openEpisodeManagement}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+          >
+            Open Episode Management
           </button>
         </div>
-
-        {uploadMode === "full" ? (
-          <div className="mb-5 space-y-4">
-            <div className="flex items-start gap-2 rounded-lg border border-indigo-600/30 bg-indigo-600/5 p-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <div>
-                <p className="text-sm font-medium text-indigo-400">Auto-Split Technology</p>
-                <p className="mt-0.5 text-xs text-gray-400">Upload your full-length video. The system will auto-split into episodes based on duration settings.</p>
-              </div>
-            </div>
-            <div className="rounded-lg border border-gray-800 bg-[#13131d] p-4">
-              <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-gray-500">Auto-Split Duration (Minutes)</label>
-              <div className="flex items-center gap-2">
-                <input type="number" min={1} max={120} value={splitDuration} onChange={(e) => setSplitDuration(Math.max(1, Math.min(120, Number(e.target.value))))} className="w-20 rounded-lg border border-gray-700 bg-[#0f0f17] px-3 py-2 text-sm text-white outline-none focus:border-indigo-600" />
-                <span className="text-sm text-gray-500">min / episode</span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="mb-5 flex items-start gap-2 rounded-lg border border-indigo-600/30 bg-indigo-600/5 p-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            <div>
-              <p className="text-sm font-medium text-indigo-400">Batch Episode Upload</p>
-              <p className="mt-0.5 text-xs text-gray-400">Upload up to 50 video files. Files upload sequentially. Default title uses filename, first frame as cover.</p>
-            </div>
-          </div>
-        )}
-
-        <input ref={fileInputRef} type="file" accept="video/*" multiple={uploadMode === "episode"} className="hidden" onChange={() => { handleFullUpload(); if (fileInputRef.current) fileInputRef.current.value = ""; }} />
-        <button onClick={() => fileInputRef.current?.click()} className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-700 py-12 transition-colors hover:border-indigo-600/50 hover:bg-indigo-600/5">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-indigo-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <p className="mt-3 text-sm font-medium text-gray-300">Drag & drop video{uploadMode === "episode" ? "s" : ""} here</p>
-          <p className="mt-1 text-xs text-gray-500">or <span className="text-indigo-400">browse</span> from your computer</p>
-          <p className="mt-2 text-xs text-gray-600">MP4, MOV, MKV (Max {uploadMode === "full" ? "10GB" : "2GB per file"}). SRT, VTT supported.</p>
-        </button>
-
-        {uploadingFileName && (
-          <div className="mt-4 flex items-center gap-3 rounded-lg bg-[#13131d] px-4 py-3">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-            <span className="shrink-0 text-sm text-gray-300">{uploadingFileName}</span>
-            <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-gray-800"><div className="h-full rounded-full bg-green-500 transition-all duration-300" style={{ width: `${uploadFileProgress}%` }} /></div>
-            <button onClick={() => setUploadingFileName(null)} className="shrink-0 rounded p-1 text-gray-500 transition-colors hover:text-white">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-          </div>
-        )}
       </div>
 
-      {form.episodes.length > 0 && (
-        <div className="rounded-xl bg-[#1a1a2e] p-6">
-          <div className="mb-5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h2 className="text-base font-semibold text-white">Generated Episodes</h2>
-              <span className="rounded-full bg-indigo-600/20 px-2.5 py-0.5 text-xs font-medium text-indigo-400">{readyCount} Ready</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:border-gray-500 hover:text-white">Bulk Edit</button>
-              <button className="rounded-lg border border-gray-700 px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:border-gray-500 hover:text-white">Sort</button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {form.episodes.map((ep, idx) => (
-              <div key={ep.id} draggable onDragStart={() => handleDragStart(idx)} onDragOver={(e) => handleDragOver(e, idx)} onDrop={() => handleDrop(idx)} onDragEnd={handleDragEnd}
-                className={`group relative rounded-xl border transition-all cursor-grab active:cursor-grabbing ${dragOverIdx === idx ? "border-indigo-600 bg-indigo-600/10" : dragIdx === idx ? "opacity-50 border-gray-800 bg-[#13131d]" : "border-gray-800 bg-[#13131d] hover:border-gray-700"}`}>
-                <div className="relative aspect-video w-full overflow-hidden rounded-t-xl bg-gray-900">
-                  {ep.status === "uploading" ? (
-                    <div className="flex h-full flex-col items-center justify-center">
-                      <svg className="h-10 w-10 animate-spin text-indigo-600" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                      <p className="mt-2 text-xs text-gray-400">Uploading... {Math.round(ep.uploadProgress)}%</p>
-                      <div className="mt-2 h-1 w-3/4 overflow-hidden rounded-full bg-gray-800"><div className="h-full rounded-full bg-indigo-600 transition-all duration-300" style={{ width: `${ep.uploadProgress}%` }} /></div>
-                    </div>
-                  ) : ep.status === "processing" ? (
-                    <div className="flex h-full flex-col items-center justify-center relative">
-                      <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800"><div className="h-full bg-indigo-600 transition-all duration-500" style={{ width: `${ep.uploadProgress}%` }} /></div>
-                      <svg className="h-8 w-8 animate-spin text-indigo-400" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-                      <p className="mt-2 text-xs text-gray-400">Processing...</p>
-                    </div>
-                  ) : (
-                    <div className="flex h-full items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
-                    </div>
-                  )}
-                  <span className="absolute left-2 top-2 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white">Ep {String(idx + 1).padStart(2, "0")}</span>
-                  {ep.status === "ready" && <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">{ep.duration}</span>}
-                </div>
-                <div className="p-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <input type="text" value={ep.name} onChange={(e) => updateEpisode(ep.id, { name: e.target.value })} className="flex-1 bg-transparent text-sm font-medium text-white outline-none placeholder-gray-600" placeholder="Episode title" />
-                    <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${ep.status === "ready" ? "bg-green-500/20 text-green-400" : ep.status === "processing" ? "text-indigo-400" : "bg-blue-500/20 text-blue-400"}`}>{ep.status === "processing" ? `PROCESSING ${Math.round(ep.uploadProgress)}%` : ep.status}</span>
-                  </div>
-                  <textarea value={ep.description} onChange={(e) => updateEpisode(ep.id, { description: e.target.value })} placeholder="Episode synopsis..." rows={2} className="mt-2 w-full resize-none bg-transparent text-xs text-gray-400 outline-none placeholder-gray-600" />
-                  <div className="mt-2 flex items-center justify-between border-t border-gray-800 pt-2">
-                    <div className="flex items-center gap-1.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
-                      {ep.subtitleFile ? (
-                        <span className="text-[10px] text-green-400">{ep.subtitleFile}</span>
-                      ) : (
-                        <button onClick={() => updateEpisode(ep.id, { subtitleFile: "EN, KR" })} className="text-[10px] text-gray-500 hover:text-indigo-400 transition-colors">+ Subtitle</button>
-                      )}
-                    </div>
-                    <button onClick={() => removeEpisode(ep.id)} className="rounded p-1 text-gray-600 transition-colors hover:bg-red-500/10 hover:text-red-400">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            <button onClick={addMockEpisode} className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-800 py-16 transition-colors hover:border-gray-600 hover:bg-white/[0.02]">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-700 text-gray-500">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-              </div>
-              <p className="mt-3 text-xs font-medium text-gray-500">Add Episode Manually</p>
-            </button>
-          </div>
-        </div>
-      )}
+      <div className="rounded-xl bg-[#1a1a2e] p-6">
+        <h3 className="text-sm font-semibold text-white">Why this change</h3>
+        <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-gray-400">
+          <li>Prevents fake upload/subtitle interactions in edit flow.</li>
+          <li>Uses real APIs for subtitle upload and replacement.</li>
+          <li>Keeps duration and processing status consistent with Cloudflare stream data.</li>
+        </ul>
+      </div>
     </div>
   );
 }

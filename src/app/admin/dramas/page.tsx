@@ -15,6 +15,19 @@ interface Drama {
   code: string;
   title: string;
   cover: string;
+  horizontalCover?: string;
+  description?: string;
+  categories?: string[];
+  regions?: string[];
+  tags?: string[];
+  activity?: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  monetizationModel?: "free" | "partial" | "premium";
+  freeEpisodeCount?: number;
+  defaultPrice?: number;
+  vipEarlyAccess?: boolean;
   genre: string;
   episodes: number;
   status: DramaStatus;
@@ -62,6 +75,18 @@ export default function DramaManagementPage() {
         title: d.title || "",
         cover: d.cover || "",
         horizontalCover: d.horizontalCover || "",
+        description: d.description || "",
+        categories: Array.isArray(d.categories) ? d.categories : [],
+        regions: Array.isArray(d.regions) ? d.regions : [],
+        tags: Array.isArray(d.tags) ? d.tags : [],
+        activity: d.activity || "none",
+        seoTitle: d.seoTitle || "",
+        seoDescription: d.seoDescription || "",
+        seoKeywords: d.seoKeywords || "",
+        monetizationModel: d.monetizationModel || "partial",
+        freeEpisodeCount: Number.isFinite(d.freeEpisodeCount) ? d.freeEpisodeCount : 3,
+        defaultPrice: Number.isFinite(d.defaultPrice) ? d.defaultPrice : 15,
+        vipEarlyAccess: Boolean(d.vipEarlyAccess),
         genre: (d.categories && d.categories[0]) || d.genre || "Other",
         episodes: d.totalEpisodes || d.episodes || 0,
         status: d.status === "published" ? "Published" : d.status === "suspended" ? "Suspended" : "Draft",
@@ -83,6 +108,36 @@ export default function DramaManagementPage() {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const openEditDrama = useCallback(async (drama: Drama) => {
+    setActionMenuId(null);
+    try {
+      const res: any = await adminApi.getDrama(drama.id);
+      const detail = res?.data || {};
+      const rawEpisodes = Array.isArray(detail.episodes) ? detail.episodes : [];
+      setEditingDrama({
+        ...drama,
+        title: detail.title || drama.title,
+        cover: detail.cover || drama.cover,
+        horizontalCover: detail.horizontalCover || drama.horizontalCover || "",
+        description: detail.description || drama.description || "",
+        categories: Array.isArray(detail.categories) ? detail.categories : (drama.categories || []),
+        regions: Array.isArray(detail.regions) ? detail.regions : (drama.regions || []),
+        tags: Array.isArray(detail.tags) ? detail.tags : (drama.tags || []),
+        activity: detail.activity || drama.activity || "none",
+        seoTitle: detail.seoTitle || drama.seoTitle || "",
+        seoDescription: detail.seoDescription || drama.seoDescription || "",
+        seoKeywords: detail.seoKeywords || drama.seoKeywords || "",
+        monetizationModel: detail.monetizationModel || drama.monetizationModel || "partial",
+        freeEpisodeCount: Number.isFinite(detail.freeEpisodeCount) ? detail.freeEpisodeCount : (drama.freeEpisodeCount ?? 3),
+        defaultPrice: Number.isFinite(detail.defaultPrice) ? detail.defaultPrice : (drama.defaultPrice ?? 15),
+        vipEarlyAccess: detail.vipEarlyAccess !== undefined ? Boolean(detail.vipEarlyAccess) : Boolean(drama.vipEarlyAccess),
+        episodes: rawEpisodes.length > 0 ? rawEpisodes.length : (detail.totalEpisodes || drama.episodes || 0),
+      });
+    } catch {
+      setEditingDrama(drama);
+    }
   }, []);
 
   const togglePublish = useCallback(async (drama: Drama) => {
@@ -388,8 +443,7 @@ export default function DramaManagementPage() {
                             </button>
                             <button
                               onClick={() => {
-                                setEditingDrama(drama);
-                                setActionMenuId(null);
+                                void openEditDrama(drama);
                               }}
                               className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-300 transition-colors hover:bg-white/5"
                             >

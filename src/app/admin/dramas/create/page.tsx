@@ -15,6 +15,9 @@ interface Episode {
   fileName: string;
   size: string;
   subtitleFile: string | null;
+  subtitleUrl?: string | null;
+  subtitleLanguage?: string | null;
+  subtitleFormat?: "srt" | "vtt" | null;
   price: number | null;
   cover: string | null;
   description: string;
@@ -187,14 +190,6 @@ function CoinIcon() {
   );
 }
 
-function DragIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-      <path d="M7 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 8a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 14a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm6 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4z" />
-    </svg>
-  );
-}
-
 // ── Main Component ─────────────────────────────────────
 export default function CreateDramaPage() {
   const [step, setStep] = useState(1);
@@ -321,6 +316,8 @@ export default function CreateDramaPage() {
           duration: ep.duration ? parseDurationToSeconds(ep.duration) : 0,
           streamVideoId: ep.videoUid || "",
           thumbnail: ep.cover || "",
+          subtitleUrl: ep.subtitleUrl || "",
+          subtitleLanguage: ep.subtitleLanguage || "",
           isFree: form.monetizationModel === "free" || idx < form.freeEpisodeCount,
           unlockPrice: form.monetizationModel === "free" ? 0 : (ep.price ?? form.defaultPrice),
           status: ep.status === "ready" ? "Published" : "Processing",
@@ -425,110 +422,8 @@ export default function CreateDramaPage() {
     }
   };
 
-  const manualFileRef = useRef<HTMLInputElement>(null);
-
-  const addEpisodeManually = () => {
-    manualFileRef.current?.click();
-  };
-
-  const handleManualEpisodeFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-
-    const epId = `ep-${Date.now()}`;
-    const newEp: Episode = {
-      id: epId,
-      name: file.name.replace(/\.[^.]+$/, ""),
-      fileName: file.name,
-      size: `${(file.size / (1024 * 1024)).toFixed(0)} MB`,
-      subtitleFile: null,
-      price: null,
-      cover: null,
-      description: "",
-      duration: "",
-      status: "uploading",
-      uploadProgress: 0,
-    };
-    updateForm("episodes", [...form.episodes, newEp]);
-
-    const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
-
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/admin/upload/video`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(buildVideoUploadPayload(file, activeUploadSessionId || undefined)),
-        });
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({}));
-          throw new Error(errBody?.error?.message || 'Failed to get upload URL');
-        }
-        const { data } = await res.json();
-        const { upload_url, video_uid, uploadSessionId } = data;
-        if (uploadSessionId) {
-          setActiveUploadSessionId(uploadSessionId);
-          setHasPendingUploadData(true);
-        }
-
-        const upload = new tus.Upload(file, {
-          uploadUrl: upload_url,
-          chunkSize: getPreferredTusChunkSize(file.size),
-          retryDelays: getTusRetryDelays(),
-          removeFingerprintOnSuccess: true,
-          metadata: { filename: file.name, filetype: file.type },
-          onShouldRetry: shouldRetryTusUpload,
-          onProgress: (bytesUploaded, bytesTotal) => {
-            const pct = Math.round((bytesUploaded / bytesTotal) * 100);
-            setForm(prev => ({
-              ...prev,
-              episodes: prev.episodes.map(ep =>
-                ep.id === epId ? { ...ep, uploadProgress: pct } : ep
-              ),
-            }));
-          },
-          onSuccess: () => {
-            setForm(prev => ({
-              ...prev,
-              episodes: prev.episodes.map(ep =>
-                ep.id === epId ? { ...ep, status: "ready" as const, uploadProgress: 100, videoUid: video_uid } : ep
-              ),
-            }));
-          },
-          onError: (err) => {
-            const message = getUploadErrorMessage(err);
-            setForm(prev => ({
-              ...prev,
-              episodes: prev.episodes.map(ep =>
-                ep.id === epId ? { ...ep, status: "failed" as const, uploadProgress: 0, description: `Upload failed: ${message}` } : ep
-              ),
-            }));
-          },
-        });
-
-        const previousUploads = await upload.findPreviousUploads();
-        if (previousUploads.length > 0) {
-          upload.resumeFromPreviousUpload(previousUploads[0]);
-        }
-        upload.start();
-      } catch (err: any) {
-        const message = getUploadErrorMessage(err);
-        setForm(prev => ({
-          ...prev,
-          episodes: prev.episodes.map(ep =>
-            ep.id === epId ? { ...ep, status: "failed" as const, uploadProgress: 0, description: `Upload failed: ${message}` } : ep
-          ),
-        }));
-      }
-    })();
-  };
-
   const removeEpisode = (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this episode card?")) return;
     updateForm(
       "episodes",
       form.episodes.filter((e) => e.id !== id)
@@ -589,14 +484,6 @@ export default function CreateDramaPage() {
 
   return (
     <div className="min-h-screen bg-[#0f0f17] flex flex-col">
-      {/* Hidden file input for manual episode upload */}
-      <input
-        ref={manualFileRef}
-        type="file"
-        accept="video/*"
-        className="hidden"
-        onChange={handleManualEpisodeFile}
-      />
       {/* ── Sticky Header ── */}
       <header className="sticky top-0 z-50 border-b border-gray-800 bg-[#0f0f17]/95 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
@@ -691,7 +578,6 @@ export default function CreateDramaPage() {
               form={form}
               updateForm={updateForm}
               setForm={setForm}
-              addEpisodeManually={addEpisodeManually}
               removeEpisode={removeEpisode}
               updateEpisode={updateEpisode}
               dramaTitle={form.dramaName}
@@ -1163,7 +1049,6 @@ interface StepVideoSubtitlesProps {
   form: FormData;
   updateForm: <K extends keyof FormData>(key: K, value: FormData[K]) => void;
   setForm: React.Dispatch<React.SetStateAction<FormData>>;
-  addEpisodeManually: () => void;
   removeEpisode: (id: string) => void;
   updateEpisode: (id: string, updates: Partial<Episode>) => void;
   dramaTitle: string;
@@ -1177,7 +1062,6 @@ function StepVideoSubtitles({
   form,
   updateForm,
   setForm,
-  addEpisodeManually,
   removeEpisode,
   updateEpisode,
   dramaTitle,
@@ -1203,11 +1087,14 @@ function StepVideoSubtitles({
   const [sourceSubtitle, setSourceSubtitle] = useState<{ fileName: string; fileUrl: string; format: "srt" | "vtt" } | null>(null);
   const [sourceSubtitleLanguage, setSourceSubtitleLanguage] = useState("en");
   const [sourceSubtitleUploading, setSourceSubtitleUploading] = useState(false);
+  const [episodeSubtitleTargetId, setEpisodeSubtitleTargetId] = useState<string | null>(null);
+  const [episodeSubtitleUploadingId, setEpisodeSubtitleUploadingId] = useState<string | null>(null);
   const [cancelingUpload, setCancelingUpload] = useState(false);
   const pendingFileInfo = useRef<{ name: string; size: number } | null>(null);
 
   const uploadAbortRef = useRef<tus.Upload | null>(null);
   const sourceSubtitleInputRef = useRef<HTMLInputElement>(null);
+  const episodeSubtitleInputRef = useRef<HTMLInputElement>(null);
   const clipPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clipPollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1284,7 +1171,7 @@ function StepVideoSubtitles({
                       ...episode,
                       status: "ready",
                       uploadProgress: 100,
-                      duration: formatDuration(duration),
+                      duration: duration > 0 ? formatDuration(duration) : episode.duration,
                       cover: statusData?.data?.thumbnail || episode.cover,
                     }
                   : episode
@@ -1334,6 +1221,72 @@ function StepVideoSubtitles({
       toast(error?.message || "Failed to upload subtitle file", "error");
     } finally {
       setSourceSubtitleUploading(false);
+    }
+  };
+
+  const openEpisodeSubtitlePicker = (episodeId: string) => {
+    setEpisodeSubtitleTargetId(episodeId);
+    episodeSubtitleInputRef.current?.click();
+  };
+
+  const removeEpisodeSubtitle = (episodeId: string) => {
+    setForm((prev) => ({
+      ...prev,
+      episodes: prev.episodes.map((episode) => (
+        episode.id === episodeId
+          ? {
+              ...episode,
+              subtitleFile: null,
+              subtitleUrl: null,
+              subtitleLanguage: null,
+              subtitleFormat: null,
+            }
+          : episode
+      )),
+    }));
+  };
+
+  const handleEpisodeSubtitleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const episodeId = episodeSubtitleTargetId;
+    e.target.value = "";
+    if (!file || !episodeId) return;
+
+    const lowerName = file.name.toLowerCase();
+    if (!lowerName.endsWith(".srt") && !lowerName.endsWith(".vtt")) {
+      toast("Only .srt and .vtt subtitle files are supported.", "error");
+      return;
+    }
+
+    setEpisodeSubtitleUploadingId(episodeId);
+    try {
+      const result: any = await adminApi.uploadSubtitleFile(file);
+      const uploaded = result?.data;
+      if (!uploaded?.url || !uploaded?.format) {
+        throw new Error("Subtitle upload succeeded but no file URL was returned.");
+      }
+
+      const subtitleLanguage = sourceSubtitleLanguage || "en";
+      setForm((prev) => ({
+        ...prev,
+        episodes: prev.episodes.map((episode) => (
+          episode.id === episodeId
+            ? {
+                ...episode,
+                subtitleFile: file.name,
+                subtitleUrl: uploaded.url,
+                subtitleLanguage,
+                subtitleFormat: uploaded.format === "srt" ? "srt" : "vtt",
+              }
+            : episode
+        )),
+      }));
+      toast("Episode subtitle uploaded.", "success");
+    } catch (error: any) {
+      toast(error?.message || "Failed to upload episode subtitle file", "error");
+    } finally {
+      setEpisodeSubtitleUploadingId(null);
+      setEpisodeSubtitleTargetId(null);
     }
   };
 
@@ -1624,10 +1577,11 @@ function StepVideoSubtitles({
             episodes: prev.episodes.map(ep => {
               const clipInfo = clips.find((c: any) => c.uid === ep.videoUid);
               if (clipInfo?.readyToStream) {
+                const actualDuration = Number(clipInfo.duration || 0);
                 return {
                   ...ep,
                   status: 'ready' as const,
-                  duration: ep.duration || formatDuration(Number(clipInfo.duration || 0)),
+                  duration: actualDuration > 0 ? formatDuration(actualDuration) : ep.duration,
                   cover: clipInfo.thumbnail || ep.cover,
                 };
               }
@@ -1821,64 +1775,6 @@ function StepVideoSubtitles({
               </div>
             </div>
 
-            <div className="rounded-lg border border-gray-800 bg-[#13131d] p-4">
-              <input
-                ref={sourceSubtitleInputRef}
-                type="file"
-                accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    void handleSourceSubtitleFile(file);
-                  }
-                  e.target.value = "";
-                }}
-              />
-              <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-gray-500">
-                Source Subtitle (Optional)
-              </label>
-              <div className="flex flex-wrap items-center gap-2">
-                <select
-                  value={sourceSubtitleLanguage}
-                  onChange={(e) => setSourceSubtitleLanguage(e.target.value)}
-                  className="rounded-lg border border-gray-700 bg-[#0f0f17] px-3 py-2 text-xs text-white outline-none focus:border-indigo-600"
-                >
-                  <option value="en">English</option>
-                  <option value="zh">Chinese</option>
-                  <option value="ja">Japanese</option>
-                  <option value="es">Spanish</option>
-                  <option value="pt">Portuguese</option>
-                  <option value="hi">Hindi</option>
-                  <option value="id">Indonesian</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => sourceSubtitleInputRef.current?.click()}
-                  disabled={sourceSubtitleUploading}
-                  className="rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-white disabled:opacity-60"
-                >
-                  {sourceSubtitleUploading ? "Uploading..." : sourceSubtitle ? "Replace Subtitle" : "Upload Subtitle"}
-                </button>
-                {sourceSubtitle && (
-                  <button
-                    type="button"
-                    onClick={() => setSourceSubtitle(null)}
-                    className="rounded-lg border border-red-700/60 px-3 py-2 text-xs text-red-300 transition-colors hover:bg-red-700/20"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-              <p className="mt-2 text-xs text-gray-500">
-                Upload one source subtitle file and it will be split with episodes during auto-split.
-              </p>
-              {sourceSubtitle && (
-                <p className="mt-1 text-xs text-emerald-400">
-                  {sourceSubtitle.fileName} ({sourceSubtitle.format.toUpperCase()})
-                </p>
-              )}
-            </div>
           </div>
         ) : (
           <div className="mb-5 flex items-start gap-2 rounded-lg border border-indigo-600/30 bg-indigo-600/5 p-3">
@@ -1893,6 +1789,76 @@ function StepVideoSubtitles({
             </div>
           </div>
         )}
+
+        <div className="mb-5 rounded-lg border border-gray-800 bg-[#13131d] p-4">
+          <input
+            ref={sourceSubtitleInputRef}
+            type="file"
+            accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) {
+                void handleSourceSubtitleFile(file);
+              }
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={episodeSubtitleInputRef}
+            type="file"
+            accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain"
+            className="hidden"
+            onChange={(e) => {
+              void handleEpisodeSubtitleFile(e);
+            }}
+          />
+          <label className="mb-2 block text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+            Source Subtitle (Optional)
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={sourceSubtitleLanguage}
+              onChange={(e) => setSourceSubtitleLanguage(e.target.value)}
+              className="rounded-lg border border-gray-700 bg-[#0f0f17] px-3 py-2 text-xs text-white outline-none focus:border-indigo-600"
+            >
+              <option value="en">English</option>
+              <option value="zh">Chinese</option>
+              <option value="ja">Japanese</option>
+              <option value="es">Spanish</option>
+              <option value="pt">Portuguese</option>
+              <option value="hi">Hindi</option>
+              <option value="id">Indonesian</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => sourceSubtitleInputRef.current?.click()}
+              disabled={sourceSubtitleUploading}
+              className="rounded-lg border border-gray-700 px-3 py-2 text-xs text-gray-300 transition-colors hover:border-gray-500 hover:text-white disabled:opacity-60"
+            >
+              {sourceSubtitleUploading ? "Uploading..." : sourceSubtitle ? "Replace Subtitle" : "Upload Subtitle"}
+            </button>
+            {sourceSubtitle && (
+              <button
+                type="button"
+                onClick={() => setSourceSubtitle(null)}
+                className="rounded-lg border border-red-700/60 px-3 py-2 text-xs text-red-300 transition-colors hover:bg-red-700/20"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+          <p className="mt-2 text-xs text-gray-500">
+            {uploadMode === "full"
+              ? "Upload one source subtitle file and it will be split with episodes during auto-split."
+              : "Upload a source subtitle file to quickly reuse language settings while assigning per-episode subtitles."}
+          </p>
+          {sourceSubtitle && (
+            <p className="mt-1 text-xs text-emerald-400">
+              {sourceSubtitle.fileName} ({sourceSubtitle.format.toUpperCase()})
+            </p>
+          )}
+        </div>
 
         {/* Upload Area - use CSS hidden instead of unmount to keep TUS upload alive */}
         {uploadMode === "full" && (
@@ -2118,6 +2084,8 @@ function StepVideoSubtitles({
                       type="text"
                       value={ep.name}
                       onChange={(e) => updateEpisode(ep.id, { name: e.target.value })}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      draggable={false}
                       className="flex-1 bg-transparent text-sm font-medium text-white outline-none placeholder-gray-600"
                       placeholder="Episode title"
                     />
@@ -2138,6 +2106,8 @@ function StepVideoSubtitles({
                   <textarea
                     value={ep.description}
                     onChange={(e) => updateEpisode(ep.id, { description: e.target.value })}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    draggable={false}
                     placeholder="Episode synopsis..."
                     rows={2}
                     className="mt-2 w-full resize-none bg-transparent text-xs text-gray-400 outline-none placeholder-gray-600"
@@ -2149,19 +2119,34 @@ function StepVideoSubtitles({
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                       </svg>
-                      {ep.subtitleFile ? (
-                        <span className="text-[10px] text-green-400">{ep.subtitleFile.includes(",") ? ep.subtitleFile : "EN"}</span>
-                      ) : (
+                      <button
+                        onClick={() => openEpisodeSubtitlePicker(ep.id)}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        draggable={false}
+                        disabled={episodeSubtitleUploadingId === ep.id}
+                        className="text-[10px] text-gray-400 hover:text-indigo-400 transition-colors disabled:opacity-60"
+                      >
+                        {episodeSubtitleUploadingId === ep.id
+                          ? "Uploading..."
+                          : ep.subtitleFile
+                          ? `${(ep.subtitleLanguage || "en").toUpperCase()} Subtitle`
+                          : "+ Subtitle"}
+                      </button>
+                      {ep.subtitleFile && (
                         <button
-                          onClick={() => updateEpisode(ep.id, { subtitleFile: "EN, KR" })}
-                          className="text-[10px] text-gray-500 hover:text-indigo-400 transition-colors"
+                          onClick={() => removeEpisodeSubtitle(ep.id)}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          draggable={false}
+                          className="text-[10px] text-gray-500 hover:text-red-400 transition-colors"
                         >
-                          + Subtitle
+                          Remove
                         </button>
                       )}
                     </div>
                     <button
                       onClick={() => removeEpisode(ep.id)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      draggable={false}
                       className="rounded p-1 text-gray-600 transition-colors hover:bg-red-500/10 hover:text-red-400"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -2175,7 +2160,7 @@ function StepVideoSubtitles({
 
             {/* Add Episode Manually Card */}
             <button
-              onClick={addEpisodeManually}
+              onClick={() => fileInputRef.current?.click()}
               className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-800 py-16 transition-colors hover:border-gray-600 hover:bg-white/[0.02]"
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-gray-700 text-gray-500">
@@ -2183,7 +2168,7 @@ function StepVideoSubtitles({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
               </div>
-              <p className="mt-3 text-xs font-medium text-gray-500">Add Episode Manually</p>
+              <p className="mt-3 text-xs font-medium text-gray-500">Select Video File</p>
             </button>
           </div>
         </div>
