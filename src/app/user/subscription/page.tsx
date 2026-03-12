@@ -20,6 +20,8 @@ interface Plan {
   period: string;
   duration: number;
   durationDays?: number;
+  coins?: number;
+  sortOrder?: number;
   features: string[];
   recommended: boolean;
   savings: string | null;
@@ -424,14 +426,17 @@ export default function SubscriptionPage() {
           const monthlyEquivalentLabel = isYearly
             ? `${formatUsd(p.price / 12)}/${t.periodShort.month}`
             : null;
+          const hasPlanFeatures = Array.isArray(p.features) && p.features.length > 0;
           return {
             _id: p._id,
-            name: locale === "en" && p.name ? p.name : (isYearly ? t.proAnnualName : t.standardName),
+            name: p.name || (isYearly ? t.proAnnualName : t.standardName),
             price: p.price,
             period: p.period || (isYearly ? "year" : "month"),
             duration: days,
             durationDays: days,
-            features: locale === "en" && p.features?.length ? p.features : (isYearly ? t.proFeatures : t.standardFeatures),
+            coins: Number(p.coins || 0),
+            sortOrder: Number(p.sortOrder || 0),
+            features: hasPlanFeatures ? p.features.map((f: any) => String(f)).filter(Boolean) : (isYearly ? t.proFeatures : t.standardFeatures),
             recommended: p.recommended ?? isYearly,
             savings: savingsLabel,
             monthlyEquivalent: monthlyEquivalentLabel };
@@ -491,8 +496,13 @@ export default function SubscriptionPage() {
     );
   }
 
-  const standardPlan = plans.find((p) => !p.recommended) || plans[0];
-  const proPlan = plans.find((p) => p.recommended) || plans[1];
+  const orderedPlans = [...plans].sort((a, b) => {
+    const sortA = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : 0;
+    const sortB = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : 0;
+    if (sortA !== sortB) return sortA - sortB;
+    if (a.recommended !== b.recommended) return a.recommended ? -1 : 1;
+    return Number(a.price || 0) - Number(b.price || 0);
+  });
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] text-white relative overflow-hidden">
@@ -554,102 +564,107 @@ export default function SubscriptionPage() {
           </div>
         )}
 
-        {!apiAvailable && !isVip && (
+        {!apiAvailable && (
           <div className="mb-8 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-6 py-4 text-center">
             <p className="text-sm text-yellow-400 font-medium">{t.apiUnavailableTitle}</p>
             <p className="text-xs text-gray-400 mt-1">{t.apiUnavailableDesc}</p>
           </div>
         )}
 
-        {!isVip && (
-          <div className="mb-6 text-center text-xs text-gray-500">
-            {checkoutLocalNotice(pricingContext?.countryCode || "your region", pricingContext?.currencyCode || "local")}
-          </div>
-        )}
+        <div className="mb-6 text-center text-xs text-gray-500">
+          {checkoutLocalNotice(pricingContext?.countryCode || "your region", pricingContext?.currencyCode || "local")}
+        </div>
 
-        {!isVip && (
-          <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr_1fr] gap-6 items-stretch">
-            <div className="lg:pt-4">
-              <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase mb-5">{t.perksTitle}</p>
-              <div className="space-y-5">
-                {t.perks.map((perk, idx) => (
-                  <div key={`${perk.title}-${idx}`} className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0">
-                      <svg className="w-4 h-4 text-yellow-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d={PERK_ICONS[idx] || PERK_ICONS[0]} /></svg>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white leading-tight">{perk.title}</p>
-                      <p className="text-[11px] text-gray-500 mt-0.5">{perk.desc}</p>
-                    </div>
+        <div className="grid grid-cols-1 xl:grid-cols-[260px_1fr] gap-6 items-start">
+          <div className="xl:pt-4">
+            <p className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase mb-5">{t.perksTitle}</p>
+            <div className="space-y-5">
+              {t.perks.map((perk, idx) => (
+                <div key={`${perk.title}-${idx}`} className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-yellow-500/10 flex items-center justify-center shrink-0">
+                    <svg className="w-4 h-4 text-yellow-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d={PERK_ICONS[idx] || PERK_ICONS[0]} /></svg>
                   </div>
-                ))}
-              </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white leading-tight">{perk.title}</p>
+                    <p className="text-[11px] text-gray-500 mt-0.5">{perk.desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-
-            {standardPlan && (
-              <div className="flex flex-col rounded-2xl border border-white/10 bg-[#12121a] p-7">
-                <p className="text-[10px] font-bold tracking-[0.2em] text-gray-400 uppercase mb-4">{t.standardName}</p>
-                <div className="mb-1">
-                  <span className="text-4xl font-black text-white">{formatUsd(standardPlan.price)}</span>
-                  <span className="text-sm text-gray-500 ml-1">/{standardPlan.period === "month" ? t.periodShort.month : t.periodShort.year}</span>
-                </div>
-                <div className="h-3" />
-                <ul className="space-y-3 flex-1">
-                  {t.standardFeatures.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-gray-400">
-                      <svg className="w-4 h-4 shrink-0 text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={() => handleSubscribe(standardPlan._id)}
-                  disabled={processing && selectedPlan === standardPlan._id}
-                  className="mt-8 w-full h-12 rounded-xl border border-white/20 bg-transparent text-sm font-bold text-white uppercase tracking-wider hover:bg-white/5 transition disabled:opacity-50"
-                >
-                  {processing && selectedPlan === standardPlan._id ? (
-                    <div className="w-5 h-5 mx-auto border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : t.selectPlan}
-                </button>
-              </div>
-            )}
-
-            {proPlan && (
-              <div className="relative flex flex-col rounded-2xl border-2 border-yellow-500/40 bg-gradient-to-b from-yellow-900/10 to-[#12121a] p-7" style={{ boxShadow: "0 0 40px rgba(180,140,40,0.08)" }}>
-                {proPlan.savings && (
-                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-yellow-500 to-yellow-600 text-black text-[10px] font-bold rounded-full whitespace-nowrap uppercase tracking-wider">
-                    {t.bestValue} · {proPlan.savings}
-                  </span>
-                )}
-                <p className="text-[10px] font-bold tracking-[0.2em] text-yellow-400 uppercase mb-4">{t.proAnnualName}</p>
-                <div className="mb-1">
-                  <span className="text-4xl font-black text-white">{formatUsd(proPlan.price)}</span>
-                  <span className="text-sm text-gray-500 ml-1">/{proPlan.period === "year" ? t.periodShort.year : t.periodShort.month}</span>
-                </div>
-                {proPlan.monthlyEquivalent ? (
-                  <p className="text-xs text-gray-500 uppercase tracking-wide">{t.equivalentTo} {proPlan.monthlyEquivalent}</p>
-                ) : <div className="h-4" />}
-                <ul className="space-y-3 mt-4 flex-1">
-                  {t.proFeatures.map((f) => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-gray-400">
-                      <svg className="w-4 h-4 shrink-0 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={() => handleSubscribe(proPlan._id)}
-                  disabled={processing && selectedPlan === proPlan._id}
-                  className="mt-8 w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-500 text-sm font-bold text-white uppercase tracking-wider transition disabled:opacity-50"
-                >
-                  {processing && selectedPlan === proPlan._id ? (
-                    <div className="w-5 h-5 mx-auto border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : t.selectPlan}
-                </button>
-              </div>
-            )}
           </div>
-        )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {orderedPlans.map((plan) => {
+              const isRecommended = plan.recommended;
+              const isCurrentSelection = selectedPlan === plan._id;
+              const periodLabel = plan.period === "year"
+                ? t.periodShort.year
+                : plan.period === "month"
+                  ? t.periodShort.month
+                  : `${plan.durationDays || 30}d`;
+
+              return (
+                <div
+                  key={plan._id}
+                  className={`relative flex flex-col rounded-2xl p-7 ${
+                    isRecommended
+                      ? "border-2 border-yellow-500/40 bg-gradient-to-b from-yellow-900/10 to-[#12121a]"
+                      : "border border-white/10 bg-[#12121a]"
+                  }`}
+                  style={isRecommended ? { boxShadow: "0 0 40px rgba(180,140,40,0.08)" } : undefined}
+                >
+                  {plan.savings && (
+                    <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-yellow-500 to-yellow-600 text-black text-[10px] font-bold rounded-full whitespace-nowrap uppercase tracking-wider">
+                      {t.bestValue} · {plan.savings}
+                    </span>
+                  )}
+
+                  <p className={`text-[10px] font-bold tracking-[0.2em] uppercase mb-4 ${isRecommended ? "text-yellow-400" : "text-gray-400"}`}>
+                    {plan.name}
+                  </p>
+
+                  <div className="mb-1">
+                    <span className="text-4xl font-black text-white">{formatUsd(plan.price)}</span>
+                    <span className="text-sm text-gray-500 ml-1">/{periodLabel}</span>
+                  </div>
+
+                  {plan.monthlyEquivalent ? (
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">{t.equivalentTo} {plan.monthlyEquivalent}</p>
+                  ) : (
+                    <p className="text-xs text-gray-600 uppercase tracking-wide">{plan.durationDays || 30} days</p>
+                  )}
+
+                  {Number(plan.coins || 0) > 0 && (
+                    <p className="mt-2 text-xs text-yellow-400">+{Number(plan.coins || 0).toLocaleString()} bonus coins</p>
+                  )}
+
+                  <ul className="space-y-3 mt-4 flex-1">
+                    {(plan.features || []).map((f) => (
+                      <li key={`${plan._id}-${f}`} className="flex items-center gap-2.5 text-sm text-gray-400">
+                        <svg className={`w-4 h-4 shrink-0 ${isRecommended ? "text-yellow-400" : "text-blue-400"}`} fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" /></svg>
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <button
+                    onClick={() => handleSubscribe(plan._id)}
+                    disabled={processing && isCurrentSelection}
+                    className={`mt-8 w-full h-12 rounded-xl text-sm font-bold text-white uppercase tracking-wider transition disabled:opacity-50 ${
+                      isRecommended
+                        ? "bg-blue-600 hover:bg-blue-500"
+                        : "border border-white/20 bg-transparent hover:bg-white/5"
+                    }`}
+                  >
+                    {processing && isCurrentSelection ? (
+                      <div className="w-5 h-5 mx-auto border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : t.selectPlan}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="mt-16 flex flex-col items-center gap-4">
           <div className="flex items-center gap-8 text-[11px] font-bold tracking-[0.15em] text-gray-500 uppercase">

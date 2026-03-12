@@ -13,6 +13,17 @@ interface RechargeTier {
   bonus: number;
   label: string;
   status: "active" | "hidden";
+  tierPricing?: {
+    tier1?: number;
+    tier2?: number;
+    tier3?: number;
+  };
+  stripePriceId?: string;
+  stripePriceIds?: {
+    tier1?: string;
+    tier2?: string;
+    tier3?: string;
+  };
 }
 
 interface VipPlan {
@@ -20,6 +31,20 @@ interface VipPlan {
   name: string;
   price: number;
   durationDays: number;
+  coins?: number;
+  sortOrder?: number;
+  features?: string[];
+  stripePriceId?: string;
+  stripePriceIds?: {
+    tier1?: string;
+    tier2?: string;
+    tier3?: string;
+  };
+  tierPricing?: {
+    tier1?: number;
+    tier2?: number;
+    tier3?: number;
+  };
   status: "active" | "inactive";
 }
 
@@ -68,6 +93,45 @@ function normalizeBoolean(value: unknown, fallback: boolean): boolean {
   if (value === true || value === "true" || value === 1 || value === "1") return true;
   if (value === false || value === "false" || value === 0 || value === "0") return false;
   return fallback;
+}
+
+function normalizeTierPricing(value: any): { tier1?: number; tier2?: number; tier3?: number } {
+  const source = value && typeof value === "object" ? value : {};
+  const t1 = Number(source.tier1);
+  const t2 = Number(source.tier2);
+  const t3 = Number(source.tier3);
+  return {
+    tier1: Number.isFinite(t1) && t1 > 0 ? t1 : undefined,
+    tier2: Number.isFinite(t2) && t2 > 0 ? t2 : undefined,
+    tier3: Number.isFinite(t3) && t3 > 0 ? t3 : undefined,
+  };
+}
+
+function normalizeStripePriceIds(value: any): { tier1?: string; tier2?: string; tier3?: string } {
+  const source = value && typeof value === "object" ? value : {};
+  const tier1 = String(source.tier1 || "").trim();
+  const tier2 = String(source.tier2 || "").trim();
+  const tier3 = String(source.tier3 || "").trim();
+  return {
+    tier1: tier1 || undefined,
+    tier2: tier2 || undefined,
+    tier3: tier3 || undefined,
+  };
+}
+
+function normalizeRechargeTiers(value: any): RechargeTier[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((tier, index) => ({
+    id: Number(tier?.id || index + 1),
+    amount: Number(tier?.amount || 0),
+    coins: Number(tier?.coins || 0),
+    bonus: Number(tier?.bonus || 0),
+    label: String(tier?.label || ""),
+    status: tier?.status === "hidden" ? "hidden" : "active",
+    tierPricing: normalizeTierPricing(tier?.tierPricing || tier?.pricingByTier || tier?.prices),
+    stripePriceId: String(tier?.stripePriceId || ""),
+    stripePriceIds: normalizeStripePriceIds(tier?.stripePriceIds || tier?.stripePriceMap || tier?.priceIds),
+  }));
 }
 
 type SupportedLanguageCode = "en" | "zh" | "ja" | "es" | "pt" | "hi" | "id";
@@ -454,7 +518,12 @@ export default function AdminSettingsPage() {
         if (map.has("exchange_rate")) setExchangeRate(Number(map.get("exchange_rate")));
         if (map.has("terms_url")) setTermsUrl(map.get("terms_url") as string);
         if (map.has("recharge_tiers")) {
-          try { setTiers(typeof map.get("recharge_tiers") === "string" ? JSON.parse(map.get("recharge_tiers")) : map.get("recharge_tiers")); } catch {}
+          try {
+            const raw = typeof map.get("recharge_tiers") === "string"
+              ? JSON.parse(map.get("recharge_tiers"))
+              : map.get("recharge_tiers");
+            setTiers(normalizeRechargeTiers(raw));
+          } catch {}
         }
       } else if (category === "vip") {
         const nextPrivileges: VipPrivileges = { ...DEFAULT_VIP_PRIVILEGES };
@@ -552,7 +621,23 @@ export default function AdminSettingsPage() {
   const loadVipPlans = useCallback(async () => {
     try {
       const res: any = await adminApi.getVipPlans();
-      if (res?.data) setVipPlans(Array.isArray(res.data) ? res.data : res.data.plans || []);
+      if (res?.data) {
+        const rawPlans = Array.isArray(res.data) ? res.data : res.data.plans || [];
+        const normalized = rawPlans.map((plan: any) => ({
+          _id: plan?._id,
+          name: String(plan?.name || ""),
+          price: Number(plan?.price || 0),
+          durationDays: Number(plan?.durationDays || plan?.duration || 30),
+          coins: Number(plan?.coins || 0),
+          sortOrder: Number(plan?.sortOrder || 0),
+          features: Array.isArray(plan?.features) ? plan.features.map((f: any) => String(f)).filter(Boolean) : [],
+          stripePriceId: String(plan?.stripePriceId || ""),
+          stripePriceIds: normalizeStripePriceIds(plan?.stripePriceIds),
+          tierPricing: normalizeTierPricing(plan?.tierPricing),
+          status: plan?.status === "inactive" ? "inactive" : "active",
+        })) as VipPlan[];
+        setVipPlans(normalized);
+      }
     } catch {}
   }, []);
 
@@ -722,7 +807,20 @@ export default function AdminSettingsPage() {
       saveSettings([{ key: "recharge_tiers", value: JSON.stringify(tiers), category: "recharge" }]);
 
     const addTier = () =>
-      setTiers([...tiers, { id: tiers.length + 1, amount: 0, coins: 0, bonus: 0, label: "", status: "active" }]);
+      setTiers([
+        ...tiers,
+        {
+          id: tiers.length + 1,
+          amount: 0,
+          coins: 0,
+          bonus: 0,
+          label: "",
+          status: "active",
+          tierPricing: {},
+          stripePriceId: "",
+          stripePriceIds: {},
+        },
+      ]);
 
     const removeTier = (id: number) => setTiers(tiers.filter((t) => t.id !== id));
 
@@ -792,9 +890,11 @@ export default function AdminSettingsPage() {
                 <tr className="border-b border-gray-700/50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   <th className="pb-3 pr-4">ID</th>
                   <th className="pb-3 pr-4">Amount (USD)</th>
+                  <th className="pb-3 pr-4">Tier Pricing</th>
                   <th className="pb-3 pr-4">Coins</th>
                   <th className="pb-3 pr-4">Bonus Coins</th>
                   <th className="pb-3 pr-4">Label</th>
+                  <th className="pb-3 pr-4">Stripe Price IDs</th>
                   <th className="pb-3 pr-4">Status</th>
                   <th className="pb-3">Actions</th>
                 </tr>
@@ -804,6 +904,11 @@ export default function AdminSettingsPage() {
                   <tr key={tier.id} className="text-gray-300">
                     <td className="py-3 pr-4 text-gray-500">{tier.id}</td>
                     <td className="py-3 pr-4">${tier.amount.toFixed(2)}</td>
+                    <td className="py-3 pr-4 text-xs text-gray-400">
+                      <div>T1: {tier.tierPricing?.tier1 ? `$${Number(tier.tierPricing.tier1).toFixed(2)}` : "-"}</div>
+                      <div>T2: {tier.tierPricing?.tier2 ? `$${Number(tier.tierPricing.tier2).toFixed(2)}` : "-"}</div>
+                      <div>T3: {tier.tierPricing?.tier3 ? `$${Number(tier.tierPricing.tier3).toFixed(2)}` : "-"}</div>
+                    </td>
                     <td className="py-3 pr-4">{tier.coins}</td>
                     <td className="py-3 pr-4">+{tier.bonus}</td>
                     <td className="py-3 pr-4">
@@ -812,6 +917,12 @@ export default function AdminSettingsPage() {
                         tier.label === "Best Value" ? "bg-emerald-500/20 text-emerald-400" :
                         "bg-gray-700/50 text-gray-400"
                       }`}>{tier.label}</span>
+                    </td>
+                    <td className="py-3 pr-4 text-xs text-gray-400">
+                      <div>Default: {tier.stripePriceId || "-"}</div>
+                      <div>T1: {tier.stripePriceIds?.tier1 || "-"}</div>
+                      <div>T2: {tier.stripePriceIds?.tier2 || "-"}</div>
+                      <div>T3: {tier.stripePriceIds?.tier3 || "-"}</div>
                     </td>
                     <td className="py-3 pr-4">
                       <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -858,6 +969,90 @@ export default function AdminSettingsPage() {
                   <FieldLabel>Label</FieldLabel>
                   <TextInput value={editingTier.label} onChange={(v) => setEditingTier({ ...editingTier, label: v })} placeholder="e.g. Popular, Best Value" />
                 </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <FieldLabel>Tier1 Price (USD)</FieldLabel>
+                    <NumberInput
+                      value={Number(editingTier.tierPricing?.tier1 || 0)}
+                      onChange={(v) => setEditingTier({
+                        ...editingTier,
+                        tierPricing: {
+                          ...editingTier.tierPricing,
+                          tier1: v > 0 ? v : undefined,
+                        },
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Tier2 Price (USD)</FieldLabel>
+                    <NumberInput
+                      value={Number(editingTier.tierPricing?.tier2 || 0)}
+                      onChange={(v) => setEditingTier({
+                        ...editingTier,
+                        tierPricing: {
+                          ...editingTier.tierPricing,
+                          tier2: v > 0 ? v : undefined,
+                        },
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Tier3 Price (USD)</FieldLabel>
+                    <NumberInput
+                      value={Number(editingTier.tierPricing?.tier3 || 0)}
+                      onChange={(v) => setEditingTier({
+                        ...editingTier,
+                        tierPricing: {
+                          ...editingTier.tierPricing,
+                          tier3: v > 0 ? v : undefined,
+                        },
+                      })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>Stripe Price ID (Default)</FieldLabel>
+                  <TextInput
+                    value={editingTier.stripePriceId || ""}
+                    onChange={(v) => setEditingTier({ ...editingTier, stripePriceId: v })}
+                    placeholder="price_xxx"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <FieldLabel>Stripe Price ID (Tier1)</FieldLabel>
+                    <TextInput
+                      value={editingTier.stripePriceIds?.tier1 || ""}
+                      onChange={(v) => setEditingTier({
+                        ...editingTier,
+                        stripePriceIds: { ...editingTier.stripePriceIds, tier1: v || undefined },
+                      })}
+                      placeholder="price_tier1_xxx"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Stripe Price ID (Tier2)</FieldLabel>
+                    <TextInput
+                      value={editingTier.stripePriceIds?.tier2 || ""}
+                      onChange={(v) => setEditingTier({
+                        ...editingTier,
+                        stripePriceIds: { ...editingTier.stripePriceIds, tier2: v || undefined },
+                      })}
+                      placeholder="price_tier2_xxx"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Stripe Price ID (Tier3)</FieldLabel>
+                    <TextInput
+                      value={editingTier.stripePriceIds?.tier3 || ""}
+                      onChange={(v) => setEditingTier({
+                        ...editingTier,
+                        stripePriceIds: { ...editingTier.stripePriceIds, tier3: v || undefined },
+                      })}
+                      placeholder="price_tier3_xxx"
+                    />
+                  </div>
+                </div>
                 <div>
                   <FieldLabel>Status</FieldLabel>
                   <SelectInput value={editingTier.status} onChange={(v) => setEditingTier({ ...editingTier, status: v as "active" | "hidden" })} options={[
@@ -881,7 +1076,18 @@ export default function AdminSettingsPage() {
   function renderVip() {
     const addPlan = async () => {
       try {
-        await adminApi.createVipPlan({ name: "New Plan", price: 9.99, durationDays: 30, status: "inactive" });
+        await adminApi.createVipPlan({
+          name: "New Plan",
+          price: 9.99,
+          durationDays: 30,
+          coins: 0,
+          sortOrder: vipPlans.length + 1,
+          features: [],
+          tierPricing: {},
+          stripePriceId: "",
+          stripePriceIds: {},
+          status: "inactive",
+        });
         loadVipPlans();
         showToast("Plan added");
       } catch { showToast("Failed to add plan"); }
@@ -904,6 +1110,12 @@ export default function AdminSettingsPage() {
           name: editingPlan.name,
           price: editingPlan.price,
           durationDays: editingPlan.durationDays,
+          coins: editingPlan.coins || 0,
+          sortOrder: editingPlan.sortOrder || 0,
+          features: (editingPlan.features || []).map((f) => String(f || "").trim()).filter(Boolean),
+          stripePriceId: String(editingPlan.stripePriceId || "").trim(),
+          stripePriceIds: editingPlan.stripePriceIds || {},
+          tierPricing: editingPlan.tierPricing || {},
           status: editingPlan.status,
         });
         loadVipPlans();
@@ -954,24 +1166,46 @@ export default function AdminSettingsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-700/50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
-                  <th className="pb-3 pr-4">ID</th>
+                  <th className="pb-3 pr-4">Sort</th>
                   <th className="pb-3 pr-4">Plan Name</th>
-                  <th className="pb-3 pr-4">Price</th>
+                  <th className="pb-3 pr-4">Price (USD)</th>
+                  <th className="pb-3 pr-4">Tier Pricing</th>
                   <th className="pb-3 pr-4">Duration</th>
+                  <th className="pb-3 pr-4">Coins</th>
+                  <th className="pb-3 pr-4">Features</th>
+                  <th className="pb-3 pr-4">Stripe Price IDs</th>
                   <th className="pb-3 pr-4">Status</th>
                   <th className="pb-3">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700/30">
                 {vipPlans.length === 0 && (
-                  <tr><td colSpan={6} className="py-8 text-center text-gray-500">No plans configured yet</td></tr>
+                  <tr><td colSpan={10} className="py-8 text-center text-gray-500">No plans configured yet</td></tr>
                 )}
                 {vipPlans.map((plan, i) => (
                   <tr key={plan._id || i} className="text-gray-300">
-                    <td className="py-3 pr-4 text-gray-500">{i + 1}</td>
+                    <td className="py-3 pr-4 text-gray-500">{plan.sortOrder ?? i + 1}</td>
                     <td className="py-3 pr-4 font-medium">{plan.name}</td>
-                    <td className="py-3 pr-4">${plan.price}</td>
+                    <td className="py-3 pr-4">${Number(plan.price || 0).toFixed(2)}</td>
+                    <td className="py-3 pr-4 text-xs text-gray-400">
+                      <div>T1: {plan.tierPricing?.tier1 ? `$${Number(plan.tierPricing.tier1).toFixed(2)}` : "-"}</div>
+                      <div>T2: {plan.tierPricing?.tier2 ? `$${Number(plan.tierPricing.tier2).toFixed(2)}` : "-"}</div>
+                      <div>T3: {plan.tierPricing?.tier3 ? `$${Number(plan.tierPricing.tier3).toFixed(2)}` : "-"}</div>
+                    </td>
                     <td className="py-3 pr-4">{plan.durationDays} days</td>
+                    <td className="py-3 pr-4">{Number(plan.coins || 0).toLocaleString()}</td>
+                    <td className="py-3 pr-4 text-xs text-gray-400 max-w-[220px]">
+                      {Array.isArray(plan.features) && plan.features.length > 0
+                        ? plan.features.slice(0, 3).join(" / ")
+                        : "-"}
+                      {Array.isArray(plan.features) && plan.features.length > 3 ? " ..." : ""}
+                    </td>
+                    <td className="py-3 pr-4 text-xs text-gray-400">
+                      <div>Default: {plan.stripePriceId || "-"}</div>
+                      <div>T1: {plan.stripePriceIds?.tier1 || "-"}</div>
+                      <div>T2: {plan.stripePriceIds?.tier2 || "-"}</div>
+                      <div>T3: {plan.stripePriceIds?.tier3 || "-"}</div>
+                    </td>
                     <td className="py-3 pr-4">
                       <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         plan.status === "active" ? "bg-emerald-500/20 text-emerald-400" : "bg-gray-700/50 text-gray-500"
@@ -1069,6 +1303,107 @@ export default function AdminSettingsPage() {
                     <FieldLabel>Duration (Days)</FieldLabel>
                     <NumberInput value={editingPlan.durationDays} onChange={(v) => setEditingPlan({ ...editingPlan, durationDays: v })} />
                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <FieldLabel>Coins Included</FieldLabel>
+                    <NumberInput value={Number(editingPlan.coins || 0)} onChange={(v) => setEditingPlan({ ...editingPlan, coins: v })} />
+                  </div>
+                  <div>
+                    <FieldLabel>Sort Order</FieldLabel>
+                    <NumberInput value={Number(editingPlan.sortOrder || 0)} onChange={(v) => setEditingPlan({ ...editingPlan, sortOrder: v })} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <FieldLabel>Tier1 Price (USD)</FieldLabel>
+                    <NumberInput
+                      value={Number(editingPlan.tierPricing?.tier1 || 0)}
+                      onChange={(v) => setEditingPlan({
+                        ...editingPlan,
+                        tierPricing: { ...editingPlan.tierPricing, tier1: v > 0 ? v : undefined },
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Tier2 Price (USD)</FieldLabel>
+                    <NumberInput
+                      value={Number(editingPlan.tierPricing?.tier2 || 0)}
+                      onChange={(v) => setEditingPlan({
+                        ...editingPlan,
+                        tierPricing: { ...editingPlan.tierPricing, tier2: v > 0 ? v : undefined },
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Tier3 Price (USD)</FieldLabel>
+                    <NumberInput
+                      value={Number(editingPlan.tierPricing?.tier3 || 0)}
+                      onChange={(v) => setEditingPlan({
+                        ...editingPlan,
+                        tierPricing: { ...editingPlan.tierPricing, tier3: v > 0 ? v : undefined },
+                      })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>Stripe Price ID (Default)</FieldLabel>
+                  <TextInput
+                    value={editingPlan.stripePriceId || ""}
+                    onChange={(v) => setEditingPlan({ ...editingPlan, stripePriceId: v })}
+                    placeholder="price_xxx"
+                  />
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <FieldLabel>Stripe Price ID (Tier1)</FieldLabel>
+                    <TextInput
+                      value={editingPlan.stripePriceIds?.tier1 || ""}
+                      onChange={(v) => setEditingPlan({
+                        ...editingPlan,
+                        stripePriceIds: { ...editingPlan.stripePriceIds, tier1: v || undefined },
+                      })}
+                      placeholder="price_tier1_xxx"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Stripe Price ID (Tier2)</FieldLabel>
+                    <TextInput
+                      value={editingPlan.stripePriceIds?.tier2 || ""}
+                      onChange={(v) => setEditingPlan({
+                        ...editingPlan,
+                        stripePriceIds: { ...editingPlan.stripePriceIds, tier2: v || undefined },
+                      })}
+                      placeholder="price_tier2_xxx"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Stripe Price ID (Tier3)</FieldLabel>
+                    <TextInput
+                      value={editingPlan.stripePriceIds?.tier3 || ""}
+                      onChange={(v) => setEditingPlan({
+                        ...editingPlan,
+                        stripePriceIds: { ...editingPlan.stripePriceIds, tier3: v || undefined },
+                      })}
+                      placeholder="price_tier3_xxx"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <FieldLabel>Plan Features (one per line)</FieldLabel>
+                  <textarea
+                    value={(editingPlan.features || []).join("\n")}
+                    onChange={(e) => setEditingPlan({
+                      ...editingPlan,
+                      features: e.target.value
+                        .split("\n")
+                        .map((line) => line.trim())
+                        .filter(Boolean),
+                    })}
+                    rows={5}
+                    className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    placeholder={"Ad-Free Viewing\n4K Ultra HD\nMonthly Free Dramas"}
+                  />
                 </div>
                 <div>
                   <FieldLabel>Status</FieldLabel>
