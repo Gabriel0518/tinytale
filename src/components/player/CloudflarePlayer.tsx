@@ -41,6 +41,15 @@ export interface CloudflarePlayerHandle {
 
 const CF_STREAM_SUBDOMAIN = process.env.NEXT_PUBLIC_CF_STREAM_SUBDOMAIN || 'mock-subdomain';
 
+type TextTrackListWithEvents = TextTrackList & {
+  addEventListener?: (type: string, listener: EventListener) => void;
+  removeEventListener?: (type: string, listener: EventListener) => void;
+};
+
+function normalizeLanguageCode(value: string | null | undefined): string {
+  return String(value || '').trim().toLowerCase().replace(/_/g, '-');
+}
+
 function buildHlsUrl(videoId: string, token?: string): string {
   const base = `https://${CF_STREAM_SUBDOMAIN}.cloudflarestream.com/${videoId}/manifest/video.m3u8`;
   return token ? `${base}?token=${token}` : base;
@@ -89,6 +98,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
     const playerRef = useRef<ReturnType<typeof import('video.js').default> | null>(null);
     const baseSourceRef = useRef<{ src: string; type: 'application/x-mpegURL' | 'video/mp4' } | null>(null);
     const appliedSourceRef = useRef<string | null>(null);
+    const activeSubtitleRef = useRef<string | null>(activeSubtitleLanguage);
     const callbacksRef = useRef({
       onTimeUpdate,
       onEnded,
@@ -109,12 +119,28 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       if (!player || player.isDisposed()) return;
 
       const textTracks = player.textTracks();
-      const target = String(language || '').toLowerCase();
+      const target = normalizeLanguageCode(language);
+      const targetBase = target.split('-')[0];
       for (let i = 0; i < textTracks.length; i += 1) {
         const track = (textTracks as unknown as Record<number, TextTrack | undefined>)[i];
         if (!track) continue;
-        const trackLanguage = String(track.language || '').toLowerCase();
-        track.mode = target && trackLanguage === target ? 'showing' : 'disabled';
+        const kind = String(track.kind || '').toLowerCase();
+        if (kind && kind !== 'subtitles' && kind !== 'captions') {
+          continue;
+        }
+        const trackLanguage = normalizeLanguageCode(
+          track.language || (track as unknown as { srclang?: string }).srclang || ''
+        );
+        const trackBase = trackLanguage.split('-')[0];
+        const shouldShow = Boolean(
+          target &&
+          (trackLanguage === target || (trackBase && targetBase && trackBase === targetBase))
+        );
+        try {
+          track.mode = shouldShow ? 'showing' : 'disabled';
+        } catch {
+          // Some browsers throw on mode changes for not-yet-ready tracks; ignore and retry on track events.
+        }
       }
     }, []);
 
@@ -160,6 +186,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       appliedSourceRef.current = source.src;
 
       let disposed = false;
+      let detachTextTrackListener: (() => void) | null = null;
 
       const initPlayer = async () => {
         const videojs = (await import('video.js')).default;
@@ -181,6 +208,8 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         });
 
         playerRef.current = player;
+        const textTracks = player.textTracks();
+        const syncSubtitleSelection = () => applySubtitleSelection(activeSubtitleRef.current);
 
         // Wire up events
         player.on('timeupdate', () => {
@@ -197,6 +226,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         });
 
         player.on('loadedmetadata', () => callbacksRef.current.onReady?.());
+        player.on('loadedmetadata', syncSubtitleSelection);
         player.on('play', () => callbacksRef.current.onPlay?.());
         player.on('pause', () => callbacksRef.current.onPause?.());
 
@@ -213,7 +243,19 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
           );
         });
 
-        applySubtitleSelection(activeSubtitleLanguage);
+        const trackList = textTracks as unknown as TextTrackListWithEvents;
+        if (typeof trackList.addEventListener === 'function') {
+          const handleTrackAdded: EventListener = () => {
+            syncSubtitleSelection();
+          };
+          trackList.addEventListener('addtrack', handleTrackAdded);
+          if (typeof trackList.removeEventListener === 'function') {
+            detachTextTrackListener = () => {
+              trackList.removeEventListener?.('addtrack', handleTrackAdded);
+            };
+          }
+        }
+        syncSubtitleSelection();
       };
 
       initPlayer();
@@ -221,6 +263,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       // Cleanup on unmount or source change
       return () => {
         disposed = true;
+        detachTextTrackListener?.();
         const player = playerRef.current;
         if (player && !player.isDisposed()) {
           player.dispose();
@@ -228,7 +271,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         }
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getBaseSource, autoplay, poster, subtitles, applySubtitleSelection, activeSubtitleLanguage]);
+    }, [getBaseSource, autoplay, poster, subtitles, applySubtitleSelection]);
 
     // Switch HLS quality without rebuilding the player instance.
     useEffect(() => {
@@ -270,6 +313,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
     }, [quality]);
 
     useEffect(() => {
+      activeSubtitleRef.current = activeSubtitleLanguage;
       applySubtitleSelection(activeSubtitleLanguage);
     }, [activeSubtitleLanguage, applySubtitleSelection]);
 
