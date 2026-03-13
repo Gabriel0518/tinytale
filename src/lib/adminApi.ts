@@ -429,6 +429,30 @@ export const adminApi = {
   saveSettings: (settings: Array<{ key: string; value: any; category?: string }>, token = getAdminToken()) =>
     api.put('/api/admin/settings/settings', { settings }, { token }),
 
+  // Settings - Cloudflare Resource Cleanup
+  scanResourceCleanup: (
+    payload: {
+      targets?: Array<'stream' | 'r2'>;
+      retentionHours?: number;
+      maxDeleteCount?: number;
+      prefixes?: string[];
+    },
+    token = getAdminToken()
+  ) => api.post('/api/admin/settings/resource-cleanup/scan', payload, { token }),
+
+  executeResourceCleanup: (
+    payload: {
+      targets?: Array<'stream' | 'r2'>;
+      retentionHours?: number;
+      maxDeleteCount?: number;
+      prefixes?: string[];
+    },
+    token = getAdminToken()
+  ) => api.post('/api/admin/settings/resource-cleanup/execute', payload, { token }),
+
+  getLastResourceCleanupReport: (token = getAdminToken()) =>
+    api.get('/api/admin/settings/resource-cleanup/last-report', { token }),
+
   getLanguageRegionLibrary: (force = false, token = getAdminToken()) =>
     api.get(`/api/i18n/region-library${force ? '?force=1' : ''}`, { token }),
 

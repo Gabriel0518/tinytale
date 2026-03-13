@@ -182,7 +182,7 @@ interface RegionLibrarySummary {
   activeCustomRulesCount: number;
 }
 
-type TabKey = "recharge" | "vip" | "playback" | "promotion" | "email" | "payment" | "social" | "language_region" | "country_catalog";
+type TabKey = "recharge" | "vip" | "playback" | "resource_cleanup" | "promotion" | "email" | "payment" | "social" | "language_region" | "country_catalog";
 
 interface CountryCatalogItem {
   _id: string;
@@ -196,6 +196,33 @@ interface CountryCatalogItem {
   currencyName: string;
   tier: number;
   enabled: boolean;
+}
+
+type CleanupTargetKey = "stream" | "r2";
+
+interface CleanupTargetResult {
+  enabled: boolean;
+  scanned: number;
+  referenced: number;
+  candidates: number;
+  deleteAttempted: number;
+  deleted: number;
+  failed: number;
+  failures: Array<{ id: string; reason: string }>;
+  sampleCandidates: string[];
+}
+
+interface ResourceCleanupReport {
+  runAt: string;
+  execute: boolean;
+  options: {
+    targets: CleanupTargetKey[];
+    retentionHours: number;
+    maxDeleteCount: number;
+    prefixes: string[];
+  };
+  stream: CleanupTargetResult;
+  r2: CleanupTargetResult;
 }
 
 const LANGUAGE_OPTIONS: { value: SupportedLanguageCode; label: string }[] = [
@@ -272,6 +299,15 @@ const CONFIG_GROUPS: { key: TabKey; label: string; icon: JSX.Element }[] = [
     icon: (
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z" />
+      </svg>
+    ),
+  },
+  {
+    key: "resource_cleanup",
+    label: "Cloudflare Cleanup",
+    icon: (
+      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 6.75h18M7.5 6.75l.6 12.3a1.5 1.5 0 001.5 1.425h4.8a1.5 1.5 0 001.5-1.425l.6-12.3M9.75 6.75v-1.5A1.5 1.5 0 0111.25 3.75h1.5a1.5 1.5 0 011.5 1.5v1.5" />
       </svg>
     ),
   },
@@ -477,6 +513,17 @@ export default function AdminSettingsPage() {
   const [autoPlay, setAutoPlay] = useState(true);
   const [previewDuration, setPreviewDuration] = useState(30);
   const [cdnProvider, setCdnProvider] = useState("cloudflare");
+
+  /* ── Cloudflare cleanup state ── */
+  const [cleanupTargets, setCleanupTargets] = useState<Record<CleanupTargetKey, boolean>>({
+    stream: true,
+    r2: true,
+  });
+  const [cleanupRetentionHours, setCleanupRetentionHours] = useState(24);
+  const [cleanupMaxDeleteCount, setCleanupMaxDeleteCount] = useState(500);
+  const [cleanupPrefixesText, setCleanupPrefixesText] = useState("images/\nsubtitles/");
+  const [cleanupRunning, setCleanupRunning] = useState<"scan" | "execute" | null>(null);
+  const [cleanupReport, setCleanupReport] = useState<ResourceCleanupReport | null>(null);
 
   /* ── Promotion state ── */
   const [commissionRate, setCommissionRate] = useState(10);
@@ -736,10 +783,81 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const buildCleanupPayload = useCallback(() => {
+    const targets = (Object.entries(cleanupTargets) as Array<[CleanupTargetKey, boolean]>)
+      .filter(([, enabled]) => enabled)
+      .map(([target]) => target);
+    const prefixes = cleanupPrefixesText
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    return {
+      targets,
+      retentionHours: Math.max(0, Math.floor(Number(cleanupRetentionHours) || 0)),
+      maxDeleteCount: Math.max(1, Math.floor(Number(cleanupMaxDeleteCount) || 1)),
+      prefixes,
+    };
+  }, [cleanupTargets, cleanupPrefixesText, cleanupRetentionHours, cleanupMaxDeleteCount]);
+
+  const runResourceCleanupScan = useCallback(async () => {
+    const payload = buildCleanupPayload();
+    if (payload.targets.length === 0) {
+      showToast("Please select at least one cleanup target");
+      return;
+    }
+
+    setCleanupRunning("scan");
+    try {
+      const res: any = await adminApi.scanResourceCleanup(payload);
+      setCleanupReport((res?.data || null) as ResourceCleanupReport | null);
+      showToast("Cleanup scan completed");
+    } catch (error: any) {
+      showToast(error?.message || "Cleanup scan failed");
+    } finally {
+      setCleanupRunning(null);
+    }
+  }, [buildCleanupPayload]);
+
+  const runResourceCleanupExecute = useCallback(async () => {
+    const payload = buildCleanupPayload();
+    if (payload.targets.length === 0) {
+      showToast("Please select at least one cleanup target");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "This will delete invalid Cloudflare Stream/R2 resources. Continue?"
+    );
+    if (!confirmed) return;
+
+    setCleanupRunning("execute");
+    try {
+      const res: any = await adminApi.executeResourceCleanup(payload);
+      setCleanupReport((res?.data || null) as ResourceCleanupReport | null);
+      showToast("Cleanup execution completed");
+    } catch (error: any) {
+      showToast(error?.message || "Cleanup execution failed");
+    } finally {
+      setCleanupRunning(null);
+    }
+  }, [buildCleanupPayload]);
+
   /* ── load on tab change ── */
   useEffect(() => {
     if (activeTab === "country_catalog") {
       loadCountryCatalog({ page: 1 });
+      return;
+    }
+    if (activeTab === "resource_cleanup") {
+      setLoading(false);
+      adminApi.getLastResourceCleanupReport()
+        .then((res: any) => {
+          setCleanupReport((res?.data || null) as ResourceCleanupReport | null);
+        })
+        .catch(() => {
+          // ignore silently
+        });
       return;
     }
     const category = activeTab === "language_region" ? "i18n" : activeTab;
@@ -814,6 +932,7 @@ export default function AdminSettingsPage() {
           {!loading && activeTab === "recharge" && renderRecharge()}
           {!loading && activeTab === "vip" && renderVip()}
           {!loading && activeTab === "playback" && renderPlayback()}
+          {!loading && activeTab === "resource_cleanup" && renderResourceCleanup()}
           {!loading && activeTab === "promotion" && renderPromotion()}
           {!loading && activeTab === "email" && renderEmail()}
           {!loading && activeTab === "payment" && renderPayment()}
@@ -1544,6 +1663,135 @@ export default function AdminSettingsPage() {
             <FieldLabel>Preview Duration for Locked Episodes (seconds)</FieldLabel>
             <NumberInput value={previewDuration} onChange={setPreviewDuration} suffix="sec" />
           </div>
+        </div>
+      </SectionCard>
+    );
+  }
+
+  /* ───────── Tab: Cloudflare Cleanup ───────── */
+  function renderResourceCleanup() {
+    const streamResult = cleanupReport?.stream;
+    const r2Result = cleanupReport?.r2;
+
+    return (
+      <SectionCard
+        title="Cloudflare Stream / R2 Resource Cleanup"
+        action={
+          <div className="flex items-center gap-2">
+            <SecondaryBtn onClick={() => void runResourceCleanupScan()}>
+              {cleanupRunning === "scan" ? "Scanning..." : "Scan (Dry Run)"}
+            </SecondaryBtn>
+            <PrimaryBtn
+              onClick={() => void runResourceCleanupExecute()}
+              disabled={cleanupRunning === "execute"}
+            >
+              {cleanupRunning === "execute" ? "Executing..." : "Execute Cleanup"}
+            </PrimaryBtn>
+          </div>
+        }
+      >
+        <div className="space-y-5">
+          <div className="rounded-lg bg-[#1a1a2e] p-4 text-xs text-gray-400">
+            Dry Run only scans invalid resources and does not delete data. Execute will delete orphaned assets older than the retention window.
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+              <p className="mb-3 text-sm font-medium text-gray-200">Cleanup Targets</p>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={cleanupTargets.stream}
+                    onChange={(e) => setCleanupTargets((prev) => ({ ...prev, stream: e.target.checked }))}
+                    className="h-4 w-4 rounded border-gray-600 bg-[#0f0f17] text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Cloudflare Stream
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={cleanupTargets.r2}
+                    onChange={(e) => setCleanupTargets((prev) => ({ ...prev, r2: e.target.checked }))}
+                    className="h-4 w-4 rounded border-gray-600 bg-[#0f0f17] text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Cloudflare R2
+                </label>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <FieldLabel>Retention Window (hours)</FieldLabel>
+                  <NumberInput value={cleanupRetentionHours} onChange={setCleanupRetentionHours} suffix="h" />
+                </div>
+                <div>
+                  <FieldLabel>Max Deletes Per Run</FieldLabel>
+                  <NumberInput value={cleanupMaxDeleteCount} onChange={setCleanupMaxDeleteCount} />
+                </div>
+              </div>
+              <div className="mt-4">
+                <FieldLabel>R2 Prefixes (one per line)</FieldLabel>
+                <textarea
+                  value={cleanupPrefixesText}
+                  onChange={(e) => setCleanupPrefixesText(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border border-gray-700/50 bg-[#0f0f17] px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder={"images/\nsubtitles/"}
+                />
+              </div>
+            </div>
+          </div>
+
+          {cleanupReport && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4 text-sm text-gray-300">
+                <p>
+                  Last run: <span className="text-gray-100">{new Date(cleanupReport.runAt).toLocaleString()}</span>
+                </p>
+                <p className="mt-1">
+                  Mode: <span className="text-gray-100">{cleanupReport.execute ? "Execute" : "Dry Run"}</span>
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+                  <h4 className="text-sm font-semibold text-gray-100">Stream Result</h4>
+                  <div className="mt-3 space-y-1 text-sm text-gray-300">
+                    <p>Scanned: {streamResult?.scanned || 0}</p>
+                    <p>Referenced: {streamResult?.referenced || 0}</p>
+                    <p>Candidates: {streamResult?.candidates || 0}</p>
+                    <p>Attempted: {streamResult?.deleteAttempted || 0}</p>
+                    <p>Deleted: {streamResult?.deleted || 0}</p>
+                    <p>Failed: {streamResult?.failed || 0}</p>
+                  </div>
+                  {Array.isArray(streamResult?.sampleCandidates) && streamResult!.sampleCandidates.length > 0 && (
+                    <div className="mt-3 rounded bg-[#0f0f17] p-2 text-xs text-gray-400">
+                      Sample: {streamResult!.sampleCandidates.slice(0, 5).join(", ")}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+                  <h4 className="text-sm font-semibold text-gray-100">R2 Result</h4>
+                  <div className="mt-3 space-y-1 text-sm text-gray-300">
+                    <p>Scanned: {r2Result?.scanned || 0}</p>
+                    <p>Referenced: {r2Result?.referenced || 0}</p>
+                    <p>Candidates: {r2Result?.candidates || 0}</p>
+                    <p>Attempted: {r2Result?.deleteAttempted || 0}</p>
+                    <p>Deleted: {r2Result?.deleted || 0}</p>
+                    <p>Failed: {r2Result?.failed || 0}</p>
+                  </div>
+                  {Array.isArray(r2Result?.sampleCandidates) && r2Result!.sampleCandidates.length > 0 && (
+                    <div className="mt-3 rounded bg-[#0f0f17] p-2 text-xs text-gray-400">
+                      Sample: {r2Result!.sampleCandidates.slice(0, 3).join(", ")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </SectionCard>
     );
