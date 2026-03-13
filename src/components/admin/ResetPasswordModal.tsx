@@ -94,7 +94,7 @@ export default function ResetPasswordModal({ open, onClose, onConfirm, admin }: 
           : "demo-token";
       await api.post(
         `/api/admin/settings/admins/${admin._id}/reset-password`,
-        { password },
+        { password, sendEmail },
         { token }
       );
       onConfirm();

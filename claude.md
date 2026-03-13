@@ -1187,4 +1187,92 @@ import { ALL_COUNTRIES } from "@/lib/countries";    // 需要扁平列表时
 
 ---
 
+## 16. 系统级补充（基于代码扫描）
+
+以下信息来自当前代码文件扫描结果，用于补齐架构/端口/API系统信息。
+
+### 16.1 运行拓扑（当前代码事实）
+
+| 层 | 代码位置 | 说明 |
+|---|---|---|
+| 前端/后台 Web | `/Users/gabriel/tinytale` | 单一 Next.js 项目，通过路由区分前台与后台（`/admin`） |
+| 后端 API | `/Users/gabriel/tinytale-api` | Express + MongoDB + Redis，统一提供 `/api/*` |
+| 生产进程（VPS） | PM2 进程名 `tinytale-web`、`tinytale-api` | 支持 VPS 自管部署；文档中也保留 Vercel 自动部署路径 |
+
+### 16.2 端口与地址真值表（代码优先）
+
+| 项目 | 值 | 证据文件 |
+|---|---|---|
+| Backend 默认端口 | `7002` | `tinytale-api/src/config/index.ts` (`port`) |
+| Backend 默认前台地址 | `http://localhost:7001` | `tinytale-api/src/config/index.ts` (`frontendUrl`) |
+| Backend 默认后台地址 | `http://localhost:7003` | `tinytale-api/src/config/index.ts` (`adminUrl`) |
+| MongoDB 默认地址 | `mongodb://localhost:27017/tinytale` | `tinytale-api/src/config/index.ts` |
+| Redis 默认地址 | `redis://localhost:6379` | `tinytale-api/src/config/index.ts` |
+| Frontend API fallback | `http://localhost:7002`（dev）/ `https://api.tinytale.top`（prod） | `tinytale/src/lib/api.ts` |
+| Admin API fallback | `http://localhost:7002`（dev）/ `https://api.tinytale.top`（prod） | `tinytale/src/lib/adminApi.ts` |
+
+### 16.3 本地启动模式（现状差异）
+
+`tinytale/package.json` 的 `dev` 默认是 `next dev -p 7003`（后台端口）。  
+`start-local.sh` 会同时尝试启动：
+- Backend: `node server/index.js`（7002，mock server）
+- Frontend: `next dev -p 7001`
+- Admin: `next dev -p 7003`
+
+> 说明：同一 Next 项目双端口并行开发会有冲突风险，当前脚本属于便捷模式；严格联调时建议分别按单端口启动。
+
+### 16.4 后端 API 路由挂载总览（`tinytale-api/src/index.ts`）
+
+| Prefix | Route File |
+|---|---|
+| `/api/auth` | `routes/auth.ts` |
+| `/api/dramas` | `routes/dramas.ts` + `routes/translations.ts` |
+| `/api/categories` | `routes/categories.ts` |
+| `/api/user` | `routes/user.ts` |
+| `/api/coins` | `routes/coins.ts` |
+| `/api/admin/upload` | `routes/upload.ts` |
+| `/api/admin/settings` | `routes/adminSettings.ts` |
+| `/api/admin/activities` | `routes/admin/activities.ts` |
+| `/api/admin` | `routes/admin.ts` |
+| `/api/comments` | `routes/comments.ts` |
+| `/api/featured` | `routes/featured.ts` |
+| `/api/playlists` | `routes/playlists.ts` |
+| `/api/banners` | `routes/banners.ts` |
+| `/api/payment` | `routes/payment.ts` |
+| `/api/subscriptions` | `routes/payment.ts`（别名挂载） |
+| `/api/promoter` | `routes/promoter.ts` |
+| `/api/contact` | `routes/contact.ts` |
+| `/api/episodes` | `routes/episodes.ts` |
+| `/api/verification` | `routes/verification.ts` |
+| `/api/i18n` | `routes/i18n.ts` |
+| `/api/subtitles` | `routes/subtitles.ts`（通过 `/api` 前缀） |
+| `/api/geo` | `routes/geo.ts` |
+| `/api/countries` | `routes/countries.ts` |
+| `/api/health` | 内置 health endpoint |
+
+### 16.5 系统级环境变量（关键）
+
+| 分类 | 变量 |
+|---|---|
+| 基础服务 | `PORT`, `MONGODB_URI`, `REDIS_URL`, `JWT_SECRET`, `JWT_EXPIRES_IN` |
+| 站点地址 | `FRONTEND_URL`, `ADMIN_URL`, `NEXT_PUBLIC_API_URL` |
+| Cloudflare | `CF_ACCOUNT_ID`, `CF_API_TOKEN`, `CF_STREAM_CUSTOMER_SUBDOMAIN`, `CF_R2_*` |
+| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_API_VERSION`, `STRIPE_ADAPTIVE_PRICING_*` |
+| 翻译系统 | `AUTO_TRANSLATION_ENABLED`, `AUTO_TRANSLATION_*` |
+| VPS 部署 | `VPS_HOST`, `VPS_SSH_PORT`, `VPS_SSH_USER`, `VPS_FRONTEND_PATH`, `VPS_BACKEND_PATH`, `VPS_PM2_ECOSYSTEM` |
+
+### 16.6 CORS 与生产域名策略（后端）
+
+后端允许来源由以下组合决定：
+- `FRONTEND_URL`
+- `ADMIN_URL`
+- `http://localhost:7001`
+- `http://localhost:7003`
+- `https://tinytale-delta.vercel.app`
+- `https://tinytale*.vercel.app`（代码前缀/后缀匹配）
+
+对应实现：`tinytale-api/src/index.ts` 的 `corsOptions` 与 `isAllowedOrigin()`。
+
+---
+
 *本文档为TinyTale项目开发行为的基础规则，所有开发活动必须遵循此文档。*
