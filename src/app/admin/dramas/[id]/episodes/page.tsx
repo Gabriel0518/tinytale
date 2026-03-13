@@ -426,7 +426,7 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-800 bg-[#1a1a2e] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="relative w-[96vw] max-w-[1320px] max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-800 bg-[#1a1a2e] p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <ModalCloseBtn onClick={onClose} />
         <h2 className="text-lg font-bold text-white mb-1">Manage Subtitles</h2>
         <p className="text-sm text-gray-500 mb-4">Episode {episode.episodeNumber} — {episode.title}</p>
@@ -487,7 +487,7 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
         )}
 
         <div className="overflow-x-auto rounded-xl border border-gray-800">
-          <table className="w-full min-w-[980px]">
+          <table className="w-full min-w-[1180px]">
             <thead>
               <tr className="border-b border-gray-800 bg-[#13131d]">
                 <th className="whitespace-nowrap px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Language</th>
