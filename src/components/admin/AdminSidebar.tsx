@@ -41,6 +41,7 @@ const navigation: NavBlock[] = [
           { href: "/admin/categories", label: "Categories" },
           { href: "/admin/rankings", label: "Rankings" },
           { href: "/admin/banners", label: "Banners" },
+          { href: "/admin/hero-banners", label: "Hero Banners" },
           { href: "/admin/comments", label: "Comments & Reviews" },
         ],
       },

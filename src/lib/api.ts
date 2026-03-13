@@ -180,6 +180,9 @@ export const dramasApi = {
   getBanners: () =>
     api.get('/api/banners'),
 
+  getHeroBanners: () =>
+    api.get('/api/hero-banners'),
+
   getRelated: (id: string) =>
     api.get(`/api/dramas/${id}/related`),
 };

@@ -147,6 +147,16 @@ export default function Home() {
   }>>([]);
   const [customPlaylists, setCustomPlaylists] = useState<{ _id: string; slug: string; name: string; icon: string; dramas: Drama[] }[]>([]);
   const [banners, setBanners] = useState<{ _id: string; title: string; subtitle: string; image: string; linkType: string; linkId: string; slot: string; position: number }[]>([]);
+  const [heroBanners, setHeroBanners] = useState<Array<{
+    _id: string;
+    coverImage: string;
+    title: string;
+    subtitle: string;
+    tag: string;
+    dramaId: string;
+    displayDurationSec: number;
+    position: number;
+  }>>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
   const [heroIndex, setHeroIndex] = useState(0);
@@ -167,13 +177,14 @@ export default function Home() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const [dramasRes, categoriesRes, rankingsRes, featuredRes, playlistsRes, bannersRes] = await Promise.all([
+        const [dramasRes, categoriesRes, rankingsRes, featuredRes, playlistsRes, bannersRes, heroBannersRes] = await Promise.all([
           dramasApi.getAll({ limit: 200 }),
           categoriesApi.getAll(),
           dramasApi.getRankings('rating').catch(() => ({ data: [] })),
           dramasApi.getFeatured().catch(() => ({ data: {} })),
           dramasApi.getPlaylists().catch(() => ({ data: [] })),
           dramasApi.getBanners().catch(() => ({ data: [] })),
+          dramasApi.getHeroBanners().catch(() => ({ data: [] })),
         ]);
         const fetchedDramas = dramasRes.data?.dramas || [];
         const fetchedCategories = categoriesRes.data || [];
@@ -228,6 +239,21 @@ export default function Home() {
             image: b.image || '', linkType: b.linkType || 'drama', linkId: b.linkId || '',
             slot: b.slot || 'standard', position: b.position ?? 0 }))
         );
+
+        const hbData = heroBannersRes.data || [];
+        setHeroBanners(
+          (Array.isArray(hbData) ? hbData : []).map((item: any) => ({
+            _id: item._id,
+            coverImage: item.coverImage || '',
+            title: item.title || '',
+            subtitle: item.subtitle || '',
+            tag: item.tag || '',
+            dramaId: typeof item.dramaId === 'string' ? item.dramaId : item.dramaId?._id || '',
+            displayDurationSec: Number(item.displayDurationSec || 5),
+            position: Number(item.position ?? 0),
+          }))
+        );
+        setHeroIndex(0);
 
         if (typeof window !== 'undefined') {
           const token = localStorage.getItem('token') || '';
@@ -285,14 +311,36 @@ export default function Home() {
 
   // Auto-rotate hero banner
   useEffect(() => {
-    if (hotRankings.length <= 1) return;
-    const timer = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % hotRankings.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [hotRankings.length]);
+    const usingManagedHero = heroBanners.length > 0;
+    const total = usingManagedHero ? heroBanners.length : hotRankings.length;
+    if (total <= 1) return;
 
-  const heroDrama = hotRankings.length > 0 ? hotRankings[heroIndex] : dramas[0];
+    const durationMs = usingManagedHero
+      ? Math.max(3, Number(heroBanners[heroIndex]?.displayDurationSec || 5)) * 1000
+      : 5000;
+    const timer = setTimeout(() => {
+      setHeroIndex((prev) => (prev + 1) % total);
+    }, durationMs);
+
+    return () => clearTimeout(timer);
+  }, [heroBanners, hotRankings.length, heroIndex]);
+
+  useEffect(() => {
+    const total = heroBanners.length > 0 ? heroBanners.length : hotRankings.length;
+    if (total === 0) {
+      if (heroIndex !== 0) setHeroIndex(0);
+      return;
+    }
+    if (heroIndex >= total) {
+      setHeroIndex(0);
+    }
+  }, [heroBanners.length, hotRankings.length, heroIndex]);
+
+  const isManagedHeroEnabled = heroBanners.length > 0;
+  const currentHeroBanner = isManagedHeroEnabled
+    ? heroBanners[heroIndex] || heroBanners[0]
+    : null;
+  const heroDrama = !isManagedHeroEnabled ? (hotRankings.length > 0 ? hotRankings[heroIndex] : dramas[0]) : null;
 
   const filteredDramas = useMemo(() => {
     if (normalizeCategoryKey(activeCategory) === 'all') return dramas;
@@ -335,9 +383,80 @@ export default function Home() {
     <div className="min-h-screen bg-[#141414]">
       <Navbar activePath="/" variant="transparent" />
 
-      {/* Hero Banner — Hot Rankings Carousel */}
+      {/* Hero Banner */}
       <section className="relative h-[70vh] w-full overflow-hidden md:h-[85vh]">
-        {heroDrama ? (
+        {isManagedHeroEnabled && currentHeroBanner ? (
+          <>
+            <div
+              className="absolute inset-0 bg-cover bg-center transition-all duration-700"
+              style={{
+                backgroundImage: `url(${validCover(currentHeroBanner.coverImage) || 'https://picsum.photos/seed/hero-managed/1920/1080'})`,
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#141414] via-[#141414]/70 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-[#141414]/30" />
+
+            <div className="absolute bottom-24 left-0 right-0 mx-auto max-w-7xl px-4 md:bottom-32">
+              {(currentHeroBanner.tag || 'TinyTale') && (
+                <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1 text-xs font-semibold text-white">
+                  {currentHeroBanner.tag || 'TinyTale'}
+                </span>
+              )}
+              <h1 className="max-w-lg text-4xl font-bold leading-tight text-white md:text-6xl">
+                {currentHeroBanner.title}
+              </h1>
+              {currentHeroBanner.subtitle && (
+                <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-300 md:text-base">
+                  {currentHeroBanner.subtitle}
+                </p>
+              )}
+
+              <div className="mt-6 flex items-center gap-3">
+                <Link
+                  href={currentHeroBanner.dramaId ? localizePath(`/drama/${currentHeroBanner.dramaId}`, locale) : localizePath(t.browseFallback, locale)}
+                  className="flex items-center gap-2 rounded-full bg-red-600 px-8 py-3 font-semibold text-white transition hover:bg-red-700"
+                >
+                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  {t.watchNow}
+                </Link>
+                <button
+                  onClick={() => {
+                    const token = typeof window !== 'undefined' && localStorage.getItem('token');
+                    if (token) {
+                      router.push(localizePath('/user/favorites', locale));
+                    } else {
+                      const redirect = encodeURIComponent(localizePath('/user/favorites', locale));
+                      router.push(`${localizePath('/auth/login', locale)}?redirect=${redirect}`);
+                    }
+                  }}
+                  className="flex items-center gap-2 rounded-full border border-gray-500 px-6 py-3 font-medium text-white transition hover:border-white hover:bg-white/10"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  {t.myList}
+                </button>
+              </div>
+
+              {heroBanners.length > 1 && (
+                <div className="mt-6 flex items-center gap-2">
+                  {heroBanners.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setHeroIndex(i)}
+                      className={`h-1.5 rounded-full transition-all ${
+                        i === heroIndex ? 'w-8 bg-white' : 'w-4 bg-white/40 hover:bg-white/60'
+                      }`}
+                      aria-label={`${t.slideLabel} ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        ) : heroDrama ? (
           <>
             <div
               className="absolute inset-0 bg-cover bg-center transition-all duration-700"
@@ -409,7 +528,6 @@ export default function Home() {
                 </button>
               </div>
 
-              {/* Carousel Indicators */}
               {hotRankings.length > 1 && (
                 <div className="mt-6 flex items-center gap-2">
                   {hotRankings.map((_, i) => (

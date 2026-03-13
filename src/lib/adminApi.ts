@@ -339,6 +339,19 @@ export const adminApi = {
   deleteBanner: (id: string, token = getAdminToken()) =>
     api.delete(`/api/admin/banners/${id}`, { token }),
 
+  // Hero Banners
+  getHeroBanners: (token = getAdminToken()) =>
+    api.get('/api/admin/hero-banners', { token }),
+
+  createHeroBanner: (data: any, token = getAdminToken()) =>
+    api.post('/api/admin/hero-banners', data, { token }),
+
+  updateHeroBanner: (id: string, data: any, token = getAdminToken()) =>
+    api.put(`/api/admin/hero-banners/${id}`, data, { token }),
+
+  deleteHeroBanner: (id: string, token = getAdminToken()) =>
+    api.delete(`/api/admin/hero-banners/${id}`, { token }),
+
   // Transactions / Orders
   getTransactions: (params?: Record<string, any>, token = getAdminToken()) => {
     const query = params ? new URLSearchParams(params as any).toString() : '';
@@ -397,8 +410,8 @@ export const adminApi = {
   deleteAdmin: (id: string, token = getAdminToken()) =>
     api.delete(`/api/admin/settings/admins/${id}`, { token }),
 
-  resetAdminPassword: (id: string, password: string, token = getAdminToken()) =>
-    api.post(`/api/admin/settings/admins/${id}/reset-password`, { password }, { token }),
+  resetAdminPassword: (id: string, password: string, sendEmail = false, token = getAdminToken()) =>
+    api.post(`/api/admin/settings/admins/${id}/reset-password`, { password, sendEmail }, { token }),
 
   // Settings - System Settings
   getSettings: (category?: string, token = getAdminToken()) =>
