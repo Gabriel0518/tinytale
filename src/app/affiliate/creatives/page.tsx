@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/authContext";
 import { promoterApi, dramasApi } from "@/lib/api";
 import {SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 interface Creative {
   _id: string;
@@ -49,7 +50,7 @@ type CreativesCopy = {
   bannerSuffix: string;
 };
 
-const COPY: Record<SupportedLocale, CreativesCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, CreativesCopy> = {
   en: {
     pageTitle: "Creative Assets",
     allDramas: "All Dramas",
@@ -263,7 +264,7 @@ const COPY: Record<SupportedLocale, CreativesCopy> = {
 
 export default function CreativesPage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const { token } = useAuth();
   const [creatives, setCreatives] = useState<Creative[]>([]);
   const [loading, setLoading] = useState(true);

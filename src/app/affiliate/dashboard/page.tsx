@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from "@/lib/locale-copy";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -58,7 +59,7 @@ type DashboardCopy = {
   noNotifications: string;
 };
 
-const COPY: Record<SupportedLocale, DashboardCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, DashboardCopy> = {
   en: {
     title: "Dashboard",
     changeSuffix: "vs last period",
@@ -187,7 +188,7 @@ const COPY: Record<SupportedLocale, DashboardCopy> = {
   },
 };
 
-const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
+const DATE_LOCALE_MAP: FlexibleRecord<SupportedLocale, string> = {
   en: "en-US",
   zh: "zh-CN",
   ja: "ja-JP",
@@ -195,6 +196,8 @@ const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
   pt: "pt-BR",
   hi: "hi-IN",
   id: "id-ID",
+  ko: "ko-KR",
+  fr: "fr-FR",
 };
 
 function SkeletonCard() {
@@ -238,7 +241,7 @@ function StatCard({
 
 export default function AffiliateDashboardPage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
   const { token } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);

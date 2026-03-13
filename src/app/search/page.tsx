@@ -13,6 +13,7 @@ import { Footer } from "@/components/features/Footer";
 import { getDramaBadge, resolveDramaMode } from "@/lib/utils";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 const hotSearchItems = [
   { rank: 1, title: "The Billionaire's Secret", type: "trending" as const },
@@ -26,7 +27,7 @@ const trendingTags = ["Romance", "ReelShort", "CEO", "Revenge", "Fantasy"];
 
 const ITEMS_PER_PAGE = 12;
 
-const SEARCH_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const SEARCH_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     searchPlaceholder: "Search dramas, genres...",
     searchAria: "Search dramas",
@@ -174,7 +175,7 @@ const badgeStyles: Record<string, { label: string; className: string }> = {
 
 function SearchContent() {
   const locale = useLocale();
-  const t = SEARCH_TEXT[locale] || SEARCH_TEXT.en;
+  const t = resolveLocaleCopy(SEARCH_TEXT, locale);
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialQuery = searchParams.get("q") || "";

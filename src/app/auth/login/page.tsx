@@ -12,6 +12,7 @@ import { useFacebookLogin } from "@/lib/facebookSdk";
 import { TURNSTILE_SITE_KEY } from "@/lib/api";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 // Dynamically import GoogleLoginButton to avoid SSR issues
 const GoogleLoginButton = dynamicImport(
@@ -37,7 +38,7 @@ declare global {
 
 export default function LoginPage() {
   const locale = useLocale();
-  const t = LOGIN_TEXT[locale] || LOGIN_TEXT.en;
+  const t = resolveLocaleCopy(LOGIN_TEXT, locale);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, googleLogin, facebookLogin } = useAuth();
@@ -334,7 +335,7 @@ export default function LoginPage() {
   );
 }
 
-const LOGIN_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const LOGIN_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     signUp: "Sign Up",
     signIn: "Sign In",

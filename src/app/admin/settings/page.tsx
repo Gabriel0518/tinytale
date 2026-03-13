@@ -166,7 +166,7 @@ function parseMaybeJson<T>(value: any, fallback: T): T {
   return value as T;
 }
 
-type SupportedLanguageCode = "en" | "zh" | "ja" | "es" | "pt" | "hi" | "id";
+type SupportedLanguageCode = "en" | "zh" | "ja" | "es" | "pt" | "hi" | "id" | "ko" | "fr";
 
 interface LanguageRegionRule {
   id: string;
@@ -206,6 +206,8 @@ const LANGUAGE_OPTIONS: { value: SupportedLanguageCode; label: string }[] = [
   { value: "ja", label: "日本語 (ja)" },
   { value: "hi", label: "हिन्दी (hi)" },
   { value: "id", label: "Indonesia (id)" },
+  { value: "ko", label: "한국어 (ko)" },
+  { value: "fr", label: "Français (fr)" },
 ];
 
 function createEmptyLanguageRegionRule(): LanguageRegionRule {
@@ -1752,6 +1754,8 @@ export default function AdminSettingsPage() {
                   { value: "en", label: "English" },
                   { value: "zh", label: "Chinese" },
                   { value: "es", label: "Spanish" },
+                  { value: "ko", label: "Korean" },
+                  { value: "fr", label: "French" },
                 ]} />
               </div>
             </div>

@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 import {SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 interface Commission {
   _id: string;
@@ -46,7 +47,7 @@ type ReportsCopy = {
   statusLabels: Record<Commission["status"], string>;
 };
 
-const COPY: Record<SupportedLocale, ReportsCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, ReportsCopy> = {
   en: {
     title: "Commission Reports",
     totalCommission: "Total Commission",
@@ -139,14 +140,16 @@ const COPY: Record<SupportedLocale, ReportsCopy> = {
     next: "Berikutnya",
     statusLabels: { confirmed: "Terkonfirmasi", pending: "Menunggu", rejected: "Ditolak" } } };
 
-const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
+const DATE_LOCALE_MAP: FlexibleRecord<SupportedLocale, string> = {
   en: "en-US",
   zh: "zh-CN",
   ja: "ja-JP",
   es: "es-ES",
   pt: "pt-BR",
   hi: "hi-IN",
-  id: "id-ID" };
+  id: "id-ID",
+  ko: "ko-KR",
+  fr: "fr-FR" };
 
 function StatusBadge({ status, label }: { status: Commission["status"]; label: string }) {
   const styles: Record<string, string> = {
@@ -169,7 +172,7 @@ function truncate(str: string, len: number) {
 
 export default function CommissionReportsPage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
   const { token } = useAuth();
 

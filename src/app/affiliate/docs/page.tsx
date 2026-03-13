@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 type Section = {
   title: string;
@@ -21,7 +22,7 @@ type DocsCopy = {
   backToAffiliate: string;
 };
 
-const COPY: Record<SupportedLocale, DocsCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, DocsCopy> = {
   en: {
     pageTitle: "Affiliate Program Documentation",
     pageDesc: "Read the latest terms, commission policy, settlement rules, and update process before promotion.",
@@ -320,7 +321,7 @@ const COPY: Record<SupportedLocale, DocsCopy> = {
 
 export default function AffiliateDocsPage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
 
   return (
     <div className="min-h-screen bg-[#0a0a12] px-4 py-10">

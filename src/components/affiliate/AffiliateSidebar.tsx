@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { localizePath, removeLocalePrefix, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 const navItems = [
   { href: "/affiliate/dashboard", key: "dashboard", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
@@ -12,7 +13,7 @@ const navItems = [
   { href: "/affiliate/payments", key: "payments", icon: "M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" },
 ] as const;
 
-const COPY: Record<SupportedLocale, Record<string, string>> = {
+const COPY: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     affiliate: "Affiliate",
     dashboard: "Dashboard",
@@ -73,7 +74,7 @@ const COPY: Record<SupportedLocale, Record<string, string>> = {
 
 export default function AffiliateSidebar() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const pathname = removeLocalePrefix(usePathname() || "/");
 
   return (

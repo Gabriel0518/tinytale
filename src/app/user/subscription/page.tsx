@@ -12,6 +12,7 @@ import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 interface Plan {
   _id: string;
@@ -73,7 +74,7 @@ type SubscriptionCopy = {
   proFeatures: string[];
 };
 
-const COPY: Record<SupportedLocale, SubscriptionCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, SubscriptionCopy> = {
   en: {
     close: "Close",
     savePercent: (percent) => `Save ${percent}%`,
@@ -364,16 +365,18 @@ const PERK_ICONS = [
   "M9 14.25l3-3m0 0l3 3m-3-3v8.25M3.75 6.75h16.5",
 ] as const;
 
-const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
+const DATE_LOCALE_MAP: FlexibleRecord<SupportedLocale, string> = {
   en: "en-US",
   zh: "zh-CN",
   ja: "ja-JP",
   es: "es-ES",
   pt: "pt-BR",
   hi: "hi-IN",
-  id: "id-ID" };
+  id: "id-ID",
+  ko: "ko-KR",
+  fr: "fr-FR" };
 
-const CHECKOUT_LOCAL_CURRENCY_NOTICE: Record<SupportedLocale, (countryCode: string, currencyCode: string) => string> = {
+const CHECKOUT_LOCAL_CURRENCY_NOTICE: FlexibleRecord<SupportedLocale, (countryCode: string, currencyCode: string) => string> = {
   en: (countryCode, currencyCode) => `Prices are based on USD. Stripe Checkout may show local currency for ${countryCode} (${currencyCode}).`,
   zh: (countryCode, currencyCode) => `价格以 USD 为基准。Stripe Checkout 可能会按 ${countryCode} 显示本地货币（${currencyCode}）。`,
   ja: (countryCode, currencyCode) => `価格はUSD基準です。Stripe Checkoutでは ${countryCode} 向けに現地通貨（${currencyCode}）が表示される場合があります。`,
@@ -385,9 +388,9 @@ const CHECKOUT_LOCAL_CURRENCY_NOTICE: Record<SupportedLocale, (countryCode: stri
 
 export default function SubscriptionPage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
-  const checkoutLocalNotice = CHECKOUT_LOCAL_CURRENCY_NOTICE[locale] || CHECKOUT_LOCAL_CURRENCY_NOTICE.en;
+  const checkoutLocalNotice = resolveLocaleCopy(CHECKOUT_LOCAL_CURRENCY_NOTICE, locale);
   const formatUsd = useCallback(
     (value: number) =>
       new Intl.NumberFormat(dateLocale, {

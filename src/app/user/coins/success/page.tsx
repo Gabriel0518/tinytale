@@ -10,6 +10,7 @@ import { coinsApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 type SuccessCopy = {
   paymentSuccess: string;
@@ -22,7 +23,7 @@ type SuccessCopy = {
   backToCoins: string;
 };
 
-const COPY: Record<SupportedLocale, SuccessCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, SuccessCopy> = {
   en: {
     paymentSuccess: "Payment Successful",
     paidOk: (amountLabel) => `${amountLabel} paid successfully`,
@@ -89,7 +90,7 @@ const COPY: Record<SupportedLocale, SuccessCopy> = {
 
 function PaymentSuccessContent() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const { token, refreshUser } = useAuth();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
@@ -107,6 +108,8 @@ function PaymentSuccessContent() {
     pt: "pt-BR",
     hi: "hi-IN",
     id: "id-ID",
+    ko: "ko-KR",
+    fr: "fr-FR",
   } as const)[locale] || "en-US";
 
   const formatAmount = (value: number, currencyCode: string) => {

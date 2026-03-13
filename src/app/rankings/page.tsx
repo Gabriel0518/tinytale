@@ -12,10 +12,11 @@ import { Footer } from '@/components/features/Footer';
 import { mockDramas } from '@/lib/mockData';
 import {localizePath, SupportedLocale } from '@/lib/i18n';
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
 
-const RANKINGS_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const RANKINGS_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     unknown: 'Unknown',
     today: 'Today',
@@ -168,7 +169,7 @@ function rankColor(rank: number): string {
 
 export default function Rankings() {
   const locale = useLocale();
-  const t = RANKINGS_TEXT[locale] || RANKINGS_TEXT.en;
+  const t = resolveLocaleCopy(RANKINGS_TEXT, locale);
   const [allDramas, setAllDramas] = useState<Drama[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<TimePeriod>('daily');

@@ -10,10 +10,11 @@ import { apiCombined as api } from '@/lib/api';
 import { useAuth } from '@/lib/authContext';
 import {localizePath, SupportedLocale } from '@/lib/i18n';
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 function VerifyOTPContent() {
   const locale = useLocale();
-  const t = VERIFY_OTP_TEXT[locale] || VERIFY_OTP_TEXT.en;
+  const t = resolveLocaleCopy(VERIFY_OTP_TEXT, locale);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { register: authRegister } = useAuth();
@@ -240,7 +241,7 @@ export default function VerifyOTPPage() {
   );
 }
 
-const VERIFY_OTP_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const VERIFY_OTP_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     title: "Security Verification",
     subtitle: "We've sent a 6-digit verification code to your registered device. Please enter it below.",

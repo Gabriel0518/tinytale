@@ -4,8 +4,9 @@ import Link from "next/link";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
-const COPY: Record<SupportedLocale, { affiliate: string; signOut: string }> = {
+const COPY: FlexibleRecord<SupportedLocale, { affiliate: string; signOut: string }> = {
   en: { affiliate: "Affiliate", signOut: "Sign Out" },
   zh: { affiliate: "推广", signOut: "退出登录" },
   ja: { affiliate: "アフィリエイト", signOut: "ログアウト" },
@@ -17,7 +18,7 @@ const COPY: Record<SupportedLocale, { affiliate: string; signOut: string }> = {
 
 export default function AffiliateHeader() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
 
   return (
     <header className="flex items-center justify-between border-b border-gray-800/40 bg-[#0a0a12]/80 px-6 py-4 backdrop-blur-sm">

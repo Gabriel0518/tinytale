@@ -17,6 +17,8 @@ const LANGUAGE_OPTIONS: Array<{ code: SupportedLocale; name: string; flag: strin
   { code: 'zh', name: '中文', flag: 'ZH' },
   { code: 'ja', name: '日本語', flag: 'JA' },
   { code: 'hi', name: 'हिंदी', flag: 'HI' },
+  { code: 'ko', name: '한국어', flag: 'KO' },
+  { code: 'fr', name: 'Français', flag: 'FR' },
 ];
 
 interface LanguageSwitcherProps {

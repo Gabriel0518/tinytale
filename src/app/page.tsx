@@ -16,6 +16,7 @@ import { mockDramas, mockCategories } from '@/lib/mockData';
 import { localizePath, SupportedLocale } from '@/lib/i18n';
 import { localizeCategoryLabel, normalizeCategoryKey } from '@/lib/categoryI18n';
 import { useLocale } from '@/hooks/useLocale';
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 function validCover(url?: string): string | undefined {
   if (!url || url.startsWith('blob:')) return undefined;
@@ -33,7 +34,7 @@ function formatSeconds(totalSeconds: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     all: 'All',
     hotRanking: 'Hot Ranking',
@@ -128,7 +129,7 @@ const HOME_TEXT: Record<SupportedLocale, Record<string, string>> = {
 
 export default function Home() {
   const locale = useLocale();
-  const t = HOME_TEXT[locale] || HOME_TEXT.en;
+  const t = resolveLocaleCopy(HOME_TEXT, locale);
   const router = useRouter();
   const [dramas, setDramas] = useState<Drama[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);

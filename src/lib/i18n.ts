@@ -1,4 +1,4 @@
-export const SUPPORTED_LOCALES = ['en', 'zh', 'ja', 'es', 'pt', 'hi', 'id'] as const;
+export const SUPPORTED_LOCALES = ['en', 'zh', 'ja', 'es', 'pt', 'hi', 'id', 'ko', 'fr'] as const;
 
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
@@ -10,6 +10,8 @@ export const COUNTRY_LANG_MAP: Record<string, SupportedLocale> = {
   BR: 'pt', PT: 'pt',
   CN: 'zh', TW: 'zh', HK: 'zh', SG: 'zh', MO: 'zh',
   JP: 'ja',
+  KR: 'ko',
+  FR: 'fr', BE: 'fr', CH: 'fr',
   ID: 'id',
   IN: 'hi',
 };

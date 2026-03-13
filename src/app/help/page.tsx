@@ -10,6 +10,7 @@ import { Footer } from "@/components/features/Footer";
 import { API_URL, contactApi } from "@/lib/api";
 import {SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 type TabKey = "about" | "privacy" | "terms" | "faq";
 type CmsSectionKey = "about" | "careers" | "press" | "terms" | "privacy" | "cookies";
@@ -102,7 +103,7 @@ const CMS_SETTING_KEYS: Record<CmsSectionKey, string> = {
   cookies: "help_cookie_html",
 };
 
-const SECTION_LABELS: Record<SupportedLocale, { careers: string; press: string; cookies: string }> = {
+const SECTION_LABELS: FlexibleRecord<SupportedLocale, { careers: string; press: string; cookies: string }> = {
   en: { careers: "Careers", press: "Press", cookies: "Cookie Privacy" },
   zh: { careers: "加入我们", press: "媒体与新闻", cookies: "Cookie 隐私" },
   ja: { careers: "採用情報", press: "プレス", cookies: "Cookie プライバシー" },
@@ -121,7 +122,7 @@ const CMS_DEFAULTS: Record<CmsSectionKey, string> = {
   cookies: "<p>We use cookies to keep you signed in, remember preferences, and improve service performance.</p>",
 };
 
-const COPY: Record<SupportedLocale, HelpCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, HelpCopy> = {
   en: {
     tabs: { about: "About Us", privacy: "Privacy Policy", terms: "Terms of Service", faq: "FAQ" },
     sidebar: {
@@ -697,7 +698,7 @@ function SectionDivider({ title }: { title: string }) {
 export default function HelpPage() {
   const searchParams = useSearchParams();
   const locale = useLocale();
-  const c = COPY[locale] || COPY.en;
+  const c = resolveLocaleCopy(COPY, locale);
 
   const [activeTab, setActiveTab] = useState<TabKey>("about");
   const [activeAnchor, setActiveAnchor] = useState("");
@@ -708,7 +709,7 @@ export default function HelpPage() {
   const contentRef = useRef<HTMLDivElement>(null);
   const pendingAnchorRef = useRef<string | null>(null);
 
-  const labels = SECTION_LABELS[locale] || SECTION_LABELS.en;
+  const labels = resolveLocaleCopy(SECTION_LABELS, locale);
   const aboutSidebar = useMemo(
     () => [...c.sidebar.about, { id: "careers", label: labels.careers }, { id: "press", label: labels.press }],
     [c.sidebar.about, labels.careers, labels.press]

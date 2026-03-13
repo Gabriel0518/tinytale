@@ -7,6 +7,7 @@ import { promoterApi } from "@/lib/api";
 import {SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 interface PaymentMethod {
   _id: string;
@@ -129,7 +130,7 @@ type PaymentsCopy = {
   };
 };
 
-const COPY: Record<SupportedLocale, PaymentsCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, PaymentsCopy> = {
   en: {
     typeLabels: { paypal: "PayPal", bankTransfer: "Bank Transfer", usdt: "USDT", default: "Default" },
     statusLabels: { paid: "Paid", approved: "Approved", pending: "Pending", rejected: "Rejected" },
@@ -607,14 +608,16 @@ const COPY: Record<SupportedLocale, PaymentsCopy> = {
       delete: "Hapus",
       deleteConfirm: "Hapus metode pembayaran ini?" } } };
 
-const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
+const DATE_LOCALE_MAP: FlexibleRecord<SupportedLocale, string> = {
   en: "en-US",
   zh: "zh-CN",
   ja: "ja-JP",
   es: "es-ES",
   pt: "pt-BR",
   hi: "hi-IN",
-  id: "id-ID" };
+  id: "id-ID",
+  ko: "ko-KR",
+  fr: "fr-FR" };
 
 function maskValue(val: string | undefined) {
   if (!val || val.length < 6) return val || "****";
@@ -932,7 +935,7 @@ function EditPaymentModal({
 
 export default function PaymentsPage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
   const { token } = useAuth();
   const confirmDialog = useConfirm();

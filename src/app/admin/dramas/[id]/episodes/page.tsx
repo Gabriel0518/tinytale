@@ -457,6 +457,8 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
               <option value="pt">Portuguese</option>
               <option value="hi">Hindi</option>
               <option value="id">Indonesian</option>
+              <option value="ko">Korean</option>
+              <option value="fr">French</option>
             </select>
             <label className="inline-flex items-center gap-2 text-xs text-gray-400">
               <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />

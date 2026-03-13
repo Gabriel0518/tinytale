@@ -15,6 +15,7 @@ import { mockDramas, mockCategories } from '@/lib/mockData';
 import { localizePath, SupportedLocale } from '@/lib/i18n';
 import { localizeCategoryLabel, normalizeCategoryKey } from '@/lib/categoryI18n';
 import { useLocale } from '@/hooks/useLocale';
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 type ViewMode = 'grid' | 'list';
 type StatusFilter = 'all' | 'ongoing' | 'completed' | 'upcoming';
@@ -25,7 +26,7 @@ const badgeStyles: Record<string, { label: string; className: string }> = {
   hot: { label: 'HOT', className: 'bg-red-600 text-white' },
   new: { label: 'NEW', className: 'bg-green-600 text-white' } };
 
-const BROWSE_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const BROWSE_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: { title: 'Browse Library', subtitle: 'Discover thousands of bite-sized dramas tailored for you.', genre: 'Genre', status: 'Status', sortBy: 'Sort by', all: 'All', ongoing: 'Ongoing', completed: 'Completed', upcoming: 'Upcoming', popular: 'Popular', latest: 'Latest', topRated: 'Top Rated', showing: 'Showing', results: 'results', gridView: 'Grid view', listView: 'List view', noUpcoming: 'No upcoming dramas at the moment. Check back soon!', noResults: 'No dramas found matching your filters.', dramaFallback: 'Drama', epShort: 'episodes', loadMore: 'Load More', episodesWord: 'Episodes' },
   zh: { title: '浏览片库', subtitle: '发现适合你的高品质短剧。', genre: '类型', status: '状态', sortBy: '排序', all: '全部', ongoing: '连载中', completed: '已完结', upcoming: '即将上线', popular: '热门', latest: '最新', topRated: '高分', showing: '共显示', results: '条结果', gridView: '网格视图', listView: '列表视图', noUpcoming: '暂无即将上线短剧', noResults: '没有符合筛选条件的短剧', dramaFallback: '短剧', epShort: '集', loadMore: '加载更多', episodesWord: '集' },
   ja: { title: 'ライブラリ', subtitle: 'あなた向けのショートドラマを探そう。', genre: 'ジャンル', status: 'ステータス', sortBy: '並び替え', all: 'すべて', ongoing: '配信中', completed: '完結', upcoming: '近日公開', popular: '人気', latest: '新着', topRated: '高評価', showing: '表示中', results: '件', gridView: 'グリッド', listView: 'リスト', noUpcoming: '近日公開の作品はありません', noResults: '条件に一致する作品がありません', dramaFallback: 'ドラマ', epShort: '話', loadMore: 'もっと見る', episodesWord: '話' },
@@ -36,7 +37,7 @@ const BROWSE_TEXT: Record<SupportedLocale, Record<string, string>> = {
 
 function BrowseContent() {
   const locale = useLocale();
-  const t = BROWSE_TEXT[locale] || BROWSE_TEXT.en;
+  const t = resolveLocaleCopy(BROWSE_TEXT, locale);
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
 

@@ -4,6 +4,7 @@ import Image from "next/image";
 import type { Drama } from "@/types";
 import { localizeCategoryLabel } from "@/lib/categoryI18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 function validCover(url?: string): string {
   if (!url || url.startsWith('blob:')) return '/placeholder-cover.svg';
@@ -25,7 +26,7 @@ export function DramaCard({ drama, onClick }: DramaCardProps) {
     pt: "episódios",
     hi: "एपिसोड",
     id: "episode" };
-  const episodesLabel = episodesLabelMap[locale] || episodesLabelMap.en;
+  const episodesLabel = resolveLocaleCopy(episodesLabelMap, locale);
 
   return (
     <div

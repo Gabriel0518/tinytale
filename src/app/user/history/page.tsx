@@ -12,6 +12,7 @@ import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 interface HistoryItem {
   _id?: string;
@@ -53,7 +54,7 @@ type HistoryCopy = {
   clearAll: string;
 };
 
-const COPY: Record<SupportedLocale, HistoryCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, HistoryCopy> = {
   en: {
     title: "Watch History",
     subtitle: "Resume watching your favorite dramas right where you left off.",
@@ -264,7 +265,7 @@ function updatedAgo(dateStr: string, t: HistoryCopy) {
 
 export default function HistoryPage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const { token } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const { toast } = useToast();

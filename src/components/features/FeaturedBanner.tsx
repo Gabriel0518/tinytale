@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 interface FeaturedBannerProps {
   title: string;
@@ -12,7 +13,7 @@ interface FeaturedBannerProps {
   className?: string;
 }
 
-const FEATURED_BANNER_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const FEATURED_BANNER_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: { featured: "Featured", cta: "Explore Now" },
   zh: { featured: "精选", cta: "立即探索" },
   ja: { featured: "特集", cta: "今すぐ見る" },
@@ -28,7 +29,7 @@ export function FeaturedBanner({
   href = "/browse",
   className }: FeaturedBannerProps) {
   const locale = useLocale();
-  const t = FEATURED_BANNER_TEXT[locale] || FEATURED_BANNER_TEXT.en;
+  const t = resolveLocaleCopy(FEATURED_BANNER_TEXT, locale);
   const targetHref = href.startsWith("http") ? href : localizePath(href, locale);
 
   return (

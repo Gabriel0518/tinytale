@@ -15,8 +15,9 @@ import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolvePlaybackSource } from "@/lib/playback";
 import { getQualityMenuOptions, resolveDefaultQuality } from "@/lib/playerQuality";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
-const PLAY_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const PLAY_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     episodeNotFound: "Episode not found",
     failedToLoad: "Failed to load episode",
@@ -118,7 +119,7 @@ function getEpisodeEffectiveUnlockPrice(episode: Episode, access?: EpisodeAccess
 
 export default function PlayEpisodePage() {
   const locale = useLocale();
-  const t = PLAY_TEXT[locale] || PLAY_TEXT.en;
+  const t = resolveLocaleCopy(PLAY_TEXT, locale);
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();

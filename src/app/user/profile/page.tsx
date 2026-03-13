@@ -12,6 +12,7 @@ import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 type Tab = "library" | "wallet";
 
@@ -92,7 +93,7 @@ type ProfileCopy = {
   };
 };
 
-const COPY: Record<SupportedLocale, ProfileCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, ProfileCopy> = {
   en: {
     loading: "Loading...",
     vipMember: "VIP Member",
@@ -416,18 +417,20 @@ const COPY: Record<SupportedLocale, ProfileCopy> = {
         completed: "Berhasil",
         pending: "Menunggu" } } } };
 
-const DATE_LOCALE_MAP: Record<SupportedLocale, string> = {
+const DATE_LOCALE_MAP: FlexibleRecord<SupportedLocale, string> = {
   en: "en-US",
   zh: "zh-CN",
   ja: "ja-JP",
   es: "es-ES",
   pt: "pt-BR",
   hi: "hi-IN",
-  id: "id-ID" };
+  id: "id-ID",
+  ko: "ko-KR",
+  fr: "fr-FR" };
 
 export default function ProfilePage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
 
   const { user, token } = useAuth();

@@ -1,6 +1,7 @@
 import type { SupportedLocale } from '@/lib/i18n';
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
-const CATEGORY_TRANSLATIONS: Record<SupportedLocale, Record<string, string>> = {
+const CATEGORY_TRANSLATIONS: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     all: 'All',
     romance: 'Romance',
@@ -208,7 +209,7 @@ export function localizeCategoryLabel(
   slug?: string | null
 ): string {
   if (!name) return '';
-  const dict = CATEGORY_TRANSLATIONS[locale] || CATEGORY_TRANSLATIONS.en;
+  const dict = resolveLocaleCopy(CATEGORY_TRANSLATIONS, locale);
   const rawKey = name.trim().toLowerCase();
   const slugKey = normalizeCategoryKey(slug);
   const nameKey = normalizeCategoryKey(name);

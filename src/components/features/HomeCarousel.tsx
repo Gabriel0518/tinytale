@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { localizeCategoryLabel } from "@/lib/categoryI18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 function validCover(url?: string): string {
   if (!url || url.startsWith('blob:')) return '/placeholder-cover.svg';
@@ -22,7 +23,7 @@ interface HomeCarouselProps {
   renderCardOverlay?: (drama: Drama) => ReactNode;
 }
 
-const CAROUSEL_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const CAROUSEL_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: { scrollLeft: "Scroll left", scrollRight: "Scroll right", episodes: "episodes" },
   zh: { scrollLeft: "向左滚动", scrollRight: "向右滚动", episodes: "集" },
   ja: { scrollLeft: "左へスクロール", scrollRight: "右へスクロール", episodes: "話" },
@@ -33,7 +34,7 @@ const CAROUSEL_TEXT: Record<SupportedLocale, Record<string, string>> = {
 
 export function HomeCarousel({ title, dramas, className, getDramaHref, renderCardOverlay }: HomeCarouselProps) {
   const locale = useLocale();
-  const t = CAROUSEL_TEXT[locale] || CAROUSEL_TEXT.en;
+  const t = resolveLocaleCopy(CAROUSEL_TEXT, locale);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);

@@ -11,6 +11,7 @@ import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import {localizePath, SupportedLocale, SUPPORTED_LOCALES } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 type Section = "profile" | "security" | "notifications" | "preferences";
 
@@ -141,7 +142,7 @@ type SettingsCopy = {
   };
 };
 
-const COPY: Record<SupportedLocale, SettingsCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, SettingsCopy> = {
   en: {
     title: "Account Settings",
     sidebar: {
@@ -976,16 +977,18 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 
 export default function SettingsPage() {
   const locale = useLocale();
-  const copy = COPY[locale] || COPY.en;
+  const copy = resolveLocaleCopy(COPY, locale);
   const languageOptions = useMemo(() => {
-    const fallbackLabels: Record<SupportedLocale, string> = {
+    const fallbackLabels: FlexibleRecord<SupportedLocale, string> = {
       en: "English",
       zh: "中文",
       ja: "日本語",
       es: "Español",
       pt: "Português",
       hi: "हिंदी",
-      id: "Bahasa Indonesia" };
+      id: "Bahasa Indonesia",
+      ko: "한국어",
+      fr: "Français" };
 
     const labels = new Intl.DisplayNames([locale], { type: "language" });
     return SUPPORTED_LOCALES.map((code) => ({

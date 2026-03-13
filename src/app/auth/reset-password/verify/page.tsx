@@ -9,6 +9,7 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { passwordApi } from "@/lib/api";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 function getPasswordStrength(password: string): number {
   let score = 0;
@@ -72,7 +73,7 @@ function EyeOffIcon({ className }: { className?: string }) {
 
 function NewPasswordContent() {
   const locale = useLocale();
-  const t = VERIFY_RESET_TEXT[locale] || VERIFY_RESET_TEXT.en;
+  const t = resolveLocaleCopy(VERIFY_RESET_TEXT, locale);
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
@@ -286,7 +287,7 @@ export default function NewPasswordPage() {
   );
 }
 
-const VERIFY_RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const VERIFY_RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     title: "Create New Password",
     subtitle: "Your new password must be different from previous used passwords.",

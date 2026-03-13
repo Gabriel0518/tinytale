@@ -10,6 +10,7 @@ import { coinsApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 type VipCopy = {
   title: string;
@@ -23,7 +24,7 @@ type VipCopy = {
   backToSubscription: string;
 };
 
-const COPY: Record<SupportedLocale, VipCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, VipCopy> = {
   en: {
     title: "Welcome to TinyTale Premium!",
     paidOk: (amountLabel) => `${amountLabel} paid successfully. Your VIP membership is now active.`,
@@ -97,7 +98,7 @@ const COPY: Record<SupportedLocale, VipCopy> = {
 
 function VIPSuccessContent() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const { token, refreshUser } = useAuth();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
@@ -113,6 +114,8 @@ function VIPSuccessContent() {
     pt: "pt-BR",
     hi: "hi-IN",
     id: "id-ID",
+    ko: "ko-KR",
+    fr: "fr-FR",
   } as const)[locale] || "en-US";
 
   const formatAmount = (value: number, currencyCode: string) => {

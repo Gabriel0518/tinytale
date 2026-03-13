@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 import { ALL_COUNTRIES } from "@/lib/countries";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
+import { resolveLocaleCopy } from "@/lib/locale-copy";
 import { useLocale } from "@/hooks/useLocale";
 
 const countries = [...ALL_COUNTRIES].sort();
@@ -702,7 +703,7 @@ const COPY_ID: ApplyCopy = {
   termsSections: TERMS_ID,
 };
 
-const COPY_BY_LOCALE: Record<SupportedLocale, ApplyCopy> = {
+const COPY_BY_LOCALE: FlexibleRecord<SupportedLocale, ApplyCopy> = {
   en: COPY_EN,
   zh: COPY_ZH,
   ja: COPY_JA,
@@ -714,7 +715,7 @@ const COPY_BY_LOCALE: Record<SupportedLocale, ApplyCopy> = {
 
 export default function AffiliateApplyPage() {
   const locale = useLocale();
-  const t = COPY_BY_LOCALE[locale] || COPY_EN;
+  const t = resolveLocaleCopy(COPY_BY_LOCALE, locale);
   const router = useRouter();
   const { token } = useAuth();
 

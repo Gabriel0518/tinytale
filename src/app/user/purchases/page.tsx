@@ -13,6 +13,7 @@ import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import {localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 interface Transaction {
   _id: string;
@@ -225,11 +226,13 @@ const DATE_LOCALE_MAP: Record<string, string> = {
   es: "es-ES",
   pt: "pt-BR",
   hi: "hi-IN",
-  id: "id-ID" };
+  id: "id-ID",
+  ko: "ko-KR",
+  fr: "fr-FR" };
 
 export default function PurchasesPage() {
   const locale = useLocale();
-  const copy = COPY[locale] || COPY.en;
+  const copy = resolveLocaleCopy(COPY, locale);
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
   const { user, token } = useAuth();
   const { loading: authLoading } = useAuthGuard();

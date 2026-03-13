@@ -14,6 +14,7 @@ import { Footer } from "@/components/features/Footer";
 import { resolveDramaMode } from "@/lib/utils";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 type SortOption = "newest" | "oldest" | "title-az" | "title-za";
 
@@ -46,7 +47,7 @@ type FavoritesCopy = {
   timeMonthsAgo: (months: number) => string;
 };
 
-const COPY: Record<SupportedLocale, FavoritesCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, FavoritesCopy> = {
   en: {
     title: "My Watchlist",
     savedTitles: "titles saved",
@@ -259,7 +260,7 @@ function timeAgo(dateStr: string | undefined, t: FavoritesCopy) {
 
 export default function FavoritesPage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const { token } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const { toast } = useToast();

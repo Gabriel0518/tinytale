@@ -16,6 +16,8 @@ const TRANSLATION_LANGUAGES = [
   { code: "zh", label: "Chinese (zh)" },
   { code: "ja", label: "Japanese (ja)" },
   { code: "hi", label: "Hindi (hi)" },
+  { code: "ko", label: "Korean (ko)" },
+  { code: "fr", label: "French (fr)" },
 ] as const;
 
 export default function DramaDetailPage() {

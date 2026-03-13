@@ -5,8 +5,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { localizePath, SupportedLocale } from '@/lib/i18n';
 import { useLocale } from '@/hooks/useLocale';
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
-const FOOTER_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const FOOTER_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     company: 'Company',
     about: 'About',
@@ -175,7 +176,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
 
 export function Footer() {
   const locale = useLocale();
-  const t = FOOTER_TEXT[locale] || FOOTER_TEXT.en;
+  const t = resolveLocaleCopy(FOOTER_TEXT, locale);
   const [socialLinks, setSocialLinks] = useState<{ key: string; url: string }[]>([]);
 
   const footerSections = useMemo(() => ([

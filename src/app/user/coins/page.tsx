@@ -11,6 +11,7 @@ import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 interface CoinPackage {
   id?: string;
@@ -62,7 +63,7 @@ type CoinsCopy = {
   };
 };
 
-const COPY: Record<SupportedLocale, CoinsCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
   en: {
     title: "Gold Recharge",
     subtitle: "Purchase gold coins to unlock premium episodes and exclusive content",
@@ -316,7 +317,7 @@ const COPY: Record<SupportedLocale, CoinsCopy> = {
       invalidCode: "Kode tidak valid atau kedaluwarsa",
       genericError: "Terjadi kesalahan" } } };
 
-const CHECKOUT_CONTEXT_COPY: Record<SupportedLocale, (countryCode: string, currencyCode: string) => string> = {
+const CHECKOUT_CONTEXT_COPY: FlexibleRecord<SupportedLocale, (countryCode: string, currencyCode: string) => string> = {
   en: (countryCode, currencyCode) => `Checkout region: ${countryCode}, settlement display currency may be ${currencyCode}.`,
   zh: (countryCode, currencyCode) => `结账地区：${countryCode}，最终展示货币可能为 ${currencyCode}。`,
   ja: (countryCode, currencyCode) => `チェックアウト地域: ${countryCode}、表示通貨は ${currencyCode} になる可能性があります。`,
@@ -328,8 +329,8 @@ const CHECKOUT_CONTEXT_COPY: Record<SupportedLocale, (countryCode: string, curre
 
 export default function CoinsPage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
-  const checkoutContextHint = CHECKOUT_CONTEXT_COPY[locale] || CHECKOUT_CONTEXT_COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
+  const checkoutContextHint = resolveLocaleCopy(CHECKOUT_CONTEXT_COPY, locale);
   const localeTag = ({
     en: "en-US",
     zh: "zh-CN",
@@ -338,6 +339,8 @@ export default function CoinsPage() {
     pt: "pt-BR",
     hi: "hi-IN",
     id: "id-ID",
+    ko: "ko-KR",
+    fr: "fr-FR",
   } as const)[locale] || "en-US";
   const formatUsd = useCallback(
     (value: number) =>

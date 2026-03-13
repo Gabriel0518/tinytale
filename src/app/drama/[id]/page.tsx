@@ -22,8 +22,9 @@ import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolvePlaybackSource } from "@/lib/playback";
 import { getQualityMenuOptions, resolveDefaultQuality } from "@/lib/playerQuality";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
-const DRAMA_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const DRAMA_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     loading: "Loading...",
     dramaNotFound: "Drama not found",
@@ -304,7 +305,7 @@ function getEpisodeEffectiveUnlockPrice(episode: Episode, access?: EpisodeAccess
 
 function DramaDetailContent() {
   const locale = useLocale();
-  const t = DRAMA_TEXT[locale] || DRAMA_TEXT.en;
+  const t = resolveLocaleCopy(DRAMA_TEXT, locale);
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();

@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
+import { resolveLocaleCopy } from "@/lib/locale-copy";
 import { useLocale } from "@/hooks/useLocale";
 import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
 
@@ -291,7 +292,7 @@ const ID_COPY: AffiliateCopy = {
   footerRights: "Hak cipta dilindungi.",
 };
 
-const AFFILIATE_COPY: Record<SupportedLocale, AffiliateCopy> = {
+const AFFILIATE_COPY: FlexibleRecord<SupportedLocale, AffiliateCopy> = {
   en: EN_COPY,
   zh: ZH_COPY,
   ja: JA_COPY,
@@ -303,7 +304,7 @@ const AFFILIATE_COPY: Record<SupportedLocale, AffiliateCopy> = {
 
 export default function AffiliateLandingPage() {
   const locale = useLocale();
-  const t = AFFILIATE_COPY[locale] || EN_COPY;
+  const t = resolveLocaleCopy(AFFILIATE_COPY, locale);
   const router = useRouter();
   const { user, token } = useAuth();
   const [ctaLoading, setCtaLoading] = useState(false);

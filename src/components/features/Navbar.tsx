@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { localizePath, removeLocalePrefix, SupportedLocale } from "@/lib/i18n";
 import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 interface NavbarProps {
   activePath?: string;
@@ -28,7 +29,7 @@ const navLinks = [
   { href: "/affiliate", key: "affiliate" },
 ];
 
-const NAV_LABELS: Record<SupportedLocale, Record<string, string>> = {
+const NAV_LABELS: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: { home: "Home", browse: "Browse", rankings: "Rankings", myList: "My List", affiliate: "Affiliate", signIn: "Sign In", getStarted: "Get Started" },
   es: { home: "Inicio", browse: "Explorar", rankings: "Ranking", myList: "Mi lista", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Comenzar" },
   pt: { home: "Início", browse: "Explorar", rankings: "Ranking", myList: "Minha Lista", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Começar" },
@@ -46,7 +47,7 @@ export function Navbar({
   renderSearch }: NavbarProps) {
   const pathname = usePathname();
   const locale = useLocale();
-  const navText = NAV_LABELS[locale] || NAV_LABELS.en;
+  const navText = resolveLocaleCopy(NAV_LABELS, locale);
   const normalizedPath = removeLocalePrefix(pathname || "/");
   const toLocalePath = (href: string) => localizePath(href, locale);
 

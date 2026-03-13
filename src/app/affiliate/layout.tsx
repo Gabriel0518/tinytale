@@ -12,10 +12,11 @@ import AffiliateHeader from "@/components/affiliate/AffiliateHeader";
 import { localizePath, removeLocalePrefix, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 const sidebarPages = ["/affiliate/dashboard", "/affiliate/reports", "/affiliate/creatives", "/affiliate/payments"];
 const approvalRequiredPages = ["/affiliate/dashboard", "/affiliate/creatives", "/affiliate/payments"];
-const COPY: Record<SupportedLocale, { back: string; promoter: string }> = {
+const COPY: FlexibleRecord<SupportedLocale, { back: string; promoter: string }> = {
   en: { back: "Back to TinyTale", promoter: "Promoter" },
   zh: { back: "返回 TinyTale", promoter: "推广员" },
   ja: { back: "TinyTale に戻る", promoter: "プロモーター" },
@@ -29,7 +30,7 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
   const rawPathname = usePathname();
   const pathname = removeLocalePrefix(rawPathname || "/");
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const router = useRouter();
   const { token, user, loading: authLoading } = useAuth();
   const [checking, setChecking] = useState(true);

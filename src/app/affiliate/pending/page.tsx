@@ -6,8 +6,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
-const COPY: Record<SupportedLocale, Record<string, string>> = {
+const COPY: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     title: "Application Submitted",
     subtitle: "Your application is under review. We'll get back to you within 24 hours.",
@@ -84,7 +85,7 @@ function normalizeExternalUrl(url: string): string {
 
 export default function AffiliatePendingPage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const [socialLinks, setSocialLinks] = useState({ telegram: '', discord: '' });
 
   useEffect(() => {

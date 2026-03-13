@@ -10,6 +10,7 @@ import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 interface Notification {
   _id: string;
@@ -31,7 +32,7 @@ type NotificationsCopy = {
   daysAgo: (d: number) => string;
 };
 
-const COPY: Record<SupportedLocale, NotificationsCopy> = {
+const COPY: FlexibleRecord<SupportedLocale, NotificationsCopy> = {
   en: {
     title: "Notifications",
     markAllRead: "Mark all as read",
@@ -91,7 +92,7 @@ const COPY: Record<SupportedLocale, NotificationsCopy> = {
 
 export default function NotificationsPage() {
   const locale = useLocale();
-  const t = COPY[locale] || COPY.en;
+  const t = resolveLocaleCopy(COPY, locale);
   const { token } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const [notifications, setNotifications] = useState<Notification[]>([]);

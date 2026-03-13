@@ -1837,6 +1837,8 @@ function StepVideoSubtitles({
               <option value="pt">Portuguese</option>
               <option value="hi">Hindi</option>
               <option value="id">Indonesian</option>
+              <option value="ko">Korean</option>
+              <option value="fr">French</option>
             </select>
             <button
               type="button"

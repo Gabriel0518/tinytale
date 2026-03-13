@@ -9,10 +9,11 @@ import { AuthLayout } from "@/components/auth/AuthLayout";
 import { passwordApi } from "@/lib/api";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
 export default function ResetPasswordPage() {
   const locale = useLocale();
-  const t = RESET_TEXT[locale] || RESET_TEXT.en;
+  const t = resolveLocaleCopy(RESET_TEXT, locale);
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
@@ -177,7 +178,7 @@ export default function ResetPasswordPage() {
   );
 }
 
-const RESET_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     title: "Reset Password",
     subtitle: "Enter your email address and verification code to reset your password.",

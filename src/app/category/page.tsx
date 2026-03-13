@@ -13,8 +13,9 @@ import { DramaCard } from '@/components/features/DramaCard';
 import { localizePath, SupportedLocale } from '@/lib/i18n';
 import { localizeCategoryLabel } from '@/lib/categoryI18n';
 import { useLocale } from '@/hooks/useLocale';
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 
-const CATEGORY_TEXT: Record<SupportedLocale, Record<string, string>> = {
+const CATEGORY_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     categories: 'Categories',
     allDramas: 'All Dramas',
@@ -102,7 +103,7 @@ const CATEGORY_TEXT: Record<SupportedLocale, Record<string, string>> = {
 
 function CategoryContent() {
   const locale = useLocale();
-  const t = CATEGORY_TEXT[locale] || CATEGORY_TEXT.en;
+  const t = resolveLocaleCopy(CATEGORY_TEXT, locale);
   const searchParams = useSearchParams();
   const router = useRouter();
   const categoryParam = searchParams.get('category');
