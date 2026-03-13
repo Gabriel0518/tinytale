@@ -2,24 +2,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from 'next/navigation';
-import { SupportedLocale, localizePath } from '@/lib/i18n';
+import { LOCALE_DISPLAY_NAMES, LOCALE_SHORT_LABELS, SUPPORTED_LOCALES, SupportedLocale, localizePath } from '@/lib/i18n';
 import { useAuth } from '@/lib/authContext';
 import { settingsApi } from '@/lib/api';
 import { useLocale } from '@/hooks/useLocale';
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const LANGUAGE_OPTIONS: Array<{ code: SupportedLocale; name: string; flag: string }> = [
-  { code: 'en', name: 'English', flag: 'EN' },
-  { code: 'es', name: 'Español', flag: 'ES' },
-  { code: 'pt', name: 'Português', flag: 'PT' },
-  { code: 'id', name: 'Indonesia', flag: 'ID' },
-  { code: 'zh', name: '中文', flag: 'ZH' },
-  { code: 'ja', name: '日本語', flag: 'JA' },
-  { code: 'hi', name: 'हिंदी', flag: 'HI' },
-  { code: 'ko', name: '한국어', flag: 'KO' },
-  { code: 'fr', name: 'Français', flag: 'FR' },
-];
+const LANGUAGE_OPTIONS: Array<{ code: SupportedLocale; name: string; flag: string }> = SUPPORTED_LOCALES.map((code) => ({
+  code,
+  name: LOCALE_DISPLAY_NAMES[code],
+  flag: LOCALE_SHORT_LABELS[code],
+}));
 
 interface LanguageSwitcherProps {
   className?: string;

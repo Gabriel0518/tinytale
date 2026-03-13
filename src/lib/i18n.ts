@@ -4,6 +4,30 @@ export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const DEFAULT_LOCALE: SupportedLocale = 'en';
 
+export const LOCALE_DISPLAY_NAMES: Record<SupportedLocale, string> = {
+  en: 'English',
+  zh: '中文',
+  ja: '日本語',
+  es: 'Español',
+  pt: 'Português',
+  hi: 'हिंदी',
+  id: 'Indonesia',
+  ko: '한국어',
+  fr: 'Français',
+};
+
+export const LOCALE_SHORT_LABELS: Record<SupportedLocale, string> = {
+  en: 'EN',
+  zh: 'ZH',
+  ja: 'JA',
+  es: 'ES',
+  pt: 'PT',
+  hi: 'HI',
+  id: 'ID',
+  ko: 'KO',
+  fr: 'FR',
+};
+
 export const COUNTRY_LANG_MAP: Record<string, SupportedLocale> = {
   US: 'en', GB: 'en', AU: 'en', CA: 'en', NZ: 'en',
   ES: 'es', MX: 'es', AR: 'es', CO: 'es', CL: 'es', PE: 'es',

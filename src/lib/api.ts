@@ -39,6 +39,7 @@ const LANGUAGE_QUERY_ENDPOINT_PREFIXES = [
   '/api/featured',
   '/api/playlists',
   '/api/banners',
+  '/api/hero-banners',
 ];
 
 function appendLanguageQuery(endpoint: string, language: string | null): string {

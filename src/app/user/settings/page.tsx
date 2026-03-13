@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/Toast";
 import { profileApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import {localizePath, SupportedLocale, SUPPORTED_LOCALES } from "@/lib/i18n";
+import { localizePath, LOCALE_DISPLAY_NAMES, SupportedLocale, SUPPORTED_LOCALES } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
 
@@ -979,21 +979,10 @@ export default function SettingsPage() {
   const locale = useLocale();
   const copy = resolveLocaleCopy(COPY, locale);
   const languageOptions = useMemo(() => {
-    const fallbackLabels: FlexibleRecord<SupportedLocale, string> = {
-      en: "English",
-      zh: "中文",
-      ja: "日本語",
-      es: "Español",
-      pt: "Português",
-      hi: "हिंदी",
-      id: "Bahasa Indonesia",
-      ko: "한국어",
-      fr: "Français" };
-
     const labels = new Intl.DisplayNames([locale], { type: "language" });
     return SUPPORTED_LOCALES.map((code) => ({
       value: code,
-      label: labels.of(code) || fallbackLabels[code] }));
+      label: labels.of(code) || LOCALE_DISPLAY_NAMES[code] }));
   }, [locale]);
 
   const { user, token, logout, updateUser } = useAuth();
