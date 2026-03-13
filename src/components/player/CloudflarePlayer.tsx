@@ -144,6 +144,42 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       }
     }, []);
 
+    const syncRemoteSubtitleTracks = useCallback((tracks: SubtitleTrack[]) => {
+      const player = playerRef.current;
+      if (!player || player.isDisposed()) return;
+
+      try {
+        const remoteTracks = player.remoteTextTracks?.();
+        if (remoteTracks && typeof player.removeRemoteTextTrack === 'function') {
+          for (let i = remoteTracks.length - 1; i >= 0; i -= 1) {
+            const track = (remoteTracks as unknown as Record<number, TextTrack | undefined>)[i];
+            const kind = String(track?.kind || '').toLowerCase();
+            if (kind === 'subtitles' || kind === 'captions') {
+              player.removeRemoteTextTrack(track as TextTrack);
+            }
+          }
+        }
+
+        tracks.forEach((track) => {
+          const language = normalizeLanguageCode(track.language);
+          if (!track?.src || !language) return;
+          player.addRemoteTextTrack(
+            {
+              kind: 'subtitles',
+              srclang: language,
+              label: track.label || language.toUpperCase(),
+              src: track.src,
+            },
+            false,
+          );
+        });
+      } catch {
+        // Ignore track sync errors to avoid breaking playback.
+      }
+
+      applySubtitleSelection(activeSubtitleRef.current);
+    }, [applySubtitleSelection]);
+
     useImperativeHandle(ref, () => ({
       play: () => playerRef.current?.play(),
       pause: () => playerRef.current?.pause(),
@@ -203,6 +239,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
           fill: true,
           preload: 'auto',
           autoplay,
+          crossorigin: 'anonymous',
           poster: poster || undefined,
           sources: [source],
         });
@@ -230,18 +267,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         player.on('play', () => callbacksRef.current.onPlay?.());
         player.on('pause', () => callbacksRef.current.onPause?.());
 
-        // Add subtitle tracks
-        subtitles.forEach((track) => {
-          player.addRemoteTextTrack(
-            {
-              kind: 'subtitles',
-              srclang: track.language,
-              label: track.label,
-              src: track.src,
-            },
-            false,
-          );
-        });
+        syncRemoteSubtitleTracks(subtitles);
 
         const trackList = textTracks as unknown as TextTrackListWithEvents;
         if (typeof trackList.addEventListener === 'function') {
@@ -271,7 +297,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         }
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getBaseSource, autoplay, poster, subtitles, applySubtitleSelection]);
+    }, [getBaseSource, autoplay, poster, subtitles, applySubtitleSelection, syncRemoteSubtitleTracks]);
 
     // Switch HLS quality without rebuilding the player instance.
     useEffect(() => {
@@ -316,6 +342,10 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       activeSubtitleRef.current = activeSubtitleLanguage;
       applySubtitleSelection(activeSubtitleLanguage);
     }, [activeSubtitleLanguage, applySubtitleSelection]);
+
+    useEffect(() => {
+      syncRemoteSubtitleTracks(subtitles);
+    }, [subtitles, syncRemoteSubtitleTracks]);
 
     return (
       <div
