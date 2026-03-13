@@ -246,6 +246,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
 
         playerRef.current = player;
         const textTracks = player.textTracks();
+        const syncSubtitleTracksOnReady = () => syncRemoteSubtitleTracks(subtitles);
         const syncSubtitleSelection = () => applySubtitleSelection(activeSubtitleRef.current);
 
         // Wire up events
@@ -263,6 +264,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         });
 
         player.on('loadedmetadata', () => callbacksRef.current.onReady?.());
+        player.on('loadedmetadata', syncSubtitleTracksOnReady);
         player.on('loadedmetadata', syncSubtitleSelection);
         player.on('play', () => callbacksRef.current.onPlay?.());
         player.on('pause', () => callbacksRef.current.onPause?.());
