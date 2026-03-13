@@ -281,6 +281,8 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
   const [language, setLanguage] = useState("en");
   const [isDefault, setIsDefault] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [translationTaskId, setTranslationTaskId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadSubtitles = useCallback(async () => {
@@ -301,16 +303,50 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
     void loadSubtitles();
   }, [loadSubtitles]);
 
+  useEffect(() => {
+    if (!translationTaskId) return;
+    let canceled = false;
+    const poll = async () => {
+      try {
+        const res: any = await adminApi.getSubtitleTranslationTask(translationTaskId);
+        const task = res?.data;
+        if (canceled || !task) return;
+        if (task.status === "completed" || task.status === "failed") {
+          await loadSubtitles();
+          if (task.status === "completed") {
+            setNotice("Subtitle auto-translation completed.");
+          } else {
+            setError(task.errorMessage || "Subtitle auto-translation failed.");
+          }
+          setTranslationTaskId(null);
+        }
+      } catch (err: any) {
+        if (canceled) return;
+        setError(err?.message || "Failed to fetch translation task status");
+        setTranslationTaskId(null);
+      }
+    };
+    void poll();
+    const timer = setInterval(() => {
+      void poll();
+    }, 2000);
+    return () => {
+      canceled = true;
+      clearInterval(timer);
+    };
+  }, [translationTaskId, loadSubtitles]);
+
   const handleUpload = async (file: File) => {
     setWorking(true);
     setError(null);
+    setNotice(null);
     try {
       const uploadRes: any = await adminApi.uploadSubtitleFile(file);
       const uploaded = uploadRes?.data;
       if (!uploaded?.url || !uploaded?.format) {
         throw new Error("Subtitle upload failed");
       }
-      await adminApi.createEpisodeSubtitle(episode.id, {
+      const createRes: any = await adminApi.createEpisodeSubtitle(episode.id, {
         language,
         fileUrl: uploaded.url,
         format: uploaded.format,
@@ -318,6 +354,13 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
       });
       await loadSubtitles();
       setIsDefault(false);
+      const task = createRes?.data?.translationTask;
+      if (task?.taskId) {
+        setTranslationTaskId(task.taskId);
+        setNotice(`Auto translation started for ${task.totalCount || 0} language(s).`);
+      } else {
+        setNotice("Subtitle uploaded.");
+      }
     } catch (err: any) {
       setError(err?.message || "Failed to upload subtitle");
     } finally {
@@ -328,9 +371,11 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
   const setDefaultSubtitle = async (subtitleId: string) => {
     setWorking(true);
     setError(null);
+    setNotice(null);
     try {
       await adminApi.updateEpisodeSubtitle(episode.id, subtitleId, { isDefault: true });
       await loadSubtitles();
+      setNotice("Default subtitle updated.");
     } catch (err: any) {
       setError(err?.message || "Failed to set default subtitle");
     } finally {
@@ -348,9 +393,11 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
     if (!confirmed) return;
     setWorking(true);
     setError(null);
+    setNotice(null);
     try {
       await adminApi.deleteEpisodeSubtitle(episode.id, subtitleId);
       await loadSubtitles();
+      setNotice("Subtitle deleted.");
     } catch (err: any) {
       setError(err?.message || "Failed to delete subtitle");
     } finally {
@@ -358,14 +405,20 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
     }
   };
 
-  const autoTranslate = async (subtitleId: string) => {
+  const retryFailed = async (subtitleId: string) => {
     setWorking(true);
     setError(null);
+    setNotice(null);
     try {
-      await adminApi.translateEpisodeSubtitle(episode.id, subtitleId);
+      const res: any = await adminApi.retryFailedEpisodeSubtitle(episode.id, subtitleId);
+      const task = res?.data;
+      if (task?.taskId) {
+        setTranslationTaskId(task.taskId);
+        setNotice(`Retry task started for ${task.totalCount || 0} language(s).`);
+      }
       await loadSubtitles();
     } catch (err: any) {
-      setError(err?.message || "Auto translation failed");
+      setError(err?.message || "Retry failed");
     } finally {
       setWorking(false);
     }
@@ -424,6 +477,12 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
             {error}
           </div>
         )}
+        {notice && (
+          <div className="mb-4 rounded-lg border border-emerald-700/50 bg-emerald-900/20 px-4 py-3 text-sm text-emerald-300">
+            {notice}
+            {translationTaskId ? " Translation in progress..." : ""}
+          </div>
+        )}
 
         <div className="overflow-hidden rounded-xl border border-gray-800">
           <table className="min-w-full">
@@ -431,6 +490,8 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
               <tr className="border-b border-gray-800 bg-[#13131d]">
                 <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Language</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Format</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Status</th>
+                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Source</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Lines</th>
                 <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Default</th>
                 <th className="px-4 py-2.5 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
@@ -438,13 +499,27 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
             </thead>
             <tbody className="divide-y divide-gray-800/50">
               {loading ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">Loading subtitles...</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">Loading subtitles...</td></tr>
               ) : subtitles.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-sm text-gray-500">No subtitles uploaded yet.</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-500">No subtitles uploaded yet.</td></tr>
               ) : subtitles.map((item) => (
                 <tr key={item.id} className="hover:bg-white/[0.02]">
                   <td className="px-4 py-2.5 text-sm text-white">{item.label || item.language}</td>
                   <td className="px-4 py-2.5 text-sm text-gray-400 uppercase">{item.format}</td>
+                  <td className="px-4 py-2.5 text-sm">
+                    <span className={`rounded px-2 py-0.5 text-xs ${
+                      item.status === "ready"
+                        ? "bg-emerald-500/20 text-emerald-300"
+                        : item.status === "failed"
+                        ? "bg-red-500/20 text-red-300"
+                        : item.status === "processing"
+                        ? "bg-blue-500/20 text-blue-300"
+                        : "bg-gray-500/20 text-gray-300"
+                    }`}>
+                      {String(item.status || "pending")}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-sm text-gray-400">{String(item.source || "-")}</td>
                   <td className="px-4 py-2.5 text-sm text-gray-400">{item.lineCount || 0}</td>
                   <td className="px-4 py-2.5 text-sm">{item.isDefault ? <span className="text-emerald-400">Yes</span> : <span className="text-gray-500">No</span>}</td>
                   <td className="px-4 py-2.5">
@@ -452,7 +527,7 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
                       {!item.isDefault && (
                         <button onClick={() => void setDefaultSubtitle(item.id)} disabled={working} className="rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-indigo-500 hover:text-indigo-300 disabled:opacity-60">Set Default</button>
                       )}
-                      <button onClick={() => void autoTranslate(item.id)} disabled={working} className="rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-indigo-500 hover:text-indigo-300 disabled:opacity-60">Auto Translate</button>
+                      <button onClick={() => void retryFailed(item.id)} disabled={working} className="rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-indigo-500 hover:text-indigo-300 disabled:opacity-60">Retry Failed</button>
                       <a href={item.fileUrl} target="_blank" rel="noreferrer" className="rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-gray-500">Open</a>
                       <button onClick={() => void deleteSubtitle(item.id)} disabled={working} className="rounded border border-red-700/60 px-2.5 py-1 text-xs text-red-300 hover:bg-red-700/20 disabled:opacity-60">Delete</button>
                     </div>

@@ -275,6 +275,15 @@ export const adminApi = {
     token = getAdminToken()
   ) => api.post(`/api/admin/episodes/${episodeId}/subtitles/${subtitleId}/translate`, { targetLanguages }, { token }),
 
+  getSubtitleTranslationTask: (taskId: string, token = getAdminToken()) =>
+    api.get(`/api/admin/subtitle-translation/tasks/${taskId}`, { token }),
+
+  retryFailedEpisodeSubtitle: (
+    episodeId: string,
+    subtitleId: string,
+    token = getAdminToken()
+  ) => api.post(`/api/admin/episodes/${episodeId}/subtitles/${subtitleId}/retry-failed`, {}, { token }),
+
   // Users
   getUsers: (params?: { search?: string; status?: string; page?: number; limit?: number }, token = getAdminToken()) => {
     const query = params ? new URLSearchParams(params as any).toString() : '';
