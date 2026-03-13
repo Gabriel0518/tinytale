@@ -486,17 +486,17 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
           </div>
         )}
 
-        <div className="overflow-hidden rounded-xl border border-gray-800">
-          <table className="min-w-full">
+        <div className="overflow-x-auto rounded-xl border border-gray-800">
+          <table className="w-full min-w-[980px]">
             <thead>
               <tr className="border-b border-gray-800 bg-[#13131d]">
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Language</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Format</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Status</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Source</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Lines</th>
-                <th className="px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Default</th>
-                <th className="px-4 py-2.5 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Language</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Format</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Status</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Source</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Lines</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-left text-xs font-medium uppercase text-gray-500">Default</th>
+                <th className="whitespace-nowrap px-4 py-2.5 text-right text-xs font-medium uppercase text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800/50">
@@ -525,13 +525,13 @@ function EditSubtitlesModal({ episode, onClose }: { episode: Episode; onClose: (
                   <td className="px-4 py-2.5 text-sm text-gray-400">{item.lineCount || 0}</td>
                   <td className="px-4 py-2.5 text-sm">{item.isDefault ? <span className="text-emerald-400">Yes</span> : <span className="text-gray-500">No</span>}</td>
                   <td className="px-4 py-2.5">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex min-w-max justify-end gap-2">
                       {!item.isDefault && (
-                        <button onClick={() => void setDefaultSubtitle(item.id)} disabled={working} className="rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-indigo-500 hover:text-indigo-300 disabled:opacity-60">Set Default</button>
+                        <button onClick={() => void setDefaultSubtitle(item.id)} disabled={working} className="whitespace-nowrap rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-indigo-500 hover:text-indigo-300 disabled:opacity-60">Set Default</button>
                       )}
-                      <button onClick={() => void retryFailed(item.id)} disabled={working} className="rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-indigo-500 hover:text-indigo-300 disabled:opacity-60">Retry Failed</button>
-                      <a href={item.fileUrl} target="_blank" rel="noreferrer" className="rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-gray-500">Open</a>
-                      <button onClick={() => void deleteSubtitle(item.id)} disabled={working} className="rounded border border-red-700/60 px-2.5 py-1 text-xs text-red-300 hover:bg-red-700/20 disabled:opacity-60">Delete</button>
+                      <button onClick={() => void retryFailed(item.id)} disabled={working} className="whitespace-nowrap rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-indigo-500 hover:text-indigo-300 disabled:opacity-60">Retry Failed</button>
+                      <a href={item.fileUrl} target="_blank" rel="noreferrer" className="whitespace-nowrap rounded border border-gray-700 px-2.5 py-1 text-xs text-gray-300 hover:border-gray-500">Open</a>
+                      <button onClick={() => void deleteSubtitle(item.id)} disabled={working} className="whitespace-nowrap rounded border border-red-700/60 px-2.5 py-1 text-xs text-red-300 hover:bg-red-700/20 disabled:opacity-60">Delete</button>
                     </div>
                   </td>
                 </tr>
