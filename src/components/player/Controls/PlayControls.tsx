@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-
 interface PlayControlsProps {
   isPlaying: boolean;
   isLoading: boolean;
+  visible: boolean;
   onPlayPause: () => void;
+  onUserActivity?: () => void;
   onPrevious?: () => void;
   onNext?: () => void;
   hasPrevious?: boolean;
@@ -15,47 +15,28 @@ interface PlayControlsProps {
 export default function PlayControls({
   isPlaying,
   isLoading,
+  visible,
   onPlayPause,
+  onUserActivity,
   onPrevious,
   onNext,
   hasPrevious = false,
   hasNext = false,
 }: PlayControlsProps) {
-  const [visible, setVisible] = useState(true);
-  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const resetHideTimer = useCallback(() => {
-    setVisible(true);
-    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = setTimeout(() => {
-      if (isPlaying) setVisible(false);
-    }, 3000);
-  }, [isPlaying]);
-
-  useEffect(() => {
-    if (!isPlaying) {
-      setVisible(true);
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    } else {
-      resetHideTimer();
-    }
-    return () => {
-      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    };
-  }, [isPlaying, resetHideTimer]);
-
   const handleOverlayClick = () => {
     onPlayPause();
-    resetHideTimer();
+    onUserActivity?.();
   };
+
+  const buttonVisibilityClass = visible ? 'opacity-100' : 'pointer-events-none opacity-0';
 
   return (
     <div
       className={`absolute inset-0 z-10 flex items-center justify-center transition-opacity duration-300 ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
-      onMouseMove={resetHideTimer}
-      onTouchStart={resetHideTimer}
+      onMouseMove={onUserActivity}
+      onTouchStart={onUserActivity}
       onClick={handleOverlayClick}
       role="button"
       tabIndex={0}
@@ -70,7 +51,7 @@ export default function PlayControls({
       {/* Previous episode button */}
       {hasPrevious && onPrevious && (
         <button
-          className="absolute left-4 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white transition-transform hover:scale-110 active:scale-95"
+          className={`absolute left-4 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white transition-all hover:scale-110 active:scale-95 ${buttonVisibilityClass}`}
           onClick={(e) => {
             e.stopPropagation();
             onPrevious();
@@ -85,11 +66,11 @@ export default function PlayControls({
 
       {/* Center play/pause / loading */}
       <button
-        className="flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white transition-transform hover:scale-110 active:scale-95"
+        className={`flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white transition-all hover:scale-110 active:scale-95 ${buttonVisibilityClass}`}
         onClick={(e) => {
           e.stopPropagation();
           onPlayPause();
-          resetHideTimer();
+          onUserActivity?.();
         }}
         aria-label={isLoading ? 'Loading' : isPlaying ? 'Pause' : 'Play'}
       >
@@ -118,7 +99,7 @@ export default function PlayControls({
       {/* Next episode button */}
       {hasNext && onNext && (
         <button
-          className="absolute right-4 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white transition-transform hover:scale-110 active:scale-95"
+          className={`absolute right-4 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white transition-all hover:scale-110 active:scale-95 ${buttonVisibilityClass}`}
           onClick={(e) => {
             e.stopPropagation();
             onNext();
@@ -132,7 +113,7 @@ export default function PlayControls({
       )}
 
       {/* Bottom gradient */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/80 to-transparent" />
+      <div className={`pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`} />
     </div>
   );
 }

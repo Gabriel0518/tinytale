@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { PlayerState } from '../types/player';
 import PlayControls from './PlayControls';
 import ProgressBar from './ProgressBar';
@@ -50,11 +51,85 @@ export default function ControlBar({
   isFullscreen,
   title,
 }: ControlBarProps) {
+  const [isHovering, setIsHovering] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearHideTimer = useCallback(() => {
+    if (hideTimerRef.current) {
+      clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+  }, []);
+
+  const scheduleHide = useCallback(() => {
+    clearHideTimer();
+    if (!playerState.isPlaying || isHovering) return;
+    hideTimerRef.current = setTimeout(() => {
+      setControlsVisible(false);
+    }, 2000);
+  }, [clearHideTimer, isHovering, playerState.isPlaying]);
+
+  const showControls = useCallback(() => {
+    setControlsVisible(true);
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovering(true);
+    showControls();
+    clearHideTimer();
+  }, [clearHideTimer, showControls]);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false);
+    scheduleHide();
+  }, [scheduleHide]);
+
+  const handleMouseMove = useCallback(() => {
+    if (!controlsVisible) {
+      showControls();
+    }
+  }, [controlsVisible, showControls]);
+
+  const handleTouchStart = useCallback(() => {
+    showControls();
+    clearHideTimer();
+    if (playerState.isPlaying) {
+      hideTimerRef.current = setTimeout(() => {
+        setControlsVisible(false);
+      }, 2000);
+    }
+  }, [clearHideTimer, playerState.isPlaying, showControls]);
+
+  useEffect(() => {
+    if (!playerState.isPlaying) {
+      showControls();
+      clearHideTimer();
+      return;
+    }
+    scheduleHide();
+  }, [clearHideTimer, playerState.isPlaying, scheduleHide, showControls]);
+
+  useEffect(() => {
+    return () => {
+      clearHideTimer();
+    };
+  }, [clearHideTimer]);
+
+  const shouldShowControls = controlsVisible || !playerState.isPlaying;
+  const controlsVisibilityClass = shouldShowControls ? 'opacity-100' : 'pointer-events-none opacity-0';
+
   return (
-    <>
+    <div
+      className="absolute inset-0 z-20"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onMouseMove={handleMouseMove}
+      onTouchStart={handleTouchStart}
+    >
       {/* Title overlay (fullscreen only) */}
       {isFullscreen && title && (
-        <div className="absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/60 to-transparent px-4 pb-8 pt-4">
+        <div className={`absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/60 to-transparent px-4 pb-8 pt-4 transition-opacity duration-200 ${controlsVisibilityClass}`}>
           <p className="text-sm font-medium text-white/90">{title}</p>
         </div>
       )}
@@ -63,7 +138,9 @@ export default function ControlBar({
       <PlayControls
         isPlaying={playerState.isPlaying}
         isLoading={playerState.isLoading}
+        visible={shouldShowControls}
         onPlayPause={onPlayPause}
+        onUserActivity={showControls}
         onPrevious={onPrevious}
         onNext={onNext}
         hasPrevious={hasPrevious}
@@ -71,7 +148,7 @@ export default function ControlBar({
       />
 
       {/* Bottom control bar */}
-      <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 px-3 pb-2">
+      <div className={`absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 px-3 pb-2 transition-opacity duration-200 ${controlsVisibilityClass}`}>
         {/* Progress bar */}
         <ProgressBar
           currentTime={playerState.currentTime}
@@ -146,6 +223,6 @@ export default function ControlBar({
           </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
