@@ -1,4 +1,5 @@
 import type { EpisodeAccessResult, IpGeoData, StreamPlaybackInfo } from '@/types';
+import type { CreatorApplicationDraft } from '@/types/creator';
 import { detectClientLocale } from '@/lib/i18n';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
@@ -466,6 +467,42 @@ export const creatorApi = {
       return await promoterApi.getProfile(token);
     } catch {
       return api.get('/api/creator/application/status', { token });
+    }
+  },
+
+  getApplicationDraft: async (token: string) => {
+    try {
+      return await api.get('/api/creator/application/draft', { token });
+    } catch {
+      return { success: true, data: null };
+    }
+  },
+
+  saveApplicationDraft: async (token: string, draft: CreatorApplicationDraft) => {
+    try {
+      return await api.put('/api/creator/application/draft', draft, { token });
+    } catch {
+      return { success: true, data: draft };
+    }
+  },
+
+  submitApplication: async (token: string, draft: CreatorApplicationDraft) => {
+    try {
+      return await api.post('/api/creator/application/submit', draft, { token });
+    } catch {
+      return promoterApi.apply(token, {
+        fullName: draft.basicInformation.fullName,
+        businessEmail: draft.basicInformation.workEmail,
+        country: draft.basicInformation.country,
+        promotionChannels: draft.creativeInformation.primaryPlatforms.join(', ') || 'other',
+        paymentMethod: {
+          source: 'creator-application-v3.2',
+          identityType: draft.basicInformation.identityType,
+          creativeInformation: draft.creativeInformation,
+          identityVerification: draft.identityVerification,
+          agreement: draft.agreement,
+        },
+      });
     }
   },
 };
