@@ -79,7 +79,7 @@ export default function CreatorPendingPage() {
             Last updated 2 hours ago
           </p>
           <Link
-            href="/creator"
+            href="../"
             className="inline-flex items-center gap-2 rounded-2xl bg-[#0f172a] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#111f3a]"
           >
             <ArrowLeft className="h-4 w-4" />
