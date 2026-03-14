@@ -463,9 +463,9 @@ export const promoterApi = {
 export const creatorApi = {
   getApplicationStatus: async (token: string) => {
     try {
-      return await api.get('/api/creator/application/status', { token });
+      return await promoterApi.getProfile(token);
     } catch {
-      return promoterApi.getProfile(token);
+      return api.get('/api/creator/application/status', { token });
     }
   },
 };
