@@ -118,18 +118,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // Handle locale-prefixed static/public files such as /en/_next/static/*.
-  // They should be rewritten to the real framework path /_next/static/*.
+  // Redirect to the canonical framework path /_next/static/*.
   if (pathname !== localeStrippedPath && shouldBypass(localeStrippedPath)) {
-    const rewriteUrl = request.nextUrl.clone();
-    rewriteUrl.pathname = localeStrippedPath;
-    rewriteUrl.search = search;
-
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-locale-path', pathname);
-
-    return NextResponse.rewrite(rewriteUrl, {
-      request: { headers: requestHeaders },
-    });
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = localeStrippedPath;
+    redirectUrl.search = search;
+    return NextResponse.redirect(redirectUrl);
   }
 
   const normalizedPath = localeStrippedPath;
@@ -190,5 +184,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image).*)'],
+  matcher: [
+    '/((?!_next/static|_next/image).*)',
+    '/:locale/_next/:path*',
+  ],
 };
