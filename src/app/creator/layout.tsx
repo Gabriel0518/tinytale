@@ -21,6 +21,9 @@ const APPROVED_ONLY_PREFIXES = [
   "/creator/notifications",
 ];
 
+const PENDING_STATUSES = new Set(["pending", "under_review", "in_review"]);
+const APPROVED_STATUSES = new Set(["approved"]);
+
 export default function CreatorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const normalizedPath = removeLocalePrefix(pathname || "/");
@@ -31,9 +34,6 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
 
   const isLanding = normalizedPath === "/creator";
   const isPendingPage = normalizedPath === "/creator/pending";
-  const isApplyPage =
-    normalizedPath === "/creator/apply" || normalizedPath === "/creator/apply/status";
-
   const isApprovedOnlyPath = useMemo(
     () => APPROVED_ONLY_PREFIXES.some((p) => normalizedPath === p || normalizedPath.startsWith(`${p}/`)),
     [normalizedPath]
@@ -65,16 +65,7 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
             ""
         ).toLowerCase();
 
-        if (status === "approved") {
-          if (isLanding || isPendingPage || isApplyPage) {
-            router.replace(localizePath("/creator/dashboard", locale));
-            return;
-          }
-          if (!cancelled) setChecking(false);
-          return;
-        }
-
-        if (status === "pending" || status === "under_review" || status === "in_review") {
+        if (PENDING_STATUSES.has(status)) {
           if (!isPendingPage) {
             router.replace(localizePath("/creator/pending", locale));
             return;
@@ -83,15 +74,21 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
           return;
         }
 
-        // Unapplied / rejected / missing profile
-        if (isApprovedOnlyPath || isPendingPage) {
+        // Approved-only sections remain protected.
+        if (isApprovedOnlyPath && !APPROVED_STATUSES.has(status)) {
+          router.replace(localizePath("/creator", locale));
+          return;
+        }
+
+        // For non-pending users, keep /creator/pending inaccessible.
+        if (isPendingPage) {
           router.replace(localizePath("/creator", locale));
           return;
         }
 
         if (!cancelled) setChecking(false);
       } catch {
-        // Fallback as unapproved user
+        // Fallback as regular non-approved landing behavior.
         if (isApprovedOnlyPath || isPendingPage) {
           router.replace(localizePath("/creator", locale));
           return;
@@ -113,7 +110,6 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
     pathname,
     isLanding,
     isPendingPage,
-    isApplyPage,
     isApprovedOnlyPath,
   ]);
 
