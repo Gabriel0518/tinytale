@@ -114,8 +114,11 @@ jobs:
 
           git fetch --prune origin
 
-          if ! git cat-file -e "${DEPLOY_REF}^{commit}" 2>/dev/null; then
-            echo "DEPLOY_REF $DEPLOY_REF not found; fallback to origin/main"
+          # Prefer remote branch refs to avoid deploying stale local branches.
+          if git show-ref --verify --quiet "refs/remotes/origin/${DEPLOY_REF}"; then
+            DEPLOY_REF="origin/${DEPLOY_REF}"
+          elif ! git cat-file -e "${DEPLOY_REF}^{commit}" 2>/dev/null; then
+            echo "DEPLOY_REF ${DEPLOY_REF} not found; fallback to origin/main"
             DEPLOY_REF="origin/main"
           fi
 
