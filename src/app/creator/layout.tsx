@@ -54,9 +54,9 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
 
     let cancelled = false;
 
-    async function guard() {
+    async function guard(currentToken: string) {
       try {
-        const res: any = await creatorApi.getApplicationStatus(authToken);
+        const res: any = await creatorApi.getApplicationStatus(currentToken);
         const status = String(
           res?.data?.applicationStatus ||
             res?.data?.status ||
@@ -100,7 +100,7 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
       }
     }
 
-    guard();
+    guard(authToken);
 
     return () => {
       cancelled = true;
