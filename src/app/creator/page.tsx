@@ -81,7 +81,7 @@ export default function CreatorLandingPage() {
           </div>
 
           <div className="flex items-center gap-5">
-            <LanguageSwitcher className="hidden sm:block" />
+            <LanguageSwitcher />
             <button
               aria-label="Notifications"
               className="rounded-md p-1 text-[#334155] transition hover:bg-[#f1f5f9]"
