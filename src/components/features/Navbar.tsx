@@ -26,17 +26,18 @@ const navLinks = [
   { href: "/browse", key: "browse" },
   { href: "/rankings", key: "rankings" },
   { href: "/user/favorites", key: "myList" },
+  { href: "/creator", key: "creator" },
   { href: "/affiliate", key: "affiliate" },
 ];
 
 const NAV_LABELS: FlexibleRecord<SupportedLocale, Record<string, string>> = {
-  en: { home: "Home", browse: "Browse", rankings: "Rankings", myList: "My List", affiliate: "Affiliate", signIn: "Sign In", getStarted: "Get Started" },
-  es: { home: "Inicio", browse: "Explorar", rankings: "Ranking", myList: "Mi lista", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Comenzar" },
-  pt: { home: "Início", browse: "Explorar", rankings: "Ranking", myList: "Minha Lista", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Começar" },
-  id: { home: "Beranda", browse: "Jelajahi", rankings: "Peringkat", myList: "Daftar Saya", affiliate: "Afiliasi", signIn: "Masuk", getStarted: "Mulai" },
-  zh: { home: "首页", browse: "浏览", rankings: "排行", myList: "我的收藏", affiliate: "推广", signIn: "登录", getStarted: "开始使用" },
-  ja: { home: "ホーム", browse: "閲覧", rankings: "ランキング", myList: "マイリスト", affiliate: "アフィリエイト", signIn: "ログイン", getStarted: "はじめる" },
-  hi: { home: "होम", browse: "ब्राउज़", rankings: "रैंकिंग", myList: "मेरी सूची", affiliate: "अफिलिएट", signIn: "साइन इन", getStarted: "शुरू करें" } };
+  en: { home: "Home", browse: "Browse", rankings: "Rankings", myList: "My List", creator: "Creator", affiliate: "Affiliate", signIn: "Sign In", getStarted: "Get Started" },
+  es: { home: "Inicio", browse: "Explorar", rankings: "Ranking", myList: "Mi lista", creator: "Creator", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Comenzar" },
+  pt: { home: "Início", browse: "Explorar", rankings: "Ranking", myList: "Minha Lista", creator: "Creator", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Começar" },
+  id: { home: "Beranda", browse: "Jelajahi", rankings: "Peringkat", myList: "Daftar Saya", creator: "Kreator", affiliate: "Afiliasi", signIn: "Masuk", getStarted: "Mulai" },
+  zh: { home: "首页", browse: "浏览", rankings: "排行", myList: "我的收藏", creator: "创作者", affiliate: "推广", signIn: "登录", getStarted: "开始使用" },
+  ja: { home: "ホーム", browse: "閲覧", rankings: "ランキング", myList: "マイリスト", creator: "クリエイター", affiliate: "アフィリエイト", signIn: "ログイン", getStarted: "はじめる" },
+  hi: { home: "होम", browse: "ब्राउज़", rankings: "रैंकिंग", myList: "मेरी सूची", creator: "क्रिएटर", affiliate: "अफिलिएट", signIn: "साइन इन", getStarted: "शुरू करें" } };
 
 export function Navbar({
   activePath,

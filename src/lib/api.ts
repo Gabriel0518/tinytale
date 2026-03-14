@@ -459,6 +459,17 @@ export const promoterApi = {
     api.get('/api/promoter/settings'),
 };
 
+// Creator API (preferred) with compatibility fallback to promoter endpoints
+export const creatorApi = {
+  getApplicationStatus: async (token: string) => {
+    try {
+      return await api.get('/api/creator/application/status', { token });
+    } catch {
+      return promoterApi.getProfile(token);
+    }
+  },
+};
+
 // Combined API export for convenience
 export const apiCombined = {
   ...authApi,
@@ -477,6 +488,7 @@ export const apiCombined = {
   ...contactApi,
   ...geoApi,
   ...promoterApi,
+  ...creatorApi,
   register: authApi.register,
   sendVerificationCode: verificationApi.sendVerificationCode,
   verifyCode: verificationApi.verifyCode,
