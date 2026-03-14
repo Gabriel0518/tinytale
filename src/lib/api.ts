@@ -460,51 +460,19 @@ export const promoterApi = {
     api.get('/api/promoter/settings'),
 };
 
-// Creator API (preferred) with compatibility fallback to promoter endpoints
+// Creator API
 export const creatorApi = {
-  getApplicationStatus: async (token: string) => {
-    try {
-      return await promoterApi.getProfile(token);
-    } catch {
-      return api.get('/api/creator/application/status', { token });
-    }
-  },
+  getApplicationStatus: (token: string) =>
+    api.get('/api/creator/application/status', { token }),
 
-  getApplicationDraft: async (token: string) => {
-    try {
-      return await api.get('/api/creator/application/draft', { token });
-    } catch {
-      return { success: true, data: null };
-    }
-  },
+  getApplicationDraft: (token: string) =>
+    api.get('/api/creator/application/draft', { token }),
 
-  saveApplicationDraft: async (token: string, draft: CreatorApplicationDraft) => {
-    try {
-      return await api.put('/api/creator/application/draft', draft, { token });
-    } catch {
-      return { success: true, data: draft };
-    }
-  },
+  saveApplicationDraft: (token: string, draft: CreatorApplicationDraft) =>
+    api.put('/api/creator/application/draft', draft, { token }),
 
-  submitApplication: async (token: string, draft: CreatorApplicationDraft) => {
-    try {
-      return await api.post('/api/creator/application/submit', draft, { token });
-    } catch {
-      return promoterApi.apply(token, {
-        fullName: draft.basicInformation.fullName,
-        businessEmail: draft.basicInformation.workEmail,
-        country: draft.basicInformation.country,
-        promotionChannels: draft.creativeInformation.primaryPlatforms.join(', ') || 'other',
-        paymentMethod: {
-          source: 'creator-application-v3.2',
-          identityType: draft.basicInformation.identityType,
-          creativeInformation: draft.creativeInformation,
-          identityVerification: draft.identityVerification,
-          agreement: draft.agreement,
-        },
-      });
-    }
-  },
+  submitApplication: (token: string, draft: CreatorApplicationDraft) =>
+    api.post('/api/creator/application/submit', draft, { token }),
 };
 
 // Combined API export for convenience
