@@ -1,4 +1,9 @@
+"use client";
+
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
+import Image from "next/image";
 import {
   Bell,
   BookOpenText,
@@ -8,6 +13,9 @@ import {
   Sparkles,
   Wallet,
 } from "lucide-react";
+import { useAuth } from "@/lib/authContext";
+import { localizePath } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
 
 const stats = [
   { label: "ACTIVE CREATORS", value: "10K+", icon: BookOpenText },
@@ -39,6 +47,18 @@ const tools = [
 ];
 
 export default function CreatorLandingPage() {
+  const { user } = useAuth();
+  const locale = useLocale();
+  const displayName = user?.nickname?.trim() || user?.email?.split("@")[0] || "Creator";
+  const displayTag = user?.vipStatus === "active" ? "VIP Creator" : "Creator";
+  const initials = displayName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() || "")
+    .join("")
+    .slice(0, 2) || "CR";
+
   return (
     <div className="min-h-screen bg-[#f5f7f8] text-[#0f172a]">
       <header className="sticky top-0 z-10 border-b border-[#e2e8f0] bg-white/95 backdrop-blur">
@@ -69,14 +89,26 @@ export default function CreatorLandingPage() {
             </button>
             <div className="hidden h-10 items-center gap-3 border-l border-[#e2e8f0] pl-4 sm:flex">
               <div className="text-right leading-tight">
-                <p className="text-sm font-bold text-[#0f172a]">Alex Rivera</p>
-                <p className="text-xs text-[#64748b]">Top Creator</p>
+                <p className="text-sm font-bold text-[#0f172a]">{displayName}</p>
+                <p className="text-xs text-[#64748b]">{displayTag}</p>
               </div>
-              <div className="size-10 rounded-full bg-gradient-to-br from-[#9ca3af] to-[#64748b] p-0.5">
-                <div className="flex size-full items-center justify-center rounded-full bg-white text-xs font-semibold text-[#334155]">
-                  AR
+              <Link href={localizePath("/user/profile", locale)} className="size-10 rounded-full">
+                <div className="size-10 rounded-full bg-gradient-to-br from-[#9ca3af] to-[#64748b] p-0.5">
+                  {user?.avatar ? (
+                    <Image
+                      alt={displayName}
+                      className="size-full rounded-full object-cover"
+                      height={40}
+                      src={user.avatar}
+                      width={40}
+                    />
+                  ) : (
+                    <div className="flex size-full items-center justify-center rounded-full bg-white text-xs font-semibold text-[#334155]">
+                      {initials}
+                    </div>
+                  )}
                 </div>
-              </div>
+              </Link>
             </div>
           </div>
         </div>
@@ -102,13 +134,13 @@ export default function CreatorLandingPage() {
             <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
               <Link
                 className="rounded-xl bg-[#1877F2] px-8 py-3 text-base font-bold shadow-[0_10px_15px_-3px_rgba(24,119,242,0.35)] transition hover:bg-[#166fe5]"
-                href="/creator/apply"
+                href={localizePath("/creator/apply", locale)}
               >
                 Start Creating
               </Link>
               <Link
                 className="rounded-xl border border-white/30 bg-white/20 px-8 py-3 text-base font-bold text-white backdrop-blur-sm transition hover:bg-white/30"
-                href="/browse"
+                href={localizePath("/browse", locale)}
               >
                 Explore Community
               </Link>
@@ -142,7 +174,7 @@ export default function CreatorLandingPage() {
             </h2>
             <Link
               className="inline-flex items-center gap-1 text-sm font-bold text-[#1877F2] transition hover:text-[#166fe5]"
-              href="/creator"
+              href={localizePath("/creator", locale)}
             >
               View all tools
               <span aria-hidden>→</span>
