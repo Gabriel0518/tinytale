@@ -107,6 +107,7 @@ async function detectRequestLocale(request: NextRequest) {
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  const localeStrippedPath = removeLocalePrefix(pathname);
 
   if (shouldBypass(pathname)) {
     const requestHeaders = new Headers(request.headers);
@@ -116,7 +117,22 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  const normalizedPath = removeLocalePrefix(pathname);
+  // Handle locale-prefixed static/public files such as /en/_next/static/*.
+  // They should be rewritten to the real framework path /_next/static/*.
+  if (pathname !== localeStrippedPath && shouldBypass(localeStrippedPath)) {
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = localeStrippedPath;
+    rewriteUrl.search = search;
+
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-locale-path', pathname);
+
+    return NextResponse.rewrite(rewriteUrl, {
+      request: { headers: requestHeaders },
+    });
+  }
+
+  const normalizedPath = localeStrippedPath;
   const requestLocale = extractLocaleFromPath(pathname);
   const detectedLocale = requestLocale || await detectRequestLocale(request);
   const hasSession = request.cookies.get(AUTH_COOKIE)?.value === '1';
