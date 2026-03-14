@@ -16,6 +16,7 @@ import {
 import { useAuth } from "@/lib/authContext";
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
 
 const stats = [
   { label: "ACTIVE CREATORS", value: "10K+", icon: BookOpenText },
@@ -80,6 +81,7 @@ export default function CreatorLandingPage() {
           </div>
 
           <div className="flex items-center gap-5">
+            <LanguageSwitcher className="hidden sm:block" />
             <button
               aria-label="Notifications"
               className="rounded-md p-1 text-[#334155] transition hover:bg-[#f1f5f9]"

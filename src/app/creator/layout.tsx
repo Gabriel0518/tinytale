@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/authContext";
 import { creatorApi } from "@/lib/api";
 import { localizePath, removeLocalePrefix } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
 
 const APPROVED_ONLY_PREFIXES = [
   "/creator/dashboard",
@@ -148,9 +149,12 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
               </Link>
             </nav>
           </div>
-          <Link className="text-sm text-[#1877F2] hover:text-[#166fe5]" href={localizePath("/", locale)}>
-            Back to TinyTale
-          </Link>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher className="hidden sm:block" />
+            <Link className="text-sm text-[#1877F2] hover:text-[#166fe5]" href={localizePath("/", locale)}>
+              Back to TinyTale
+            </Link>
+          </div>
         </div>
       </header>
       <main>{children}</main>
