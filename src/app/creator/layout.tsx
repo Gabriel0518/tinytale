@@ -43,7 +43,9 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
     if (authLoading) return;
 
     const redirectTarget = pathname || localizePath("/creator", locale);
-    if (!token) {
+    const authToken = token;
+
+    if (!authToken) {
       router.replace(
         `${localizePath("/auth/login", locale)}?redirect=${encodeURIComponent(redirectTarget)}`
       );
@@ -54,7 +56,7 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
 
     async function guard() {
       try {
-        const res: any = await creatorApi.getApplicationStatus(token);
+        const res: any = await creatorApi.getApplicationStatus(authToken);
         const status = String(
           res?.data?.applicationStatus ||
             res?.data?.status ||
