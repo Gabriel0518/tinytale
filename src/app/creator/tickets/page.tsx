@@ -3,15 +3,27 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { LifeBuoy, Plus, Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Bot,
+  ChevronLeft,
+  ChevronRight,
+  CircleHelp,
+  Ellipsis,
+  LifeBuoy,
+  MessageSquareDashed,
+  Plus,
+  Search,
+} from "lucide-react";
 import { useLocale } from "@/hooks/useLocale";
 import { creatorApi } from "@/lib/api";
 import {
-  getCreatorTicketCategoryLabel,
-  getCreatorTicketPriorityClassName,
-  getCreatorTicketStatusClassName,
+  getCreatorTicketCategoryShortLabel,
+  getCreatorTicketPriorityBadgeClassName,
+  getCreatorTicketPriorityLabel,
+  getCreatorTicketStatusDotClassName,
   getCreatorTicketStatusLabel,
+  getCreatorTicketStatusTextClassName,
 } from "@/lib/creator";
 import { localizePath } from "@/lib/i18n";
 import { useAuth } from "@/lib/authContext";
@@ -29,15 +41,79 @@ interface TicketListItem {
   latestMessage: string;
 }
 
-function formatTime(value: string): string {
+const PAGE_SIZE = 4;
+const TABLE_GRID = "grid grid-cols-[108px_minmax(0,1.8fr)_minmax(120px,0.95fr)_110px_124px_120px_102px]";
+
+function formatRelativeTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("en-US", {
+
+  const diff = date.getTime() - Date.now();
+  const absMinutes = Math.round(Math.abs(diff) / 60000);
+
+  if (absMinutes < 60) {
+    return absMinutes <= 1 ? "Just now" : `${absMinutes} min ago`;
+  }
+
+  const absHours = Math.round(absMinutes / 60);
+  if (absHours < 24) {
+    return `${absHours} hour${absHours === 1 ? "" : "s"} ago`;
+  }
+
+  const absDays = Math.round(absHours / 24);
+  if (absDays === 1) return "Yesterday";
+  if (absDays < 7) return `${absDays} days ago`;
+
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
   });
+}
+
+function MetricCard({
+  icon,
+  title,
+  value,
+  helper,
+  tone,
+  cta,
+  href,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value?: string;
+  helper: string;
+  tone: "blue" | "green" | "slate";
+  cta?: string;
+  href?: string;
+}) {
+  const toneClassName =
+    tone === "blue"
+      ? "bg-[#e8f1fd]"
+      : tone === "green"
+        ? "bg-[#e7f8ef]"
+        : "bg-white";
+
+  const iconClassName =
+    tone === "blue"
+      ? "bg-[#2d7af0] text-white"
+      : tone === "green"
+        ? "bg-[#14b87a] text-white"
+        : "bg-[#334155] text-white";
+
+  return (
+    <article className={`rounded-[24px] border border-[#d9e2ef] px-5 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.04)] ${toneClassName}`}>
+      <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${iconClassName}`}>{icon}</div>
+      <h3 className="mt-4 text-[14px] font-semibold leading-5 text-[#1e293b]">{title}</h3>
+      {value ? <p className="mt-1 text-[36px] font-black leading-none tracking-[-0.04em] text-[#1f6fe5]">{value}</p> : null}
+      <p className="mt-2 text-[13px] leading-5 text-[#64748b]">{helper}</p>
+      {cta && href ? (
+        <Link href={href} className="mt-3 inline-flex text-[13px] font-semibold text-[#2d7af0] transition hover:text-[#165fcc]">
+          {cta}
+        </Link>
+      ) : null}
+    </article>
+  );
 }
 
 export default function CreatorTicketsPage() {
@@ -49,219 +125,297 @@ export default function CreatorTicketsPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [tickets, setTickets] = useState<TicketListItem[]>([]);
+  const [actionTicketId, setActionTicketId] = useState<string | null>(null);
+  const [closingTicketId, setClosingTicketId] = useState<string | null>(null);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setPage(1);
+      setKeyword(keywordInput.trim());
+    }, 280);
+
+    return () => window.clearTimeout(timer);
+  }, [keywordInput]);
+
+  const loadTickets = useCallback(async () => {
     if (!token) return;
 
-    let cancelled = false;
     setLoading(true);
     setError("");
 
-    creatorApi
-      .getTickets(token, { page, limit: 10, status, keyword })
-      .then((res: any) => {
-        if (cancelled) return;
-        setTickets(res?.data?.tickets || []);
-        setTotalPages(Math.max(1, Number(res?.data?.totalPages || 1)));
-        setStatusCounts(res?.data?.statusCounts || {});
-      })
-      .catch((err: any) => {
-        if (cancelled) return;
-        setError(err?.message || "Failed to load tickets");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+    try {
+      const res: any = await creatorApi.getTickets(token, {
+        page,
+        limit: PAGE_SIZE,
+        status: status === "all" ? undefined : status,
+        keyword,
       });
-
-    return () => {
-      cancelled = true;
-    };
+      setTickets(res?.data?.tickets || []);
+      setTotal(Number(res?.data?.total || 0));
+      setTotalPages(Math.max(1, Number(res?.data?.totalPages || 1)));
+      setStatusCounts(res?.data?.statusCounts || {});
+    } catch (err: any) {
+      setError(err?.message || "Failed to load tickets");
+    } finally {
+      setLoading(false);
+    }
   }, [keyword, page, status, token]);
 
-  const statusOptions = useMemo(
+  useEffect(() => {
+    loadTickets();
+  }, [loadTickets]);
+
+  useEffect(() => {
+    function handleDocumentClick() {
+      setActionTicketId(null);
+    }
+
+    if (!actionTicketId) return undefined;
+    document.addEventListener("click", handleDocumentClick);
+    return () => document.removeEventListener("click", handleDocumentClick);
+  }, [actionTicketId]);
+
+  const inProgressCount =
+    Number(statusCounts.in_progress || 0) + Number(statusCounts.waiting_support || 0) + Number(statusCounts.waiting_creator || 0);
+  const allCount = Object.values(statusCounts).reduce((sum, count) => sum + Number(count || 0), 0);
+
+  const filters = useMemo(
     () => [
-      {
-        value: "all",
-        label: `All (${Object.values(statusCounts).reduce((sum, count) => sum + Number(count || 0), 0)})`,
-      },
-      { value: "open", label: `Open (${statusCounts.open || 0})` },
-      { value: "in_progress", label: `In Progress (${statusCounts.in_progress || 0})` },
-      { value: "waiting_creator", label: `Waiting You (${statusCounts.waiting_creator || 0})` },
-      { value: "resolved", label: `Resolved (${statusCounts.resolved || 0})` },
-      { value: "closed", label: `Closed (${statusCounts.closed || 0})` },
+      { value: "all", label: "All Tickets", count: allCount },
+      { value: "open", label: "Open", count: Number(statusCounts.open || 0) },
+      { value: "in_progress", label: "In Progress", count: inProgressCount },
+      { value: "resolved", label: "Resolved", count: Number(statusCounts.resolved || 0) },
+      { value: "closed", label: "Closed", count: Number(statusCounts.closed || 0) },
     ],
-    [statusCounts]
+    [allCount, inProgressCount, statusCounts.closed, statusCounts.open, statusCounts.resolved]
   );
 
-  const summaryCards = [
-    { label: "Open", value: statusCounts.open || 0, tone: "text-[#1d4ed8] bg-[#eff6ff]" },
-    { label: "In Progress", value: statusCounts.in_progress || 0, tone: "text-[#4338ca] bg-[#eef2ff]" },
-    { label: "Waiting You", value: statusCounts.waiting_creator || 0, tone: "text-[#c2410c] bg-[#fff7ed]" },
-    { label: "Resolved", value: statusCounts.resolved || 0, tone: "text-[#047857] bg-[#ecfdf5]" },
-  ];
+  async function handleCloseTicket(ticketId: string) {
+    if (!token) return;
 
-  function handleSearchSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setPage(1);
-    setKeyword(keywordInput.trim());
+    setClosingTicketId(ticketId);
+    setError("");
+
+    try {
+      await creatorApi.closeTicket(token, ticketId);
+      setActionTicketId(null);
+      await loadTickets();
+    } catch (err: any) {
+      setError(err?.message || "Failed to close ticket");
+    } finally {
+      setClosingTicketId(null);
+    }
   }
 
   return (
-    <div className="space-y-5">
-      <section className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-8">
+      <section className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1876f2]">Creator Support</p>
-          <h1 className="mt-2 text-[30px] font-black tracking-[-0.03em] text-[#0f172a] md:text-[34px]">Support Tickets</h1>
-          <p className="mt-2 max-w-4xl text-[13px] leading-6 text-[#64748b]">
-            Use creator tickets for settlement disputes, content appeals, DMCA or rights issues, account problems, and upload blockers.
+          <h1 className="text-[44px] font-black leading-[1.05] tracking-[-0.04em] text-[#18233a]">Support Tickets</h1>
+          <p className="mt-2 max-w-[620px] text-[15px] leading-7 text-[#70819c]">
+            Manage and track your creator support tickets across monetization, content review, platform issues, and account operations.
           </p>
         </div>
 
         <Link
           href={localizePath("/creator/tickets/new", locale)}
-          className="inline-flex items-center gap-2 rounded-2xl bg-[#1876f2] px-4 py-2 text-[13px] font-bold text-white hover:bg-[#1669da]"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-[16px] bg-[#2d7af0] px-6 text-[15px] font-semibold text-white shadow-[0_10px_24px_rgba(45,122,240,0.28)] transition hover:bg-[#1d6ee8]"
         >
           <Plus className="h-4 w-4" />
-          New Ticket
+          Create New Ticket
         </Link>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {summaryCards.map((card) => (
-          <article key={card.label} className="rounded-2xl border border-[#e2e8f0] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-            <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${card.tone}`}>{card.label}</span>
-            <p className="mt-4 text-[28px] font-black tracking-[-0.03em] text-[#0f172a]">{card.value}</p>
-          </article>
-        ))}
-      </section>
+      <section className="overflow-hidden rounded-[28px] border border-[#dbe4ef] bg-white shadow-[0_20px_48px_rgba(15,23,42,0.05)]">
+        <div className="border-b border-[#edf2f7] px-4 py-4 md:px-6">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="relative w-full max-w-[424px]">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8da0bb]" />
+              <input
+                value={keywordInput}
+                onChange={(event) => setKeywordInput(event.target.value)}
+                placeholder="Search by ticket ID or subject..."
+                className="h-[44px] w-full rounded-full border border-[#d9e2ef] bg-[#fbfdff] pl-11 pr-4 text-[14px] text-[#18233a] outline-none transition placeholder:text-[#9aa8bc] focus:border-[#2d7af0]"
+              />
+            </div>
 
-      <section className="rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-        <div className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 text-[13px] leading-6 text-[#475569]">
-          Fastest resolution happens when the ticket includes the affected drama title, settlement cycle, review note, bank-account state, or upload error details.
-        </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <form onSubmit={handleSearchSubmit} className="relative min-w-[320px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]" />
-            <input
-              value={keywordInput}
-              onChange={(event) => setKeywordInput(event.target.value)}
-              placeholder="Search subject, ticket no, settlement cycle, or drama title"
-              className="h-10 w-full rounded-2xl border border-[#e2e8f0] bg-white pl-10 pr-3 text-[13px] text-[#0f172a] outline-none focus:border-[#1876f2]"
-            />
-          </form>
-
-          <select
-            value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
-              setPage(1);
-            }}
-            className="h-10 rounded-2xl border border-[#e2e8f0] bg-white px-3 text-[13px] text-[#334155] outline-none"
-          >
-            {statusOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            <div className="flex flex-wrap gap-2">
+              {filters.map((filter) => {
+                const active = filter.value === status;
+                return (
+                  <button
+                    key={filter.value}
+                    type="button"
+                    onClick={() => {
+                      setPage(1);
+                      setStatus(filter.value);
+                    }}
+                    className={`rounded-full border px-4 py-2 text-[13px] font-semibold transition ${
+                      active
+                        ? "border-[#dbe3ee] bg-[#eef2f6] text-[#1e293b]"
+                        : "border-[#dde5f0] bg-white text-[#52637e] hover:border-[#cbd8e6] hover:bg-[#f8fbff]"
+                    }`}
+                  >
+                    {filter.label}
+                    {filter.count > 0 ? <span className="ml-1 text-[#8fa0b6]">{filter.count}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {error ? (
-          <div className="mt-4 rounded-2xl border border-[#fecaca] bg-[#fff1f2] px-4 py-3 text-[13px] text-[#9f1239]">{error}</div>
+          <div className="border-b border-[#fee2e2] bg-[#fff5f5] px-6 py-3 text-[13px] text-[#c2410c]">{error}</div>
         ) : null}
 
-        <div className="mt-5 overflow-hidden rounded-2xl border border-[#e2e8f0]">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-[#f8fafc] text-left text-[11px] font-bold uppercase tracking-[0.08em] text-[#64748b]">
-                <th className="px-4 py-3">Ticket</th>
-                <th className="px-4 py-3">Category</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Priority</th>
-                <th className="px-4 py-3">Updated</th>
-                <th className="px-4 py-3" />
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-[13px] text-[#64748b]">
-                    Loading tickets...
-                  </td>
-                </tr>
-              ) : tickets.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8">
-                    <div className="mx-auto max-w-xl rounded-2xl border border-dashed border-[#cbd5e1] bg-[#f8fafc] px-5 py-6 text-center">
-                      <LifeBuoy className="mx-auto h-8 w-8 text-[#94a3b8]" />
-                      <p className="mt-3 text-[15px] font-semibold text-[#0f172a]">No tickets found</p>
-                      <p className="mt-2 text-[13px] leading-6 text-[#64748b]">
-                        Open a new ticket when you need help with settlement disputes, content appeals, or technical blockers.
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                tickets.map((ticket) => (
-                  <tr key={ticket._id} className="border-t border-[#e2e8f0] text-[13px] text-[#0f172a]">
-                    <td className="px-4 py-4 align-top">
-                      <p className="font-semibold">{ticket.subject}</p>
-                      <p className="mt-1 text-xs text-[#64748b]">{ticket.ticketNo}</p>
-                      {ticket.latestMessage ? (
-                        <p className="mt-2 max-w-[320px] truncate text-xs text-[#64748b]">{ticket.latestMessage}</p>
-                      ) : null}
-                    </td>
-                    <td className="px-4 py-4 align-top text-xs text-[#475569]">
-                      {getCreatorTicketCategoryLabel(ticket.category as any)}
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getCreatorTicketStatusClassName(ticket.status)}`}>
-                        {getCreatorTicketStatusLabel(ticket.status)}
-                      </span>
-                    </td>
-                    <td className={`px-4 py-4 align-top text-xs font-semibold uppercase ${getCreatorTicketPriorityClassName(ticket.priority)}`}>
-                      {ticket.priority}
-                    </td>
-                    <td className="px-4 py-4 align-top text-xs text-[#64748b]">{formatTime(ticket.updatedAt)}</td>
-                    <td className="px-4 py-4 align-top text-right">
-                      <Link href={localizePath(`/creator/tickets/${ticket._id}`, locale)} className="text-xs font-semibold text-[#1876f2] hover:text-[#1669da]">
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="overflow-x-auto">
+          <div className="min-w-[926px]">
+            <div className={`${TABLE_GRID} border-b border-[#edf2f7] bg-[#fbfcfe] px-6 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7f90a8]`}>
+              <div className="py-5">Ticket ID</div>
+              <div className="py-5">Subject</div>
+              <div className="py-5">Category</div>
+              <div className="py-5">Priority</div>
+              <div className="py-5 leading-4">Last Update</div>
+              <div className="py-5">Status</div>
+              <div className="py-5 text-center">Actions</div>
+            </div>
+
+            {loading ? (
+              <div className="px-6 py-16 text-center text-[14px] text-[#64748b]">Loading tickets...</div>
+            ) : tickets.length === 0 ? (
+              <div className="px-6 py-16">
+                <div className="flex flex-col items-center rounded-[24px] border border-dashed border-[#d7e1ec] bg-[#fbfdff] px-6 py-12 text-center">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eff6ff] text-[#2d7af0]">
+                    <LifeBuoy className="h-6 w-6" />
+                  </div>
+                  <p className="mt-4 text-[18px] font-bold text-[#18233a]">No tickets yet</p>
+                  <p className="mt-2 max-w-[420px] text-[14px] leading-6 text-[#70819c]">
+                    Create a new ticket when you need help with payouts, review feedback, upload blockers, or creator account support.
+                  </p>
+                  <Link
+                    href={localizePath("/creator/tickets/new", locale)}
+                    className="mt-5 inline-flex h-11 items-center justify-center rounded-[14px] bg-[#2d7af0] px-5 text-[14px] font-semibold text-white transition hover:bg-[#1d6ee8]"
+                  >
+                    Submit New Ticket
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              tickets.map((ticket) => (
+                <div key={ticket._id} className={`${TABLE_GRID} items-center border-b border-[#edf2f7] px-6 text-[14px] text-[#1e293b]`}>
+                  <div className="py-5 text-[13px] leading-5 text-[#71819b] break-words">#{ticket.ticketNo}</div>
+                  <div className="py-4 pr-4">
+                    <Link href={localizePath(`/creator/tickets/${ticket._id}`, locale)} className="line-clamp-2 text-[15px] font-semibold leading-5 text-[#1e293b] transition hover:text-[#2d7af0]">
+                      {ticket.subject}
+                    </Link>
+                    <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-[#98a7ba]">{ticket.latestMessage || "No recent message preview."}</p>
+                  </div>
+                  <div className="py-5 text-[14px] text-[#61728e]">{getCreatorTicketCategoryShortLabel(ticket.category as any)}</div>
+                  <div className="py-5">
+                    <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.04em] ${getCreatorTicketPriorityBadgeClassName(ticket.priority)}`}>
+                      {getCreatorTicketPriorityLabel(ticket.priority)}
+                    </span>
+                  </div>
+                  <div className="py-5 pr-4 text-[14px] leading-5 text-[#71819b]">{formatRelativeTime(ticket.updatedAt || ticket.lastMessageAt)}</div>
+                  <div className={`flex items-center gap-2 py-5 text-[14px] font-semibold ${getCreatorTicketStatusTextClassName(ticket.status)}`}>
+                    <span className={`h-2 w-2 rounded-full ${getCreatorTicketStatusDotClassName(ticket.status)}`} />
+                    <span>{getCreatorTicketStatusLabel(ticket.status)}</span>
+                  </div>
+                  <div className="relative flex justify-center py-5">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setActionTicketId((current) => (current === ticket._id ? null : ticket._id));
+                      }}
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-[#94a3b8] transition hover:bg-[#f5f8fc] hover:text-[#42536b]"
+                    >
+                      <Ellipsis className="h-5 w-5" />
+                    </button>
+
+                    {actionTicketId === ticket._id ? (
+                      <div
+                        className="absolute right-0 top-12 z-20 min-w-[170px] rounded-2xl border border-[#dbe4ef] bg-white p-2 shadow-[0_18px_38px_rgba(15,23,42,0.12)]"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <Link
+                          href={localizePath(`/creator/tickets/${ticket._id}`, locale)}
+                          className="flex rounded-xl px-3 py-2 text-[13px] font-medium text-[#334155] transition hover:bg-[#f8fbff] hover:text-[#2d7af0]"
+                        >
+                          View details
+                        </Link>
+                        {ticket.status !== "closed" ? (
+                          <button
+                            type="button"
+                            disabled={closingTicketId === ticket._id}
+                            onClick={() => handleCloseTicket(ticket._id)}
+                            className="flex w-full rounded-xl px-3 py-2 text-left text-[13px] font-medium text-[#c2410c] transition hover:bg-[#fff7ed] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {closingTicketId === ticket._id ? "Closing..." : "Close ticket"}
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
-        {totalPages > 1 ? (
-          <div className="mt-5 flex items-center justify-end gap-3 text-[13px] text-[#475569]">
+        <div className="flex items-center justify-between px-6 py-5 text-[13px] text-[#70819c]">
+          <p>
+            Showing {tickets.length} of {total || tickets.length} tickets
+          </p>
+          <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
-              className="rounded-xl border border-[#e2e8f0] px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dbe4ef] bg-white text-[#8ea0b6] transition hover:bg-[#f8fbff] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Previous
+              <ChevronLeft className="h-4 w-4" />
             </button>
-            <span>
-              Page {page} / {totalPages}
-            </span>
             <button
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-              className="rounded-xl border border-[#e2e8f0] px-3 py-1.5 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dbe4ef] bg-white text-[#8ea0b6] transition hover:bg-[#f8fbff] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Next
+              <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-        ) : null}
+        </div>
+      </section>
+
+      <section className="grid gap-4 xl:grid-cols-3">
+        <MetricCard
+          icon={<MessageSquareDashed className="h-5 w-5" />}
+          title="Average Response Time"
+          value="24h"
+          helper="Typical first-response SLA for creator support tickets."
+          tone="blue"
+        />
+        <MetricCard
+          icon={<CircleHelp className="h-5 w-5" />}
+          title="Resolved Tickets"
+          value={String(Number(statusCounts.resolved || 0) + Number(statusCounts.closed || 0))}
+          helper="Resolved and closed tickets across your current support history."
+          tone="green"
+        />
+        <MetricCard
+          icon={<Bot className="h-5 w-5" />}
+          title="AI Help Center"
+          helper="Try the guided help flow before opening a new ticket for routine technical checks."
+          tone="slate"
+          cta="Create guided ticket"
+          href={localizePath("/creator/tickets/new", locale)}
+        />
       </section>
     </div>
   );

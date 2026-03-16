@@ -394,11 +394,43 @@ export function getCreatorTicketCategoryLabel(category: CreatorTicketCategory): 
   }
 }
 
+export function getCreatorTicketCategoryShortLabel(category: CreatorTicketCategory): string {
+  switch (category) {
+    case "payment":
+      return "Monetization";
+    case "content":
+      return "Content";
+    case "policy":
+      return "Rights";
+    case "account":
+      return "Account";
+    case "technical":
+      return "Technical";
+    default:
+      return "Other";
+  }
+}
+
 export function getCreatorTicketCategoryDescription(category: CreatorTicketCategory): string {
   return (
     CREATOR_TICKET_CATEGORY_OPTIONS.find((option) => option.value === category)?.description ||
     "General creator support request."
   );
+}
+
+export function getCreatorTicketPriorityLabel(priority: string): string {
+  switch (priority) {
+    case "low":
+      return "Low";
+    case "medium":
+      return "Medium";
+    case "high":
+      return "High";
+    case "urgent":
+      return "Urgent";
+    default:
+      return priority || "Unknown";
+  }
 }
 
 export function getCreatorTicketStatusLabel(status: string): string {
@@ -439,6 +471,44 @@ export function getCreatorTicketStatusClassName(status: string): string {
   }
 }
 
+export function getCreatorTicketStatusTextClassName(status: string): string {
+  switch (status) {
+    case "open":
+      return "text-[#2563eb]";
+    case "in_progress":
+      return "text-[#d97706]";
+    case "waiting_support":
+      return "text-[#a16207]";
+    case "waiting_creator":
+      return "text-[#ea580c]";
+    case "resolved":
+      return "text-[#059669]";
+    case "closed":
+      return "text-[#94a3b8]";
+    default:
+      return "text-[#64748b]";
+  }
+}
+
+export function getCreatorTicketStatusDotClassName(status: string): string {
+  switch (status) {
+    case "open":
+      return "bg-[#2563eb]";
+    case "in_progress":
+      return "bg-[#f59e0b]";
+    case "waiting_support":
+      return "bg-[#ca8a04]";
+    case "waiting_creator":
+      return "bg-[#f97316]";
+    case "resolved":
+      return "bg-[#10b981]";
+    case "closed":
+      return "bg-[#cbd5e1]";
+    default:
+      return "bg-[#94a3b8]";
+  }
+}
+
 export function getCreatorTicketPriorityClassName(priority: string): string {
   switch (priority) {
     case "low":
@@ -451,5 +521,20 @@ export function getCreatorTicketPriorityClassName(priority: string): string {
       return "text-[#b91c1c]";
     default:
       return "text-[#475569]";
+  }
+}
+
+export function getCreatorTicketPriorityBadgeClassName(priority: string): string {
+  switch (priority) {
+    case "low":
+      return "bg-[#f1f5f9] text-[#64748b]";
+    case "medium":
+      return "bg-[#fef3c7] text-[#d97706]";
+    case "high":
+      return "bg-[#fee2e2] text-[#ef4444]";
+    case "urgent":
+      return "bg-[#fee2e2] text-[#b91c1c]";
+    default:
+      return "bg-[#f1f5f9] text-[#475569]";
   }
 }

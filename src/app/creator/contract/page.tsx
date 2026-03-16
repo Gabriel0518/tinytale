@@ -37,7 +37,7 @@ export default function CreatorContractPage() {
       ]}
       actions={[
         { label: "Open Settlements", href: "/creator/settlements" },
-        { label: "Profile Settings", href: "/creator/settings/profile", variant: "secondary" },
+        { label: "Account Settings", href: "/creator/settings", variant: "secondary" },
       ]}
     />
   );

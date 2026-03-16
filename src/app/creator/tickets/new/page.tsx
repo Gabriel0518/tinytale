@@ -3,57 +3,81 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, LifeBuoy } from "lucide-react";
+import {
+  Bold,
+  Code2,
+  ImagePlus,
+  Italic,
+  Link2,
+  List,
+  MessageSquareMore,
+  PlaySquare,
+  UploadCloud,
+  X,
+} from "lucide-react";
 import { useLocale } from "@/hooks/useLocale";
 import { creatorApi } from "@/lib/api";
-import {
-  CREATOR_TICKET_CATEGORY_OPTIONS,
-  getCreatorTicketCategoryDescription,
-} from "@/lib/creator";
+import { CREATOR_TICKET_CATEGORY_OPTIONS } from "@/lib/creator";
 import { localizePath } from "@/lib/i18n";
 import { useAuth } from "@/lib/authContext";
 import type { CreatorTicketCategory, CreatorTicketPriority } from "@/types/creator";
 
-const PRIORITY_OPTIONS: Array<{ value: CreatorTicketPriority; label: string; helper: string }> = [
-  { value: "low", label: "Low", helper: "General questions with no active blocker." },
-  { value: "medium", label: "Medium", helper: "Normal creator operations request." },
-  { value: "high", label: "High", helper: "Revenue, review, or publishing blocker." },
-  { value: "urgent", label: "Urgent", helper: "Critical issue affecting multiple titles or payouts." },
+const INPUT_CLASS_NAME =
+  "h-[46px] w-full rounded-full border border-[#d9e2ef] bg-[#fbfdff] px-4 text-[14px] text-[#18233a] outline-none transition placeholder:text-[#9aa8bc] focus:border-[#2d7af0]";
+
+const PRIORITY_OPTIONS: Array<{ value: CreatorTicketPriority; label: string }> = [
+  { value: "low", label: "Low - General Question" },
+  { value: "medium", label: "Medium - Standard Issue" },
+  { value: "high", label: "High - Important Blocker" },
+  { value: "urgent", label: "Urgent - Critical Account Issue" },
 ];
 
-function getSuggestedReferences(category: CreatorTicketCategory): string[] {
-  switch (category) {
-    case "payment":
-      return ["Settlement cycle", "Statement ID", "Affected drama title", "Expected vs actual amount"];
-    case "content":
-      return ["Drama title", "Review status", "Rejection or suspension note", "Requested correction"];
-    case "policy":
-      return ["Claim or notice number", "Rights owner name", "Affected title", "Supporting links"];
-    case "account":
-      return ["Account email", "Bank review state", "Profile change needed", "Steps already tried"];
-    case "technical":
-      return ["Drama or episode title", "Upload step", "Error text", "Browser or device"];
-    default:
-      return ["What happened", "When it started", "What is blocked", "Preferred outcome"];
-  }
+function FooterHelpCard({
+  icon,
+  title,
+  description,
+  cta,
+  href,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  cta: string;
+  href: string;
+}) {
+  return (
+    <article className="rounded-[24px] border border-[#d9e2ef] bg-[#edf4fd] px-5 py-6 shadow-[0_12px_30px_rgba(15,23,42,0.04)]">
+      <div className="text-[#2d7af0]">{icon}</div>
+      <h3 className="mt-5 text-[15px] font-bold text-[#18233a]">{title}</h3>
+      <p className="mt-2 text-[13px] leading-5 text-[#64748b]">{description}</p>
+      <Link href={href} className="mt-4 inline-flex text-[13px] font-semibold text-[#2d7af0] transition hover:text-[#165fcc]">
+        {cta}
+      </Link>
+    </article>
+  );
+}
+
+async function uploadTicketAttachments(token: string, files: File[]): Promise<string[]> {
+  if (!files.length) return [];
+  const uploaded = await Promise.all(files.map((file) => creatorApi.uploadTicketAttachment(token, file)));
+  return uploaded.map((item) => item.data.url);
 }
 
 export default function CreatorTicketCreatePage() {
   const locale = useLocale();
   const router = useRouter();
   const { token } = useAuth();
+  const attachmentInputRef = useRef<HTMLInputElement | null>(null);
 
   const [subject, setSubject] = useState("");
   const [category, setCategory] = useState<CreatorTicketCategory>("payment");
-  const [priority, setPriority] = useState<CreatorTicketPriority>("medium");
+  const [priority, setPriority] = useState<CreatorTicketPriority>("low");
   const [message, setMessage] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-
-  const selectedPriority = PRIORITY_OPTIONS.find((option) => option.value === priority) || PRIORITY_OPTIONS[1];
-  const selectedCategory = CREATOR_TICKET_CATEGORY_OPTIONS.find((option) => option.value === category) || CREATOR_TICKET_CATEGORY_OPTIONS[0];
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -66,7 +90,7 @@ export default function CreatorTicketCreatePage() {
       return;
     }
     if (!cleanMessage) {
-      setError("Message is required");
+      setError("Description is required");
       return;
     }
     if (!token) {
@@ -78,11 +102,13 @@ export default function CreatorTicketCreatePage() {
     setError("");
 
     try {
+      const attachmentUrls = await uploadTicketAttachments(token, attachments);
       const res: any = await creatorApi.createTicket(token, {
         subject: cleanSubject,
         category,
         priority,
         message: cleanMessage,
+        attachments: attachmentUrls,
       });
       const ticketId = res?.data?._id;
       if (ticketId) {
@@ -97,150 +123,184 @@ export default function CreatorTicketCreatePage() {
     }
   }
 
+  function handleAttachmentSelect(files: FileList | null) {
+    if (!files) return;
+
+    const selected = Array.from(files).filter((file) => file.size <= 10 * 1024 * 1024).slice(0, 5);
+    setAttachments(selected);
+  }
+
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3">
-        <Link
-          href={localizePath("/creator/tickets", locale)}
-          className="inline-flex items-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-3 py-2 text-sm font-semibold text-[#334155]"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
+    <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-8">
+      <nav className="flex items-center gap-2 text-[14px] text-[#7d8da4]">
+        <Link href={localizePath("/creator/tickets", locale)} className="transition hover:text-[#2d7af0]">
+          Support
         </Link>
-      </div>
+        <span>›</span>
+        <span className="font-medium text-[#4a5b75]">Submit New Ticket</span>
+      </nav>
 
-      <section className="rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1876f2]">Creator Support</p>
-            <h1 className="mt-2 text-[30px] font-black leading-[1.08] tracking-[-0.02em] text-[#0f172a] md:text-[34px]">Create Ticket</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#64748b]">
-              Use creator tickets when a settlement, review result, rights issue, account state, or upload problem needs manual support.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 text-[13px] leading-6 text-[#475569] lg:max-w-sm">
-            Tickets now follow the creator workflow. Pick the category that best matches the blocked operation so support can route it correctly.
-          </div>
-        </div>
+      <section>
+        <h1 className="text-[44px] font-black leading-[1.05] tracking-[-0.04em] text-[#18233a]">Submit New Ticket</h1>
+        <p className="mt-3 max-w-[680px] text-[15px] leading-7 text-[#70819c]">
+          Fill out the form below and our creator support team will get back to you within 24 hours. Please be as descriptive as possible to help us resolve your issue quickly.
+        </p>
+      </section>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {CREATOR_TICKET_CATEGORY_OPTIONS.map((option) => {
-            const active = option.value === category;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setCategory(option.value)}
-                className={`rounded-2xl border p-3.5 text-left transition-colors ${
-                  active ? "border-[#93c5fd] bg-[#f8fbff]" : "border-[#e2e8f0] bg-white hover:bg-[#f8fafc]"
-                }`}
+      <form onSubmit={handleSubmit} className="overflow-hidden rounded-[28px] border border-[#dbe4ef] bg-white shadow-[0_20px_48px_rgba(15,23,42,0.05)]">
+        <div className="space-y-6 px-6 py-8 md:px-8 md:py-8">
+          <div className="grid gap-6 md:grid-cols-2">
+            <label className="block">
+              <span className="mb-3 block text-[15px] font-semibold text-[#334155]">Category</span>
+              <select
+                value={category}
+                onChange={(event) => setCategory(event.target.value as CreatorTicketCategory)}
+                className={`${INPUT_CLASS_NAME} appearance-none pr-10`}
               >
-                <p className="text-sm font-bold text-[#0f172a]">{option.label}</p>
-                <p className="mt-2 text-sm leading-6 text-[#64748b]">{option.description}</p>
-              </button>
-            );
-          })}
-        </div>
+                {CREATOR_TICKET_CATEGORY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        <form className="mt-5 grid gap-5 xl:grid-cols-[1fr_300px]" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-[#334155]">Subject</label>
-              <input
-                value={subject}
-                onChange={(event) => setSubject(event.target.value)}
-                maxLength={160}
-                placeholder="Example: February settlement amount looks lower than expected"
-                className="h-10 w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] px-4 text-sm text-[#0f172a] outline-none focus:border-[#1876f2]"
-              />
-            </div>
+            <label className="block">
+              <span className="mb-3 block text-[15px] font-semibold text-[#334155]">Priority Level</span>
+              <select
+                value={priority}
+                onChange={(event) => setPriority(event.target.value as CreatorTicketPriority)}
+                className={`${INPUT_CLASS_NAME} appearance-none pr-10`}
+              >
+                {PRIORITY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#334155]">Category</label>
-                <select
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value as CreatorTicketCategory)}
-                  className="h-10 w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] px-4 text-sm text-[#0f172a] outline-none focus:border-[#1876f2]"
-                >
-                  {CREATOR_TICKET_CATEGORY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-2 text-xs leading-5 text-[#64748b]">{getCreatorTicketCategoryDescription(category)}</p>
+          <label className="block">
+            <span className="mb-3 block text-[15px] font-semibold text-[#334155]">Subject</span>
+            <input
+              value={subject}
+              onChange={(event) => setSubject(event.target.value)}
+              maxLength={160}
+              placeholder="Summary of the issue"
+              className={INPUT_CLASS_NAME}
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-3 block text-[15px] font-semibold text-[#334155]">Description</span>
+            <div className="overflow-hidden rounded-[24px] border border-[#d9e2ef] bg-[#fbfdff]">
+              <div className="flex items-center gap-0.5 border-b border-[#e9eff6] px-3 py-2 text-[#5c6d88]">
+                {[Bold, Italic, List, Link2, ImagePlus, Code2].map((Icon, index) => (
+                  <button
+                    key={`${Icon.displayName || Icon.name}-${index}`}
+                    type="button"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg transition hover:bg-[#eef4fb]"
+                  >
+                    <Icon className="h-4 w-4" />
+                  </button>
+                ))}
               </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-semibold text-[#334155]">Priority</label>
-                <select
-                  value={priority}
-                  onChange={(event) => setPriority(event.target.value as CreatorTicketPriority)}
-                  className="h-10 w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] px-4 text-sm text-[#0f172a] outline-none focus:border-[#1876f2]"
-                >
-                  {PRIORITY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="mt-2 text-xs leading-5 text-[#64748b]">{selectedPriority.helper}</p>
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-semibold text-[#334155]">Message</label>
               <textarea
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                rows={8}
+                rows={7}
                 maxLength={2000}
-                placeholder="Describe what happened, what is blocked, and what outcome you need from creator support."
-                className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] p-4 text-sm text-[#0f172a] outline-none focus:border-[#1876f2]"
+                placeholder="Describe your issue in detail..."
+                className="min-h-[122px] w-full resize-none bg-transparent px-4 py-4 text-[14px] leading-7 text-[#18233a] outline-none placeholder:text-[#9aa8bc]"
               />
             </div>
+          </label>
 
-            {error ? <p className="text-sm text-[#dc2626]">{error}</p> : null}
+          <div>
+            <span className="mb-3 block text-[15px] font-semibold text-[#334155]">Attachments (Screenshots or Logs)</span>
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              multiple
+              accept=".png,.jpg,.jpeg,.webp,.pdf,.txt,.log,.csv,.json,.zip"
+              className="hidden"
+              onChange={(event) => handleAttachmentSelect(event.target.files)}
+            />
+            <button
+              type="button"
+              onClick={() => attachmentInputRef.current?.click()}
+              className="flex min-h-[172px] w-full flex-col items-center justify-center rounded-[24px] border border-dashed border-[#d7e2ef] bg-white px-6 text-center transition hover:border-[#bfd3ee] hover:bg-[#fbfdff]"
+            >
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#eef5ff] text-[#2d7af0]">
+                <UploadCloud className="h-5 w-5" />
+              </span>
+              <span className="mt-4 text-[18px] font-semibold text-[#18233a]">Click to upload or drag and drop</span>
+              <span className="mt-1 text-[13px] text-[#7b8aa0]">JPG, PNG, WebP, PDF, TXT, CSV, JSON or ZIP up to 10MB each</span>
+            </button>
 
-            <div className="flex justify-end gap-3 pt-1">
-              <Link
-                href={localizePath("/creator/tickets", locale)}
-                className="rounded-2xl border border-[#e2e8f0] bg-white px-4 py-2 text-[13px] font-semibold text-[#334155]"
-              >
-                Cancel
-              </Link>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-2xl bg-[#1876f2] px-4 py-2 text-[13px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {submitting ? "Creating..." : "Create Ticket"}
-              </button>
-            </div>
+            {attachments.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {attachments.map((file) => (
+                  <span
+                    key={`${file.name}-${file.size}`}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#d7e2ef] bg-[#f8fbff] px-3 py-1.5 text-[12px] font-medium text-[#4a5b75]"
+                  >
+                    <span>{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachments((current) => current.filter((item) => item !== file))}
+                      className="rounded-full p-0.5 text-[#8ea0b6] transition hover:bg-[#eef4fb] hover:text-[#42536b]"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </div>
+        </div>
 
-          <aside className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#eff6ff] text-[#1876f2]">
-                <LifeBuoy className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-[#0f172a]">{selectedCategory.label}</p>
-                <p className="text-xs text-[#64748b]">Recommended references</p>
-              </div>
-            </div>
+        <div className="flex flex-col gap-3 border-t border-[#eef2f7] px-6 py-5 md:flex-row md:items-center md:justify-end md:px-8">
+          {error ? <p className="text-[13px] text-[#dc2626] md:mr-auto">{error}</p> : <div className="md:mr-auto" />}
+          <Link
+            href={localizePath("/creator/tickets", locale)}
+            className="inline-flex h-11 items-center justify-center rounded-[14px] px-5 text-[14px] font-semibold text-[#4a5b75] transition hover:bg-[#f8fbff]"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="inline-flex h-11 items-center justify-center rounded-[14px] bg-[#2d7af0] px-6 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(45,122,240,0.28)] transition hover:bg-[#1d6ee8] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting ? "Submitting..." : "Submit Ticket"}
+          </button>
+        </div>
+      </form>
 
-            <ul className="mt-4 space-y-2 text-sm leading-6 text-[#475569]">
-              {getSuggestedReferences(category).map((item) => (
-                <li key={item} className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#1876f2]" />
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </aside>
-        </form>
+      <section className="grid gap-4 xl:grid-cols-3">
+        <FooterHelpCard
+          icon={<MessageSquareMore className="h-5 w-5" />}
+          title="Knowledge Base"
+          description="Search our library of creator guides, payout policies, and troubleshooting notes."
+          cta="Browse docs"
+          href={localizePath("/help", locale)}
+        />
+        <FooterHelpCard
+          icon={<MessageSquareMore className="h-5 w-5" />}
+          title="Community Forum"
+          description="Get help from fellow creators while waiting for a support agent reply."
+          cta="Join discussion"
+          href={localizePath("/creator/tickets", locale)}
+        />
+        <FooterHelpCard
+          icon={<PlaySquare className="h-5 w-5" />}
+          title="Video Tutorials"
+          description="Watch guided walkthroughs for common upload, subtitle, and review issues."
+          cta="Watch now"
+          href={localizePath("/creator/dashboard", locale)}
+        />
       </section>
     </div>
   );
