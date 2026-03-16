@@ -480,3 +480,29 @@ export interface CreatorSettlementDetail {
     disputedAt: string | null;
   };
 }
+
+export type CreatorNotificationCategory = "system" | "performance";
+export type CreatorNotificationIcon = "system" | "ticket" | "settlement" | "performance" | "contract";
+
+export interface CreatorNotification {
+  id: string;
+  category: CreatorNotificationCategory;
+  title: string;
+  message: string;
+  href: string;
+  icon: CreatorNotificationIcon;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface CreatorNotificationSummary {
+  total: number;
+  system: number;
+  performance: number;
+}
+
+export interface CreatorNotificationListResponse {
+  notifications: CreatorNotification[];
+  unreadCount: number;
+  summary: CreatorNotificationSummary;
+}

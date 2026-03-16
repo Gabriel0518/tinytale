@@ -7,6 +7,7 @@ import type {
   CreatorDramaEpisodesResponse,
   CreatorDramaListResponse,
   CreatorEpisodeItem,
+  CreatorNotificationListResponse,
   CreatorRevenueAnalytics,
   CreatorSettlementBankAccount,
   CreatorSettlementDetail,
@@ -522,6 +523,15 @@ export const creatorApi = {
 
   getSettlementTaxInfo: (token: string) =>
     api.get<{ success: boolean; data: CreatorSettlementTaxInfo }>(`/api/creator/settlements/tax-info`, { token }),
+
+  getNotifications: (token: string) =>
+    api.get<{ success: boolean; data: CreatorNotificationListResponse }>(`/api/creator/notifications`, { token }),
+
+  markNotificationRead: (token: string, id: string) =>
+    api.put<{ success: boolean; data: { id: string; read: boolean } }>(`/api/creator/notifications/${id}/read`, {}, { token }),
+
+  markAllNotificationsRead: (token: string) =>
+    api.put<{ success: boolean; data: { readCount: number; unreadCount: number } }>(`/api/creator/notifications/read-all`, {}, { token }),
 
   updateSettlementBankAccount: (
     token: string,
