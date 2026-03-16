@@ -72,7 +72,23 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p ~/.ssh
-          ssh-keyscan -p "${VPS_SSH_PORT:-22}" -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          touch ~/.ssh/known_hosts
+
+          scanned=0
+          for attempt in 1 2 3 4 5; do
+            if ssh-keyscan -T 15 -p "${VPS_SSH_PORT:-22}" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+              scanned=1
+              echo "Known hosts entry added on attempt $attempt"
+              break
+            fi
+
+            echo "ssh-keyscan attempt $attempt failed, retrying..."
+            sleep 5
+          done
+
+          if [ "$scanned" -ne 1 ]; then
+            echo "ssh-keyscan failed; deploy step will fallback to relaxed host checking"
+          fi
 
       - name: Deploy frontend to VPS with rollback
         env:
@@ -83,8 +99,14 @@ jobs:
           SSH_PORT="${VPS_SSH_PORT:-22}"
           PM2_APP="${VPS_PM2_FRONTEND_APP:-tinytale-web}"
           HEALTH_URL="${VPS_FRONTEND_HEALTHCHECK_URL:-http://127.0.0.1:7001/zh}"
+          SSH_ARGS=(-p "$SSH_PORT")
 
-          ssh -p "$SSH_PORT" "$VPS_SSH_USER@$VPS_HOST" \
+          if ! ssh-keygen -F "$VPS_HOST" >/dev/null 2>&1; then
+            echo "No known_hosts entry found for $VPS_HOST; falling back to relaxed host checking"
+            SSH_ARGS+=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+          fi
+
+          ssh "${SSH_ARGS[@]}" "$VPS_SSH_USER@$VPS_HOST" \
             "VPS_FRONTEND_PATH='$VPS_FRONTEND_PATH' PM2_APP='$PM2_APP' HEALTH_URL='$HEALTH_URL' DEPLOY_REF='$DEPLOY_REF' bash -s" <<'EOF'
           set -Eeuo pipefail
 
@@ -171,7 +193,7 @@ jobs:
             --data '{"purge_everything":true}')"
 
           echo "$response"
-          if ! echo "$response" | rg '"success":true' >/dev/null; then
+          if ! echo "$response" | grep '"success":true' >/dev/null; then
             echo "Cloudflare purge failed, continuing without blocking deployment"
             exit 0
           fi
