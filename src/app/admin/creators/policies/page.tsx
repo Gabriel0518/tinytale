@@ -86,7 +86,7 @@ export default function CreatorPoliciesPage() {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
         <article className={panelClassName}>
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
@@ -111,7 +111,7 @@ export default function CreatorPoliciesPage() {
               <span>{data.autoReleaseRequiresVerifiedBank ? "Yes" : "No"}</span>
             </div>
           </div>
-          <div className="mt-5 space-y-3">
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
             {data.notes.map((note, index) => (
               <div key={index} className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm leading-6 text-gray-300">
                 {note}

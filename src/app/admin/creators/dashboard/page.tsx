@@ -106,7 +106,7 @@ export default function CreatorAdminDashboardPage() {
         ))}
       </section>
 
-      <section className="space-y-4">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.9fr)]">
         <article className={panelClassName}>
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -170,7 +170,7 @@ export default function CreatorAdminDashboardPage() {
         </article>
       </section>
 
-      <section className="space-y-4">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
         <article className={panelClassName}>
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -179,7 +179,7 @@ export default function CreatorAdminDashboardPage() {
             </div>
             <Link href="/admin/creators/list" className="text-sm font-medium text-indigo-300 hover:text-indigo-200">View all</Link>
           </div>
-          <div className="mt-5 space-y-4">
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-1">
             {data.creatorHighlights.map((item) => {
               const statusMeta = getCreatorLifecycleMeta(item.status);
               return (
@@ -206,7 +206,7 @@ export default function CreatorAdminDashboardPage() {
             </div>
             <Link href="/admin/creators/bank-accounts" className="text-sm font-medium text-indigo-300 hover:text-indigo-200">Bank review</Link>
           </div>
-          <div className="mt-5 space-y-4">
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-1">
             {data.financeWatchlist.map((item) => {
               const bankMeta = getCreatorBankStatusMeta(item.bankStatus);
               return (

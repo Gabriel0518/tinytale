@@ -131,16 +131,16 @@ export default function CreatorContentReviewDetailPage() {
         </div>
       </div>
 
-      <section className="space-y-4">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
         <div className="space-y-4">
           <article className={panelClassName}>
-            <div className="grid gap-4">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
               <div className="overflow-hidden rounded-2xl border border-gray-700/50 bg-[#0f0f17]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={data.cover} alt={data.title} className="h-full w-full object-cover" />
               </div>
               <div className="space-y-4">
-                <div className="grid gap-4">
+                <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-xl bg-[#0f0f17] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Creator</p>
                     <p className="mt-3 font-medium text-white">{data.creatorName}</p>
@@ -188,44 +188,46 @@ export default function CreatorContentReviewDetailPage() {
             </div>
           </article>
 
-          <article className={panelClassName}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
-                <Film className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-white">Episode preview</h2>
-                <p className="text-sm text-gray-400">Spot-check launch readiness before approving publish.</p>
-              </div>
-            </div>
-            <div className="mt-5 space-y-3">
-              {data.episodesPreview.map((episode) => (
-                <div key={episode.id} className="flex items-center justify-between gap-4 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                  <div>
-                    <p className="font-medium text-white">Episode {episode.episodeNumber}: {episode.title}</p>
-                    <p className="mt-1 text-sm text-gray-400">{Math.round(episode.durationSeconds)}s runtime · {episode.status}</p>
-                  </div>
-                  <span className="text-xs text-gray-500">#{episode.episodeNumber.toString().padStart(2, "0")}</span>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <article className={panelClassName}>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
+                  <Film className="h-5 w-5" />
                 </div>
-              ))}
-            </div>
-          </article>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Episode preview</h2>
+                  <p className="text-sm text-gray-400">Spot-check launch readiness before approving publish.</p>
+                </div>
+              </div>
+              <div className="mt-5 space-y-3">
+                {data.episodesPreview.map((episode) => (
+                  <div key={episode.id} className="flex items-center justify-between gap-4 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                    <div>
+                      <p className="font-medium text-white">Episode {episode.episodeNumber}: {episode.title}</p>
+                      <p className="mt-1 text-sm text-gray-400">{Math.round(episode.durationSeconds)}s runtime · {episode.status}</p>
+                    </div>
+                    <span className="text-xs text-gray-500">#{episode.episodeNumber.toString().padStart(2, "0")}</span>
+                  </div>
+                ))}
+              </div>
+            </article>
 
-          <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Review history</h2>
-            <div className="mt-5 space-y-3">
-              {data.reviewHistory.map((item) => (
-                <div key={item.id} className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="font-medium text-white">{item.action}</p>
-                    <span className="text-xs text-gray-500">{formatAdminDate(item.at, true)}</span>
+            <article className={panelClassName}>
+              <h2 className="text-lg font-semibold text-white">Review history</h2>
+              <div className="mt-5 space-y-3">
+                {data.reviewHistory.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="font-medium text-white">{item.action}</p>
+                      <span className="text-xs text-gray-500">{formatAdminDate(item.at, true)}</span>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-400">{item.actor}</p>
+                    <p className="mt-2 text-sm leading-6 text-gray-300">{item.note}</p>
                   </div>
-                  <p className="mt-2 text-sm text-gray-400">{item.actor}</p>
-                  <p className="mt-2 text-sm leading-6 text-gray-300">{item.note}</p>
-                </div>
-              ))}
-            </div>
-          </article>
+                ))}
+              </div>
+            </article>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -261,35 +263,58 @@ export default function CreatorContentReviewDetailPage() {
             </div>
           </article>
           <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Reviewer decision</h2>
-            <div className="mt-5 space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
-                <select value={decision} onChange={(event) => setDecision(event.target.value as Decision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
-                  <option value="approved">Approve and publish</option>
-                  <option value="request_changes">Request changes</option>
-                  <option value="rejected">Reject for rights/policy issues</option>
-                </select>
+            <h2 className="text-lg font-semibold text-white">Submission facts</h2>
+            <div className="mt-5 space-y-3 text-sm text-gray-300">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Drama ID</span>
+                <span>{data.dramaId}</span>
               </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Review note</label>
-                <textarea
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Summarize the publish rationale or the issues the creator must fix."
-                  className="min-h-[160px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
-                />
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Language</span>
+                <span>{data.language}</span>
               </div>
-              <button
-                onClick={handleSubmitReview}
-                disabled={submitting}
-                className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting ? "Saving..." : "Save content review"}
-              </button>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Categories</span>
+                <span>{data.categories.join(", ")}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Reviewed at</span>
+                <span>{data.reviewedAt ? formatAdminDate(data.reviewedAt, true) : "Not reviewed"}</span>
+              </div>
             </div>
           </article>
         </div>
+      </section>
+
+      <section className={panelClassName}>
+        <h2 className="text-lg font-semibold text-white">Reviewer decision</h2>
+        <p className="mt-1 text-sm text-gray-400">Use the content summary, checklist, episode spot-check, and risk panel above before recording the final decision.</p>
+        <div className="mt-5 grid gap-4 xl:grid-cols-[240px_minmax(0,1fr)]">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
+            <select value={decision} onChange={(event) => setDecision(event.target.value as Decision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
+              <option value="approved">Approve and publish</option>
+              <option value="request_changes">Request changes</option>
+              <option value="rejected">Reject for rights/policy issues</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Review note</label>
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Summarize the publish rationale or the issues the creator must fix."
+              className="min-h-[160px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleSubmitReview}
+          disabled={submitting}
+          className="mt-5 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? "Saving..." : "Save content review"}
+        </button>
       </section>
     </div>
   );

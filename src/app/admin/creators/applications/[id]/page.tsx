@@ -377,11 +377,11 @@ export default function CreatorApplicationDetailPage() {
         </div>
       </div>
 
-      <section className="space-y-4">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
         <div className="space-y-4">
           <article className={panelClassName}>
             <h2 className="text-lg font-semibold text-white">Applicant snapshot</h2>
-            <div className="mt-5 grid gap-4">
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Contact</p>
                 <p className="mt-3 font-medium text-white">{data.draft.basicInformation.email}</p>
@@ -394,10 +394,10 @@ export default function CreatorApplicationDetailPage() {
                 <p className="mt-1 text-sm text-gray-400">Signed by {data.draft.agreement.signatureName}</p>
                 <p className="mt-1 text-sm text-gray-500">{formatAdminDate(data.signedAt, true)}</p>
               </div>
-            </div>
-            <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Bio / studio introduction</p>
-              <p className="mt-3 text-sm leading-7 text-gray-300">{data.draft.creativeInformation.bio}</p>
+              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 md:col-span-2">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Bio / studio introduction</p>
+                <p className="mt-3 text-sm leading-7 text-gray-300">{data.draft.creativeInformation.bio}</p>
+              </div>
             </div>
           </article>
 
@@ -535,53 +535,55 @@ export default function CreatorApplicationDetailPage() {
             </div>
           </article>
 
-          <article className={panelClassName}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
-                <FileText className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-white">Submission materials</h2>
-                <p className="text-sm text-gray-400">Identity, portfolio, and agreement evidence submitted by the creator.</p>
-              </div>
-            </div>
-            <div className="mt-5 grid gap-4">
-              <div className="rounded-xl bg-[#0f0f17] p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Portfolio links</p>
-                <div className="mt-3 space-y-2">
-                  {data.draft.creativeInformation.portfolioLinks.map((link) => (
-                    <a key={link} href={link} target="_blank" rel="noreferrer" className="block truncate text-sm text-indigo-300 hover:text-indigo-200">
-                      {link}
-                    </a>
-                  ))}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <article className={panelClassName}>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Submission materials</h2>
+                  <p className="text-sm text-gray-400">Identity, portfolio, and agreement evidence submitted by the creator.</p>
                 </div>
               </div>
-              <div className="rounded-xl bg-[#0f0f17] p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Identity files</p>
-                <div className="mt-3 space-y-2 text-sm text-gray-300">
-                  <p>Front: {data.draft.identityVerification.frontDocumentFileName}</p>
-                  <p>Back: {data.draft.identityVerification.backDocumentFileName || "Not required"}</p>
-                  <p>ID / Tax: {data.draft.identityVerification.taxIdOrBusinessId || "Optional"}</p>
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Review history</h2>
-            <div className="mt-5 space-y-3">
-              {data.reviewHistory.map((item) => (
-                <div key={item.id} className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="font-medium text-white">{item.action}</p>
-                    <span className="text-xs text-gray-500">{formatAdminDate(item.at, true)}</span>
+              <div className="mt-5 grid gap-4">
+                <div className="rounded-xl bg-[#0f0f17] p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Portfolio links</p>
+                  <div className="mt-3 space-y-2">
+                    {data.draft.creativeInformation.portfolioLinks.map((link) => (
+                      <a key={link} href={link} target="_blank" rel="noreferrer" className="block truncate text-sm text-indigo-300 hover:text-indigo-200">
+                        {link}
+                      </a>
+                    ))}
                   </div>
-                  <p className="mt-2 text-sm text-gray-400">{item.actor}</p>
-                  <p className="mt-2 text-sm leading-6 text-gray-300">{item.note}</p>
                 </div>
-              ))}
-            </div>
-          </article>
+                <div className="rounded-xl bg-[#0f0f17] p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Identity files</p>
+                  <div className="mt-3 space-y-2 text-sm text-gray-300">
+                    <p>Front: {data.draft.identityVerification.frontDocumentFileName}</p>
+                    <p>Back: {data.draft.identityVerification.backDocumentFileName || "Not required"}</p>
+                    <p>ID / Tax: {data.draft.identityVerification.taxIdOrBusinessId || "Optional"}</p>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article className={panelClassName}>
+              <h2 className="text-lg font-semibold text-white">Review history</h2>
+              <div className="mt-5 space-y-3">
+                {data.reviewHistory.map((item) => (
+                  <div key={item.id} className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="font-medium text-white">{item.action}</p>
+                      <span className="text-xs text-gray-500">{formatAdminDate(item.at, true)}</span>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-400">{item.actor}</p>
+                    <p className="mt-2 text-sm leading-6 text-gray-300">{item.note}</p>
+                  </div>
+                ))}
+              </div>
+            </article>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -607,35 +609,58 @@ export default function CreatorApplicationDetailPage() {
             </div>
           </article>
           <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Reviewer action</h2>
-            <div className="mt-5 space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
-                <select value={decision} onChange={(event) => setDecision(event.target.value as typeof decision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
-                  <option value="approved">Approve application</option>
-                  <option value="need_more_info">Request more information</option>
-                  <option value="rejected">Reject application</option>
-                </select>
+            <h2 className="text-lg font-semibold text-white">Review context</h2>
+            <div className="mt-5 space-y-3">
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Current status</p>
+                <p className="mt-2 text-sm text-white">{statusMeta.label}</p>
               </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Review note</label>
-                <textarea
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Explain the approval, rejection reason, or resubmission request."
-                  className="min-h-[140px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
-                />
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Risk level</p>
+                <p className="mt-2 text-sm text-white">{riskMeta.label}</p>
               </div>
-              <button
-                onClick={handleSubmitDecision}
-                disabled={submitting}
-                className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting ? "Saving..." : "Save review decision"}
-              </button>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Open blockers</p>
+                <div className="mt-2 space-y-2 text-sm text-gray-300">
+                  {(data.missingItems.length ? data.missingItems : ["No blockers"]).map((item) => (
+                    <p key={item}>{item}</p>
+                  ))}
+                </div>
+              </div>
             </div>
           </article>
         </div>
+      </section>
+
+      <section className={panelClassName}>
+        <h2 className="text-lg font-semibold text-white">Reviewer action</h2>
+        <p className="mt-1 text-sm text-gray-400">Finalize the application after checking the submitted evidence, risk signals, and review history above.</p>
+        <div className="mt-5 grid gap-4 xl:grid-cols-[240px_minmax(0,1fr)]">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
+            <select value={decision} onChange={(event) => setDecision(event.target.value as typeof decision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
+              <option value="approved">Approve application</option>
+              <option value="need_more_info">Request more information</option>
+              <option value="rejected">Reject application</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Review note</label>
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Explain the approval, rejection reason, or resubmission request."
+              className="min-h-[140px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleSubmitDecision}
+          disabled={submitting}
+          className="mt-5 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? "Saving..." : "Save review decision"}
+        </button>
       </section>
 
       {previewAsset ? (

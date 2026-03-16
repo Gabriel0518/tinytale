@@ -95,7 +95,7 @@ export default function CreatorRevenuePage() {
         ))}
       </section>
 
-      <section className="space-y-4">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
         <article className={panelClassName}>
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -160,7 +160,7 @@ export default function CreatorRevenuePage() {
         <article className={panelClassName}>
           <h2 className="text-lg font-semibold text-white">Finance watchlist</h2>
           <p className="mt-1 text-sm text-gray-400">Statements and creators that need manual intervention.</p>
-          <div className="mt-5 space-y-3">
+          <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-1">
             {data.watchlist.map((item) => (
               <div key={item.id} className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
                 <div className="flex items-center justify-between gap-4">

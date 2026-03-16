@@ -129,10 +129,10 @@ export default function CreatorDetailPage() {
         </div>
       </div>
 
-      <section className="space-y-4">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
         <div className="space-y-4">
           <article className={panelClassName}>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Monthly Revenue</p>
                 <p className="mt-2 text-2xl font-bold text-white">{formatUsd(data.monthlyRevenueUsd)}</p>
@@ -154,7 +154,7 @@ export default function CreatorDetailPage() {
 
           <article className={panelClassName}>
             <h2 className="text-lg font-semibold text-white">Profile and contract</h2>
-            <div className="mt-5 grid gap-4">
+            <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(280px,0.8fr)]">
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Profile</p>
                 <p className="mt-3 text-sm leading-7 text-gray-300">{data.bio}</p>
@@ -174,28 +174,6 @@ export default function CreatorDetailPage() {
                   <p>Next renewal: {formatAdminDate(data.contract.nextRenewalAt)}</p>
                   <p>Managed by: {data.managedBy || "Unassigned"}</p>
                 </div>
-              </div>
-            </div>
-          </article>
-
-          <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Bank account status</h2>
-            <div className="mt-5 rounded-xl bg-[#0f0f17] p-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="font-medium text-white">{data.bankAccount.bankName}</p>
-                  <p className="mt-1 text-sm text-gray-400">{data.bankAccount.accountHolderName} · {data.bankAccount.maskedAccountNumber}</p>
-                </div>
-                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
-              </div>
-              <p className="mt-3 text-sm text-gray-400">Country: {data.bankAccount.country} · Updated {formatAdminDate(data.bankAccount.updatedAt, true)}</p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <Link href="/admin/creators/bank-accounts" className="inline-flex items-center rounded-lg border border-gray-600 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-[#1a1a2e]">
-                  Review bank queue
-                </Link>
-                <Link href="/admin/creators/payout-requests" className="inline-flex items-center rounded-lg border border-gray-600 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-[#1a1a2e]">
-                  Open payout queue
-                </Link>
               </div>
             </div>
           </article>
@@ -273,6 +251,27 @@ export default function CreatorDetailPage() {
 
         <div className="space-y-4">
           <article className={panelClassName}>
+            <h2 className="text-lg font-semibold text-white">Bank account status</h2>
+            <div className="mt-5 rounded-xl bg-[#0f0f17] p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="font-medium text-white">{data.bankAccount.bankName}</p>
+                  <p className="mt-1 text-sm text-gray-400">{data.bankAccount.accountHolderName} · {data.bankAccount.maskedAccountNumber}</p>
+                </div>
+                <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
+              </div>
+              <p className="mt-3 text-sm text-gray-400">Country: {data.bankAccount.country} · Updated {formatAdminDate(data.bankAccount.updatedAt, true)}</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <Link href="/admin/creators/bank-accounts" className="inline-flex items-center justify-center rounded-lg border border-gray-600 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-[#1a1a2e]">
+                  Review bank queue
+                </Link>
+                <Link href="/admin/creators/payout-requests" className="inline-flex items-center justify-center rounded-lg border border-gray-600 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-[#1a1a2e]">
+                  Open payout queue
+                </Link>
+              </div>
+            </div>
+          </article>
+          <article className={panelClassName}>
             <h2 className="text-lg font-semibold text-white">Account metadata</h2>
             <div className="mt-5 space-y-3 text-sm text-gray-300">
               <div className="flex items-center justify-between gap-4">
@@ -292,7 +291,7 @@ export default function CreatorDetailPage() {
                 <span>{data.country}</span>
               </div>
             </div>
-            <div className="mt-5 flex flex-wrap gap-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
               <Link href="/admin/creators/revenue" className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-500">
                 Open revenue dashboard
               </Link>
@@ -301,47 +300,49 @@ export default function CreatorDetailPage() {
               </Link>
             </div>
           </article>
-          <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Admin actions</h2>
-            <div className="mt-5 space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Lifecycle status</label>
-                <select value={nextStatus} onChange={(event) => setNextStatus(event.target.value)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
-                  <option value="active">Active</option>
-                  <option value="under_review">Under review</option>
-                  <option value="restricted">Restricted</option>
-                  <option value="suspended">Suspended</option>
-                  <option value="banned">Banned</option>
-                  <option value="deactivated">Deactivated</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Creator tier</label>
-                <select value={nextLevel} onChange={(event) => setNextLevel(event.target.value)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
-                  <option value="Rising">Rising</option>
-                  <option value="Signature">Signature</option>
-                  <option value="Studio">Studio</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Action note</label>
-                <textarea
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Record why the tier or lifecycle status is changing."
-                  className="min-h-[140px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
-                />
-              </div>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {saving ? "Saving..." : "Save creator changes"}
-              </button>
-            </div>
-          </article>
         </div>
+      </section>
+
+      <section className={panelClassName}>
+        <h2 className="text-lg font-semibold text-white">Admin actions</h2>
+        <p className="mt-1 text-sm text-gray-400">Apply lifecycle and level changes after reviewing the creator profile, finance status, and audit history above.</p>
+        <div className="mt-5 grid gap-4 xl:grid-cols-[220px_220px_minmax(0,1fr)]">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Lifecycle status</label>
+            <select value={nextStatus} onChange={(event) => setNextStatus(event.target.value)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
+              <option value="active">Active</option>
+              <option value="under_review">Under review</option>
+              <option value="restricted">Restricted</option>
+              <option value="suspended">Suspended</option>
+              <option value="banned">Banned</option>
+              <option value="deactivated">Deactivated</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Creator tier</label>
+            <select value={nextLevel} onChange={(event) => setNextLevel(event.target.value)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
+              <option value="Rising">Rising</option>
+              <option value="Signature">Signature</option>
+              <option value="Studio">Studio</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-300">Action note</label>
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Record why the tier or lifecycle status is changing."
+              className="min-h-[140px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="mt-5 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {saving ? "Saving..." : "Save creator changes"}
+        </button>
       </section>
     </div>
   );
