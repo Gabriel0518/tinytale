@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowUpRight, FileText, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Eye, FileText, ShieldCheck, X } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { adminApi } from "@/lib/adminApi";
 import {
@@ -41,6 +41,12 @@ type ChecklistDetail = {
   sections: ChecklistDetailSection[];
 };
 
+type PreviewAsset = {
+  label: string;
+  href: string;
+  kind: "image" | "pdf";
+};
+
 function yesNo(value: boolean) {
   return value ? "Yes" : "No";
 }
@@ -48,6 +54,14 @@ function yesNo(value: boolean) {
 function readValue(value: unknown, fallback = emptyValue) {
   const normalized = String(value ?? "").trim();
   return normalized || fallback;
+}
+
+function getPreviewKind(href?: string): PreviewAsset["kind"] | null {
+  if (!href) return null;
+  const normalized = href.split("?")[0].toLowerCase();
+  if (/\.(png|jpg|jpeg|webp|gif|bmp|svg)$/.test(normalized)) return "image";
+  if (normalized.endsWith(".pdf")) return "pdf";
+  return null;
 }
 
 export default function CreatorApplicationDetailPage() {
@@ -60,6 +74,7 @@ export default function CreatorApplicationDetailPage() {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [activeChecklistKey, setActiveChecklistKey] = useState<ChecklistKey>("identity_verified");
+  const [previewAsset, setPreviewAsset] = useState<PreviewAsset | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -279,6 +294,15 @@ export default function CreatorApplicationDetailPage() {
     }
   }, [activeChecklistKey, data]);
 
+  useEffect(() => {
+    if (!previewAsset) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [previewAsset]);
+
   async function handleSubmitDecision() {
     if (!data) return;
     if (!note.trim()) {
@@ -455,24 +479,50 @@ export default function CreatorApplicationDetailPage() {
 
                         {section.links?.length ? (
                           <div className="mt-4 space-y-3">
-                            {section.links.map((link) => (
-                              <div key={`${section.title}-${link.label}`} className="rounded-lg bg-[#0c0c13] px-3 py-3">
-                                {link.href ? (
-                                  <a
-                                    href={link.href}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-2 text-sm font-medium text-indigo-300 hover:text-indigo-200"
-                                  >
-                                    {link.label}
-                                    <ArrowUpRight className="h-4 w-4" />
-                                  </a>
-                                ) : (
-                                  <p className="text-sm font-medium text-gray-300">{link.label}</p>
-                                )}
+                            {section.links.map((link) => {
+                              const previewKind = getPreviewKind(link.href);
+                              return (
+                                <div key={`${section.title}-${link.label}`} className="rounded-lg bg-[#0c0c13] px-3 py-3">
+                                  {link.href ? (
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                      <a
+                                        href={link.href}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-indigo-300 hover:text-indigo-200"
+                                      >
+                                        <span className="truncate">{link.label}</span>
+                                        <ArrowUpRight className="h-4 w-4 shrink-0" />
+                                      </a>
+                                      <div className="flex items-center gap-2">
+                                        {previewKind ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => setPreviewAsset({ label: link.label, href: link.href!, kind: previewKind })}
+                                            className="inline-flex items-center gap-1 rounded-md border border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-200 hover:border-indigo-500/60 hover:text-white"
+                                          >
+                                            <Eye className="h-3.5 w-3.5" />
+                                            Preview
+                                          </button>
+                                        ) : null}
+                                        <a
+                                          href={link.href}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center gap-1 rounded-md border border-gray-700 px-2.5 py-1.5 text-xs font-medium text-gray-300 hover:border-gray-500 hover:text-white"
+                                        >
+                                          Open
+                                          <ArrowUpRight className="h-3.5 w-3.5" />
+                                        </a>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm font-medium text-gray-300">{link.label}</p>
+                                  )}
                                 {link.meta ? <p className="mt-1 text-xs text-gray-500">{link.meta}</p> : null}
-                              </div>
-                            ))}
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : null}
                       </div>
@@ -588,6 +638,56 @@ export default function CreatorApplicationDetailPage() {
           </article>
         </aside>
       </section>
+
+      {previewAsset ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="relative flex h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-[#0f0f17] shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-gray-800 px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-400">Attachment preview</p>
+                <h3 className="truncate text-base font-semibold text-white">{previewAsset.label}</h3>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewAsset.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 rounded-md border border-gray-700 px-3 py-2 text-xs font-medium text-gray-300 hover:border-gray-500 hover:text-white"
+                >
+                  Open in new tab
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewAsset(null)}
+                  className="inline-flex items-center gap-1 rounded-md border border-gray-700 px-3 py-2 text-xs font-medium text-gray-300 hover:border-gray-500 hover:text-white"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 bg-[#09090f]">
+              {previewAsset.kind === "image" ? (
+                <div className="flex h-full items-center justify-center overflow-auto p-6">
+                  <img
+                    src={previewAsset.href}
+                    alt={previewAsset.label}
+                    className="max-h-full max-w-full rounded-xl border border-gray-800 object-contain"
+                  />
+                </div>
+              ) : (
+                <iframe
+                  src={previewAsset.href}
+                  title={previewAsset.label}
+                  className="h-full w-full"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
