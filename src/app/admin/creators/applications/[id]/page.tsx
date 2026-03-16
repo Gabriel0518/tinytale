@@ -377,11 +377,11 @@ export default function CreatorApplicationDetailPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 xl:grid-cols-[1.4fr_0.6fr]">
+      <section className="space-y-4">
         <div className="space-y-4">
           <article className={panelClassName}>
             <h2 className="text-lg font-semibold text-white">Applicant snapshot</h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div className="mt-5 grid gap-4">
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Contact</p>
                 <p className="mt-3 font-medium text-white">{data.draft.basicInformation.email}</p>
@@ -411,7 +411,7 @@ export default function CreatorApplicationDetailPage() {
                 <p className="text-sm text-gray-400">The five-item admin checklist defined in the Creator spec.</p>
               </div>
             </div>
-            <div className="mt-5 grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
+            <div className="mt-5 space-y-4">
               <div className="space-y-3">
                 {data.reviewChecklist.map((item) => {
                   const isActive = item.key === activeChecklistKey;
@@ -545,7 +545,7 @@ export default function CreatorApplicationDetailPage() {
                 <p className="text-sm text-gray-400">Identity, portfolio, and agreement evidence submitted by the creator.</p>
               </div>
             </div>
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div className="mt-5 grid gap-4">
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Portfolio links</p>
                 <div className="mt-3 space-y-2">
@@ -584,7 +584,28 @@ export default function CreatorApplicationDetailPage() {
           </article>
         </div>
 
-        <aside className="space-y-4">
+        <div className="space-y-4">
+          <article className={panelClassName}>
+            <h2 className="text-lg font-semibold text-white">Queue metadata</h2>
+            <div className="mt-5 space-y-3 text-sm text-gray-300">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Application ID</span>
+                <span>{data.id}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Assigned reviewer</span>
+                <span>{data.assignedReviewer || "Unassigned"}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Primary language</span>
+                <span>{data.primaryLanguage}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Genres</span>
+                <span>{data.genres.join(", ")}</span>
+              </div>
+            </div>
+          </article>
           <article className={panelClassName}>
             <h2 className="text-lg font-semibold text-white">Reviewer action</h2>
             <div className="mt-5 space-y-4">
@@ -614,29 +635,7 @@ export default function CreatorApplicationDetailPage() {
               </button>
             </div>
           </article>
-
-          <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Queue metadata</h2>
-            <div className="mt-5 space-y-3 text-sm text-gray-300">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Application ID</span>
-                <span>{data.id}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Assigned reviewer</span>
-                <span>{data.assignedReviewer || "Unassigned"}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Primary language</span>
-                <span>{data.primaryLanguage}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Genres</span>
-                <span>{data.genres.join(", ")}</span>
-              </div>
-            </div>
-          </article>
-        </aside>
+        </div>
       </section>
 
       {previewAsset ? (

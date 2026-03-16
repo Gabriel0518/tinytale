@@ -131,16 +131,16 @@ export default function CreatorContentReviewDetailPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+      <section className="space-y-4">
         <div className="space-y-4">
           <article className={panelClassName}>
-            <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <div className="grid gap-4">
               <div className="overflow-hidden rounded-2xl border border-gray-700/50 bg-[#0f0f17]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={data.cover} alt={data.title} className="h-full w-full object-cover" />
               </div>
               <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4">
                   <div className="rounded-xl bg-[#0f0f17] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Creator</p>
                     <p className="mt-3 font-medium text-white">{data.creatorName}</p>
@@ -228,37 +228,7 @@ export default function CreatorContentReviewDetailPage() {
           </article>
         </div>
 
-        <aside className="space-y-4">
-          <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Reviewer decision</h2>
-            <div className="mt-5 space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
-                <select value={decision} onChange={(event) => setDecision(event.target.value as Decision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
-                  <option value="approved">Approve and publish</option>
-                  <option value="request_changes">Request changes</option>
-                  <option value="rejected">Reject for rights/policy issues</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Review note</label>
-                <textarea
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Summarize the publish rationale or the issues the creator must fix."
-                  className="min-h-[160px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
-                />
-              </div>
-              <button
-                onClick={handleSubmitReview}
-                disabled={submitting}
-                className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting ? "Saving..." : "Save content review"}
-              </button>
-            </div>
-          </article>
-
+        <div className="space-y-4">
           <article className={panelClassName}>
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-300">
@@ -290,7 +260,36 @@ export default function CreatorContentReviewDetailPage() {
               )}
             </div>
           </article>
-        </aside>
+          <article className={panelClassName}>
+            <h2 className="text-lg font-semibold text-white">Reviewer decision</h2>
+            <div className="mt-5 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
+                <select value={decision} onChange={(event) => setDecision(event.target.value as Decision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
+                  <option value="approved">Approve and publish</option>
+                  <option value="request_changes">Request changes</option>
+                  <option value="rejected">Reject for rights/policy issues</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-300">Review note</label>
+                <textarea
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="Summarize the publish rationale or the issues the creator must fix."
+                  className="min-h-[160px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+                />
+              </div>
+              <button
+                onClick={handleSubmitReview}
+                disabled={submitting}
+                className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? "Saving..." : "Save content review"}
+              </button>
+            </div>
+          </article>
+        </div>
       </section>
     </div>
   );

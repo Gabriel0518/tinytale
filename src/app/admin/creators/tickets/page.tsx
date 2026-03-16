@@ -214,7 +214,7 @@ export default function CreatorTicketsAdminPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+      <section className="space-y-4">
         <article className={panelClassName}>
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
@@ -255,29 +255,37 @@ export default function CreatorTicketsAdminPage() {
             })}
           </div>
         </article>
-
-        <aside className="space-y-4">
+        <article className={panelClassName}>
+          <h2 className="text-lg font-semibold text-white">Conversation</h2>
+          {!detail ? (
+            <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">Select a ticket to review the thread.</div>
+          ) : (
+            <div className="mt-5 space-y-4">
+              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                <p className="font-medium text-white">{detail.subject}</p>
+                <p className="mt-1 text-sm text-gray-400">{detail.creatorName} · {detail.creatorEmail}</p>
+              </div>
+              <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
+                {detail.messages.map((message, index) => (
+                  <div key={`${message.createdAt}-${index}`} className={`rounded-2xl p-4 ${message.senderType === "support" ? "bg-indigo-500/10" : "bg-[#0f0f17]"}`}>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-white">{message.senderType === "support" ? "Support" : message.senderType === "creator" ? detail.creatorName : "System"}</p>
+                      <span className="text-xs text-gray-500">{formatAdminDate(message.createdAt, true)}</span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-gray-300">{message.message}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </article>
+        <div className="space-y-4">
           <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Conversation</h2>
+            <h2 className="text-lg font-semibold text-white">Support action</h2>
             {!detail ? (
-              <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">Select a ticket to review the thread.</div>
+              <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">Select a ticket to prepare the next status and reply.</div>
             ) : (
               <div className="mt-5 space-y-4">
-                <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                  <p className="font-medium text-white">{detail.subject}</p>
-                  <p className="mt-1 text-sm text-gray-400">{detail.creatorName} · {detail.creatorEmail}</p>
-                </div>
-                <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
-                  {detail.messages.map((message, index) => (
-                    <div key={`${message.createdAt}-${index}`} className={`rounded-2xl p-4 ${message.senderType === "support" ? "bg-indigo-500/10" : "bg-[#0f0f17]"}`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-medium text-white">{message.senderType === "support" ? "Support" : message.senderType === "creator" ? detail.creatorName : "System"}</p>
-                        <span className="text-xs text-gray-500">{formatAdminDate(message.createdAt, true)}</span>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-gray-300">{message.message}</p>
-                    </div>
-                  ))}
-                </div>
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-300">Next status</label>
                   <select value={nextStatus} onChange={(event) => setNextStatus(event.target.value as CreatorTicketStatus)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
@@ -307,7 +315,7 @@ export default function CreatorTicketsAdminPage() {
               </div>
             )}
           </article>
-        </aside>
+        </div>
       </section>
     </div>
   );

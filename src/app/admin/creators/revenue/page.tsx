@@ -95,7 +95,7 @@ export default function CreatorRevenuePage() {
         ))}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+      <section className="space-y-4">
         <article className={panelClassName}>
           <div className="flex items-center justify-between gap-4">
             <div>

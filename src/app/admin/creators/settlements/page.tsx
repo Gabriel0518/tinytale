@@ -159,7 +159,7 @@ export default function CreatorSettlementsAdminPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+      <section className="space-y-4">
         <article className={panelClassName}>
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
@@ -203,54 +203,51 @@ export default function CreatorSettlementsAdminPage() {
             })}
           </div>
         </article>
-
-        <aside className="space-y-4">
-          <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Settlement action</h2>
-            {!selected ? (
-              <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">Select a settlement to review it.</div>
-            ) : (
-              <div className="mt-5 space-y-4">
-                <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                  <p className="font-medium text-white">{selected.statementNo}</p>
-                  <p className="mt-1 text-sm text-gray-400">{selected.creatorName} · {selected.periodLabel}</p>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Gross</p><p className="mt-1 text-sm text-white">{formatUsd(selected.grossRevenueUsd)}</p></div>
-                    <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Net payout</p><p className="mt-1 text-sm text-white">{formatUsd(selected.netPayoutUsd)}</p></div>
-                    <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Platform fees</p><p className="mt-1 text-sm text-gray-300">{formatUsd(selected.channelFeesUsd)}</p></div>
-                    <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Reserve</p><p className="mt-1 text-sm text-gray-300">{formatUsd(selected.reserveUsd)}</p></div>
-                  </div>
-                  <p className="mt-4 text-xs text-gray-500">{selected.payoutDate ? `Planned payout ${formatAdminDate(selected.payoutDate, true)}` : "No payout date assigned"}</p>
+        <article className={panelClassName}>
+          <h2 className="text-lg font-semibold text-white">Settlement action</h2>
+          {!selected ? (
+            <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">Select a settlement to review it.</div>
+          ) : (
+            <div className="mt-5 space-y-4">
+              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                <p className="font-medium text-white">{selected.statementNo}</p>
+                <p className="mt-1 text-sm text-gray-400">{selected.creatorName} · {selected.periodLabel}</p>
+                <div className="mt-4 grid gap-3">
+                  <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Gross</p><p className="mt-1 text-sm text-white">{formatUsd(selected.grossRevenueUsd)}</p></div>
+                  <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Net payout</p><p className="mt-1 text-sm text-white">{formatUsd(selected.netPayoutUsd)}</p></div>
+                  <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Platform fees</p><p className="mt-1 text-sm text-gray-300">{formatUsd(selected.channelFeesUsd)}</p></div>
+                  <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Reserve</p><p className="mt-1 text-sm text-gray-300">{formatUsd(selected.reserveUsd)}</p></div>
                 </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
-                  <select value={decision} onChange={(event) => setDecision(event.target.value as SettlementDecision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
-                    <option value="confirm">Confirm statement</option>
-                    <option value="hold">Place hold</option>
-                    <option value="mark_disputed">Mark disputed</option>
-                    <option value="mark_paid">Mark paid</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-300">Settlement note</label>
-                  <textarea
-                    value={note}
-                    onChange={(event) => setNote(event.target.value)}
-                    placeholder="Record the reason for confirmation, hold, dispute, or payment."
-                    className="min-h-[150px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
-                  />
-                </div>
-                <button
-                  onClick={handleReview}
-                  disabled={submitting}
-                  className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {submitting ? "Saving..." : "Save settlement action"}
-                </button>
+                <p className="mt-4 text-xs text-gray-500">{selected.payoutDate ? `Planned payout ${formatAdminDate(selected.payoutDate, true)}` : "No payout date assigned"}</p>
               </div>
-            )}
-          </article>
-        </aside>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
+                <select value={decision} onChange={(event) => setDecision(event.target.value as SettlementDecision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
+                  <option value="confirm">Confirm statement</option>
+                  <option value="hold">Place hold</option>
+                  <option value="mark_disputed">Mark disputed</option>
+                  <option value="mark_paid">Mark paid</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-300">Settlement note</label>
+                <textarea
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="Record the reason for confirmation, hold, dispute, or payment."
+                  className="min-h-[150px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+                />
+              </div>
+              <button
+                onClick={handleReview}
+                disabled={submitting}
+                className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? "Saving..." : "Save settlement action"}
+              </button>
+            </div>
+          )}
+        </article>
       </section>
     </div>
   );

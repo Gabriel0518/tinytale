@@ -152,7 +152,7 @@ export default function CreatorBankAccountsPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+      <section className="space-y-4">
         <article className={panelClassName}>
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
@@ -200,55 +200,52 @@ export default function CreatorBankAccountsPage() {
             })}
           </div>
         </article>
-
-        <aside className="space-y-4">
-          <article className={panelClassName}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
-                <ShieldCheck className="h-5 w-5" />
+        <article className={panelClassName}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Finance action</h2>
+              <p className="text-sm text-gray-400">Approve, reject, or freeze the payout method.</p>
+            </div>
+          </div>
+          {!selected ? (
+            <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">Select an account to review it.</div>
+          ) : (
+            <div className="mt-5 space-y-4">
+              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                <p className="font-medium text-white">{selected.accountHolderName || "Missing account holder"}</p>
+                <p className="mt-1 text-sm text-gray-400">{selected.bankName || "No bank name"} · {selected.maskedAccountNumber || "No account number"}</p>
+                <p className="mt-3 text-sm leading-6 text-gray-300">{selected.lastReviewNote || "No finance note on record."}</p>
               </div>
               <div>
-                <h2 className="text-lg font-semibold text-white">Finance action</h2>
-                <p className="text-sm text-gray-400">Approve, reject, or freeze the payout method.</p>
+                <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
+                <select value={decision} onChange={(event) => setDecision(event.target.value as BankDecision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
+                  <option value="verified">Approve bank account</option>
+                  <option value="rejected">Reject and request resubmission</option>
+                  <option value="frozen">Freeze payout method</option>
+                </select>
               </div>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-300">Review note</label>
+                <textarea
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  placeholder="Explain the finance decision or the documents still required."
+                  className="min-h-[160px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+                />
+              </div>
+              <button
+                onClick={handleReview}
+                disabled={submitting}
+                className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting ? "Saving..." : "Save bank review"}
+              </button>
             </div>
-            {!selected ? (
-              <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">Select an account to review it.</div>
-            ) : (
-              <div className="mt-5 space-y-4">
-                <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                  <p className="font-medium text-white">{selected.accountHolderName || "Missing account holder"}</p>
-                  <p className="mt-1 text-sm text-gray-400">{selected.bankName || "No bank name"} · {selected.maskedAccountNumber || "No account number"}</p>
-                  <p className="mt-3 text-sm leading-6 text-gray-300">{selected.lastReviewNote || "No finance note on record."}</p>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
-                  <select value={decision} onChange={(event) => setDecision(event.target.value as BankDecision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
-                    <option value="verified">Approve bank account</option>
-                    <option value="rejected">Reject and request resubmission</option>
-                    <option value="frozen">Freeze payout method</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-300">Review note</label>
-                  <textarea
-                    value={note}
-                    onChange={(event) => setNote(event.target.value)}
-                    placeholder="Explain the finance decision or the documents still required."
-                    className="min-h-[160px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
-                  />
-                </div>
-                <button
-                  onClick={handleReview}
-                  disabled={submitting}
-                  className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {submitting ? "Saving..." : "Save bank review"}
-                </button>
-              </div>
-            )}
-          </article>
-        </aside>
+          )}
+        </article>
       </section>
     </div>
   );

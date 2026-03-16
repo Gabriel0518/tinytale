@@ -188,7 +188,7 @@ export default function CreatorDmcaPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+      <section className="space-y-4">
         <article className={panelClassName}>
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -229,8 +229,35 @@ export default function CreatorDmcaPage() {
             })}
           </div>
         </article>
-
-        <aside className="space-y-4">
+        <div className="space-y-4">
+          <article className={panelClassName}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-300">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white">Enforcement notes</h2>
+                <p className="text-sm text-gray-400">P2 scope keeps the queue and strike trail visible to admins.</p>
+              </div>
+            </div>
+            <div className="mt-5 space-y-3">
+              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                <p className="font-medium text-white">Takedown action</p>
+                <p className="mt-2 text-sm leading-6 text-gray-400">When a claim is upheld, archive the affected title and attach the case note so finance and creator support see the same enforcement record.</p>
+              </div>
+              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                <p className="font-medium text-white">Counter-notice window</p>
+                <p className="mt-2 text-sm leading-6 text-gray-400">Use the counter-notice state when the creator submits proof and the complaint is still under legal review.</p>
+              </div>
+              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                <div className="flex items-center gap-2 text-rose-300">
+                  <ShieldAlert className="h-4 w-4" />
+                  <p className="font-medium text-white">Strike enforcement</p>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-gray-400">Case outcomes with strike impact should feed the creator’s strike history so restrictions can be escalated later without re-auditing prior cases.</p>
+              </div>
+            </div>
+          </article>
           <article className={panelClassName}>
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-300">
@@ -287,36 +314,7 @@ export default function CreatorDmcaPage() {
               </div>
             )}
           </article>
-
-          <article className={panelClassName}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-300">
-                <AlertTriangle className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-white">Enforcement notes</h2>
-                <p className="text-sm text-gray-400">P2 scope keeps the queue and strike trail visible to admins.</p>
-              </div>
-            </div>
-            <div className="mt-5 space-y-3">
-              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                <p className="font-medium text-white">Takedown action</p>
-                <p className="mt-2 text-sm leading-6 text-gray-400">When a claim is upheld, archive the affected title and attach the case note so finance and creator support see the same enforcement record.</p>
-              </div>
-              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                <p className="font-medium text-white">Counter-notice window</p>
-                <p className="mt-2 text-sm leading-6 text-gray-400">Use the counter-notice state when the creator submits proof and the complaint is still under legal review.</p>
-              </div>
-              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                <div className="flex items-center gap-2 text-rose-300">
-                  <ShieldAlert className="h-4 w-4" />
-                  <p className="font-medium text-white">Strike enforcement</p>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-gray-400">Case outcomes with strike impact should feed the creator’s strike history so restrictions can be escalated later without re-auditing prior cases.</p>
-              </div>
-            </div>
-          </article>
-        </aside>
+        </div>
       </section>
     </div>
   );

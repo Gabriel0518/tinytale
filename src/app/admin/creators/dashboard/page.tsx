@@ -106,7 +106,7 @@ export default function CreatorAdminDashboardPage() {
         ))}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+      <section className="space-y-4">
         <article className={panelClassName}>
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -170,7 +170,7 @@ export default function CreatorAdminDashboardPage() {
         </article>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-2">
+      <section className="space-y-4">
         <article className={panelClassName}>
           <div className="flex items-center justify-between gap-4">
             <div>

@@ -129,10 +129,10 @@ export default function CreatorDetailPage() {
         </div>
       </div>
 
-      <section className="grid gap-4 xl:grid-cols-[1.3fr_0.7fr]">
+      <section className="space-y-4">
         <div className="space-y-4">
           <article className={panelClassName}>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Monthly Revenue</p>
                 <p className="mt-2 text-2xl font-bold text-white">{formatUsd(data.monthlyRevenueUsd)}</p>
@@ -154,7 +154,7 @@ export default function CreatorDetailPage() {
 
           <article className={panelClassName}>
             <h2 className="text-lg font-semibold text-white">Profile and contract</h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <div className="mt-5 grid gap-4">
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Profile</p>
                 <p className="mt-3 text-sm leading-7 text-gray-300">{data.bio}</p>
@@ -271,7 +271,36 @@ export default function CreatorDetailPage() {
           </article>
         </div>
 
-        <aside className="space-y-4">
+        <div className="space-y-4">
+          <article className={panelClassName}>
+            <h2 className="text-lg font-semibold text-white">Account metadata</h2>
+            <div className="mt-5 space-y-3 text-sm text-gray-300">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Creator ID</span>
+                <span>{data.id}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Approved at</span>
+                <span>{formatAdminDate(data.approvedAt)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Manager</span>
+                <span>{data.managedBy || "Unassigned"}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Country</span>
+                <span>{data.country}</span>
+              </div>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link href="/admin/creators/revenue" className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-500">
+                Open revenue dashboard
+              </Link>
+              <Link href="/admin/creators/settlements" className="inline-flex items-center rounded-lg border border-gray-600 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-[#1a1a2e]">
+                Open settlements
+              </Link>
+            </div>
+          </article>
           <article className={panelClassName}>
             <h2 className="text-lg font-semibold text-white">Admin actions</h2>
             <div className="mt-5 space-y-4">
@@ -312,37 +341,7 @@ export default function CreatorDetailPage() {
               </button>
             </div>
           </article>
-
-          <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Account metadata</h2>
-            <div className="mt-5 space-y-3 text-sm text-gray-300">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Creator ID</span>
-                <span>{data.id}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Approved at</span>
-                <span>{formatAdminDate(data.approvedAt)}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Manager</span>
-                <span>{data.managedBy || "Unassigned"}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Country</span>
-                <span>{data.country}</span>
-              </div>
-            </div>
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Link href="/admin/creators/revenue" className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-500">
-                Open revenue dashboard
-              </Link>
-              <Link href="/admin/creators/settlements" className="inline-flex items-center rounded-lg border border-gray-600 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-[#1a1a2e]">
-                Open settlements
-              </Link>
-            </div>
-          </article>
-        </aside>
+        </div>
       </section>
     </div>
   );

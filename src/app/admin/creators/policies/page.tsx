@@ -86,7 +86,7 @@ export default function CreatorPoliciesPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[0.9fr_1.1fr]">
+      <section className="space-y-4">
         <article className={panelClassName}>
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
