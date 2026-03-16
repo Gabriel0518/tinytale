@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { HandCoins, Search } from "lucide-react";
+import { HandCoins, Search, X } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { adminApi } from "@/lib/adminApi";
 import type { CreatorAdminPayoutRequestItem, CreatorAdminSettlementStatus } from "@/types/creator";
@@ -17,6 +17,25 @@ import {
 const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";
 
 type PayoutDecision = "hold" | "confirm" | "mark_paid";
+type PayoutDecisionDraft = {
+  decision: PayoutDecision;
+  note: string;
+  transferReference: string;
+};
+
+function getDefaultDecision(status: CreatorAdminSettlementStatus): PayoutDecision {
+  if (status === "paid") return "mark_paid";
+  if (status === "held" || status === "disputed") return "hold";
+  return "confirm";
+}
+
+function buildDraft(item: CreatorAdminPayoutRequestItem): PayoutDecisionDraft {
+  return {
+    decision: getDefaultDecision(item.status),
+    note: item.holdReason || item.note || "",
+    transferReference: item.transferReference || "",
+  };
+}
 
 export default function CreatorPayoutRequestsPage() {
   const { toast } = useToast();
@@ -24,11 +43,11 @@ export default function CreatorPayoutRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
-  const [selectedId, setSelectedId] = useState<string>(mockCreatorPayoutRequests[0]?.id || "");
-  const [decision, setDecision] = useState<PayoutDecision>("confirm");
-  const [note, setNote] = useState("");
-  const [transferReference, setTransferReference] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, PayoutDecisionDraft>>(
+    Object.fromEntries(mockCreatorPayoutRequests.map((item) => [item.id, buildDraft(item)])),
+  );
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [activeModalId, setActiveModalId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,12 +58,12 @@ export default function CreatorPayoutRequestsPage() {
         const next = response?.data?.items || response?.data?.requests || response?.data || [];
         if (!cancelled && Array.isArray(next) && next.length > 0) {
           setItems(next);
-          setSelectedId(String(next[0]?.id || ""));
+          setDrafts(Object.fromEntries(next.map((item: CreatorAdminPayoutRequestItem) => [item.id, buildDraft(item)])));
         }
       } catch {
         if (!cancelled) {
           setItems(mockCreatorPayoutRequests);
-          setSelectedId(mockCreatorPayoutRequests[0]?.id || "");
+          setDrafts(Object.fromEntries(mockCreatorPayoutRequests.map((item) => [item.id, buildDraft(item)])));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -66,45 +85,63 @@ export default function CreatorPayoutRequestsPage() {
     if (status !== "all" && item.status !== status) return false;
     return true;
   }), [items, search, status]);
+  const activeModalItem = useMemo(
+    () => filtered.find((item) => item.id === activeModalId) || items.find((item) => item.id === activeModalId) || null,
+    [activeModalId, filtered, items],
+  );
 
-  const selected = useMemo(() => filtered.find((item) => item.id === selectedId) || filtered[0] || null, [filtered, selectedId]);
+  useEffect(() => {
+    if (!activeModalId) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [activeModalId]);
 
-  async function handleReview() {
-    if (!selected) return;
-    if (!note.trim() && decision !== "mark_paid") {
+  async function handleReview(item: CreatorAdminPayoutRequestItem) {
+    const draft = drafts[item.id] || buildDraft(item);
+    if (!draft.note.trim() && draft.decision !== "mark_paid") {
       toast("A payout note is required.", "info");
       return;
     }
-    if (decision === "mark_paid" && !transferReference.trim()) {
+    if (draft.decision === "mark_paid" && !draft.transferReference.trim()) {
       toast("A transfer reference is required when marking a payout as paid.", "info");
       return;
     }
 
-    setSubmitting(true);
+    setSubmittingId(item.id);
     try {
-      await adminApi.reviewCreatorPayoutRequest(selected.creatorId, selected.statementId, {
-        decision,
-        note,
-        transferReference,
+      await adminApi.reviewCreatorPayoutRequest(item.creatorId, item.statementId, {
+        decision: draft.decision,
+        note: draft.note,
+        transferReference: draft.transferReference,
       });
     } catch {
       // Keep workflow usable before final finance integration is ready.
     } finally {
-      setSubmitting(false);
+      setSubmittingId(null);
     }
 
     const nextStatus: CreatorAdminSettlementStatus =
-      decision === "mark_paid" ? "paid" : decision === "confirm" ? "confirmed" : "held";
-    setItems((current) => current.map((item) => item.id === selected.id ? {
+      draft.decision === "mark_paid" ? "paid" : draft.decision === "confirm" ? "confirmed" : "held";
+    setItems((current) => current.map((currentItem) => currentItem.id === item.id ? {
       ...item,
       status: nextStatus,
-      note: note || item.note,
-      holdReason: decision === "hold" ? (note || item.holdReason) : "",
-      transferReference: decision === "mark_paid" ? transferReference : item.transferReference,
-    } : item));
+      note: draft.note || item.note,
+      holdReason: draft.decision === "hold" ? (draft.note || item.holdReason) : "",
+      transferReference: draft.decision === "mark_paid" ? draft.transferReference : item.transferReference,
+    } : currentItem));
+    setDrafts((current) => ({
+      ...current,
+      [item.id]: {
+        decision: getDefaultDecision(nextStatus),
+        note: draft.note,
+        transferReference: draft.decision === "mark_paid" ? draft.transferReference : current[item.id]?.transferReference || "",
+      },
+    }));
+    setActiveModalId(null);
     toast("Payout request updated.", "success");
-    setNote("");
-    setTransferReference("");
   }
 
   const stats = useMemo(() => ({
@@ -184,13 +221,10 @@ export default function CreatorPayoutRequestsPage() {
             ) : filtered.map((item) => {
               const settlementMeta = getCreatorSettlementStatusMeta(item.status);
               const bankMeta = getCreatorBankStatusMeta(item.bankStatus);
-              const selectedCard = selected?.id === item.id;
               return (
-                <button
+                <div
                   key={item.id}
-                  type="button"
-                  onClick={() => setSelectedId(item.id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition ${selectedCard ? "border-indigo-500/60 bg-[#171726]" : "border-gray-700/50 bg-[#0f0f17] hover:border-gray-600"}`}
+                  className="w-full rounded-2xl border border-gray-700/50 bg-[#0f0f17] p-4 text-left"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -206,59 +240,156 @@ export default function CreatorPayoutRequestsPage() {
                   {(item.holdReason || item.transferReference) && (
                     <p className="mt-3 text-sm text-gray-400">{item.holdReason || item.transferReference}</p>
                   )}
-                </button>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModalId(item.id)}
+                      className="text-sm font-medium text-indigo-300 hover:text-indigo-200"
+                    >
+                      Open action card
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
         </article>
         <article className={panelClassName}>
-          <h2 className="text-lg font-semibold text-white">Finance decision</h2>
-          {!selected ? (
-            <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">Select a payout request to operate on it.</div>
+          <h2 className="text-lg font-semibold text-white">Finance decision list</h2>
+          <p className="mt-2 text-sm text-gray-400">Handle multiple withdrawal requests in sequence. Use the action button on each row to open the payout operation card in a modal.</p>
+          {loading ? (
+            <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">Loading payout decisions...</div>
+          ) : filtered.length === 0 ? (
+            <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">No payout requests are currently waiting for a decision.</div>
           ) : (
             <div className="mt-5 space-y-4">
-              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                <p className="font-medium text-white">{selected.creatorName}</p>
-                <p className="mt-1 text-sm text-gray-400">{selected.statementNo} · {formatUsd(selected.amountUsd)}</p>
-                <p className="mt-3 text-sm text-gray-300">{selected.note || selected.holdReason || "No finance note on record."}</p>
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
-                <select value={decision} onChange={(event) => setDecision(event.target.value as PayoutDecision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
-                  <option value="confirm">Confirm for payout</option>
-                  <option value="hold">Place hold</option>
-                  <option value="mark_paid">Mark as paid</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Finance note</label>
-                <textarea
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Explain why the payout is confirmed, held, or paid."
-                  className="min-h-[140px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
-                />
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Transfer reference</label>
-                <input
-                  value={transferReference}
-                  onChange={(event) => setTransferReference(event.target.value)}
-                  placeholder="Required when marking a payout as paid"
-                  className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
-                />
-              </div>
-              <button
-                onClick={handleReview}
-                disabled={submitting}
-                className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {submitting ? "Saving..." : "Save payout decision"}
-              </button>
+              {filtered.map((item) => {
+                const settlementMeta = getCreatorSettlementStatusMeta(item.status);
+                const bankMeta = getCreatorBankStatusMeta(item.bankStatus);
+
+                return (
+                  <div key={item.id} className="rounded-2xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-white">{item.creatorName}</p>
+                        <p className="mt-1 text-sm text-gray-400">{item.statementNo} · {formatUsd(item.amountUsd)} · {item.payoutMethodLabel}</p>
+                        <p className="mt-2 text-xs text-gray-500">
+                          Requested {formatAdminDate(item.requestedAt, true)}
+                          {item.transferReference ? ` · Ref ${item.transferReference}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${settlementMeta.className}`}>{settlementMeta.label}</span>
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Current note</p>
+                        <p className="mt-2 text-sm leading-6 text-gray-300">{item.note || item.holdReason || "No finance note on record."}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveModalId(item.id)}
+                        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                      >
+                        Open action
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </article>
       </section>
+
+      {activeModalItem ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-[#0f0f17] shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-gray-800 px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-400">Payout action card</p>
+                <h3 className="truncate text-base font-semibold text-white">{activeModalItem.creatorName} · {activeModalItem.statementNo}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveModalId(null)}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-700 px-3 py-2 text-xs font-medium text-gray-300 hover:border-gray-500 hover:text-white"
+              >
+                <X className="h-3.5 w-3.5" />
+                Close
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-5">
+              {(() => {
+                const draft = drafts[activeModalItem.id] || buildDraft(activeModalItem);
+                const isSubmitting = submittingId === activeModalItem.id;
+                const settlementMeta = getCreatorSettlementStatusMeta(activeModalItem.status);
+                const bankMeta = getCreatorBankStatusMeta(activeModalItem.bankStatus);
+
+                return (
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-white">{activeModalItem.creatorName}</p>
+                          <p className="mt-1 text-sm text-gray-400">{activeModalItem.statementNo} · {formatUsd(activeModalItem.amountUsd)} · {activeModalItem.payoutMethodLabel}</p>
+                          <p className="mt-2 text-xs text-gray-500">Requested {formatAdminDate(activeModalItem.requestedAt, true)}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${settlementMeta.className}`}>{settlementMeta.label}</span>
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
+                        </div>
+                      </div>
+                      <p className="mt-4 text-sm leading-6 text-gray-300">{activeModalItem.note || activeModalItem.holdReason || "No finance note on record."}</p>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
+                      <select
+                        value={draft.decision}
+                        onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.id]: { ...draft, decision: event.target.value as PayoutDecision } }))}
+                        className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500"
+                      >
+                        <option value="confirm">Confirm for payout</option>
+                        <option value="hold">Place hold</option>
+                        <option value="mark_paid">Mark as paid</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-300">Finance note</label>
+                      <textarea
+                        value={draft.note}
+                        onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.id]: { ...draft, note: event.target.value } }))}
+                        placeholder="Explain why the payout is confirmed, held, or paid."
+                        className="min-h-[140px] w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-300">Transfer reference</label>
+                      <input
+                        value={draft.transferReference}
+                        onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.id]: { ...draft, transferReference: event.target.value } }))}
+                        placeholder="Required when marking a payout as paid"
+                        className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleReview(activeModalItem)}
+                      disabled={isSubmitting}
+                      className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSubmitting ? "Saving..." : "Save payout decision"}
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
