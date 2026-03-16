@@ -367,3 +367,116 @@ export interface CreatorDramaAnalytics {
   devices: CreatorAudienceDeviceShare[];
   highlights: CreatorDramaAnalyticsHighlight[];
 }
+
+export type CreatorSettlementBankStatus = "missing" | "pending_review" | "verified" | "rejected";
+
+export interface CreatorSettlementBankAccount {
+  accountHolderName: string;
+  bankName: string;
+  accountNumber: string;
+  accountNumberMasked: string;
+  routingNumber: string;
+  routingNumberMasked: string;
+  swiftCode: string;
+  bankAddress: string;
+  country: string;
+  currency: string;
+  verificationStatus: CreatorSettlementBankStatus;
+  verificationLabel: string;
+  verifiedAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface CreatorSettlementStatement {
+  id: string;
+  statementNo: string;
+  periodStart: string;
+  periodEnd: string;
+  grossRevenueUsd: number;
+  channelFeesUsd: number;
+  reserveUsd: number;
+  settlementBaseUsd: number;
+  creatorShareUsd: number;
+  unlockCount: number;
+  status: "pending" | "generated" | "confirmed" | "paid" | "disputed";
+  statusLabel: string;
+  payoutDate: string | null;
+}
+
+export interface CreatorSettlementOverview {
+  summary: {
+    settlementCurrency: string;
+    minimumPayoutUsd: number;
+    holdDays: number;
+    creatorShareRate: number;
+    availableBalanceUsd: number;
+    pendingBalanceUsd: number;
+    paidToDateUsd: number;
+    nextSettlementDate: string;
+    payoutMethodLabel: string;
+    bankStatus: CreatorSettlementBankStatus;
+    bankStatusLabel: string;
+  };
+  bankAccount: CreatorSettlementBankAccount;
+  taxInfo: CreatorSettlementTaxInfo;
+  statements: CreatorSettlementStatement[];
+}
+
+export interface CreatorSettlementTaxInfo {
+  legalName: string;
+  businessName: string;
+  taxClassification:
+    | "individual"
+    | "sole_proprietor"
+    | "llc"
+    | "c_corp"
+    | "s_corp"
+    | "partnership"
+    | "trust_estate"
+    | "other";
+  taxIdType: "ssn" | "ein";
+  taxIdNumber: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  stateOrRegion: string;
+  postalCode: string;
+  country: string;
+  certificationName: string;
+  status: "missing" | "submitted";
+  updatedAt: string | null;
+}
+
+export interface CreatorSettlementEpisodeBreakdownRow {
+  id: string;
+  dramaId: string;
+  dramaTitle: string;
+  episodeLabel: string;
+  thumbnail: string;
+  views: number;
+  grossRevenueUsd: number;
+  feesUsd: number;
+  netEarningUsd: number;
+}
+
+export interface CreatorSettlementDetail {
+  statement: CreatorSettlementStatement & {
+    netPayoutUsd: number;
+    readyForPayout: boolean;
+    periodLabel: string;
+  };
+  financialBreakdown: {
+    grossRevenueUsd: number;
+    platformFeesUsd: number;
+    withholdingTaxUsd: number;
+    netPayoutUsd: number;
+    platformFeeRate: number;
+    withholdingTaxRate: number;
+  };
+  episodeBreakdown: CreatorSettlementEpisodeBreakdownRow[];
+  confirmation: {
+    canConfirm: boolean;
+    confirmedAt: string | null;
+    disputedAt: string | null;
+  };
+}

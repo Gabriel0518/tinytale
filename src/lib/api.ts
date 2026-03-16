@@ -8,6 +8,10 @@ import type {
   CreatorDramaListResponse,
   CreatorEpisodeItem,
   CreatorRevenueAnalytics,
+  CreatorSettlementBankAccount,
+  CreatorSettlementDetail,
+  CreatorSettlementOverview,
+  CreatorSettlementTaxInfo,
   CreatorTicket,
   CreatorTicketCategory,
   CreatorTicketPriority,
@@ -510,6 +514,74 @@ export const creatorApi = {
   getDramaAnalytics: (token: string, id: string, range: '7d' | '30d' | '90d') =>
     api.get<{ success: boolean; data: CreatorDramaAnalytics }>(`/api/creator/dramas/${id}/analytics?range=${range}`, { token }),
 
+  getSettlementOverview: (token: string) =>
+    api.get<{ success: boolean; data: CreatorSettlementOverview }>(`/api/creator/settlements/overview`, { token }),
+
+  getSettlementDetail: (token: string, id: string) =>
+    api.get<{ success: boolean; data: CreatorSettlementDetail }>(`/api/creator/settlements/${id}`, { token }),
+
+  getSettlementTaxInfo: (token: string) =>
+    api.get<{ success: boolean; data: CreatorSettlementTaxInfo }>(`/api/creator/settlements/tax-info`, { token }),
+
+  updateSettlementBankAccount: (
+    token: string,
+    payload: {
+      accountHolderName: string;
+      bankName: string;
+      accountNumber: string;
+      routingNumber?: string;
+      swiftCode?: string;
+      bankAddress?: string;
+      country: string;
+      currency?: string;
+    }
+  ) => api.put<{ success: boolean; data: CreatorSettlementBankAccount }>(`/api/creator/settlements/bank-account`, payload, { token }),
+
+  updateSettlementTaxInfo: (
+    token: string,
+    payload: {
+      legalName: string;
+      businessName?: string;
+      taxClassification: CreatorSettlementTaxInfo["taxClassification"];
+      taxIdType: CreatorSettlementTaxInfo["taxIdType"];
+      taxIdNumber: string;
+      addressLine1: string;
+      addressLine2?: string;
+      city: string;
+      stateOrRegion: string;
+      postalCode: string;
+      country: string;
+      certificationName: string;
+    }
+  ) => api.put<{ success: boolean; data: CreatorSettlementTaxInfo }>(`/api/creator/settlements/tax-info`, payload, { token }),
+
+  confirmSettlementStatement: (token: string, id: string) =>
+    api.put<{ success: boolean; data: CreatorSettlementDetail["confirmation"] }>(`/api/creator/settlements/${id}/confirm`, {}, { token }),
+
+  downloadSettlementPdf: async (token: string, id: string) => {
+    const response = await fetch(`${API_URL}/api/creator/settlements/${id}/pdf`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      let message = 'Request failed';
+      try {
+        const err = await response.json();
+        message = err?.error?.message || message;
+      } catch {}
+      throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const contentDisposition = response.headers.get('content-disposition') || '';
+    const matched = contentDisposition.match(/filename=\"?([^"]+)\"?/i);
+    const filename = matched?.[1] || `statement-${id}.pdf`;
+    return { blob, filename };
+  },
+
   getDramas: (
     token: string,
     params?: {
@@ -712,6 +784,24 @@ export const creatorApi = {
     return data as { success: boolean; data: { url: string; key: string; format: 'srt' | 'vtt' } };
   },
 
+  uploadTicketAttachment: async (token: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch(`${API_URL}/api/creator/upload/ticket-attachment`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Attachment upload failed');
+    }
+    return data as {
+      success: boolean;
+      data: { url: string; key: string; filename: string; contentType: string; size: number };
+    };
+  },
+
   getTickets: (
     token: string,
     params?: {
@@ -753,14 +843,15 @@ export const creatorApi = {
       category: CreatorTicketCategory;
       priority: CreatorTicketPriority;
       message: string;
+      attachments?: string[];
     }
   ) => api.post('/api/creator/tickets', payload, { token }),
 
   getTicketById: (token: string, id: string) =>
     api.get<{ success: boolean; data: CreatorTicket }>(`/api/creator/tickets/${id}`, { token }),
 
-  replyTicket: (token: string, id: string, message: string) =>
-    api.post(`/api/creator/tickets/${id}/messages`, { message }, { token }),
+  replyTicket: (token: string, id: string, payload: { message: string; attachments?: string[] }) =>
+    api.post(`/api/creator/tickets/${id}/messages`, payload, { token }),
 
   closeTicket: (token: string, id: string) =>
     api.put(`/api/creator/tickets/${id}/close`, {}, { token }),
