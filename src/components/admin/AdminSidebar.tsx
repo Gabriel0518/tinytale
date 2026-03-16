@@ -63,6 +63,24 @@ const navigation: NavBlock[] = [
         ],
       },
       {
+        key: "creators",
+        label: "Creator Management",
+        icon: "M17 20h5V4H2v16h5m10 0v-6.5a2.5 2.5 0 00-5 0V20m5 0H7m10-11a3 3 0 11-6 0 3 3 0 016 0z",
+        items: [
+          { href: "/admin/creators/dashboard", label: "Creator Dashboard" },
+          { href: "/admin/creators/applications", label: "Applications" },
+          { href: "/admin/creators/list", label: "Creator List" },
+          { href: "/admin/creators/content", label: "Content Review" },
+          { href: "/admin/creators/dmca", label: "DMCA" },
+          { href: "/admin/creators/revenue", label: "Revenue" },
+          { href: "/admin/creators/bank-accounts", label: "Bank Accounts" },
+          { href: "/admin/creators/payout-requests", label: "Payout Requests" },
+          { href: "/admin/creators/settlements", label: "Settlements" },
+          { href: "/admin/creators/policies", label: "Policies" },
+          { href: "/admin/creators/tickets", label: "Tickets" },
+        ],
+      },
+      {
         key: "promotion",
         label: "Promotion",
         icon: "M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z",
@@ -109,6 +127,7 @@ export default function AdminSidebar() {
   const isItemActive = (href: string) => {
     if (href === "/admin") return pathname === "/admin";
     if (href === "/admin/settings") return pathname === "/admin/settings";
+    if (href === "/admin/creators/list") return pathname === "/admin/creators/list";
     return pathname?.startsWith(href) || false;
   };
 

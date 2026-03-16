@@ -506,3 +506,394 @@ export interface CreatorNotificationListResponse {
   unreadCount: number;
   summary: CreatorNotificationSummary;
 }
+
+export type CreatorAdminRiskLevel = "low" | "medium" | "high";
+export type CreatorAdminLifecycleStatus =
+  | "under_review"
+  | "active"
+  | "restricted"
+  | "suspended"
+  | "banned"
+  | "deactivated";
+export type CreatorAdminBankStatus =
+  | "missing"
+  | "pending_review"
+  | "verified"
+  | "rejected"
+  | "frozen";
+export type CreatorAdminContractStatus = "draft" | "sent" | "signed" | "renewal_due" | "terminated";
+
+export interface CreatorAdminDashboardKpi {
+  key: string;
+  label: string;
+  value: number;
+  delta: number;
+  helper: string;
+  tone: "indigo" | "amber" | "emerald" | "rose";
+}
+
+export interface CreatorAdminSlaAlert {
+  id: string;
+  type: "application" | "content" | "ticket";
+  label: string;
+  owner: string;
+  dueAt: string;
+  status: "watch" | "breach";
+  helper: string;
+}
+
+export interface CreatorAdminActivity {
+  id: string;
+  at: string;
+  actor: string;
+  action: string;
+  summary: string;
+}
+
+export interface CreatorAdminDashboardOverview {
+  kpis: CreatorAdminDashboardKpi[];
+  applicationFunnel: Array<{
+    label: string;
+    value: number;
+    helper: string;
+  }>;
+  slaAlerts: CreatorAdminSlaAlert[];
+  creatorHighlights: Array<{
+    id: string;
+    name: string;
+    level: string;
+    monthlyRevenueUsd: number;
+    publishedTitles: number;
+    status: CreatorAdminLifecycleStatus;
+  }>;
+  financeWatchlist: Array<{
+    id: string;
+    creatorName: string;
+    bankStatus: CreatorAdminBankStatus;
+    availableBalanceUsd: number;
+    payoutHoldReason: string;
+  }>;
+  recentActivity: CreatorAdminActivity[];
+}
+
+export interface CreatorAdminReviewChecklistItem {
+  key:
+    | "identity_verified"
+    | "portfolio_verified"
+    | "content_rights_verified"
+    | "agreement_verified"
+    | "risk_screening_passed";
+  label: string;
+  passed: boolean;
+  note: string;
+}
+
+export interface CreatorAdminApplicationListItem {
+  id: string;
+  applicantName: string;
+  creatorType: CreatorProfileType;
+  displayName: string;
+  email: string;
+  country: string;
+  genres: string[];
+  primaryLanguage: string;
+  status: CreatorApplicationStatus;
+  riskLevel: CreatorAdminRiskLevel;
+  submittedAt: string;
+  updatedAt: string;
+  assignedReviewer: string | null;
+  missingItems: string[];
+}
+
+export interface CreatorAdminApplicationDetail extends CreatorAdminApplicationListItem {
+  creatorId: string;
+  draft: CreatorApplicationDraft;
+  reviewChecklist: CreatorAdminReviewChecklistItem[];
+  notes: string;
+  agreementVersion: string;
+  signedAt: string | null;
+  reviewHistory: Array<{
+    id: string;
+    at: string;
+    actor: string;
+    action: string;
+    note: string;
+  }>;
+}
+
+export interface CreatorAdminCreatorListItem {
+  id: string;
+  displayName: string;
+  legalName: string;
+  creatorType: CreatorProfileType;
+  email: string;
+  country: string;
+  status: CreatorAdminLifecycleStatus;
+  level: string;
+  publishedTitles: number;
+  totalEpisodes: number;
+  monthlyRevenueUsd: number;
+  bankStatus: CreatorAdminBankStatus;
+  openTickets: number;
+  dmcaStrikes: number;
+  joinedAt: string;
+}
+
+export interface CreatorAdminCreatorDetail extends CreatorAdminCreatorListItem {
+  bio: string;
+  phone: string;
+  languages: string[];
+  genres: string[];
+  approvedAt: string | null;
+  managedBy: string | null;
+  contract: {
+    version: string;
+    status: CreatorAdminContractStatus;
+    signedAt: string | null;
+    nextRenewalAt: string | null;
+  };
+  bankAccount: {
+    status: CreatorAdminBankStatus;
+    accountHolderName: string;
+    bankName: string;
+    maskedAccountNumber: string;
+    country: string;
+    updatedAt: string | null;
+  };
+  topDramas: Array<{
+    id: string;
+    title: string;
+    status: CreatorDramaWorkflowStatus;
+    views: number;
+    revenueUsd: number;
+    updatedAt: string;
+  }>;
+  dmcaStrikeHistory: Array<{
+    id: string;
+    issuedAt: string;
+    status: "active" | "resolved";
+    reason: string;
+  }>;
+  auditTrail: CreatorAdminActivity[];
+}
+
+export type CreatorAdminContentReviewStatus =
+  | "draft"
+  | "pending_review"
+  | "published"
+  | "rejected"
+  | "archived";
+
+export type CreatorAdminSlaStatus = "resolved" | "on_track" | "due_soon" | "breach";
+
+export interface CreatorAdminContentReviewListItem {
+  dramaId: string;
+  title: string;
+  cover: string;
+  creatorId: string;
+  creatorName: string;
+  creatorEmail: string;
+  categories: string[];
+  episodes: number;
+  viewCount: number;
+  status: CreatorAdminContentReviewStatus;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  slaDeadlineAt: string | null;
+  slaStatus: CreatorAdminSlaStatus;
+  reviewNote: string;
+  rejectionReason: string;
+}
+
+export interface CreatorAdminContentChecklistItem {
+  key:
+    | "metadata_complete"
+    | "episode_assets_ready"
+    | "pricing_ready"
+    | "rights_clearance"
+    | "policy_risk_clear";
+  label: string;
+  passed: boolean;
+  note: string;
+}
+
+export interface CreatorAdminContentReviewDetail extends CreatorAdminContentReviewListItem {
+  description: string;
+  language: string;
+  country: string;
+  creatorLevel: string;
+  creatorStatus: CreatorAdminLifecycleStatus;
+  rejectionHistoryCount: number;
+  activeDmcaStrikes: number;
+  checklist: CreatorAdminContentChecklistItem[];
+  episodesPreview: Array<{
+    id: string;
+    episodeNumber: number;
+    title: string;
+    durationSeconds: number;
+    status: string;
+  }>;
+  reviewHistory: Array<{
+    id: string;
+    at: string;
+    actor: string;
+    action: string;
+    note: string;
+  }>;
+}
+
+export type CreatorAdminDmcaStatus =
+  | "open"
+  | "under_review"
+  | "takedown_executed"
+  | "counter_notice"
+  | "resolved"
+  | "rejected";
+
+export interface CreatorAdminDmcaCaseItem {
+  id: string;
+  creatorId: string;
+  creatorName: string;
+  creatorEmail: string;
+  dramaId: string | null;
+  dramaTitle: string | null;
+  status: CreatorAdminDmcaStatus;
+  reportedAt: string;
+  dueAt: string | null;
+  claimant: string;
+  reason: string;
+  actionRequired: string;
+  strikeImpact: number;
+  hasCounterNotice: boolean;
+  note: string;
+}
+
+export type CreatorAdminSettlementStatus =
+  | "pending"
+  | "generated"
+  | "confirmed"
+  | "paid"
+  | "disputed"
+  | "held";
+
+export interface CreatorAdminBankAccountItem {
+  creatorId: string;
+  creatorName: string;
+  creatorEmail: string;
+  creatorLevel: string;
+  creatorStatus: CreatorAdminLifecycleStatus;
+  bankStatus: CreatorAdminBankStatus;
+  accountHolderName: string;
+  bankName: string;
+  maskedAccountNumber: string;
+  country: string;
+  updatedAt: string | null;
+  availableBalanceUsd: number;
+  pendingBalanceUsd: number;
+  nextSettlementDate: string | null;
+  lastReviewNote: string;
+}
+
+export interface CreatorAdminPayoutRequestItem {
+  id: string;
+  creatorId: string;
+  creatorName: string;
+  creatorEmail: string;
+  statementId: string;
+  statementNo: string;
+  amountUsd: number;
+  requestedAt: string;
+  payoutDate: string | null;
+  bankStatus: CreatorAdminBankStatus;
+  status: CreatorAdminSettlementStatus;
+  payoutMethodLabel: string;
+  holdReason: string;
+  transferReference: string;
+  note: string;
+}
+
+export interface CreatorAdminSettlementItem {
+  id: string;
+  creatorId: string;
+  creatorName: string;
+  statementId: string;
+  statementNo: string;
+  periodStart: string;
+  periodEnd: string;
+  periodLabel: string;
+  grossRevenueUsd: number;
+  channelFeesUsd: number;
+  reserveUsd: number;
+  netPayoutUsd: number;
+  unlockCount: number;
+  payoutDate: string | null;
+  bankStatus: CreatorAdminBankStatus;
+  status: CreatorAdminSettlementStatus;
+  note: string;
+}
+
+export interface CreatorAdminRevenueOverview {
+  kpis: Array<{
+    key: "grossRevenueUsd" | "netPayoutUsd" | "pendingPayoutUsd" | "heldAmountUsd";
+    label: string;
+    valueUsd: number;
+    helper: string;
+    tone: "indigo" | "emerald" | "amber" | "rose";
+  }>;
+  creatorRows: Array<{
+    creatorId: string;
+    creatorName: string;
+    creatorEmail: string;
+    creatorLevel: string;
+    grossRevenueUsd: number;
+    netPayoutUsd: number;
+    availableBalanceUsd: number;
+    pendingBalanceUsd: number;
+    publishedTitles: number;
+    bankStatus: CreatorAdminBankStatus;
+  }>;
+  recentStatements: CreatorAdminSettlementItem[];
+  watchlist: Array<{
+    id: string;
+    creatorId: string;
+    creatorName: string;
+    issue: string;
+    amountUsd: number;
+    severity: "medium" | "high";
+  }>;
+}
+
+export interface CreatorAdminTicketItem {
+  id: string;
+  ticketNo: string;
+  creatorId: string;
+  creatorName: string;
+  creatorEmail: string;
+  subject: string;
+  category: CreatorTicketCategory;
+  priority: CreatorTicketPriority;
+  status: CreatorTicketStatus;
+  lastMessageAt: string;
+  updatedAt: string;
+  messageCount: number;
+  latestMessage: string;
+  latestSenderType: "creator" | "support" | "system";
+}
+
+export interface CreatorAdminTicketDetail extends CreatorAdminTicketItem {
+  messages: CreatorTicketMessage[];
+}
+
+export interface CreatorAdminPolicyOverview {
+  version: string;
+  creatorShareRate: number;
+  platformFeeRate: number;
+  refundReserveRate: number;
+  holdDays: number;
+  minimumPayoutUsd: number;
+  reviewSlaHours: number;
+  payoutScheduleDay: number;
+  autoReleaseRequiresVerifiedBank: boolean;
+  notes: string[];
+  lastUpdatedAt: string | null;
+}

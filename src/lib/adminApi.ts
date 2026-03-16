@@ -552,6 +552,118 @@ export const adminApi = {
   reviewPromoter: (id: string, data: any, token = getAdminToken()) =>
     api.post(`/api/promoter/admin/${id}/review`, data, { token }),
 
+  // Creator management
+  getCreatorAdminDashboard: (token = getAdminToken()) =>
+    api.get('/api/admin/creators/dashboard', { token }),
+
+  getCreatorApplications: (params?: Record<string, any>, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/applications${query ? `?${query}` : ''}`, { token });
+  },
+
+  getCreatorApplication: (id: string, token = getAdminToken()) =>
+    api.get(`/api/admin/applications/${id}`, { token }),
+
+  reviewCreatorApplication: (id: string, data: any, token = getAdminToken()) =>
+    api.post(`/api/admin/applications/${id}/review`, data, { token }),
+
+  getCreators: (params?: Record<string, any>, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/creators${query ? `?${query}` : ''}`, { token });
+  },
+
+  getCreator: (id: string, token = getAdminToken()) =>
+    api.get(`/api/admin/creators/${id}`, { token }),
+
+  updateCreator: (id: string, data: any, token = getAdminToken()) =>
+    api.put(`/api/admin/creators/${id}`, data, { token }),
+
+  getCreatorContentReviews: (params?: Record<string, any>, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/content-reviews${query ? `?${query}` : ''}`, { token });
+  },
+
+  getCreatorContentReview: (dramaId: string, token = getAdminToken()) =>
+    api.get(`/api/admin/content-reviews/${dramaId}`, { token }),
+
+  reviewCreatorContent: (dramaId: string, data: any, token = getAdminToken()) =>
+    api.post(`/api/admin/content-reviews/${dramaId}/review`, data, { token }),
+
+  getCreatorDmcaCases: (params?: Record<string, any>, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/dmca${query ? `?${query}` : ''}`, { token });
+  },
+
+  reviewCreatorDmcaCase: (creatorId: string, caseId: string, data: any, token = getAdminToken()) =>
+    api.post(`/api/admin/dmca/${creatorId}/cases/${caseId}/review`, data, { token }),
+
+  getCreatorBankAccounts: (params?: Record<string, any>, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/creator-bank-accounts${query ? `?${query}` : ''}`, { token });
+  },
+
+  reviewCreatorBankAccount: (creatorId: string, data: any, token = getAdminToken()) =>
+    api.post(`/api/admin/creator-bank-accounts/${creatorId}/review`, data, { token }),
+
+  getCreatorSettlements: (params?: Record<string, any>, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/creator-settlements${query ? `?${query}` : ''}`, { token });
+  },
+
+  reviewCreatorSettlement: (creatorId: string, statementId: string, data: any, token = getAdminToken()) =>
+    api.post(`/api/admin/creator-settlements/${creatorId}/${statementId}/review`, data, { token }),
+
+  getCreatorPayoutRequests: (params?: Record<string, any>, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/creator-payout-requests${query ? `?${query}` : ''}`, { token });
+  },
+
+  reviewCreatorPayoutRequest: (creatorId: string, statementId: string, data: any, token = getAdminToken()) =>
+    api.post(`/api/admin/creator-payout-requests/${creatorId}/${statementId}/review`, data, { token }),
+
+  getCreatorRevenueOverview: (params?: Record<string, any>, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/creator-revenue${query ? `?${query}` : ''}`, { token });
+  },
+
+  getCreatorTickets: (params?: Record<string, any>, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/creator-tickets${query ? `?${query}` : ''}`, { token });
+  },
+
+  getCreatorTicket: (ticketId: string, token = getAdminToken()) =>
+    api.get(`/api/admin/creator-tickets/${ticketId}`, { token }),
+
+  replyCreatorTicket: (ticketId: string, data: any, token = getAdminToken()) =>
+    api.post(`/api/admin/creator-tickets/${ticketId}/reply`, data, { token }),
+
+  updateCreatorTicketStatus: (ticketId: string, data: any, token = getAdminToken()) =>
+    api.post(`/api/admin/creator-tickets/${ticketId}/status`, data, { token }),
+
+  getCreatorPolicies: (token = getAdminToken()) =>
+    api.get('/api/admin/creator-policies', { token }),
+
+  updateCreatorPolicies: (data: any, token = getAdminToken()) =>
+    api.put('/api/admin/creator-policies', data, { token }),
+
   // Withdrawal management
   getWithdrawals: (params?: Record<string, any>, token = getAdminToken()) => {
     const query = params ? new URLSearchParams(
