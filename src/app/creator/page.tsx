@@ -49,6 +49,21 @@ const stats = [
   },
 ];
 
+const heroSignals = [
+  {
+    title: "Dedicated drama audience",
+    description: "TinyTale viewers open the platform to binge vertical series, not to scroll past unrelated content.",
+  },
+  {
+    title: "Built-in creator operations",
+    description: "Upload episodes, manage subtitles, watch analytics, and handle settlements without third-party tools.",
+  },
+  {
+    title: "Predictable monthly payouts",
+    description: "Coin unlock revenue settles in USD with transparent breakdowns and creator-side support tracking.",
+  },
+];
+
 const whyTinyTale = [
   {
     title: "Viewers come here to watch dramas.",
@@ -319,15 +334,15 @@ export default function CreatorLandingPage() {
       </header>
 
       <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-6 px-4 pb-16 pt-6 md:px-6 xl:px-0">
-        <section className="relative overflow-hidden rounded-[32px] border border-[#dbe2ea] bg-[#0f172a] px-5 py-10 text-white md:px-8 md:py-12 lg:px-10 lg:py-14">
+        <section className="relative overflow-hidden rounded-[32px] border border-[#dbe2ea] bg-[#0f172a] px-5 py-8 text-white md:px-8 md:py-10 lg:px-10 lg:py-12">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.26),_transparent_42%),radial-gradient(circle_at_80%_20%,_rgba(236,72,153,0.18),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(148,163,184,0.18),_transparent_38%)]" />
-          <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_420px] lg:items-start">
-            <div>
+          <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)] lg:items-stretch">
+            <div className="flex flex-col justify-between">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#93c5fd]">Now Accepting Creators</p>
-              <h1 className="mt-4 max-w-4xl text-[38px] font-black leading-[0.98] tracking-[-0.05em] sm:text-[46px] md:text-[54px] lg:text-[60px]">
+              <h1 className="mt-4 max-w-[760px] text-[38px] font-black leading-[0.96] tracking-[-0.05em] sm:text-[46px] md:text-[54px] lg:text-[58px] xl:text-[64px]">
                 Your stories deserve an audience and a paycheck.
               </h1>
-              <p className="mt-5 max-w-3xl text-[15px] leading-7 text-[#cbd5e1] md:text-[17px]">
+              <p className="mt-5 max-w-[760px] text-[15px] leading-7 text-[#cbd5e1] md:text-[17px]">
                 TinyTale is the premium short drama platform where creators earn up to 60% revenue share in USD. No follower minimums. No algorithm lottery. Just great stories, real viewers, and monthly payouts.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -350,11 +365,23 @@ export default function CreatorLandingPage() {
                 <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1">48-hour review</span>
                 <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1">Monthly USD settlements</span>
               </div>
+
+              <div className="mt-8 grid gap-3 md:grid-cols-3">
+                {heroSignals.map((item) => (
+                  <article
+                    key={item.title}
+                    className="rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04))] px-4 py-4 backdrop-blur-sm"
+                  >
+                    <p className="text-sm font-bold text-white">{item.title}</p>
+                    <p className="mt-2 text-[13px] leading-6 text-[#cbd5e1]">{item.description}</p>
+                  </article>
+                ))}
+              </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="grid gap-4 sm:grid-cols-2">
               {stats.map((item) => (
-                <article key={item.label} className="rounded-[24px] border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
+                <article key={item.label} className="flex h-full min-h-[182px] flex-col rounded-[24px] border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">{item.label}</p>
                   <p className="mt-3 text-[24px] font-black leading-none text-white">{item.value}</p>
                   <p className="mt-3 text-sm leading-6 text-[#cbd5e1]">{item.description}</p>
@@ -370,11 +397,11 @@ export default function CreatorLandingPage() {
             title="Built for creators who take storytelling seriously."
             description="We're not another social media app. TinyTale is a dedicated short drama streaming platform built for episodic vertical series and creators who want both audience attention and real revenue."
           />
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid items-stretch gap-4 md:grid-cols-3">
             {whyTinyTale.map(({ title, description, icon: Icon }) => (
               <article
                 key={title}
-                className="rounded-[24px] border border-[#e2e8f0] bg-[#f8fafc] p-5 transition hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(15,23,42,0.08)]"
+                className="flex h-full flex-col rounded-[24px] border border-[#e2e8f0] bg-[#f8fafc] p-5 transition hover:-translate-y-0.5 hover:shadow-[0_18px_36px_rgba(15,23,42,0.08)]"
               >
                 <div className="flex size-11 items-center justify-center rounded-2xl bg-[#e0efff] text-[#1877F2]">
                   <Icon className="size-5" />
@@ -392,9 +419,9 @@ export default function CreatorLandingPage() {
             title="How much can you really earn?"
             description="Your revenue depends on content quality, episode count, and audience engagement. These scenarios reflect the current tier model and typical unlock behavior across short drama catalogs."
           />
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <div className="mt-6 grid items-stretch gap-4 lg:grid-cols-3">
             {earningPotential.map((item) => (
-              <article key={item.tier} className="rounded-[24px] border border-[#dbe2ea] bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5">
+              <article key={item.tier} className="flex h-full flex-col rounded-[24px] border border-[#dbe2ea] bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1877F2]">{item.tier}</p>
@@ -403,7 +430,7 @@ export default function CreatorLandingPage() {
                   <span className="rounded-full bg-[#e0efff] px-3 py-1 text-xs font-semibold text-[#1d4ed8]">{item.label}</span>
                 </div>
                 <p className="mt-4 text-sm font-semibold text-[#0f172a]">{item.scenario}</p>
-                <p className="mt-5 text-[34px] font-black tracking-[-0.04em] text-[#0f172a]">{item.estimate}</p>
+                <p className="mt-auto pt-5 text-[34px] font-black tracking-[-0.04em] text-[#0f172a]">{item.estimate}</p>
               </article>
             ))}
           </div>
@@ -414,9 +441,9 @@ export default function CreatorLandingPage() {
 
         <section id="how-it-works" className="rounded-[28px] border border-[#e2e8f0] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] md:px-7 md:py-7">
           <SectionIntro eyebrow="How It Works" title="From idea to income in 4 steps." />
-          <div className="mt-6 grid gap-4 lg:grid-cols-4">
+          <div className="mt-6 grid items-stretch gap-4 lg:grid-cols-4">
             {workflowSteps.map(({ step, title, description, icon: Icon }) => (
-              <article key={step} className="rounded-[24px] border border-[#e2e8f0] bg-[#f8fafc] p-5">
+              <article key={step} className="flex h-full flex-col rounded-[24px] border border-[#e2e8f0] bg-[#f8fafc] p-5">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1877F2]">Step {step}</span>
                   <div className="flex size-10 items-center justify-center rounded-2xl bg-white text-[#1877F2] shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
@@ -436,9 +463,9 @@ export default function CreatorLandingPage() {
             title="Everything you need to build and grow."
             description="The creator center now covers content operations, analytics, settlements, multilingual delivery, and support workflows without pushing you into external tools."
           />
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-6 grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
             {platformFeatures.map(({ title, description, icon: Icon }) => (
-              <article key={title} className="rounded-[24px] border border-[#e2e8f0] bg-[#ffffff] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+              <article key={title} className="flex h-full flex-col rounded-[24px] border border-[#e2e8f0] bg-[#ffffff] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
                 <div className="flex size-11 items-center justify-center rounded-2xl bg-[#eff6ff] text-[#1877F2]">
                   <Icon className="size-5" />
                 </div>
@@ -455,11 +482,11 @@ export default function CreatorLandingPage() {
             title="The more you create, the more you earn."
             description="Revenue share grows with your catalog and audience performance. Every creator starts at Bronze and levels up based on published work and business results."
           />
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <div className="mt-6 grid items-stretch gap-4 lg:grid-cols-3">
             {creatorTiers.map((tier, index) => (
               <article
                 key={tier.name}
-                className={`rounded-[24px] border p-5 ${index === 1 ? "border-[#bfd8ff] bg-[#f5f9ff]" : "border-[#e2e8f0] bg-[#f8fafc]"}`}
+                className={`flex h-full flex-col rounded-[24px] border p-5 ${index === 1 ? "border-[#bfd8ff] bg-[#f5f9ff]" : "border-[#e2e8f0] bg-[#f8fafc]"}`}
               >
                 <div className="flex items-center justify-between gap-4">
                   <div>

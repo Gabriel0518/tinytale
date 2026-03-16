@@ -4,29 +4,29 @@
 
 ## 1. 项目概述
 
-| 属性 | 值 |
-|------|-----|
-| **项目名称** | TinyTale / ReelShort |
-| **类型** | Netflix风格海外竖屏短剧流媒体平台（Web端） |
-| **目标用户** | 北美18-35岁年轻用户（主要为女性） |
+| 属性       | 值                           |
+| -------- | --------------------------- |
+| **项目名称** | TinyTale                    |
+| **类型**   | Netflix风格海外竖屏短剧流媒体平台（Web端）  |
+| **目标用户** | 北美18-35岁年轻用户（主要为女性）         |
 | **核心价值** | 高品质UI体验 + 专注竖屏短剧品类 + 金币付费模式 |
-| **设计风格** | 深色主题，参考Netflix/Disney+ |
-| **响应式** | PC(1440px) + Mobile(375px) |
+| **设计风格** | 深色主题，参考Netflix/Disney+      |
+| **响应式**  | PC(1440px) + Mobile(375px)  |
 
 ---
 
 ## 2. 技术栈
 
-| 层级 | 选型 | 端口 |
-|------|------|------|
-| **前端** | Next.js 14 + TypeScript + Tailwind CSS | 7001 |
-| **后端** | Node.js + Express | 7002 |
-| **后台** | Next.js 14 + TypeScript + Tailwind CSS | 7003 |
-| **数据库** | MongoDB (Docker) | 27017 |
-| **缓存** | Redis | 6379 |
-| **视频托管** | 第三方CDN（Mux / Cloudflare Stream） | - |
-| **支付** | Stripe | - |
-| **部署** | Vercel(前端/后台) + Hostinger VPS(后端，自管) | - |
+| 层级       | 选型                                     | 端口    |
+| -------- | -------------------------------------- | ----- |
+| **前端**   | Next.js 14 + TypeScript + Tailwind CSS | 7001  |
+| **后端**   | Node.js + Express                      | 7002  |
+| **后台**   | Next.js 14 + TypeScript + Tailwind CSS | 7003  |
+| **数据库**  | MongoDB (Docker)                       | 27017 |
+| **缓存**   | Redis                                  | 6379  |
+| **视频托管** | 第三方CDN（Mux / Cloudflare Stream）        | -     |
+| **支付**   | Stripe                                 | -     |
+| **部署**   | Vercel(前端/后台) + Hostinger VPS(后端，自管)   | -     |
 
 ### 服务地址（生产环境端口不可修改）
 
