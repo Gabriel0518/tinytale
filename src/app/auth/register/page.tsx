@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/authContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import dynamicImport from "next/dynamic";
 import { useFacebookLogin } from "@/lib/facebookSdk";
-import { verificationApi } from "@/lib/api";
+import { authApi, verificationApi } from "@/lib/api";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
@@ -20,11 +20,13 @@ const GoogleLoginButton = dynamicImport(
   { ssr: false }
 );
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function RegisterPage() {
   const locale = useLocale();
   const t = resolveLocaleCopy(REGISTER_TEXT, locale);
   const router = useRouter();
-  const { register, googleLogin, facebookLogin } = useAuth();
+  const { googleLogin, facebookLogin } = useAuth();
   const [nickname, setNickname] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,11 +35,47 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
   const [error, setError] = useState("");
+
+  const checkEmailAvailability = async (targetEmail: string): Promise<boolean> => {
+    const normalizedEmail = targetEmail.trim().toLowerCase();
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      return false;
+    }
+
+    const response = await authApi.checkEmailAvailability(normalizedEmail);
+    return !response.data.available;
+  };
+
+  const handleEmailBlur = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail || !EMAIL_REGEX.test(normalizedEmail)) return;
+
+    setCheckingEmail(true);
+    try {
+      const isRegistered = await checkEmailAvailability(normalizedEmail);
+      if (isRegistered) {
+        setError(t.emailAlreadyRegistered);
+      } else if (error === t.emailAlreadyRegistered) {
+        setError("");
+      }
+    } catch (err) {
+      console.error('Failed to check email availability:', err);
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      setError(t.invalidEmail);
+      return;
+    }
 
     if (!agreedToTerms) {
       setError(t.agreeRequired);
@@ -57,23 +95,34 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
+      const isRegistered = await checkEmailAvailability(normalizedEmail);
+      if (isRegistered) {
+        setError(t.emailAlreadyRegistered);
+        return;
+      }
+
       // Step 1: Send verification code
-      await verificationApi.sendVerificationCode(email, 'register');
+      await verificationApi.sendVerificationCode(normalizedEmail, 'register');
 
       // Step 2: Store registration data in sessionStorage
       const refCode = typeof window !== 'undefined' ? localStorage.getItem('ref_code') || '' : '';
       sessionStorage.setItem('pendingRegistration', JSON.stringify({
-        email,
+        email: normalizedEmail,
         password,
         nickname,
         referredBy: refCode || undefined
       }));
 
       // Step 3: Redirect to verification page
-      router.push(`${localizePath('/auth/verify-otp', locale)}?email=${encodeURIComponent(email)}&purpose=register`);
+      router.push(`${localizePath('/auth/verify-otp', locale)}?email=${encodeURIComponent(normalizedEmail)}&purpose=register`);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t.genericError;
-      setError(message || t.sendCodeFailed);
+      console.error('Failed to send registration verification code:', err);
+      const message = err instanceof Error ? err.message.toLowerCase() : '';
+      if (message.includes('email already registered')) {
+        setError(t.emailAlreadyRegistered);
+      } else {
+        setError(t.sendCodeFailed);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -173,12 +222,21 @@ export default function RegisterPage() {
                 id="register-email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (error === t.emailAlreadyRegistered) {
+                    setError("");
+                  }
+                }}
+                onBlur={handleEmailBlur}
                 placeholder={t.emailPlaceholder}
                 className="w-full rounded-lg border border-white/10 bg-[#1a1c23] pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:border-amber-500 focus:outline-none"
                 required
               />
             </div>
+            {checkingEmail && (
+              <p className="mt-2 text-xs text-gray-400">{t.checkingAccount}</p>
+            )}
           </div>
 
           {/* Password */}
@@ -267,7 +325,7 @@ export default function RegisterPage() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={isLoading || checkingEmail}
             className="w-full rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 py-3 font-medium text-white transition hover:from-amber-600 hover:to-amber-700 disabled:opacity-50"
           >
             {isLoading ? t.sendingCode : t.createAccount}
@@ -339,6 +397,9 @@ const REGISTER_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     agreeRequired: "You must agree to the Terms of Service and Privacy Policy.",
     passwordMin: "Password must be at least 8 characters.",
     passwordMismatch: "Passwords do not match.",
+    invalidEmail: "Please enter a valid email address.",
+    emailAlreadyRegistered: "This email is already registered. Please sign in instead.",
+    checkingAccount: "Checking account availability...",
     genericError: "An error occurred",
     sendCodeFailed: "Failed to send verification code. Please try again.",
     googleFailed: "Google sign up failed. Please try again.",
@@ -368,6 +429,9 @@ const REGISTER_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     agreeRequired: "你必须同意服务条款和隐私政策。",
     passwordMin: "密码至少需要 8 位。",
     passwordMismatch: "两次输入的密码不一致。",
+    invalidEmail: "请输入有效的邮箱地址。",
+    emailAlreadyRegistered: "该邮箱已注册，请直接登录。",
+    checkingAccount: "正在检查账号是否已注册...",
     genericError: "发生错误",
     sendCodeFailed: "发送验证码失败，请重试。",
     googleFailed: "Google 注册失败，请重试。",
@@ -397,6 +461,9 @@ const REGISTER_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     agreeRequired: "利用規約とプライバシーポリシーへの同意が必要です。",
     passwordMin: "パスワードは8文字以上必要です。",
     passwordMismatch: "パスワードが一致しません。",
+    invalidEmail: "有効なメールアドレスを入力してください。",
+    emailAlreadyRegistered: "このメールアドレスは既に登録されています。ログインしてください。",
+    checkingAccount: "アカウントを確認中...",
     genericError: "エラーが発生しました",
     sendCodeFailed: "認証コード送信に失敗しました。",
     googleFailed: "Google 登録に失敗しました。",
@@ -426,6 +493,9 @@ const REGISTER_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     agreeRequired: "Debes aceptar los Términos y la Política de privacidad.",
     passwordMin: "La contraseña debe tener al menos 8 caracteres.",
     passwordMismatch: "Las contraseñas no coinciden.",
+    invalidEmail: "Ingresa un correo electrónico válido.",
+    emailAlreadyRegistered: "Este correo ya está registrado. Inicia sesión.",
+    checkingAccount: "Verificando disponibilidad de la cuenta...",
     genericError: "Ocurrió un error",
     sendCodeFailed: "No se pudo enviar el código.",
     googleFailed: "Falló el registro con Google.",
@@ -455,6 +525,9 @@ const REGISTER_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     agreeRequired: "Você deve concordar com os Termos e a Política de Privacidade.",
     passwordMin: "A senha deve ter pelo menos 8 caracteres.",
     passwordMismatch: "As senhas não coincidem.",
+    invalidEmail: "Digite um e-mail válido.",
+    emailAlreadyRegistered: "Este e-mail já está registrado. Faça login.",
+    checkingAccount: "Verificando disponibilidade da conta...",
     genericError: "Ocorreu um erro",
     sendCodeFailed: "Falha ao enviar código.",
     googleFailed: "Falha no cadastro com Google.",
@@ -484,6 +557,9 @@ const REGISTER_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     agreeRequired: "आपको शर्तों और गोपनीयता नीति से सहमत होना होगा।",
     passwordMin: "पासवर्ड कम से कम 8 अक्षर का होना चाहिए।",
     passwordMismatch: "पासवर्ड मेल नहीं खाते।",
+    invalidEmail: "कृपया मान्य ईमेल पता दर्ज करें।",
+    emailAlreadyRegistered: "यह ईमेल पहले से पंजीकृत है। कृपया लॉगिन करें।",
+    checkingAccount: "खाते की उपलब्धता जाँची जा रही है...",
     genericError: "त्रुटि हुई",
     sendCodeFailed: "कोड भेजने में विफल।",
     googleFailed: "Google साइन अप विफल।",
@@ -513,6 +589,9 @@ const REGISTER_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     agreeRequired: "Anda harus menyetujui Syarat dan Kebijakan Privasi.",
     passwordMin: "Kata sandi minimal 8 karakter.",
     passwordMismatch: "Kata sandi tidak cocok.",
+    invalidEmail: "Masukkan alamat email yang valid.",
+    emailAlreadyRegistered: "Email ini sudah terdaftar. Silakan masuk.",
+    checkingAccount: "Memeriksa ketersediaan akun...",
     genericError: "Terjadi kesalahan",
     sendCodeFailed: "Gagal mengirim kode verifikasi.",
     googleFailed: "Daftar Google gagal.",

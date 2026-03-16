@@ -4,15 +4,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  Check,
-  Circle,
-  Clock,
-  Flag,
-  Info,
-  Lock,
-} from "lucide-react";
+import { ArrowLeft, Check, Clock3, Flag, Info, Lock } from "lucide-react";
 import { useAuth } from "@/lib/authContext";
 import { creatorApi } from "@/lib/api";
 import { localizePath } from "@/lib/i18n";
@@ -85,25 +77,24 @@ function StepIcon({
 
   if (isCompleted) {
     return (
-      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1876f2] shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)]">
-        <Check className="h-[11px] w-[11px] text-white" strokeWidth={3} />
+      <div className="flex h-[44px] w-[44px] items-center justify-center rounded-full bg-[#2A79F4] shadow-[0_10px_18px_-8px_rgba(42,121,244,0.85)]">
+        <Check className="h-[18px] w-[18px] text-white" strokeWidth={2.4} />
       </div>
     );
   }
 
   if (isCurrent) {
     return (
-      <div className="flex h-10 w-10 items-center justify-center rounded-full border-4 border-[#1876f2] bg-white shadow-[0_0_0_4px_rgba(24,118,242,0.2),0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-4px_rgba(0,0,0,0.1)]">
-        <Circle className="h-2 w-2 fill-[#1876f2] text-[#1876f2]" />
+      <div className="relative flex h-[44px] w-[44px] items-center justify-center rounded-full border-[4px] border-[#2A79F4] bg-white shadow-[0_0_0_5px_rgba(42,121,244,0.24)]">
+        <span className="h-[9px] w-[9px] rounded-full bg-[#2A79F4]" />
       </div>
     );
   }
 
-  const icons = [null, null, null, Lock, Flag];
-  const Icon = icons[index] || Lock;
+  const Icon = index === 4 ? Flag : Lock;
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#e2e8f0] bg-white text-[#94a3b8]">
-      <Icon className="h-[14px] w-[11px]" />
+    <div className="flex h-[44px] w-[44px] items-center justify-center rounded-full border-2 border-[#D0DAE8] bg-[#F8FAFD] text-[#A0AEC5]">
+      <Icon className="h-[16px] w-[16px]" strokeWidth={1.8} />
     </div>
   );
 }
@@ -117,144 +108,154 @@ export default function CreatorPendingPage() {
 
   useEffect(() => {
     if (!token) return;
-    creatorApi.getApplicationStatus(token).then((res: any) => {
-      const s = String(
-        res?.data?.applicationStatus ||
-          res?.data?.status ||
-          res?.data?.application?.status ||
-          res?.data?.creator?.status ||
-          "under_review"
-      ).toLowerCase();
-      setStatus(s);
 
-      const id =
-        res?.data?.applicationId ||
-        res?.data?.application?.id ||
-        res?.data?.id ||
-        "";
-      if (id) setApplicationId(`#TT-${String(id).slice(-5).toUpperCase()}`);
+    creatorApi
+      .getApplicationStatus(token)
+      .then((res: any) => {
+        const currentStatus = String(
+          res?.data?.applicationStatus ||
+            res?.data?.status ||
+            res?.data?.application?.status ||
+            res?.data?.creator?.status ||
+            "under_review"
+        ).toLowerCase();
 
-      const updated =
-        res?.data?.updatedAt ||
-        res?.data?.application?.updatedAt ||
-        "";
-      if (updated) {
+        setStatus(currentStatus);
+
+        const id =
+          res?.data?.applicationId ||
+          res?.data?.application?.id ||
+          res?.data?.id ||
+          "";
+        if (id) {
+          setApplicationId(`#TT-${String(id).slice(-5).toUpperCase()}`);
+        }
+
+        const updated =
+          res?.data?.updatedAt ||
+          res?.data?.application?.updatedAt ||
+          "";
+
+        if (!updated) return;
+
         const diff = Date.now() - new Date(updated).getTime();
         const hours = Math.floor(diff / 3600000);
-        if (hours < 1) setLastUpdated("a few moments ago");
-        else if (hours < 24) setLastUpdated(`${hours} hour${hours > 1 ? "s" : ""} ago`);
-        else {
+
+        if (hours < 1) {
+          setLastUpdated("a few moments ago");
+        } else if (hours < 24) {
+          setLastUpdated(`${hours} hour${hours > 1 ? "s" : ""} ago`);
+        } else {
           const days = Math.floor(hours / 24);
           setLastUpdated(`${days} day${days > 1 ? "s" : ""} ago`);
         }
-      }
-    }).catch(() => {});
+      })
+      .catch(() => {
+        // Keep fallback values when status API fails.
+      });
   }, [token]);
 
   const activeStep = statusToStep(status);
   const { title, description } = statusLabel(status);
-  const progressPercent = Math.min(
-    (activeStep / (STEPS.length - 1)) * 100,
-    100
-  );
+  const progressSteps = Math.min(activeStep, STEPS.length - 1);
+  const progressWidth = (progressSteps / (STEPS.length - 1)) * 80;
 
   return (
-    <div className="relative flex min-h-[calc(100vh-65px)] items-center justify-center bg-[#f5f7f8]">
-      {/* Blurred background content (simulated) */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden blur-[2px]">
-        <div className="absolute inset-0 bg-white/20 mix-blend-saturation" />
-        <div className="mx-auto mt-[81px] w-full max-w-[1024px] px-10">
-          <div className="mt-20 h-12 w-64 rounded-2xl bg-[#e2e8f0]" />
-          <div className="mt-[24px] h-4 w-full rounded-lg bg-[#e2e8f0]" />
-          <div className="mt-2 h-4 w-4/5 rounded-lg bg-[#e2e8f0]" />
-          <div className="mt-16 grid grid-cols-3 gap-6">
-            <div className="h-64 rounded-3xl bg-[#e2e8f0]" />
-            <div className="h-64 rounded-3xl bg-[#e2e8f0]" />
-            <div className="h-64 rounded-3xl bg-[#e2e8f0]" />
-          </div>
+    <div className="relative min-h-[calc(100vh-65px)]">
+      <div className="pointer-events-none fixed inset-0 z-40 overflow-hidden bg-[rgba(148,158,176,0.56)] backdrop-blur-[9px]">
+        <div className="absolute inset-x-0 top-0 h-[72px] border-b border-[rgba(203,213,225,0.58)] bg-[rgba(255,255,255,0.34)]" />
+        <div className="absolute left-10 top-4 flex items-center gap-3 opacity-70">
+          <div className="h-8 w-8 rounded-full bg-[#2A79F4]" />
+          <div className="h-4 w-20 rounded-full bg-[#4F5E78]" />
+        </div>
+        <div className="absolute right-10 top-4 h-8 w-8 rounded-full bg-[#8E9EB6] opacity-70" />
+
+        <div className="mx-auto mt-28 w-full max-w-[1040px] px-8 opacity-55">
+          <div className="h-12 w-72 rounded-2xl bg-[#9AA8BF]" />
+          <div className="mt-7 h-3.5 w-full rounded-lg bg-[#9AA8BF]" />
+          <div className="mt-3 h-3.5 w-3/4 rounded-lg bg-[#9AA8BF]" />
+          <div className="mt-14 h-[258px] rounded-[26px] bg-[#9AA8BF]" />
         </div>
       </div>
 
-      {/* Modal overlay backdrop */}
-      <div className="absolute inset-0 bg-[rgba(15,23,42,0.4)] backdrop-blur-[6px]" />
-
-      {/* Application Status Modal */}
-      <div className="relative z-10 mx-4 w-full max-w-[672px] overflow-hidden rounded-3xl border border-[#e2e8f0] bg-white p-px shadow-[0px_25px_50px_-12px_rgba(0,0,0,0.25)]">
-        {/* Modal Header */}
-        <div className="flex items-start justify-between px-8 pb-4 pt-8">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-bold text-[#0f172a]">
-              Application Status
-            </h1>
-            <p className="text-base text-[#64748b]">
-              Check the progress of your TinyTale submission.
-            </p>
-          </div>
-          <div className="shrink-0 rounded-2xl bg-[rgba(24,118,242,0.1)] px-4 py-2 text-sm font-semibold text-[#1876f2]">
-            ID: {applicationId}
-          </div>
-        </div>
-
-        {/* Current State Banner */}
-        <div className="mx-8 mb-4">
-          <div className="flex items-center gap-3 rounded-2xl border border-[rgba(24,118,242,0.2)] bg-[rgba(24,118,242,0.05)] p-[17px]">
-            <Info className="h-5 w-5 shrink-0 text-[#1876f2]" />
-            <div>
-              <p className="text-base font-medium text-[#0f172a]">{title}</p>
-              <p className="text-sm text-[#64748b]">{description}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Horizontal Progress Bar */}
-        <div className="relative mx-8 flex items-center justify-between py-10">
-          {/* Background line */}
-          <div className="absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 bg-[#f1f5f9]" />
-          {/* Active progress line */}
-          <div
-            className="absolute left-0 top-1/2 h-1 -translate-y-1/2 bg-[#1876f2] transition-all duration-500"
-            style={{ width: `${progressPercent}%` }}
-          />
-
-          {STEPS.map((step, i) => {
-            const isCurrent = i === activeStep;
-            const isCompleted = i < activeStep;
-            return (
-              <div
-                key={step.key}
-                className="relative z-10 flex flex-col items-center"
-              >
-                <StepIcon index={i} activeStep={activeStep} />
-                <p
-                  className={`mt-4 whitespace-nowrap text-xs ${
-                    isCurrent
-                      ? "font-bold text-[#1876f2]"
-                      : isCompleted
-                        ? "font-semibold text-[#0f172a]"
-                        : "font-semibold text-[#94a3b8]"
-                  }`}
-                >
-                  {step.label}
+      <div className="relative z-50 flex min-h-[calc(100vh-65px)] items-center justify-center px-4 py-8 md:py-10">
+        <section className="w-full max-w-[724px] overflow-hidden rounded-[28px] border border-[#E1E8F2] bg-[#F8FAFD] shadow-[0_36px_86px_-30px_rgba(15,23,42,0.64)]">
+          <div className="px-5 pb-7 pt-8 sm:px-7 md:px-9 md:pb-8 md:pt-10">
+            <div className="flex items-start justify-between gap-4 md:gap-6">
+              <div>
+                <h1 className="text-[34px] font-bold leading-[1.12] tracking-[-0.02em] text-[#131C31] sm:text-[38px] md:text-[42px]">
+                  Application Status
+                </h1>
+                <p className="mt-2 text-[14px] leading-[1.35] text-[#617593] md:text-[15px]">
+                  Check the progress of your TinyTale submission.
                 </p>
               </div>
-            );
-          })}
-        </div>
+              <div className="shrink-0 rounded-full bg-[#E6EEF9] px-4 py-2 text-[14px] font-semibold leading-none text-[#2A79F4] sm:px-5 sm:py-2.5 sm:text-[16px]">
+                ID: {applicationId}
+              </div>
+            </div>
 
-        {/* Footer / Action Area */}
-        <div className="flex items-center justify-between border-t border-[#f1f5f9] px-8 py-8">
-          <p className="flex items-center gap-2 text-sm text-[#64748b]">
-            <Clock className="h-3 w-3" />
-            Last updated {lastUpdated}
-          </p>
-          <Link
-            href={localizePath("/creator", locale)}
-            className="inline-flex items-center gap-2 rounded-2xl bg-[#0f172a] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#1e293b]"
-          >
-            <ArrowLeft className="h-[9px] w-[9px]" />
-            Back to Home
-          </Link>
-        </div>
+            <div className="mt-7 rounded-[17px] border border-[#B9D3FB] bg-[#EAF1F8] px-4 py-4 sm:px-5">
+              <div className="flex items-start gap-3">
+                <Info className="mt-[1px] h-[22px] w-[22px] shrink-0 text-[#2A79F4]" strokeWidth={2} />
+                <div>
+                  <p className="text-[20px] font-semibold leading-[1.2] text-[#1A2438] sm:text-[22px]">
+                    {title}
+                  </p>
+                  <p className="mt-1 text-[15px] leading-[1.3] text-[#617593]">
+                    {description}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative mt-9 pb-1 md:mt-11">
+              <div className="absolute left-[10%] right-[10%] top-[21px] h-[4px] rounded-full bg-[#E2E8F0]" />
+              <div
+                className="absolute left-[10%] top-[21px] h-[4px] rounded-full bg-[#2A79F4] transition-all duration-500"
+                style={{ width: `${progressWidth}%` }}
+              />
+
+              <div className="grid grid-cols-5">
+                {STEPS.map((step, i) => {
+                  const isCurrent = i === activeStep;
+                  const isCompleted = i < activeStep;
+                  return (
+                    <div key={step.key} className="flex flex-col items-center">
+                      <StepIcon index={i} activeStep={activeStep} />
+                      <p
+                        className={`mt-4 whitespace-nowrap text-[12px] leading-none sm:text-[13px] md:text-[15px] ${
+                          isCurrent
+                            ? "font-semibold text-[#2A79F4]"
+                            : isCompleted
+                              ? "font-semibold text-[#1A2438]"
+                              : "font-semibold text-[#93A3BC]"
+                        }`}
+                      >
+                        {step.label}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-[#E2E8F0] px-5 py-6 sm:px-7 md:px-9 md:py-8">
+            <p className="flex items-center gap-2.5 text-[13px] text-[#647896] md:text-[14px]">
+              <Clock3 className="h-[16px] w-[16px] text-[#7389A8]" strokeWidth={2} />
+              Last updated {lastUpdated}
+            </p>
+
+            <Link
+              href={localizePath("/creator", locale)}
+              className="inline-flex items-center gap-2.5 rounded-full bg-[#0E1A3E] px-6 py-2.5 text-[14px] font-semibold text-white transition hover:bg-[#111F48] md:px-8 md:py-3"
+            >
+              <ArrowLeft className="h-[16px] w-[16px]" strokeWidth={2.2} />
+              Back to Home
+            </Link>
+          </div>
+        </section>
       </div>
     </div>
   );

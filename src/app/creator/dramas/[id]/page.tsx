@@ -1,11 +1,13 @@
-import CreatorPlaceholderPage from "../../_components/CreatorPlaceholderPage";
+export const dynamic = "force-dynamic";
 
-export default function CreatorDramaDetailPage() {
-  return (
-    <CreatorPlaceholderPage
-      title="Drama Detail"
-      description="Drama-level detail page for story metadata, release settings, monetization strategy, and lifecycle status."
-      route="/creator/dramas/[id]"
-    />
-  );
+import CreatorEpisodeUploadWorkspace from "../../_components/CreatorEpisodeUploadWorkspace";
+
+interface CreatorDramaDetailPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default function CreatorDramaDetailPage({ params }: CreatorDramaDetailPageProps) {
+  return <CreatorEpisodeUploadWorkspace initialDramaId={params.id} />;
 }

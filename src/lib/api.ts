@@ -1,5 +1,14 @@
 import type { EpisodeAccessResult, IpGeoData, StreamPlaybackInfo } from '@/types';
-import type { CreatorApplicationDraft } from '@/types/creator';
+import type {
+  CreatorApplicationDraft,
+  CreatorDashboardOverview,
+  CreatorDramaEpisodesResponse,
+  CreatorDramaListResponse,
+  CreatorEpisodeItem,
+  CreatorTicket,
+  CreatorTicketCategory,
+  CreatorTicketPriority,
+} from '@/types/creator';
 import { detectClientLocale } from '@/lib/i18n';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
@@ -143,6 +152,11 @@ export const api = new ApiClient(API_URL);
 export const authApi = {
   login: (email: string, password: string, turnstileToken?: string) =>
     api.post('/api/auth/login', { email, password, turnstileToken }),
+
+  checkEmailAvailability: (email: string) =>
+    api.get<{ success: boolean; data: { email: string; available: boolean; registered: boolean } }>(
+      `/api/auth/check-email?email=${encodeURIComponent(email)}`
+    ),
 
   register: (email: string, password: string, nickname: string, referredBy?: string) =>
     api.post('/api/auth/register', { email, password, nickname, referredBy }),
@@ -473,6 +487,270 @@ export const creatorApi = {
 
   submitApplication: (token: string, draft: CreatorApplicationDraft) =>
     api.post('/api/creator/application/submit', draft, { token }),
+
+  getDashboardOverview: (token: string) =>
+    api.get<{ success: boolean; data: CreatorDashboardOverview }>('/api/creator/dashboard/overview', { token }),
+
+  getDashboardTrends: (token: string) =>
+    api.get('/api/creator/dashboard/trends', { token }),
+
+  getDashboardRecentStories: (token: string, limit = 5) =>
+    api.get(`/api/creator/dashboard/recent-stories?limit=${limit}`, { token }),
+
+  getDramas: (
+    token: string,
+    params?: {
+      q?: string;
+      status?: string;
+      sort?: string;
+      page?: number;
+      limit?: number;
+    }
+  ) => {
+    const query = params
+      ? new URLSearchParams(
+          Object.entries(params)
+            .filter(([, value]) => value !== undefined && value !== null && value !== '')
+            .map(([key, value]) => [key, String(value)])
+        ).toString()
+      : '';
+    return api.get<{ success: boolean; data: CreatorDramaListResponse }>(`/api/creator/dramas${query ? `?${query}` : ''}`, { token });
+  },
+
+  getDramaById: (token: string, id: string) =>
+    api.get<{ success: boolean; data: any }>(`/api/creator/dramas/${id}`, { token }),
+
+  createDrama: (
+    token: string,
+    payload: {
+      title?: string;
+      description?: string;
+      cover?: string;
+      categories?: string[];
+    }
+  ) => api.post<{ success: boolean; data: any }>('/api/creator/dramas', payload, { token }),
+
+  updateDrama: (token: string, id: string, payload: Record<string, any>) =>
+    api.put<{ success: boolean; data: any }>(`/api/creator/dramas/${id}`, payload, { token }),
+
+  submitDramaForReview: (token: string, id: string) =>
+    api.post<{ success: boolean; data: any }>(`/api/creator/dramas/${id}/submit-review`, {}, { token }),
+
+  publishDrama: (token: string, id: string) =>
+    api.post<{ success: boolean; data: any }>(`/api/creator/dramas/${id}/publish`, {}, { token }),
+
+  archiveDrama: (token: string, id: string) =>
+    api.post<{ success: boolean; data: any }>(`/api/creator/dramas/${id}/archive`, {}, { token }),
+
+  unarchiveDrama: (token: string, id: string) =>
+    api.post<{ success: boolean; data: any }>(`/api/creator/dramas/${id}/unarchive`, {}, { token }),
+
+  getDramaEpisodes: (token: string, dramaId: string) =>
+    api.get<{ success: boolean; data: CreatorDramaEpisodesResponse }>(`/api/creator/dramas/${dramaId}/episodes`, { token }),
+
+  createDramaEpisode: (token: string, dramaId: string, payload?: { count?: number }) =>
+    api.post<{ success: boolean; data: { episodes: CreatorEpisodeItem[] } }>(`/api/creator/dramas/${dramaId}/episodes`, payload || {}, { token }),
+
+  bulkCreateDramaEpisodes: (
+    token: string,
+    dramaId: string,
+    payload: {
+      episodes: Array<{
+        title?: string;
+        description?: string;
+        episodeNumber?: number;
+        isFree?: boolean;
+        unlockPrice?: number;
+      }>;
+    }
+  ) => api.post<{ success: boolean; data: { episodes: CreatorEpisodeItem[] } }>(`/api/creator/dramas/${dramaId}/episodes/bulk`, payload, { token }),
+
+  updateDramaEpisode: (token: string, dramaId: string, episodeId: string, payload: Record<string, any>) =>
+    api.put<{ success: boolean; data: CreatorEpisodeItem }>(`/api/creator/dramas/${dramaId}/episodes/${episodeId}`, payload, { token }),
+
+  reorderDramaEpisodes: (
+    token: string,
+    dramaId: string,
+    orders: Array<{ episodeId: string; episodeNumber: number }>
+  ) => api.put<{ success: boolean; data: { episodes: CreatorEpisodeItem[] } }>(`/api/creator/dramas/${dramaId}/episodes/reorder`, { orders }, { token }),
+
+  deleteDramaEpisode: (token: string, dramaId: string, episodeId: string) =>
+    api.delete<{ success: boolean; data: { deletedId: string } }>(`/api/creator/dramas/${dramaId}/episodes/${episodeId}`, { token }),
+
+  requestVideoUpload: (
+    token: string,
+    payload: {
+      filename: string;
+      filesize: number;
+      mimetype: string;
+      autoGeneratedName: string;
+      maxDurationSeconds?: number;
+    }
+  ) => api.post<{ success: boolean; data: { upload_url: string; video_uid: string } }>('/api/creator/upload/video', payload, { token }),
+
+  getVideoUploadStatus: (token: string, uid: string) =>
+    api.get<{
+      success: boolean;
+      data: {
+        uid: string;
+        status: string;
+        duration: number;
+        readyToStream: boolean;
+        playback: any;
+        thumbnail?: string | null;
+        errorReasonCode?: string | null;
+        errorReasonText?: string | null;
+      };
+    }>(`/api/creator/upload/video/${uid}`, { token }),
+
+  autoSplitEpisodes: (
+    token: string,
+    payload: {
+      sourceVideoUid: string;
+      episodeDuration: number;
+      dramaId: string;
+      sourceSubtitleUrl?: string;
+      sourceSubtitleFormat?: 'srt' | 'vtt';
+      subtitleLanguage?: string;
+    }
+  ) =>
+    api.post<{
+      success: boolean;
+      data: {
+        totalClips: number;
+        episodes: Array<{
+          episodeId: string;
+          episodeNumber: number;
+          title: string;
+          streamVideoId: string;
+          duration: number;
+          cover: string;
+        }>;
+        subtitleSplit?: {
+          enabled: boolean;
+          language: string;
+          processedEpisodes: number;
+          skippedEpisodes: number;
+          errors: Array<{ episodeNumber?: number; message: string }>;
+        };
+        sourceCleanup?: {
+          state: string;
+          sourceVideoUid: string;
+          reason: string;
+        };
+        errors?: Array<{ episodeNumber: number; error: string; code?: string }>;
+      };
+    }>('/api/creator/upload/auto-split', payload, { token }),
+
+  getClipStatus: (token: string, uids: string[]) =>
+    api.get<{
+      success: boolean;
+      data: {
+        clips: Array<{
+          uid: string;
+          status: string;
+          readyToStream: boolean;
+          duration: number;
+          thumbnail: string | null;
+          errorReasonCode?: string | null;
+          errorReasonText?: string | null;
+        }>;
+        allReady: boolean;
+        hasFailure: boolean;
+        sourceCleanup?: {
+          total: number;
+          pending: number;
+          deleted: number;
+          failed: number;
+        };
+      };
+    }>(`/api/creator/upload/clip-status?uids=${uids.join(',')}`, { token }),
+
+  deleteUploadedVideo: (token: string, uid: string) =>
+    api.delete<{ success: boolean }>(`/api/creator/upload/video/${uid}`, { token }),
+
+  uploadImageFile: async (token: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch(`${API_URL}/api/creator/upload/image`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Image upload failed');
+    }
+    return data as { success: boolean; data: { url: string; key: string } };
+  },
+
+  uploadSubtitleFile: async (token: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch(`${API_URL}/api/creator/upload/subtitle`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Subtitle upload failed');
+    }
+    return data as { success: boolean; data: { url: string; key: string; format: 'srt' | 'vtt' } };
+  },
+
+  getTickets: (
+    token: string,
+    params?: {
+      page?: number;
+      limit?: number;
+      status?: string;
+      keyword?: string;
+    }
+  ) => {
+    const query = params
+      ? new URLSearchParams(
+          Object.entries(params)
+            .filter(([, value]) => value !== undefined && value !== null && value !== '')
+            .map(([key, value]) => [key, String(value)])
+        ).toString()
+      : '';
+    return api.get<{
+      success: boolean;
+      data: {
+        tickets: Array<
+          Pick<
+            CreatorTicket,
+            '_id' | 'ticketNo' | 'subject' | 'category' | 'priority' | 'status' | 'lastMessageAt' | 'updatedAt'
+          > & { messageCount: number; latestMessage: string }
+        >;
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+        statusCounts: Record<string, number>;
+      };
+    }>(`/api/creator/tickets${query ? `?${query}` : ''}`, { token });
+  },
+
+  createTicket: (
+    token: string,
+    payload: {
+      subject: string;
+      category: CreatorTicketCategory;
+      priority: CreatorTicketPriority;
+      message: string;
+    }
+  ) => api.post('/api/creator/tickets', payload, { token }),
+
+  getTicketById: (token: string, id: string) =>
+    api.get<{ success: boolean; data: CreatorTicket }>(`/api/creator/tickets/${id}`, { token }),
+
+  replyTicket: (token: string, id: string, message: string) =>
+    api.post(`/api/creator/tickets/${id}/messages`, { message }, { token }),
+
+  closeTicket: (token: string, id: string) =>
+    api.put(`/api/creator/tickets/${id}/close`, {}, { token }),
 };
 
 // Combined API export for convenience

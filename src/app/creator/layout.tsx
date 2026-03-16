@@ -2,14 +2,15 @@
 
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/authContext";
 import { creatorApi } from "@/lib/api";
 import { localizePath, removeLocalePrefix } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
-import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
+import CreatorSidebar from "./_components/CreatorSidebar";
+import CreatorTopHeader from "./_components/CreatorTopHeader";
 
 const APPROVED_ONLY_PREFIXES = [
   "/creator/dashboard",
@@ -24,13 +25,21 @@ const APPROVED_ONLY_PREFIXES = [
 
 const PENDING_STATUSES = new Set(["pending", "under_review", "in_review"]);
 const APPROVED_STATUSES = new Set(["approved"]);
+const MOBILE_NAV_ITEMS = [
+  { label: "Home", href: "/creator/dashboard" },
+  { label: "Drama", href: "/creator/dramas" },
+  { label: "Analytics", href: "/creator/analytics" },
+  { label: "Revenue", href: "/creator/analytics/revenue" },
+  { label: "Settings", href: "/creator/settings" },
+  { label: "Tickets", href: "/creator/tickets" },
+];
 
 export default function CreatorLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const normalizedPath = removeLocalePrefix(pathname || "/");
   const locale = useLocale();
   const router = useRouter();
-  const { token, loading: authLoading } = useAuth();
+  const { token, loading: authLoading, user } = useAuth();
   const [checking, setChecking] = useState(true);
 
   const isLanding = normalizedPath === "/creator";
@@ -126,38 +135,35 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
     return <>{children}</>;
   }
 
+  if (!isApprovedOnlyPath) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="min-h-screen bg-[#f5f7f8]">
-      <header className="border-b border-[#e2e8f0] bg-white">
-        <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between px-4 py-3 md:px-6">
-          <div className="flex items-center gap-6">
-            <Link className="text-lg font-bold text-[#0f172a]" href={localizePath("/creator", locale)}>
-              TinyTale Creator
-            </Link>
-            <nav className="hidden items-center gap-4 md:flex">
-              <Link className="text-sm text-[#475569] hover:text-[#0f172a]" href={localizePath("/creator/dashboard", locale)}>
-                Dashboard
-              </Link>
-              <Link className="text-sm text-[#475569] hover:text-[#0f172a]" href={localizePath("/creator/dramas", locale)}>
-                Dramas
-              </Link>
-              <Link className="text-sm text-[#475569] hover:text-[#0f172a]" href={localizePath("/creator/analytics", locale)}>
-                Analytics
-              </Link>
-              <Link className="text-sm text-[#475569] hover:text-[#0f172a]" href={localizePath("/creator/settlements", locale)}>
-                Settlements
-              </Link>
-            </nav>
+      <CreatorSidebar locale={locale} normalizedPath={normalizedPath} user={user} />
+      <div className="min-h-screen lg:ml-[288px]">
+        <CreatorTopHeader locale={locale} />
+        <nav className="border-b border-[#e2e8f0] bg-white px-4 py-2 lg:hidden">
+          <div className="flex gap-2 overflow-x-auto">
+            {MOBILE_NAV_ITEMS.map((item) => {
+              const active = normalizedPath === item.href || normalizedPath.startsWith(`${item.href}/`);
+              return (
+                <Link
+                  key={item.href}
+                  href={localizePath(item.href, locale)}
+                  className={`whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold ${
+                    active ? "bg-[#dbeafe] text-[#1d4ed8]" : "bg-[#f8fafc] text-[#475569]"
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </div>
-          <div className="flex items-center gap-3">
-            <LanguageSwitcher className="hidden sm:block" />
-            <Link className="text-sm text-[#1877F2] hover:text-[#166fe5]" href={localizePath("/", locale)}>
-              Back to TinyTale
-            </Link>
-          </div>
-        </div>
-      </header>
-      <main>{children}</main>
+        </nav>
+        <main className="p-4 md:p-6 lg:p-8">{children}</main>
+      </div>
     </div>
   );
 }
