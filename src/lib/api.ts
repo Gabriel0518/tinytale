@@ -1,14 +1,18 @@
 import type { EpisodeAccessResult, IpGeoData, StreamPlaybackInfo } from '@/types';
 import type {
   CreatorApplicationDraft,
+  CreatorAudienceAnalytics,
   CreatorDashboardOverview,
+  CreatorDramaAnalytics,
   CreatorDramaEpisodesResponse,
   CreatorDramaListResponse,
   CreatorEpisodeItem,
+  CreatorRevenueAnalytics,
   CreatorTicket,
   CreatorTicketCategory,
   CreatorTicketPriority,
 } from '@/types/creator';
+import { serializeCreatorApplicationDraft } from '@/lib/creator';
 import { detectClientLocale } from '@/lib/i18n';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
@@ -483,10 +487,10 @@ export const creatorApi = {
     api.get('/api/creator/application/draft', { token }),
 
   saveApplicationDraft: (token: string, draft: CreatorApplicationDraft) =>
-    api.put('/api/creator/application/draft', draft, { token }),
+    api.put('/api/creator/application/draft', serializeCreatorApplicationDraft(draft), { token }),
 
   submitApplication: (token: string, draft: CreatorApplicationDraft) =>
-    api.post('/api/creator/application/submit', draft, { token }),
+    api.post('/api/creator/application/submit', serializeCreatorApplicationDraft(draft), { token }),
 
   getDashboardOverview: (token: string) =>
     api.get<{ success: boolean; data: CreatorDashboardOverview }>('/api/creator/dashboard/overview', { token }),
@@ -496,6 +500,15 @@ export const creatorApi = {
 
   getDashboardRecentStories: (token: string, limit = 5) =>
     api.get(`/api/creator/dashboard/recent-stories?limit=${limit}`, { token }),
+
+  getRevenueAnalytics: (token: string, range: '7d' | '30d' | '90d') =>
+    api.get<{ success: boolean; data: CreatorRevenueAnalytics }>(`/api/creator/analytics/revenue?range=${range}`, { token }),
+
+  getAudienceAnalytics: (token: string, range: '7d' | '30d' | '90d') =>
+    api.get<{ success: boolean; data: CreatorAudienceAnalytics }>(`/api/creator/analytics/audience?range=${range}`, { token }),
+
+  getDramaAnalytics: (token: string, id: string, range: '7d' | '30d' | '90d') =>
+    api.get<{ success: boolean; data: CreatorDramaAnalytics }>(`/api/creator/dramas/${id}/analytics?range=${range}`, { token }),
 
   getDramas: (
     token: string,

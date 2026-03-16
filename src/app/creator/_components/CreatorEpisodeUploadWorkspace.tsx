@@ -966,7 +966,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
   if (loading) {
     return (
-      <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-8">
+      <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-6">
         <div className="h-8 w-56 animate-pulse rounded bg-[#e2e8f0]" />
       </div>
     );
@@ -976,7 +976,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
   return (
     <div className="-mx-4 -mt-6 md:-mx-6 lg:-mx-8 lg:-mt-8">
-      <div className="border-b border-[#e2e8f0] bg-white px-4 py-4 md:px-8">
+      <div className="border-b border-[#e2e8f0] bg-white px-4 py-3.5 md:px-7">
         <div className="flex items-center gap-2 text-sm">
           <div className="flex items-center gap-2 text-[#64748b]">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e2e8f0] text-xs font-bold text-[#475569]">1</span>
@@ -990,18 +990,18 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           <div className="h-px flex-1 bg-[#e2e8f0]" />
           <div className="flex items-center gap-2 text-[#64748b]">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e2e8f0] text-xs font-bold text-[#475569]">3</span>
-            <span className="font-medium">Payment Settings</span>
+            <span className="font-medium">Review & Monetization</span>
           </div>
         </div>
       </div>
 
-      <div className="px-4 pb-8 pt-8 md:px-8">
+      <div className="px-4 pb-7 pt-6 md:px-7">
         <div className="border-b border-[#e2e8f0]">
           <div className="flex items-end gap-1 text-sm">
             <button
               type="button"
               onClick={() => setUploadMode("bulk")}
-              className={`border-b-2 px-6 py-3 ${
+              className={`border-b-2 px-5 py-2.5 ${
                 uploadMode === "bulk" ? "border-[#1876f2] font-bold text-[#1876f2]" : "border-transparent font-medium text-[#64748b]"
               }`}
             >
@@ -1010,7 +1010,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
             <button
               type="button"
               onClick={() => setUploadMode("individual")}
-              className={`border-b-2 px-6 py-3 ${
+              className={`border-b-2 px-5 py-2.5 ${
                 uploadMode === "individual"
                   ? "border-[#1876f2] font-bold text-[#1876f2]"
                   : "border-transparent font-medium text-[#64748b]"
@@ -1021,17 +1021,17 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           </div>
         </div>
 
-        <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
+        <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-[36px] font-black leading-[1.1] tracking-[-0.03em] text-[#0f172a]">Upload Episodes</h1>
+            <h1 className="text-[30px] font-black leading-[1.08] tracking-[-0.03em] text-[#0f172a] md:text-[34px]">Upload Episodes</h1>
             <p className="mt-1 text-sm text-[#64748b]">
               {uploadMode === "bulk"
-                ? "Upload multiple MP4 files. Episodes will be generated in sequence and uploaded automatically."
-                : "Upload each episode individually with custom covers and subtitles."}
+                ? "Upload one or more MP4 source files, then prepare episodes for creator review submission."
+                : "Upload episodes individually with custom covers and subtitles before submitting the drama for review."}
             </p>
           </div>
-          <div className="w-[192px]">
-            <p className="text-right text-sm font-medium text-[#0f172a]">Progress: {progress}%</p>
+          <div className="w-[180px]">
+            <p className="text-right text-[13px] font-medium text-[#0f172a]">Progress: {progress}%</p>
             <div className="mt-1 h-2 rounded-full bg-[#e2e8f0]">
               <div className="h-2 rounded-full bg-[#1876f2]" style={{ width: `${progress}%` }} />
             </div>
@@ -1043,11 +1043,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         ) : null}
 
         {uploadMode === "bulk" ? (
-          <section className="mt-6 space-y-4">
-            <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-5">
+          <section className="mt-5 space-y-4">
+            <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-base font-bold text-[#0f172a]">Auto-Slice From One Source Video</p>
+                  <p className="text-[15px] font-bold text-[#0f172a]">Auto-Slice From One Source Video</p>
                   <p className="mt-1 text-xs text-[#64748b]">
                     Upload one long MP4, set duration per episode, then split to episodes automatically.
                   </p>
@@ -1059,7 +1059,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               </div>
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <label className="flex cursor-pointer items-center justify-between rounded-[16px] border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3">
+                <label className="flex cursor-pointer items-center justify-between rounded-[16px] border border-[#cbd5e1] bg-[#f8fafc] px-4 py-2.5">
                   <input
                     type="file"
                     accept="video/mp4"
@@ -1083,7 +1083,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   <UploadCloud className="h-5 w-5 flex-shrink-0 text-[#1876f2]" />
                 </label>
 
-                <div className="rounded-[16px] border border-[#cbd5e1] bg-[#f8fafc] px-4 py-3">
+                <div className="rounded-[16px] border border-[#cbd5e1] bg-[#f8fafc] px-4 py-2.5">
                   <label htmlFor="auto-slice-duration" className="text-xs font-semibold uppercase tracking-[0.04em] text-[#64748b]">
                     Episode Duration
                   </label>
@@ -1097,7 +1097,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       step={1}
                       value={autoSliceDurationMinutes}
                       onChange={(event) => setAutoSliceDurationMinutes(Math.max(1, Math.min(60, Number(event.target.value) || 1)))}
-                      className="h-9 w-20 rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm font-semibold text-[#0f172a] outline-none"
+                      className="h-8 w-20 rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm font-semibold text-[#0f172a] outline-none"
                     />
                     <span className="text-sm text-[#475569]">minutes / episode</span>
                   </div>
@@ -1133,7 +1133,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   type="button"
                   onClick={runAutoSlice}
                   disabled={!sourceUpload.ready || autoSliceRunning}
-                  className="inline-flex items-center gap-2 rounded-[16px] bg-[#1876f2] px-5 py-2.5 text-sm font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-[16px] bg-[#1876f2] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Clapperboard className="h-4 w-4" />
                   {autoSliceRunning ? "Auto-Slicing..." : "Start Auto-Slice"}
@@ -1141,7 +1141,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               </div>
             </div>
 
-            <label className="flex cursor-pointer flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-[#cbd5e1] bg-white px-6 py-10 text-center transition-colors hover:bg-[#f8fafc]">
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-[20px] border-2 border-dashed border-[#cbd5e1] bg-white px-6 py-8 text-center transition-colors hover:bg-[#f8fafc]">
               <input
                 type="file"
                 accept="video/mp4"
@@ -1152,16 +1152,16 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   event.currentTarget.value = "";
                 }}
               />
-              <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[#eff6ff] text-[#1876f2]">
+              <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#eff6ff] text-[#1876f2]">
                 <UploadCloud className="h-7 w-7" />
               </span>
-              <p className="text-base font-bold text-[#0f172a]">Select MP4 files for bulk upload</p>
+              <p className="text-[15px] font-bold text-[#0f172a]">Select MP4 files for bulk upload</p>
               <p className="mt-1 text-xs text-[#64748b]">Files will be mapped to new episodes in filename order.</p>
             </label>
 
             {bulkQueue.length ? (
               <div className="overflow-hidden rounded-[20px] border border-[#e2e8f0] bg-white">
-                <div className="grid grid-cols-[1.6fr_120px_120px_130px_48px] items-center border-b border-[#f1f5f9] px-4 py-3 text-xs font-bold uppercase tracking-[0.05em] text-[#94a3b8]">
+                <div className="grid grid-cols-[1.6fr_120px_120px_130px_48px] items-center border-b border-[#f1f5f9] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[#94a3b8]">
                   <span>File</span>
                   <span>Size</span>
                   <span>Progress</span>
@@ -1172,7 +1172,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   {bulkQueue.map((item) => {
                     const statusUi = mapBulkStatus(item.status);
                     return (
-                      <div key={item.id} className="grid grid-cols-[1.6fr_120px_120px_130px_48px] items-center border-b border-[#f8fafc] px-4 py-3 text-sm">
+                      <div key={item.id} className="grid grid-cols-[1.6fr_120px_120px_130px_48px] items-center border-b border-[#f8fafc] px-4 py-2.5 text-sm">
                         <div className="min-w-0">
                           <p className="truncate font-semibold text-[#0f172a]">{item.file.name}</p>
                           {item.error ? <p className="truncate text-xs text-[#b91c1c]">{item.error}</p> : null}
@@ -1201,7 +1201,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 type="button"
                 onClick={startBulkUpload}
                 disabled={bulkRunning || autoSliceRunning || !canRunBulk}
-                className="inline-flex items-center gap-2 rounded-[16px] bg-[#1876f2] px-5 py-2.5 text-sm font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-[16px] bg-[#1876f2] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <UploadCloud className="h-4 w-4" />
                 Start Bulk Upload
@@ -1210,7 +1210,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 type="button"
                 onClick={cancelBulkUpload}
                 disabled={!bulkRunning || autoSliceRunning}
-                className="inline-flex items-center gap-2 rounded-[16px] border border-[#cbd5e1] px-5 py-2.5 text-sm font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-[16px] border border-[#cbd5e1] px-4 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <XCircle className="h-4 w-4" />
                 Stop
@@ -1219,7 +1219,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 type="button"
                 onClick={clearBulkQueue}
                 disabled={bulkRunning || autoSliceRunning || bulkQueue.length === 0}
-                className="inline-flex items-center gap-2 rounded-[16px] border border-[#cbd5e1] px-5 py-2.5 text-sm font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-[16px] border border-[#cbd5e1] px-4 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Trash2 className="h-4 w-4" />
                 Clear Queue
@@ -1228,14 +1228,14 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
             </div>
           </section>
         ) : (
-          <div className="mt-6 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {episodes.map((episode) => {
               const statusUi = mapEpisodeStatus(episode.status);
               const state = uploadState[episode._id];
               return (
                 <article
                   key={episode._id}
-                  className={`rounded-[24px] border bg-white p-4 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] ${
+                  className={`rounded-[20px] border bg-white p-4 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] ${
                     episode.streamVideoId ? "border-[rgba(24,118,242,0.35)]" : "border-[#e2e8f0]"
                   }`}
                 >
@@ -1252,9 +1252,9 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                     />
                     {episode.thumbnail ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={episode.thumbnail} alt={episode.title} className="h-[250px] w-full object-cover" />
+                      <img src={episode.thumbnail} alt={episode.title} className="h-[220px] w-full object-cover" />
                     ) : (
-                      <div className="flex h-[250px] flex-col items-center justify-center text-[#64748b]">
+                      <div className="flex h-[220px] flex-col items-center justify-center text-[#64748b]">
                         <ImagePlus className="h-6 w-6" />
                         <span className="mt-2 text-xs font-medium">Upload Cover</span>
                       </div>
@@ -1262,7 +1262,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   </label>
 
                   <div className="mt-4 flex items-center justify-between">
-                    <h3 className="text-[30px] font-black leading-none tracking-[-0.03em] text-[#1e293b]">Episode {episode.episodeNumber}</h3>
+                    <h3 className="text-[22px] font-black leading-none tracking-[-0.03em] text-[#1e293b] md:text-[24px]">Episode {episode.episodeNumber}</h3>
                     <button
                       type="button"
                       onClick={() => removeEpisode(episode._id)}
@@ -1275,7 +1275,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
                   <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-bold leading-4 ${statusUi.className}`}>{statusUi.text}</div>
 
-                  <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-[#f1f5f9] px-3 py-2 text-xs font-bold text-[#334155]">
+                  <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-[#f1f5f9] px-3 py-2 text-[11px] font-bold text-[#334155]">
                     <input
                       type="file"
                       accept="video/mp4"
@@ -1319,7 +1319,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                     </button>
                   </div>
 
-                  <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-[#f1f5f9] px-3 py-2 text-xs font-bold text-[#334155]">
+                  <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-[#f1f5f9] px-3 py-2 text-[11px] font-bold text-[#334155]">
                     <input
                       type="file"
                       accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain"
@@ -1348,22 +1348,22 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               type="button"
               onClick={addEpisode}
               disabled={busy}
-              className="flex min-h-[296px] flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-[#cbd5e1] px-6 text-[#64748b] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex min-h-[264px] flex-col items-center justify-center rounded-[20px] border-2 border-dashed border-[#cbd5e1] px-6 text-[#64748b] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#f1f5f9]">
+              <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#f1f5f9]">
                 <Plus className="h-6 w-6" />
               </span>
-              <span className="text-sm font-bold">Click to add new episode</span>
+              <span className="text-[13px] font-bold">Click to add new episode</span>
             </button>
           </div>
         )}
 
-        <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-[#e2e8f0] pt-8">
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[#e2e8f0] pt-6">
           <button
             type="button"
             onClick={saveDraft}
             disabled={busy}
-            className="rounded-[16px] border border-[#cbd5e1] px-6 py-2.5 text-sm font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-[16px] border border-[#cbd5e1] px-5 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
           >
             Save Draft
           </button>
@@ -1371,7 +1371,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           <div className="flex items-center gap-4">
             <Link
               href={localizePath("/creator/dramas", locale)}
-              className="rounded-[16px] border border-[#cbd5e1] px-6 py-2.5 text-sm font-bold text-[#475569] hover:bg-[#f8fafc]"
+              className="rounded-[16px] border border-[#cbd5e1] px-5 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc]"
             >
               Previous Step
             </Link>
@@ -1379,9 +1379,9 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               type="button"
               onClick={nextStep}
               disabled={busy || episodes.length === 0}
-              className="rounded-[16px] bg-[#1876f2] px-10 py-2.5 text-sm font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-[16px] bg-[#1876f2] px-8 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Next Step: Payments
+              Submit for Review
             </button>
           </div>
         </div>

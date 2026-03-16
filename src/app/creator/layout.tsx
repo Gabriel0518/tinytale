@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/authContext";
 import { creatorApi } from "@/lib/api";
+import { normalizeCreatorApplicationStatus } from "@/lib/creator";
 import { localizePath, removeLocalePrefix } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import CreatorSidebar from "./_components/CreatorSidebar";
@@ -23,13 +24,15 @@ const APPROVED_ONLY_PREFIXES = [
   "/creator/notifications",
 ];
 
-const PENDING_STATUSES = new Set(["pending", "under_review", "in_review"]);
+const PENDING_STATUSES = new Set(["pending", "under_review"]);
+const REVISION_REQUIRED_STATUSES = new Set(["need_more_info", "rejected", "suspended"]);
 const APPROVED_STATUSES = new Set(["approved"]);
 const MOBILE_NAV_ITEMS = [
-  { label: "Home", href: "/creator/dashboard" },
-  { label: "Drama", href: "/creator/dramas" },
+  { label: "Dashboard", href: "/creator/dashboard" },
+  { label: "Dramas", href: "/creator/dramas" },
   { label: "Analytics", href: "/creator/analytics" },
-  { label: "Revenue", href: "/creator/analytics/revenue" },
+  { label: "Settlements", href: "/creator/settlements" },
+  { label: "Contract", href: "/creator/contract" },
   { label: "Settings", href: "/creator/settings" },
   { label: "Tickets", href: "/creator/tickets" },
 ];
@@ -67,17 +70,27 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
     async function guard(currentToken: string) {
       try {
         const res: any = await creatorApi.getApplicationStatus(currentToken);
-        const status = String(
+        const rawStatus = String(
           res?.data?.applicationStatus ||
             res?.data?.status ||
             res?.data?.application?.status ||
             res?.data?.creator?.status ||
             ""
         ).toLowerCase();
+        const status = normalizeCreatorApplicationStatus(rawStatus);
 
         if (PENDING_STATUSES.has(status)) {
           if (!isPendingPage) {
             router.replace(localizePath("/creator/pending", locale));
+            return;
+          }
+          if (!cancelled) setChecking(false);
+          return;
+        }
+
+        if (REVISION_REQUIRED_STATUSES.has(status)) {
+          if (isApprovedOnlyPath || isPendingPage) {
+            router.replace(localizePath("/creator/apply/status", locale));
             return;
           }
           if (!cancelled) setChecking(false);
@@ -142,7 +155,7 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
   return (
     <div className="min-h-screen bg-[#f5f7f8]">
       <CreatorSidebar locale={locale} normalizedPath={normalizedPath} user={user} />
-      <div className="min-h-screen lg:ml-[288px]">
+      <div className="min-h-screen lg:ml-[272px]">
         <CreatorTopHeader locale={locale} />
         <nav className="border-b border-[#e2e8f0] bg-white px-4 py-2 lg:hidden">
           <div className="flex gap-2 overflow-x-auto">
@@ -162,7 +175,9 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
             })}
           </div>
         </nav>
-        <main className="p-4 md:p-6 lg:p-8">{children}</main>
+        <main className="p-4 md:p-5 lg:px-6 lg:py-6 xl:px-8 xl:py-7 2xl:px-10">
+          <div className="mx-auto w-full max-w-[1320px]">{children}</div>
+        </main>
       </div>
     </div>
   );

@@ -1,21 +1,32 @@
-export type CreatorIdentityType = "individual" | "agency";
+export type CreatorProfileType = "individual" | "company";
 
 export type CreatorVerificationType = "government_id" | "passport" | "business_license";
 
+export type CreatorApplicationStatus =
+  | "not_applied"
+  | "draft"
+  | "pending"
+  | "under_review"
+  | "need_more_info"
+  | "approved"
+  | "rejected"
+  | "suspended";
+
 export interface CreatorApplicationBasicInformation {
-  identityType: CreatorIdentityType;
-  fullName: string;
-  workEmail: string;
+  creatorType: CreatorProfileType;
+  legalName: string;
+  companyName: string;
+  representativeName: string;
+  email: string;
+  phone: string;
   country: string;
-  portfolioLink: string;
 }
 
 export interface CreatorApplicationCreativeInformation {
-  contentCategory: string;
+  genres: string[];
   primaryLanguage: string;
-  primaryPlatforms: string[];
-  socialLink: string;
-  shortBio: string;
+  portfolioLinks: string[];
+  bio: string;
 }
 
 export interface CreatorApplicationIdentityVerification {
@@ -23,13 +34,18 @@ export interface CreatorApplicationIdentityVerification {
   documentNumber: string;
   issueCountry: string;
   taxIdOrBusinessId: string;
-  documentFileName: string;
+  frontDocumentFileName: string;
+  backDocumentFileName: string;
+  frontDocumentFileUrl?: string;
+  backDocumentFileUrl?: string;
 }
 
 export interface CreatorApplicationAgreement {
   acceptedTerms: boolean;
   acceptedAuthenticity: boolean;
+  hasReviewedFullAgreement: boolean;
   signatureName: string;
+  agreementVersion?: string;
 }
 
 export interface CreatorApplicationDraft {
@@ -65,17 +81,23 @@ export interface CreatorDashboardOverview {
       valueUsd: number;
       changePercent: number;
     };
+    contentStats?: {
+      published: number;
+      pendingReview: number;
+      drafts: number;
+    };
   };
   trend: {
-    range: "7d";
+    range: "7d" | "30d" | "90d";
     labels: string[];
     values: number[];
+    revenueValues?: number[];
   };
   recentStories: Array<{
     _id: string;
     title: string;
     cover: string;
-    status: "draft" | "published";
+    status: CreatorDramaWorkflowStatus;
     statusText: string;
     statusMeta: string;
     reads: number;
@@ -135,7 +157,16 @@ export interface CreatorTicket {
   updatedAt: string;
 }
 
-export type CreatorDramaWorkflowStatus = "draft" | "under_review" | "published" | "archived";
+export type CreatorDramaWorkflowStatus =
+  | "draft"
+  | "pending_review"
+  | "in_review"
+  | "approved"
+  | "rejected"
+  | "published"
+  | "suspended"
+  | "archived"
+  | "under_review";
 
 export interface CreatorDramaListItem {
   _id: string;
@@ -190,4 +221,149 @@ export interface CreatorEpisodeItem {
 export interface CreatorDramaEpisodesResponse {
   dramaId: string;
   episodes: CreatorEpisodeItem[];
+}
+
+export type CreatorAnalyticsRange = "7d" | "30d" | "90d";
+
+export interface CreatorAnalyticsMetric {
+  label: string;
+  value: string;
+  delta: number;
+  tone: "blue" | "violet" | "orange" | "green" | "slate";
+  icon:
+    | "views"
+    | "time"
+    | "followers"
+    | "revenue"
+    | "wallet"
+    | "payout"
+    | "share"
+    | "rpm"
+    | "audience"
+    | "returning"
+    | "completion"
+    | "device"
+    | "unlock"
+    | "episode";
+}
+
+export interface CreatorAnalyticsChartSeries {
+  title: string;
+  subtitle: string;
+  primaryLabel: string;
+  secondaryLabel: string;
+  labels: string[];
+  primary: number[];
+  secondary: number[];
+}
+
+export interface CreatorAnalyticsBalanceCard {
+  label: string;
+  value: string;
+  ctaLabel: string;
+  href: string;
+}
+
+export interface CreatorAnalyticsGeographyRow {
+  label: string;
+  share: number;
+}
+
+export interface CreatorAnalyticsGeography {
+  title: string;
+  rows: CreatorAnalyticsGeographyRow[];
+}
+
+export interface CreatorAnalyticsHeatmap {
+  title: string;
+  rows: number[][];
+  labels: string[];
+}
+
+export interface CreatorRevenueSplitRow {
+  label: string;
+  amount: string;
+  percent: number;
+  tone: "blue" | "violet" | "orange" | "green" | "slate";
+}
+
+export interface CreatorRevenueForecastRow {
+  label: string;
+  value: string;
+  helper: string;
+}
+
+export interface CreatorRevenueTitleRow {
+  id: string;
+  title: string;
+  season: string;
+  grossRevenue: string;
+  creatorShare: string;
+  unlocks: string;
+  rpm: string;
+  status: string;
+  statusTone: "success" | "info" | "warning";
+  href: string;
+  initials: string;
+  gradient: string;
+}
+
+export interface CreatorAudienceDeviceShare {
+  label: string;
+  share: number;
+  color: string;
+}
+
+export interface CreatorAudienceSegmentRow {
+  label: string;
+  share: number;
+  helper: string;
+  tone: "blue" | "violet" | "orange" | "green" | "slate";
+}
+
+export interface CreatorDramaAnalyticsEpisodeRow {
+  id: string;
+  episode: string;
+  viewsLabel: string;
+  completion: number;
+  unlockRate: string;
+  revenue: string;
+  watchTime: string;
+}
+
+export interface CreatorDramaAnalyticsHighlight {
+  label: string;
+  value: string;
+  helper: string;
+}
+
+export interface CreatorRevenueAnalytics {
+  metrics: CreatorAnalyticsMetric[];
+  chart: CreatorAnalyticsChartSeries;
+  titles: CreatorRevenueTitleRow[];
+  balance: CreatorAnalyticsBalanceCard;
+  splitRows: CreatorRevenueSplitRow[];
+  forecastRows: CreatorRevenueForecastRow[];
+}
+
+export interface CreatorAudienceAnalytics {
+  metrics: CreatorAnalyticsMetric[];
+  chart: CreatorAnalyticsChartSeries;
+  geography: CreatorAnalyticsGeography;
+  devices: CreatorAudienceDeviceShare[];
+  segments: CreatorAudienceSegmentRow[];
+  heatmap: CreatorAnalyticsHeatmap;
+}
+
+export interface CreatorDramaAnalytics {
+  title: string;
+  status: string;
+  statusTone: "success" | "info" | "warning";
+  seasonLabel: string;
+  metrics: CreatorAnalyticsMetric[];
+  chart: CreatorAnalyticsChartSeries;
+  episodes: CreatorDramaAnalyticsEpisodeRow[];
+  geography: CreatorAnalyticsGeography;
+  devices: CreatorAudienceDeviceShare[];
+  highlights: CreatorDramaAnalyticsHighlight[];
 }

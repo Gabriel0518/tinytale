@@ -1,11 +1,7 @@
-import CreatorPlaceholderPage from "../_components/CreatorPlaceholderPage";
+export const dynamic = 'force-dynamic';
+
+import CreatorAnalyticsExperience from '../_components/analytics/CreatorAnalyticsExperience';
 
 export default function CreatorAnalyticsPage() {
-  return (
-    <CreatorPlaceholderPage
-      title="Analytics Overview"
-      description="Top-level analytics center aggregating performance across all dramas, episodes, and monetization signals."
-      route="/creator/analytics"
-    />
-  );
+  return <CreatorAnalyticsExperience mode="overview" />;
 }

@@ -1,11 +1,7 @@
-import CreatorPlaceholderPage from "../../_components/CreatorPlaceholderPage";
+export const dynamic = 'force-dynamic';
+
+import CreatorAnalyticsExperience from '../../_components/analytics/CreatorAnalyticsExperience';
 
 export default function CreatorRevenueAnalyticsPage() {
-  return (
-    <CreatorPlaceholderPage
-      title="Revenue Analytics"
-      description="Detailed revenue view for period trends, split by drama/episode, payout forecast, and reconciliation checks."
-      route="/creator/analytics/revenue"
-    />
-  );
+  return <CreatorAnalyticsExperience mode="revenue" />;
 }

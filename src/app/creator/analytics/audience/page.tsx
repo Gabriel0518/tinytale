@@ -1,11 +1,7 @@
-import CreatorPlaceholderPage from "../../_components/CreatorPlaceholderPage";
+export const dynamic = 'force-dynamic';
+
+import CreatorAnalyticsExperience from '../../_components/analytics/CreatorAnalyticsExperience';
 
 export default function CreatorAudienceAnalyticsPage() {
-  return (
-    <CreatorPlaceholderPage
-      title="Audience Analytics"
-      description="Audience composition view with demographics, watch behavior cohorts, traffic sources, and retention segments."
-      route="/creator/analytics/audience"
-    />
-  );
+  return <CreatorAnalyticsExperience mode="audience" />;
 }

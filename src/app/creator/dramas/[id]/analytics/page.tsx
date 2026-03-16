@@ -1,11 +1,13 @@
-import CreatorPlaceholderPage from "../../../_components/CreatorPlaceholderPage";
+export const dynamic = 'force-dynamic';
 
-export default function CreatorDramaAnalyticsPage() {
-  return (
-    <CreatorPlaceholderPage
-      title="Drama Analytics"
-      description="Cross-episode performance dashboard for a single drama, including trend charts and funnel diagnostics."
-      route="/creator/dramas/[id]/analytics"
-    />
-  );
+import CreatorAnalyticsExperience from '../../../_components/analytics/CreatorAnalyticsExperience';
+
+interface CreatorDramaAnalyticsPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default function CreatorDramaAnalyticsPage({ params }: CreatorDramaAnalyticsPageProps) {
+  return <CreatorAnalyticsExperience mode="drama" dramaId={params.id} />;
 }
