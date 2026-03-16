@@ -85,6 +85,7 @@ export default function CreatorPayoutRequestsPage() {
     if (status !== "all" && item.status !== status) return false;
     return true;
   }), [items, search, status]);
+
   const activeModalItem = useMemo(
     () => filtered.find((item) => item.id === activeModalId) || items.find((item) => item.id === activeModalId) || null,
     [activeModalId, filtered, items],
@@ -202,106 +203,80 @@ export default function CreatorPayoutRequestsPage() {
         </div>
       </section>
 
-      <section className="space-y-4">
-        <article className={panelClassName}>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
-              <HandCoins className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">Payout queue</h2>
-              <p className="text-sm text-gray-400">Statements ready for finance action.</p>
-            </div>
+      <section className={panelClassName}>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
+            <HandCoins className="h-5 w-5" />
           </div>
-          <div className="mt-5 space-y-3">
-            {loading ? (
-              <div className="py-10 text-center text-sm text-gray-500">Loading payout requests...</div>
-            ) : filtered.length === 0 ? (
-              <div className="py-10 text-center text-sm text-gray-500">No payout requests match the current filters.</div>
-            ) : filtered.map((item) => {
-              const settlementMeta = getCreatorSettlementStatusMeta(item.status);
-              const bankMeta = getCreatorBankStatusMeta(item.bankStatus);
-              return (
-                <div
-                  key={item.id}
-                  className="w-full rounded-2xl border border-gray-700/50 bg-[#0f0f17] p-4 text-left"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-white">{item.creatorName}</p>
-                      <p className="mt-1 text-sm text-gray-400">{item.statementNo} · {formatUsd(item.amountUsd)}</p>
-                      <p className="mt-2 text-xs text-gray-500">Requested {formatAdminDate(item.requestedAt, true)} · {item.payoutMethodLabel}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${settlementMeta.className}`}>{settlementMeta.label}</span>
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
-                    </div>
-                  </div>
-                  {(item.holdReason || item.transferReference) && (
-                    <p className="mt-3 text-sm text-gray-400">{item.holdReason || item.transferReference}</p>
-                  )}
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      onClick={() => setActiveModalId(item.id)}
-                      className="text-sm font-medium text-indigo-300 hover:text-indigo-200"
-                    >
-                      Open action card
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+          <div>
+            <h2 className="text-lg font-semibold text-white">Payout queue</h2>
+            <p className="text-sm text-gray-400">Simple finance list. Open the action modal from the row that needs a decision.</p>
           </div>
-        </article>
-        <article className={panelClassName}>
-          <h2 className="text-lg font-semibold text-white">Finance decision list</h2>
-          <p className="mt-2 text-sm text-gray-400">Handle multiple withdrawal requests in sequence. Use the action button on each row to open the payout operation card in a modal.</p>
-          {loading ? (
-            <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">Loading payout decisions...</div>
-          ) : filtered.length === 0 ? (
-            <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">No payout requests are currently waiting for a decision.</div>
-          ) : (
-            <div className="mt-5 space-y-4">
-              {filtered.map((item) => {
+        </div>
+
+        <div className="mt-5 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
+                <th className="pb-3 pr-4 font-medium">Creator</th>
+                <th className="pb-3 pr-4 font-medium">Statement</th>
+                <th className="pb-3 pr-4 font-medium">Amount</th>
+                <th className="pb-3 pr-4 font-medium">Method</th>
+                <th className="pb-3 pr-4 font-medium">Status</th>
+                <th className="pb-3 font-medium text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-gray-500">Loading payout requests...</td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-gray-500">No payout requests match the current filters.</td>
+                </tr>
+              ) : filtered.map((item) => {
                 const settlementMeta = getCreatorSettlementStatusMeta(item.status);
                 const bankMeta = getCreatorBankStatusMeta(item.bankStatus);
-
                 return (
-                  <div key={item.id} className="rounded-2xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-medium text-white">{item.creatorName}</p>
-                        <p className="mt-1 text-sm text-gray-400">{item.statementNo} · {formatUsd(item.amountUsd)} · {item.payoutMethodLabel}</p>
-                        <p className="mt-2 text-xs text-gray-500">
-                          Requested {formatAdminDate(item.requestedAt, true)}
-                          {item.transferReference ? ` · Ref ${item.transferReference}` : ""}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
+                  <tr key={item.id} className="border-b border-gray-800/60 align-top">
+                    <td className="py-4 pr-4">
+                      <p className="font-medium text-white">{item.creatorName}</p>
+                      <p className="mt-1 text-xs text-gray-500">{item.creatorEmail}</p>
+                      {(item.holdReason || item.note) ? <p className="mt-2 max-w-[260px] text-xs leading-5 text-gray-400">{item.holdReason || item.note}</p> : null}
+                    </td>
+                    <td className="py-4 pr-4">
+                      <p className="font-medium text-gray-200">{item.statementNo}</p>
+                      <p className="mt-1 text-xs text-gray-500">Requested {formatAdminDate(item.requestedAt, true)}</p>
+                      {item.transferReference ? <p className="mt-2 text-xs text-gray-400">Ref {item.transferReference}</p> : null}
+                    </td>
+                    <td className="py-4 pr-4">
+                      <p className="font-medium text-white">{formatUsd(item.amountUsd)}</p>
+                    </td>
+                    <td className="py-4 pr-4 text-gray-300">
+                      {item.payoutMethodLabel}
+                    </td>
+                    <td className="py-4 pr-4">
+                      <div className="flex flex-col items-start gap-2">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${settlementMeta.className}`}>{settlementMeta.label}</span>
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
                       </div>
-                    </div>
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Current note</p>
-                        <p className="mt-2 text-sm leading-6 text-gray-300">{item.note || item.holdReason || "No finance note on record."}</p>
-                      </div>
+                    </td>
+                    <td className="py-4 text-right">
                       <button
                         type="button"
                         onClick={() => setActiveModalId(item.id)}
-                        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                        className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500"
                       >
                         Open action
                       </button>
-                    </div>
-                  </div>
+                    </td>
+                  </tr>
                 );
               })}
-            </div>
-          )}
-        </article>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {activeModalItem ? (
@@ -309,7 +284,7 @@ export default function CreatorPayoutRequestsPage() {
           <div className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-[#0f0f17] shadow-2xl">
             <div className="flex items-center justify-between gap-4 border-b border-gray-800 px-5 py-4">
               <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-400">Payout action card</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-400">Payout action</p>
                 <h3 className="truncate text-base font-semibold text-white">{activeModalItem.creatorName} · {activeModalItem.statementNo}</h3>
               </div>
               <button

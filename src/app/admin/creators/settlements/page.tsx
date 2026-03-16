@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ReceiptText, Search } from "lucide-react";
+import { ReceiptText, Search, X } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { adminApi } from "@/lib/adminApi";
 import type { CreatorAdminSettlementItem, CreatorAdminSettlementStatus } from "@/types/creator";
@@ -17,6 +17,24 @@ import {
 const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";
 
 type SettlementDecision = "confirm" | "hold" | "mark_paid" | "mark_disputed";
+type SettlementDecisionDraft = {
+  decision: SettlementDecision;
+  note: string;
+};
+
+function getDefaultDecision(status: CreatorAdminSettlementStatus): SettlementDecision {
+  if (status === "paid") return "mark_paid";
+  if (status === "disputed") return "mark_disputed";
+  if (status === "held") return "hold";
+  return "confirm";
+}
+
+function buildDraft(item: CreatorAdminSettlementItem): SettlementDecisionDraft {
+  return {
+    decision: getDefaultDecision(item.status),
+    note: item.note || "",
+  };
+}
 
 export default function CreatorSettlementsAdminPage() {
   const { toast } = useToast();
@@ -24,10 +42,11 @@ export default function CreatorSettlementsAdminPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
-  const [selectedId, setSelectedId] = useState<string>(mockCreatorSettlements[0]?.id || "");
-  const [decision, setDecision] = useState<SettlementDecision>("confirm");
-  const [note, setNote] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, SettlementDecisionDraft>>(
+    Object.fromEntries(mockCreatorSettlements.map((item) => [item.id, buildDraft(item)])),
+  );
+  const [activeModalId, setActiveModalId] = useState<string | null>(null);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,12 +57,12 @@ export default function CreatorSettlementsAdminPage() {
         const next = response?.data?.items || response?.data?.settlements || response?.data || [];
         if (!cancelled && Array.isArray(next) && next.length > 0) {
           setItems(next);
-          setSelectedId(String(next[0]?.id || ""));
+          setDrafts(Object.fromEntries(next.map((item: CreatorAdminSettlementItem) => [item.id, buildDraft(item)])));
         }
       } catch {
         if (!cancelled) {
           setItems(mockCreatorSettlements);
-          setSelectedId(mockCreatorSettlements[0]?.id || "");
+          setDrafts(Object.fromEntries(mockCreatorSettlements.map((item) => [item.id, buildDraft(item)])));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -66,39 +85,58 @@ export default function CreatorSettlementsAdminPage() {
     return true;
   }), [items, search, status]);
 
-  const selected = useMemo(() => filtered.find((item) => item.id === selectedId) || filtered[0] || null, [filtered, selectedId]);
+  const activeModalItem = useMemo(
+    () => filtered.find((item) => item.id === activeModalId) || items.find((item) => item.id === activeModalId) || null,
+    [activeModalId, filtered, items],
+  );
 
-  async function handleReview() {
-    if (!selected) return;
-    if (!note.trim()) {
+  useEffect(() => {
+    if (!activeModalId) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [activeModalId]);
+
+  async function handleReview(item: CreatorAdminSettlementItem) {
+    const draft = drafts[item.id] || buildDraft(item);
+    if (!draft.note.trim()) {
       toast("A settlement note is required.", "info");
       return;
     }
 
-    setSubmitting(true);
+    setSubmittingId(item.id);
     try {
-      await adminApi.reviewCreatorSettlement(selected.creatorId, selected.statementId, { decision, note });
+      await adminApi.reviewCreatorSettlement(item.creatorId, item.statementId, { decision: draft.decision, note: draft.note });
     } catch {
       // Preserve local workflow while real finance integration is still deferred.
     } finally {
-      setSubmitting(false);
+      setSubmittingId(null);
     }
 
     const nextStatus: CreatorAdminSettlementStatus =
-      decision === "mark_paid"
+      draft.decision === "mark_paid"
         ? "paid"
-        : decision === "mark_disputed"
+        : draft.decision === "mark_disputed"
           ? "disputed"
-          : decision === "hold"
+          : draft.decision === "hold"
             ? "held"
             : "confirmed";
-    setItems((current) => current.map((item) => item.id === selected.id ? {
-      ...item,
+    setItems((current) => current.map((currentItem) => currentItem.id === item.id ? {
+      ...currentItem,
       status: nextStatus,
-      note,
-    } : item));
+      note: draft.note,
+    } : currentItem));
+    setDrafts((current) => ({
+      ...current,
+      [item.id]: {
+        decision: getDefaultDecision(nextStatus),
+        note: draft.note,
+      },
+    }));
+    setActiveModalId(null);
     toast("Settlement updated.", "success");
-    setNote("");
   }
 
   const stats = useMemo(() => ({
@@ -159,96 +197,178 @@ export default function CreatorSettlementsAdminPage() {
         </div>
       </section>
 
-      <section className="space-y-4">
-        <article className={panelClassName}>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
-              <ReceiptText className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">Settlement list</h2>
-              <p className="text-sm text-gray-400">Statement-level revenue and payout readiness.</p>
-            </div>
+      <section className={panelClassName}>
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
+            <ReceiptText className="h-5 w-5" />
           </div>
-          <div className="mt-5 space-y-3">
-            {loading ? (
-              <div className="py-10 text-center text-sm text-gray-500">Loading settlements...</div>
-            ) : filtered.length === 0 ? (
-              <div className="py-10 text-center text-sm text-gray-500">No settlements match the current filters.</div>
-            ) : filtered.map((item) => {
-              const settlementMeta = getCreatorSettlementStatusMeta(item.status);
-              const bankMeta = getCreatorBankStatusMeta(item.bankStatus);
-              const selectedCard = selected?.id === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setSelectedId(item.id)}
-                  className={`w-full rounded-2xl border p-4 text-left transition ${selectedCard ? "border-indigo-500/60 bg-[#171726]" : "border-gray-700/50 bg-[#0f0f17] hover:border-gray-600"}`}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-white">{item.creatorName}</p>
-                      <p className="mt-1 text-sm text-gray-400">{item.statementNo} · {item.periodLabel}</p>
-                      <p className="mt-2 text-xs text-gray-500">{item.unlockCount.toLocaleString()} unlocks · Net {formatUsd(item.netPayoutUsd)}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${settlementMeta.className}`}>{settlementMeta.label}</span>
+          <div>
+            <h2 className="text-lg font-semibold text-white">Settlement list</h2>
+            <p className="text-sm text-gray-400">Use the row action modal to review statement math and release decisions.</p>
+          </div>
+        </div>
+
+        <div className="mt-5 overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
+                <th className="pb-3 pr-4 font-medium">Statement</th>
+                <th className="pb-3 pr-4 font-medium">Creator</th>
+                <th className="pb-3 pr-4 font-medium">Revenue</th>
+                <th className="pb-3 pr-4 font-medium">Bank</th>
+                <th className="pb-3 pr-4 font-medium">Status</th>
+                <th className="pb-3 font-medium text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-gray-500">Loading settlements...</td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-gray-500">No settlements match the current filters.</td>
+                </tr>
+              ) : filtered.map((item) => {
+                const settlementMeta = getCreatorSettlementStatusMeta(item.status);
+                const bankMeta = getCreatorBankStatusMeta(item.bankStatus);
+                return (
+                  <tr key={item.id} className="border-b border-gray-800/60 align-top">
+                    <td className="py-4 pr-4">
+                      <p className="font-medium text-white">{item.statementNo}</p>
+                      <p className="mt-1 text-xs text-gray-500">{item.periodLabel}</p>
+                      <p className="mt-2 text-xs text-gray-400">{item.unlockCount.toLocaleString()} unlocks</p>
+                    </td>
+                    <td className="py-4 pr-4">
+                      <p className="font-medium text-gray-200">{item.creatorName}</p>
+                      <p className="mt-1 text-xs text-gray-500">{item.payoutDate ? `Payout ${formatAdminDate(item.payoutDate)}` : "No payout date"}</p>
+                      {item.note ? <p className="mt-2 max-w-[240px] text-xs leading-5 text-gray-400">{item.note}</p> : null}
+                    </td>
+                    <td className="py-4 pr-4">
+                      <p className="font-medium text-white">{formatUsd(item.netPayoutUsd)}</p>
+                      <p className="mt-1 text-xs text-gray-500">Gross {formatUsd(item.grossRevenueUsd)}</p>
+                      <p className="mt-1 text-xs text-gray-500">Fees {formatUsd(item.channelFeesUsd)} · Reserve {formatUsd(item.reserveUsd)}</p>
+                    </td>
+                    <td className="py-4 pr-4">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
-                    </div>
-                  </div>
-                  {item.note && <p className="mt-3 text-sm text-gray-400">{item.note}</p>}
-                </button>
-              );
-            })}
-          </div>
-        </article>
-        <article className={panelClassName}>
-          <h2 className="text-lg font-semibold text-white">Settlement action</h2>
-          {!selected ? (
-            <div className="mt-5 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-400">Select a settlement to review it.</div>
-          ) : (
-            <div className="mt-5 space-y-4">
-              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                <p className="font-medium text-white">{selected.statementNo}</p>
-                <p className="mt-1 text-sm text-gray-400">{selected.creatorName} · {selected.periodLabel}</p>
-                <div className="mt-4 grid gap-3">
-                  <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Gross</p><p className="mt-1 text-sm text-white">{formatUsd(selected.grossRevenueUsd)}</p></div>
-                  <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Net payout</p><p className="mt-1 text-sm text-white">{formatUsd(selected.netPayoutUsd)}</p></div>
-                  <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Platform fees</p><p className="mt-1 text-sm text-gray-300">{formatUsd(selected.channelFeesUsd)}</p></div>
-                  <div><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Reserve</p><p className="mt-1 text-sm text-gray-300">{formatUsd(selected.reserveUsd)}</p></div>
-                </div>
-                <p className="mt-4 text-xs text-gray-500">{selected.payoutDate ? `Planned payout ${formatAdminDate(selected.payoutDate, true)}` : "No payout date assigned"}</p>
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
-                <select value={decision} onChange={(event) => setDecision(event.target.value as SettlementDecision)} className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
-                  <option value="confirm">Confirm statement</option>
-                  <option value="hold">Place hold</option>
-                  <option value="mark_disputed">Mark disputed</option>
-                  <option value="mark_paid">Mark paid</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-300">Settlement note</label>
-                <textarea
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  placeholder="Record the reason for confirmation, hold, dispute, or payment."
-                  className="min-h-[150px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
-                />
+                    </td>
+                    <td className="py-4 pr-4">
+                      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${settlementMeta.className}`}>{settlementMeta.label}</span>
+                    </td>
+                    <td className="py-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setActiveModalId(item.id)}
+                        className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500"
+                      >
+                        Open action
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {activeModalItem ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-[#0f0f17] shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-gray-800 px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-400">Settlement action</p>
+                <h3 className="truncate text-base font-semibold text-white">{activeModalItem.statementNo} · {activeModalItem.creatorName}</h3>
               </div>
               <button
-                onClick={handleReview}
-                disabled={submitting}
-                className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                type="button"
+                onClick={() => setActiveModalId(null)}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-700 px-3 py-2 text-xs font-medium text-gray-300 hover:border-gray-500 hover:text-white"
               >
-                {submitting ? "Saving..." : "Save settlement action"}
+                <X className="h-3.5 w-3.5" />
+                Close
               </button>
             </div>
-          )}
-        </article>
-      </section>
+
+            <div className="overflow-y-auto p-5">
+              {(() => {
+                const draft = drafts[activeModalItem.id] || buildDraft(activeModalItem);
+                const settlementMeta = getCreatorSettlementStatusMeta(activeModalItem.status);
+                const bankMeta = getCreatorBankStatusMeta(activeModalItem.bankStatus);
+                const isSubmitting = submittingId === activeModalItem.id;
+
+                return (
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-white">{activeModalItem.statementNo}</p>
+                          <p className="mt-1 text-sm text-gray-400">{activeModalItem.creatorName} · {activeModalItem.periodLabel}</p>
+                          <p className="mt-2 text-xs text-gray-500">{activeModalItem.payoutDate ? `Planned payout ${formatAdminDate(activeModalItem.payoutDate, true)}` : "No payout date assigned"}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${settlementMeta.className}`}>{settlementMeta.label}</span>
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
+                        </div>
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Gross</p>
+                          <p className="mt-1 text-sm text-white">{formatUsd(activeModalItem.grossRevenueUsd)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Net payout</p>
+                          <p className="mt-1 text-sm text-white">{formatUsd(activeModalItem.netPayoutUsd)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Platform fees</p>
+                          <p className="mt-1 text-sm text-gray-300">{formatUsd(activeModalItem.channelFeesUsd)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Reserve</p>
+                          <p className="mt-1 text-sm text-gray-300">{formatUsd(activeModalItem.reserveUsd)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
+                      <select
+                        value={draft.decision}
+                        onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.id]: { ...draft, decision: event.target.value as SettlementDecision } }))}
+                        className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500"
+                      >
+                        <option value="confirm">Confirm statement</option>
+                        <option value="hold">Place hold</option>
+                        <option value="mark_disputed">Mark disputed</option>
+                        <option value="mark_paid">Mark paid</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-300">Settlement note</label>
+                      <textarea
+                        value={draft.note}
+                        onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.id]: { ...draft, note: event.target.value } }))}
+                        placeholder="Record the reason for confirmation, hold, dispute, or payment."
+                        className="min-h-[150px] w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => handleReview(activeModalItem)}
+                      disabled={isSubmitting}
+                      className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSubmitting ? "Saving..." : "Save settlement action"}
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
