@@ -464,8 +464,15 @@ function translateTextNode(node: Text, locale: SupportedLocale) {
   if (shouldSkipTextNode(node)) return;
 
   const current = node.nodeValue || "";
-  if (!TEXT_NODE_ORIGINALS.has(node)) {
+  const storedOriginal = TEXT_NODE_ORIGINALS.get(node);
+
+  if (storedOriginal === undefined) {
     TEXT_NODE_ORIGINALS.set(node, current);
+  } else if (locale !== "en") {
+    const translatedFromOriginal = translateText(storedOriginal, locale);
+    if (current !== storedOriginal && current !== translatedFromOriginal) {
+      TEXT_NODE_ORIGINALS.set(node, current);
+    }
   }
 
   const original = TEXT_NODE_ORIGINALS.get(node) || current;
@@ -485,6 +492,11 @@ function translateElementAttributes(element: Element, locale: SupportedLocale) {
     const attrValue = element.getAttribute(attrName);
     if (attrValue !== null && originals[attrName] === undefined) {
       originals[attrName] = attrValue;
+    } else if (attrValue !== null && originals[attrName] !== undefined && locale !== "en") {
+      const translatedFromOriginal = translateText(originals[attrName] || "", locale);
+      if (attrValue !== originals[attrName] && attrValue !== translatedFromOriginal) {
+        originals[attrName] = attrValue;
+      }
     }
 
     if (originals[attrName] !== undefined) {
@@ -498,6 +510,11 @@ function translateElementAttributes(element: Element, locale: SupportedLocale) {
   if (element instanceof HTMLInputElement && ["button", "submit", "reset"].includes(element.type)) {
     if (originals.value === undefined) {
       originals.value = element.value;
+    } else if (locale !== "en") {
+      const translatedFromOriginal = translateText(originals.value || "", locale);
+      if (element.value !== originals.value && element.value !== translatedFromOriginal) {
+        originals.value = element.value;
+      }
     }
 
     const nextValue = translateText(originals.value || "", locale);
