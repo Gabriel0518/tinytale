@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { adminApi } from "@/lib/adminApi";
 import ReviewWithdrawalModal from "@/components/admin/ReviewWithdrawalModal";
 import ConfirmPaymentModal from "@/components/admin/ConfirmPaymentModal";
+import { formatAdminCurrency, useAdminLocale } from "@/lib/admin-i18n";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Status = "Pending" | "Approved" | "Processing" | "Paid" | "Rejected";
@@ -50,6 +51,7 @@ function exportCSV(data: Withdrawal[]) {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function WithdrawalsPage() {
+  const { locale } = useAdminLocale();
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -187,7 +189,7 @@ export default function WithdrawalsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Processing Amount</p>
-              <p className="mt-1 text-2xl font-bold text-gray-200">${stats.processingAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+              <p className="mt-1 text-2xl font-bold text-gray-200">{formatAdminCurrency(stats.processingAmount, locale)}</p>
               <p className="mt-1 text-xs text-gray-500">{stats.processingCount} active payouts</p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
@@ -199,7 +201,7 @@ export default function WithdrawalsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-400">Paid This Month</p>
-              <p className="mt-1 text-2xl font-bold text-gray-200">${stats.paidAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+              <p className="mt-1 text-2xl font-bold text-gray-200">{formatAdminCurrency(stats.paidAmount, locale)}</p>
               <p className="mt-1 text-xs text-green-400">+24% since last month</p>
             </div>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
@@ -294,7 +296,7 @@ export default function WithdrawalsPage() {
                       <span className="text-gray-200">{w.promoter.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-200">${w.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                  <td className="px-4 py-3 font-medium text-gray-200">{formatAdminCurrency(w.amount, locale)}</td>
                   <td className="px-4 py-3 text-gray-400">{w.method}</td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-400">{w.account}</td>
                   <td className="px-4 py-3 text-gray-500">{w.requestTime}</td>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { adminApi } from "@/lib/adminApi";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { formatAdminDate, useAdminLocale } from "@/lib/admin-i18n";
 
 interface SubscriptionUser {
   _id: string;
@@ -44,9 +45,9 @@ const STATUS_LABEL: Record<string, string> = {
 
 const PER_PAGE = 10;
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string, locale: "zh" | "en") {
   if (!dateStr) return "-";
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return formatAdminDate(dateStr, locale, {
     year: "numeric", month: "short", day: "numeric",
   });
 }
@@ -71,6 +72,7 @@ function getInitials(name: string) {
 }
 
 export default function SubscriptionsPage() {
+  const { locale } = useAdminLocale();
   const confirmDialog = useConfirm();
   const [data, setData] = useState<Subscription[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,7 +161,7 @@ export default function SubscriptionsPage() {
   const exportCsv = () => {
     const header = "Subscription ID,User,Email,Plan,Amount,Status,Start Date,End Date,Auto-Renew";
     const rows = data.map((s) =>
-      `${s._id},${s.userId?.nickname || ""},${s.userId?.email || ""},${getPlanLabel(s.planId)},${s.planId?.price?.toFixed(2) || "0.00"},${STATUS_LABEL[s.status] || s.status},${formatDate(s.startDate)},${formatDate(s.endDate)},${s.autoRenew ? "ON" : "OFF"}`
+      `${s._id},${s.userId?.nickname || ""},${s.userId?.email || ""},${getPlanLabel(s.planId)},${s.planId?.price?.toFixed(2) || "0.00"},${STATUS_LABEL[s.status] || s.status},${formatDate(s.startDate, locale)},${formatDate(s.endDate, locale)},${s.autoRenew ? "ON" : "OFF"}`
     );
     const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -278,7 +280,7 @@ export default function SubscriptionsPage() {
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-400">
-                    {formatDate(s.startDate)} <span className="text-gray-600">&rarr;</span> {formatDate(s.endDate)}
+                    {formatDate(s.startDate, locale)} <span className="text-gray-600">&rarr;</span> {formatDate(s.endDate, locale)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${s.autoRenew ? "bg-green-500/15 text-green-400" : "bg-gray-500/15 text-gray-400"}`}>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { api } from "@/lib/adminApi";
+import { formatAdminCurrency, useAdminLocale } from "@/lib/admin-i18n";
 
 interface AdjustLevelModalProps {
   open: boolean;
@@ -58,6 +59,7 @@ export default function AdjustLevelModal({
   onConfirm,
   promoter,
 }: AdjustLevelModalProps) {
+  const { locale } = useAdminLocale();
   const [selectedLevel, setSelectedLevel] = useState("Standard");
   const [commissionRate, setCommissionRate] = useState("10");
   const [reason, setReason] = useState("");
@@ -74,8 +76,7 @@ export default function AdjustLevelModal({
 
   if (!open || !promoter) return null;
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+  const formatCurrency = (value: number) => formatAdminCurrency(value, locale);
 
   const isProfessional = selectedLevel === "Professional";
   const canSubmit = reason.trim().length > 0 && !submitting;

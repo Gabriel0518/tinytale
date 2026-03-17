@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { adminApi } from "@/lib/adminApi";
+import { formatAdminDateTime, useAdminLocale } from "@/lib/admin-i18n";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type ActionType = "Create" | "Edit" | "Delete" | "Login";
@@ -60,9 +61,16 @@ const emptyFilters: Filters = {
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function formatDate(iso: string) {
+function formatDate(iso: string, locale: "zh" | "en") {
   const d = new Date(iso);
-  return d.toLocaleString("en-US", { year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+  return formatAdminDateTime(d, locale, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
 
 function avatarColor(name: string) {
@@ -82,6 +90,7 @@ function targetLabel(type: string, id: string) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function OperationLogsPage() {
+  const { locale } = useAdminLocale();
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -201,7 +210,7 @@ export default function OperationLogsPage() {
 
       const header = "LOG ID,TIME,OPERATOR,TYPE,TARGET OBJECT,DETAILS SUMMARY,IP ADDRESS";
       const rows = exportLogs.map((l) =>
-        `#${l._id},"${formatDate(l.createdAt)}",${l.adminId?.username ?? "System"},${l.action},"${l.targetType} ${l.targetId}","${(l.details?.summary ?? "").replace(/"/g, '""')}",${l.ip}`
+        `#${l._id},"${formatDate(l.createdAt, locale)}",${l.adminId?.username ?? "System"},${l.action},"${l.targetType} ${l.targetId}","${(l.details?.summary ?? "").replace(/"/g, '""')}",${l.ip}`
       );
       const blob = new Blob([header + "\n" + rows.join("\n")], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
@@ -211,7 +220,7 @@ export default function OperationLogsPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch { /* silent */ }
-  }, [appliedFilters, logs]);
+  }, [appliedFilters, locale, logs]);
 
   // Pagination helpers
   const startRow = total === 0 ? 0 : (page - 1) * limit + 1;
@@ -406,7 +415,7 @@ export default function OperationLogsPage() {
               logs.map((log) => (
                 <tr key={log._id} className="hover:bg-[#1a1a2e] transition-colors">
                   <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-gray-400">#{log._id.slice(-5)}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-300">{formatDate(log.createdAt)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-300">{formatDate(log.createdAt, locale)}</td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <div className="flex items-center gap-2">
                       <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white ${avatarColor(log.adminId?.username ?? "S")}`}>

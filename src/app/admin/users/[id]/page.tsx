@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
+import { formatAdminDate, formatAdminDateTime, useAdminLocale } from "@/lib/admin-i18n";
 
 // ─── Types ───────────────────────────────────────────────
 interface UserData {
@@ -134,6 +135,7 @@ function StarRating({ rating }: { rating: number }) {
 // ═══════════════════════════════════════════════════════════
 export default function UserDetailPage() {
   const { id } = useParams();
+  const { locale } = useAdminLocale();
 
   // ─── State ─────────────────────────────────────────────
   const [user, setUser] = useState<UserData | null>(null);
@@ -225,14 +227,14 @@ export default function UserDetailPage() {
         coinsReceived: t.coinAmount ? t.coinAmount.toLocaleString() : "-",
         channel: t.paymentMethod || "Stripe",
         status: t.status === "completed" ? "Paid" : t.status === "failed" ? "Failed" : "Pending",
-        date: t.createdAt ? new Date(t.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+        date: t.createdAt ? formatAdminDate(t.createdAt, locale, { month: "short", day: "numeric", year: "numeric" }) : "",
       })));
       setTotalRechargeItems(res.data?.total || items.length);
     } catch {
       setRechargeData([]);
       setTotalRechargeItems(0);
     }
-  }, [id, currentPage]);
+  }, [currentPage, id, locale]);
 
   useEffect(() => { fetchRecharge(); }, [fetchRecharge]);
 
@@ -245,7 +247,7 @@ export default function UserDetailPage() {
           const res: any = await adminApi.getUserConsumption(id as string, { page: 1, limit: 50 });
           const items = res.data?.consumption || res.data?.records || res.data || [];
           setConsumptionData(items.map((r: any) => ({
-            date: (r.unlockedAt || r.createdAt) ? new Date(r.unlockedAt || r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+            date: (r.unlockedAt || r.createdAt) ? formatAdminDate(r.unlockedAt || r.createdAt, locale, { month: "short", day: "numeric", year: "numeric" }) : "",
             type: r.type || "Unlock",
             drama: r.dramaTitle || "Unknown",
             episode: r.episodeTitle || `Ep ${r.episodeNumber || "?"}`,
@@ -262,7 +264,7 @@ export default function UserDetailPage() {
             episode: r.episodeTitle || `Ep ${r.episodeNumber || "?"}`,
             progress: r.progress ? `${Math.round(r.progress)}%` : "0%",
             duration: r.duration || "N/A",
-            lastWatched: (r.lastWatched || r.updatedAt) ? new Date(r.lastWatched || r.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+            lastWatched: (r.lastWatched || r.updatedAt) ? formatAdminDate(r.lastWatched || r.updatedAt, locale, { month: "short", day: "numeric", year: "numeric" }) : "",
           })));
           break;
         }
@@ -271,7 +273,7 @@ export default function UserDetailPage() {
           const items = res.data?.watchlist || res.data?.records || res.data || [];
           setWatchlistData(items.map((r: any) => ({
             drama: r.dramaTitle || "Unknown",
-            addedDate: (r.addedAt || r.createdAt) ? new Date(r.addedAt || r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+            addedDate: (r.addedAt || r.createdAt) ? formatAdminDate(r.addedAt || r.createdAt, locale, { month: "short", day: "numeric", year: "numeric" }) : "",
             episodes: r.totalEpisodes || 0,
             status: r.status || "Watching",
           })));
@@ -284,7 +286,7 @@ export default function UserDetailPage() {
             drama: r.dramaTitle || "Unknown",
             comment: r.content || "",
             rating: r.rating || 0,
-            date: r.createdAt ? new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "",
+            date: r.createdAt ? formatAdminDate(r.createdAt, locale, { month: "short", day: "numeric", year: "numeric" }) : "",
             status: r.status === "approved" ? "Approved" : r.status === "rejected" ? "Rejected" : "Pending",
           })));
           break;
@@ -293,7 +295,7 @@ export default function UserDetailPage() {
           const res: any = await adminApi.getUserLoginLogs(id as string, { page: 1, limit: 50 });
           const items = res.data?.loginLogs || res.data?.records || res.data || [];
           setLoginLogsData(items.map((r: any) => ({
-            date: (r.occurredAt || r.createdAt) ? new Date(r.occurredAt || r.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "",
+            date: (r.occurredAt || r.createdAt) ? formatAdminDateTime(r.occurredAt || r.createdAt, locale, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "",
             ip: r.ip || "-",
             device: r.device || "Unknown",
             browser: r.browser || "Unknown",
@@ -306,7 +308,7 @@ export default function UserDetailPage() {
           const res: any = await adminApi.getUserOperationLogs(id as string, { page: 1, limit: 50 });
           const items = res.data?.logs || res.data?.records || res.data || [];
           setOperationLogsData(items.map((r: any) => ({
-            date: r.createdAt ? new Date(r.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "",
+            date: r.createdAt ? formatAdminDateTime(r.createdAt, locale, { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "",
             action: r.action || "",
             details: typeof r.details === "object" ? JSON.stringify(r.details) : (r.details || ""),
             operator: r.admin?.name || r.adminName || r.operator || "system",
@@ -320,7 +322,7 @@ export default function UserDetailPage() {
     } finally {
       setTabLoading(false);
     }
-  }, [id]);
+  }, [id, locale]);
 
   useEffect(() => {
     if (activeTab !== "Recharge History") {

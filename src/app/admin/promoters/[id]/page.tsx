@@ -7,6 +7,7 @@ import { api } from "@/lib/adminApi";
 import AdjustLevelModal from "@/components/admin/AdjustLevelModal";
 import BanPromoterModal from "@/components/admin/BanPromoterModal";
 import { useToast } from "@/components/ui/Toast";
+import { formatAdminCurrency, useAdminLocale } from "@/lib/admin-i18n";
 
 // ─── Types ───────────────────────────────────────────────
 type Tab = "promoted" | "commissions" | "withdrawals" | "links";
@@ -81,6 +82,7 @@ const EMPTY_PROMOTER: PromoterData = {
 // ═══════════════════════════════════════════════════════════
 export default function PromoterDetailPage() {
   const { id } = useParams();
+  const { locale } = useAdminLocale();
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("promoted");
   const [searchQuery, setSearchQuery] = useState("");
@@ -225,7 +227,7 @@ export default function PromoterDetailPage() {
         <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-5">
           <p className="text-sm text-gray-400">Total Earned</p>
           <div className="mt-1 flex items-center gap-3">
-            <p className="text-2xl font-bold text-gray-200">${promoter.totalEarned.toLocaleString("en-US", { minimumFractionDigits: 2 })}</p>
+            <p className="text-2xl font-bold text-gray-200">{formatAdminCurrency(promoter.totalEarned, locale)}</p>
             <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-400">
               {promoter.earnedChange}
             </span>
@@ -341,8 +343,8 @@ export default function PromoterDetailPage() {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-300">${u.totalVolume.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
-                    <td className="px-4 py-3 text-sm text-gray-300">${u.commission.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300">{formatAdminCurrency(u.totalVolume, locale)}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300">{formatAdminCurrency(u.commission, locale)}</td>
                     <td className="px-4 py-3">
                       <Link href={`/admin/users/${u.id}`} className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
                         Details
@@ -416,7 +418,7 @@ export default function PromoterDetailPage() {
                 {withdrawals.map((w) => (
                   <tr key={w.requestId} className="transition-colors hover:bg-[#1a1a2e]">
                     <td className="px-4 py-3 text-sm font-medium text-gray-200">{w.requestId}</td>
-                    <td className="px-4 py-3 text-sm text-gray-300">${w.amount.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                    <td className="px-4 py-3 text-sm text-gray-300">{formatAdminCurrency(w.amount, locale)}</td>
                     <td className="px-4 py-3 text-sm text-gray-400">{w.method}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${

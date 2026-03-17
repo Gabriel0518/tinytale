@@ -5,6 +5,7 @@ import { adminApi } from "@/lib/adminApi";
 import CreateAdminModal from "@/components/admin/CreateAdminModal";
 import EditAdminModal from "@/components/admin/EditAdminModal";
 import ResetPasswordModal from "@/components/admin/ResetPasswordModal";
+import { formatAdminDate, formatAdminDateTime, formatAdminTimeAgo, useAdminLocale } from "@/lib/admin-i18n";
 
 // --- Types ---
 interface Role {
@@ -61,29 +62,16 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-function formatDate(dateStr: string): { date: string; time: string } {
+function formatDate(dateStr: string, locale: "zh" | "en"): { date: string; time: string } {
   if (!dateStr) return { date: "-", time: "" };
-  const d = new Date(dateStr);
   return {
-    date: d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }),
-    time: d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+    date: formatAdminDate(dateStr, locale, { year: "numeric", month: "short", day: "numeric" }),
+    time: formatAdminDateTime(dateStr, locale, { hour: "2-digit", minute: "2-digit" }),
   };
 }
 
-function timeAgo(dateStr: string): string {
-  if (!dateStr) return "Never";
-  const now = new Date();
-  const past = new Date(dateStr);
-  const diffMs = now.getTime() - past.getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins} mins ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} hrs ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days} days ago`;
-  const months = Math.floor(days / 30);
-  return `${months} months ago`;
+function timeAgo(dateStr: string, locale: "zh" | "en"): string {
+  return formatAdminTimeAgo(dateStr, locale);
 }
 
 function exportCSV(admins: Admin[], roles: Role[]) {
@@ -110,6 +98,7 @@ function exportCSV(admins: Admin[], roles: Role[]) {
 
 // --- Component ---
 export default function AdminManagementPage() {
+  const { locale } = useAdminLocale();
   const [admins, setAdmins] = useState<Admin[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [total, setTotal] = useState(0);
@@ -333,7 +322,7 @@ export default function AdminManagementPage() {
                 admins.map((admin) => {
                   const roleName = getRoleName(admin, roles);
                   const badgeColor = ROLE_BADGE_COLORS[roleName] || "bg-gray-500/20 text-gray-400";
-                  const created = formatDate(admin.createdAt);
+                  const created = formatDate(admin.createdAt, locale);
                   const isActive = admin.status === "active";
 
                   return (
@@ -381,7 +370,7 @@ export default function AdminManagementPage() {
                         <p className="text-xs text-gray-500">{created.time}</p>
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-400">
-                        {timeAgo(admin.lastLogin)}
+                          {timeAgo(admin.lastLogin, locale)}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm">
                         <div className="relative">

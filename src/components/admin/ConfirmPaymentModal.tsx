@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { adminApi } from "@/lib/adminApi";
+import { formatAdminCurrency, useAdminLocale } from "@/lib/admin-i18n";
 
 interface ConfirmPaymentModalProps {
   open: boolean;
@@ -24,6 +25,7 @@ export default function ConfirmPaymentModal({
   onConfirm,
   withdrawal,
 }: ConfirmPaymentModalProps) {
+  const { locale } = useAdminLocale();
   const [paymentTime, setPaymentTime] = useState("");
   const [paymentProof, setPaymentProof] = useState("");
   const [fileName, setFileName] = useState("");
@@ -54,8 +56,7 @@ export default function ConfirmPaymentModal({
 
   if (!open || !withdrawal) return null;
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+  const formatCurrency = (value: number) => formatAdminCurrency(value, locale);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

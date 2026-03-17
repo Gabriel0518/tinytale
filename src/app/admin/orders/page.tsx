@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { adminApi } from "@/lib/adminApi";
 import { useToast } from "@/components/ui/Toast";
+import { formatAdminCurrency, formatAdminDateTime, getAdminLocaleTag, useAdminLocale } from "@/lib/admin-i18n";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface Order {
@@ -85,6 +86,7 @@ const channelDisplayName: Record<string, string> = {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function OrdersPage() {
+  const { locale } = useAdminLocale();
   const [orders, setOrders] = useState<Order[]>([]);
   const [totalOrders, setTotalOrders] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -380,9 +382,9 @@ export default function OrdersPage() {
           <p className="text-sm text-gray-400">
             Total Orders: <span className="font-semibold text-gray-200">{totalOrders.toLocaleString()}</span>
             {" \u00B7 "}
-            Filtered USD Volume: <span className="font-semibold text-gray-200">{formatMoney(summary.totalUsdAmount || 0, "usd")}</span>
+            Filtered USD Volume: <span className="font-semibold text-gray-200">{formatMoney(summary.totalUsdAmount || 0, "usd", locale)}</span>
             {" \u00B7 "}
-            Current Page USD: <span className="font-semibold text-gray-200">{formatMoney(pageUsdAmount || 0, "usd")}</span>
+            Current Page USD: <span className="font-semibold text-gray-200">{formatMoney(pageUsdAmount || 0, "usd", locale)}</span>
           </p>
           <p className="text-xs text-gray-500">
             Adaptive Applied: <span className="text-indigo-300">{summary.adaptivePricingAppliedCount.toLocaleString()}</span>
@@ -475,12 +477,12 @@ export default function OrdersPage() {
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <div className="font-medium text-gray-200">
-                      {formatMoney(o.presentmentAmount > 0 ? o.presentmentAmount : o.amount, o.presentmentCurrency || o.integrationCurrency || "usd")}
+                      {formatMoney(o.presentmentAmount > 0 ? o.presentmentAmount : o.amount, o.presentmentCurrency || o.integrationCurrency || "usd", locale)}
                     </div>
                     <div className="text-xs text-gray-500">{(o.presentmentCurrency || o.integrationCurrency || "usd").toUpperCase()}</div>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 font-medium text-gray-300">
-                    {formatMoney(o.amount, o.integrationCurrency || "usd")}
+                    {formatMoney(o.amount, o.integrationCurrency || "usd", locale)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <div className="text-gray-300">{o.countryCode || "UNKNOWN"}</div>
@@ -496,7 +498,7 @@ export default function OrdersPage() {
                   <td className="whitespace-nowrap px-4 py-3">
                     <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadge[o.status]}`}>{o.status}</span>
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-gray-400">{formatDate(o.createdAt)}</td>
+                  <td className="whitespace-nowrap px-4 py-3 text-gray-400">{formatDate(o.createdAt, locale)}</td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <div className="flex items-center gap-2">
                       <Link href={`/admin/orders/${o.id}`} className="rounded p-1 text-gray-400 hover:bg-gray-700/40 hover:text-indigo-400 transition" title="View">
@@ -631,7 +633,7 @@ export default function OrdersPage() {
                     <div className="text-xs text-amber-200/80">
                       <p className="font-medium text-amber-300">Coin Clawback Logic</p>
                       <p className="mt-1">
-                        Refunding ${Number(refundAmount || 0).toFixed(2)} of ${refundOrder.amount.toFixed(2)} ({Math.round((isNaN(refundRatio) ? 0 : Math.min(refundRatio, 1)) * 100)}%) will claw back <span className="font-semibold text-amber-200">{coinClawback.toLocaleString()} coins</span> from the user&apos;s {refundOrder.coins.toLocaleString()} coins received.
+                        Refunding {formatMoney(Number(refundAmount || 0), refundOrder.integrationCurrency || "usd", locale)} of {formatMoney(refundOrder.amount, refundOrder.integrationCurrency || "usd", locale)} ({Math.round((isNaN(refundRatio) ? 0 : Math.min(refundRatio, 1)) * 100)}%) will claw back <span className="font-semibold text-amber-200">{coinClawback.toLocaleString(getAdminLocaleTag(locale))} coins</span> from the user&apos;s {refundOrder.coins.toLocaleString(getAdminLocaleTag(locale))} coins received.
                       </p>
                       {coinHandling === "auto_deduct" && (
                         <p className="mt-1">Coins will be automatically deducted from the user&apos;s current balance.</p>
@@ -670,23 +672,13 @@ function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
 }
 
-function formatDate(iso: string) {
+function formatDate(iso: string, locale: "zh" | "en") {
   const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  return formatAdminDateTime(d, locale, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function formatMoney(amount: number, currencyCode: string) {
-  const normalized = (currencyCode || "usd").toUpperCase();
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: normalized,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number(amount || 0));
-  } catch {
-    return `${normalized} ${Number(amount || 0).toFixed(2)}`;
-  }
+function formatMoney(amount: number, currencyCode: string, locale: "zh" | "en") {
+  return formatAdminCurrency(amount, locale, currencyCode);
 }
 
 function pageNumbers(current: number, total: number): (number | string)[] {

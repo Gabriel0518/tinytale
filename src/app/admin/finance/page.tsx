@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { adminApi } from "@/lib/adminApi";
+import { formatAdminCurrency, formatAdminDate, formatAdminDateTime, useAdminLocale } from "@/lib/admin-i18n";
 
 const TYPE_BADGE: Record<string, { label: string; cls: string }> = {
   recharge: { label: "Recharge", cls: "bg-green-500/15 text-green-400 border border-green-500/20" },
@@ -128,16 +129,16 @@ type RolloutTrendData = {
   monthly: RolloutTrendPoint[];
 };
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string, locale: "zh" | "en") {
   if (!dateStr) return "-";
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  return formatAdminDate(dateStr, locale, {
     month: "short", day: "numeric", year: "numeric",
   });
 }
 
-function formatDateTime(dateStr: string | null) {
+function formatDateTime(dateStr: string | null, locale: "zh" | "en") {
   if (!dateStr) return "-";
-  return new Date(dateStr).toLocaleString("en-US", {
+  return formatAdminDateTime(dateStr, locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -146,18 +147,8 @@ function formatDateTime(dateStr: string | null) {
   });
 }
 
-function formatCurrency(amount: number, currencyCode = "USD") {
-  const normalized = (currencyCode || "USD").toUpperCase();
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: normalized,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number(amount || 0));
-  } catch {
-    return `${normalized} ${Number(amount || 0).toFixed(2)}`;
-  }
+function formatCurrency(amount: number, locale: "zh" | "en", currencyCode = "USD") {
+  return formatAdminCurrency(amount, locale, currencyCode);
 }
 
 function buildLinePath(values: number[], width: number, height: number, padding = 8) {
@@ -184,6 +175,7 @@ function buildLinePath(values: number[], width: number, height: number, padding 
 }
 
 export default function AdminFinancePage() {
+  const { locale } = useAdminLocale();
   const [loading, setLoading] = useState(true);
   const [rolloutWindowDays, setRolloutWindowDays] = useState(7);
   const [trendDays, setTrendDays] = useState(90);
@@ -312,22 +304,22 @@ export default function AdminFinancePage() {
       <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-6">
           <p className="text-sm text-gray-400">Total Revenue (USD Base)</p>
-          <p className="mt-2 text-3xl font-bold text-green-400">{formatCurrency(totalRevenue, "USD")}</p>
+          <p className="mt-2 text-3xl font-bold text-green-400">{formatCurrency(totalRevenue, locale, "USD")}</p>
           <p className="mt-1 text-xs text-gray-500">Recharge + VIP</p>
         </div>
         <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-6">
           <p className="text-sm text-gray-400">Coin Recharges</p>
-          <p className="mt-2 text-3xl font-bold text-blue-400">{formatCurrency(getRevenueForType("recharge"), "USD")}</p>
+          <p className="mt-2 text-3xl font-bold text-blue-400">{formatCurrency(getRevenueForType("recharge"), locale, "USD")}</p>
           <p className="mt-1 text-xs text-gray-500">Base currency settlement</p>
         </div>
         <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-6">
           <p className="text-sm text-gray-400">VIP Subscriptions</p>
-          <p className="mt-2 text-3xl font-bold text-purple-400">{formatCurrency(getRevenueForType("vip"), "USD")}</p>
+          <p className="mt-2 text-3xl font-bold text-purple-400">{formatCurrency(getRevenueForType("vip"), locale, "USD")}</p>
           <p className="mt-1 text-xs text-gray-500">Base currency settlement</p>
         </div>
         <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-6">
           <p className="text-sm text-gray-400">Total Refunds</p>
-          <p className="mt-2 text-3xl font-bold text-red-400">{formatCurrency(totalRefunds, "USD")}</p>
+          <p className="mt-2 text-3xl font-bold text-red-400">{formatCurrency(totalRefunds, locale, "USD")}</p>
           <p className="mt-1 text-xs text-gray-500">{totalTransactions} completed transactions</p>
         </div>
         <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-6">
@@ -385,7 +377,7 @@ export default function AdminFinancePage() {
               </div>
               <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
                 <p className="text-xs text-gray-500">Last Completed Order</p>
-                <p className="mt-1 text-sm font-medium text-gray-200">{formatDateTime(rolloutReadiness.global.lastTransactionAt)}</p>
+                <p className="mt-1 text-sm font-medium text-gray-200">{formatDateTime(rolloutReadiness.global.lastTransactionAt, locale)}</p>
                 <p className="mt-1 text-xs text-gray-500">
                   {rolloutReadiness.global.hoursSinceLastTx === null ? "-" : `${rolloutReadiness.global.hoursSinceLastTx.toFixed(2)}h ago`}
                 </p>
@@ -418,7 +410,7 @@ export default function AdminFinancePage() {
                         {item.traffic.failedRate.toFixed(2)}%
                       </td>
                       <td className="whitespace-nowrap px-4 py-2 text-sm text-indigo-300">{item.traffic.adaptiveAppliedRate.toFixed(2)}%</td>
-                      <td className="whitespace-nowrap px-4 py-2 text-sm text-gray-300">{formatCurrency(item.traffic.usdVolumeCompleted, "USD")}</td>
+                      <td className="whitespace-nowrap px-4 py-2 text-sm text-gray-300">{formatCurrency(item.traffic.usdVolumeCompleted, locale, "USD")}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -515,7 +507,7 @@ export default function AdminFinancePage() {
               <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
                 <p className="text-xs text-gray-500">Data Buckets</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-100">{trendSeries.length}</p>
-                <p className="mt-1 text-xs text-gray-500">From {formatDate(rolloutTrends.startDate)}</p>
+                <p className="mt-1 text-xs text-gray-500">From {formatDate(rolloutTrends.startDate, locale)}</p>
               </div>
               <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
                 <p className="text-xs text-gray-500">Latest Failed Rate</p>
@@ -595,8 +587,8 @@ export default function AdminFinancePage() {
                     <tr key={currency} className="transition-colors hover:bg-[#1a1a2e]/60">
                       <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-200">{currency}</td>
                       <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-400">{item.count.toLocaleString()}</td>
-                      <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-200">{formatCurrency(item.totalPresentmentAmount || 0, currency)}</td>
-                      <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-400">{formatCurrency(item.totalUsdAmount || 0, "USD")}</td>
+                      <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-200">{formatCurrency(item.totalPresentmentAmount || 0, locale, currency)}</td>
+                      <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-400">{formatCurrency(item.totalUsdAmount || 0, locale, "USD")}</td>
                     </tr>
                   );
                 })
@@ -619,7 +611,7 @@ export default function AdminFinancePage() {
                     <p className="text-sm font-medium text-gray-200">Tier {item._id || "-"}</p>
                     <p className="text-xs text-gray-500">{item.count.toLocaleString()} orders</p>
                   </div>
-                  <p className="text-sm font-semibold text-indigo-300">{formatCurrency(item.totalUsdAmount || 0, "USD")}</p>
+                  <p className="text-sm font-semibold text-indigo-300">{formatCurrency(item.totalUsdAmount || 0, locale, "USD")}</p>
                 </div>
               ))
             )}
@@ -638,7 +630,7 @@ export default function AdminFinancePage() {
                     <p className="text-sm font-medium text-gray-200">{item._id}</p>
                     <p className="text-xs text-gray-500">{item.count.toLocaleString()} orders</p>
                   </div>
-                  <p className="text-sm font-semibold text-green-300">{formatCurrency(item.totalUsdAmount || 0, "USD")}</p>
+                  <p className="text-sm font-semibold text-green-300">{formatCurrency(item.totalUsdAmount || 0, locale, "USD")}</p>
                 </div>
               ))
             )}
@@ -655,7 +647,7 @@ export default function AdminFinancePage() {
             integrationRevenueByCurrency.map((item) => (
               <div key={item._id} className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-4 py-2">
                 <p className="text-xs text-gray-500">{String(item._id || "usd").toUpperCase()} · {item.count}</p>
-                <p className="text-sm font-semibold text-gray-200">{formatCurrency(item.totalUsdAmount || 0, "USD")}</p>
+                <p className="text-sm font-semibold text-gray-200">{formatCurrency(item.totalUsdAmount || 0, locale, "USD")}</p>
               </div>
             ))
           )}
@@ -702,10 +694,10 @@ export default function AdminFinancePage() {
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-200">
-                        {formatCurrency(presentmentAmount, presentmentCurrency)}
+                        {formatCurrency(presentmentAmount, locale, presentmentCurrency)}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-400">
-                        {formatCurrency(Number(tx.amount || 0), baseCurrency)}
+                        {formatCurrency(Number(tx.amount || 0), locale, baseCurrency)}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-400">
                         {(tx.countryCode || "UNKNOWN").toUpperCase()} · Tier {tx.pricingTier || "-"}
@@ -714,7 +706,7 @@ export default function AdminFinancePage() {
                         {user?.nickname || user?.email || "Unknown"}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-400">
-                        {formatDate(tx.createdAt)}
+                        {formatDate(tx.createdAt, locale)}
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_BADGE[tx.status] || "bg-gray-500/15 text-gray-400"}`}>

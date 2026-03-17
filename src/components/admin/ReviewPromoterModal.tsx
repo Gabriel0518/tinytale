@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatAdminCurrency, formatAdminNumber, useAdminLocale } from "@/lib/admin-i18n";
 
 interface ReviewPromoterModalProps {
   open: boolean;
@@ -19,6 +20,7 @@ interface ReviewPromoterModalProps {
 }
 
 export default function ReviewPromoterModal({ open, onClose, onConfirm, promoter }: ReviewPromoterModalProps) {
+  const { locale } = useAdminLocale();
   const [action, setAction] = useState<"approve" | "reject" | null>(null);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -78,15 +80,15 @@ export default function ReviewPromoterModal({ open, onClose, onConfirm, promoter
             </div>
             <div>
               <p className="text-gray-500">Total Promoted</p>
-              <p className="text-gray-200">{promoter.totalPromoted.toLocaleString()}</p>
+              <p className="text-gray-200">{formatAdminNumber(promoter.totalPromoted, locale)}</p>
             </div>
             <div>
               <p className="text-gray-500">Effective Users</p>
-              <p className="text-gray-200">{promoter.effectiveUsers.toLocaleString()}</p>
+              <p className="text-gray-200">{formatAdminNumber(promoter.effectiveUsers, locale)}</p>
             </div>
             <div>
               <p className="text-gray-500">Total Commission</p>
-              <p className="text-gray-200">${promoter.totalCommission.toLocaleString()}</p>
+              <p className="text-gray-200">{formatAdminCurrency(promoter.totalCommission, locale)}</p>
             </div>
           </div>
         </div>

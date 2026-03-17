@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { adminApi } from "@/lib/adminApi";
+import { formatAdminDateTime, useAdminLocale } from "@/lib/admin-i18n";
 
 interface CoinRecord {
   _id: string;
@@ -19,9 +20,9 @@ interface CoinRecord {
 
 const PER_PAGE = 10;
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string, locale: "zh" | "en") {
   if (!dateStr) return "-";
-  return new Date(dateStr).toLocaleString("en-US", {
+  return formatAdminDateTime(dateStr, locale, {
     month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit",
   });
 }
@@ -32,6 +33,7 @@ function getInitials(name: string) {
 }
 
 export default function CoinRecordsPage() {
+  const { locale } = useAdminLocale();
   const [records, setRecords] = useState<CoinRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -69,7 +71,7 @@ export default function CoinRecordsPage() {
   const exportCSV = () => {
     const header = "Record ID,User,Email,Drama,Episode,Coins Spent,Time\n";
     const rows = records.map((r) =>
-      `${r._id},${r.userId?.nickname || ""},${r.userId?.email || ""},${r.episodeId?.dramaId?.title || "-"},Ep ${r.episodeId?.episodeNumber || "-"},${r.price},${formatDate(r.createdAt)}`
+      `${r._id},${r.userId?.nickname || ""},${r.userId?.email || ""},${r.episodeId?.dramaId?.title || "-"},Ep ${r.episodeId?.episodeNumber || "-"},${r.price},${formatDate(r.createdAt, locale)}`
     ).join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -164,7 +166,7 @@ export default function CoinRecordsPage() {
                         <span className="text-sm font-semibold text-yellow-400">{r.price}</span>
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-400">{formatDate(r.createdAt)}</td>
+                    <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-400">{formatDate(r.createdAt, locale)}</td>
                   </tr>
                 ))
               )}

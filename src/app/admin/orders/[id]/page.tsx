@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
 import { useToast } from "@/components/ui/Toast";
+import { formatAdminCurrency, formatAdminDateTime, getAdminLocaleTag, useAdminLocale } from "@/lib/admin-i18n";
 
 // ─── Types ───────────────────────────────────────────────
 interface OrderData {
@@ -42,6 +43,7 @@ interface OrderData {
 // ═══════════════════════════════════════════════════════════
 export default function OrderDetailPage() {
   const { id } = useParams();
+  const { locale } = useAdminLocale();
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -65,8 +67,8 @@ export default function OrderDetailPage() {
           setOrder({
             orderId: txn.orderId || txn._id || (id as string),
             status: txn.status || "Unknown",
-            createdAt: txn.createdAt ? new Date(txn.createdAt).toLocaleString() : "",
-            paidAt: txn.paidAt ? new Date(txn.paidAt).toLocaleString() : "",
+            createdAt: txn.createdAt ? formatAdminDateTime(txn.createdAt, locale) : "",
+            paidAt: txn.paidAt ? formatAdminDateTime(txn.paidAt, locale) : "",
             product: txn.description || txn.product || "",
             type: capitalize(txn.type || "recharge"),
             priceAmount: Number(txn.amount || 0),
@@ -90,7 +92,7 @@ export default function OrderDetailPage() {
               transactionId: txn.stripePaymentIntentId || txn.transactionId || "",
               timeline: (txn.timeline || []).map((t: any) => ({
                 ...t,
-                time: t.time ? new Date(t.time).toLocaleString() : "",
+                time: t.time ? formatAdminDateTime(t.time, locale) : "",
               })),
             },
           });
@@ -104,7 +106,7 @@ export default function OrderDetailPage() {
       }
     };
     if (id) fetchOrder();
-  }, [id]);
+  }, [id, locale]);
 
   // ─── Copy to Clipboard ─────────────────────────────────
   const copyTransactionId = async (text: string) => {
@@ -269,12 +271,12 @@ export default function OrderDetailPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Price</span>
-                <span className="text-sm font-semibold text-white">{formatMoney(order.priceAmount, order.integrationCurrency || "usd")}</span>
+                <span className="text-sm font-semibold text-white">{formatMoney(order.priceAmount, order.integrationCurrency || "usd", locale)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Presentment</span>
                 <span className="text-sm text-gray-300">
-                  {formatMoney(order.presentmentAmount > 0 ? order.presentmentAmount : order.priceAmount, order.presentmentCurrency || order.integrationCurrency || "usd")}
+                  {formatMoney(order.presentmentAmount > 0 ? order.presentmentAmount : order.priceAmount, order.presentmentCurrency || order.integrationCurrency || "usd", locale)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -427,7 +429,7 @@ export default function OrderDetailPage() {
               <div className="flex items-center justify-between rounded-xl border border-gray-700/50 bg-[#1a1a2e] px-4 py-3">
                 <div>
                   <p className="text-xs text-gray-400">Original Amount</p>
-                  <p className="text-xl font-bold text-white">{formatMoney(order.priceAmount, order.integrationCurrency || "usd")}</p>
+                  <p className="text-xl font-bold text-white">{formatMoney(order.priceAmount, order.integrationCurrency || "usd", locale)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600/20 text-xs font-bold text-indigo-400">{order.user.name.charAt(0)}</div>
@@ -451,7 +453,7 @@ export default function OrderDetailPage() {
                   />
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">USD</span>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Max refundable: {formatMoney(order.priceAmount, order.integrationCurrency || "usd")}</p>
+                <p className="mt-1 text-xs text-gray-500">Max refundable: {formatMoney(order.priceAmount, order.integrationCurrency || "usd", locale)}</p>
               </div>
 
               {/* Coin Handling */}
@@ -505,11 +507,11 @@ export default function OrderDetailPage() {
                     <div className="text-xs text-amber-200/80">
                       <p className="font-medium text-amber-300">Coin Clawback Logic</p>
                       <p className="mt-1">
-                        Refunding {formatMoney(Number(refundAmount || 0), order.integrationCurrency || "usd")} of {formatMoney(order.priceAmount, order.integrationCurrency || "usd")} ({Math.round((isNaN(refundRatio) ? 0 : Math.min(refundRatio, 1)) * 100)}%) will claw back <span className="font-semibold text-amber-200">{coinClawback.toLocaleString()} coins</span> from the user&apos;s {order.totalReceived.toLocaleString()} coins received.
+                        Refunding {formatMoney(Number(refundAmount || 0), order.integrationCurrency || "usd", locale)} of {formatMoney(order.priceAmount, order.integrationCurrency || "usd", locale)} ({Math.round((isNaN(refundRatio) ? 0 : Math.min(refundRatio, 1)) * 100)}%) will claw back <span className="font-semibold text-amber-200">{coinClawback.toLocaleString(getAdminLocaleTag(locale))} coins</span> from the user&apos;s {order.totalReceived.toLocaleString(getAdminLocaleTag(locale))} coins received.
                       </p>
-                      <p className="mt-1">User current balance: <span className="font-semibold text-amber-200">{order.user.coinBalance.toLocaleString()} coins</span></p>
+                      <p className="mt-1">User current balance: <span className="font-semibold text-amber-200">{order.user.coinBalance.toLocaleString(getAdminLocaleTag(locale))} coins</span></p>
                       {coinHandling === "auto_deduct" && coinClawback > order.user.coinBalance && (
-                        <p className="mt-1 text-red-400 font-medium">Warning: User balance ({order.user.coinBalance.toLocaleString()}) is less than clawback amount ({coinClawback.toLocaleString()}). Auto-deduct will fail.</p>
+                        <p className="mt-1 text-red-400 font-medium">Warning: User balance ({order.user.coinBalance.toLocaleString(getAdminLocaleTag(locale))}) is less than clawback amount ({coinClawback.toLocaleString(getAdminLocaleTag(locale))}). Auto-deduct will fail.</p>
                       )}
                       {coinHandling === "manual_deduct" && (
                         <p className="mt-1">Admin must manually handle the coin deduction separately.</p>
@@ -567,16 +569,6 @@ function formatPaymentMethod(method: string): string {
   return map[method] || (method ? method.charAt(0).toUpperCase() + method.slice(1) : "Unknown");
 }
 
-function formatMoney(amount: number, currencyCode: string): string {
-  const normalized = (currencyCode || "usd").toUpperCase();
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: normalized,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Number(amount || 0));
-  } catch {
-    return `${normalized} ${Number(amount || 0).toFixed(2)}`;
-  }
+function formatMoney(amount: number, currencyCode: string, locale: "zh" | "en"): string {
+  return formatAdminCurrency(amount, locale, currencyCode);
 }

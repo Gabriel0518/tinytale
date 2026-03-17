@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { api } from "@/lib/adminApi";
+import { translateAdminText, useAdminLocale } from "@/lib/admin-i18n";
 
 interface Props {
   open: boolean;
@@ -49,6 +50,7 @@ const strengthConfig: Record<Strength, { color: string; bars: number; label: str
 };
 
 export default function ResetPasswordModal({ open, onClose, onConfirm, admin }: Props) {
+  const { locale } = useAdminLocale();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -99,7 +101,7 @@ export default function ResetPasswordModal({ open, onClose, onConfirm, admin }: 
       );
       onConfirm();
     } catch (err: any) {
-      setError(err?.message || "Failed to reset password");
+      setError(translateAdminText(err?.message || "Failed to reset password", locale));
     } finally {
       setSubmitting(false);
     }

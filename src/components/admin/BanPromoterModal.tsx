@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { translateAdminText, useAdminLocale } from "@/lib/admin-i18n";
 
 interface BanPromoterModalProps {
   open: boolean;
@@ -15,13 +16,14 @@ interface BanPromoterModalProps {
 }
 
 export default function BanPromoterModal({ open, onClose, onConfirm, promoter }: BanPromoterModalProps) {
+  const { locale } = useAdminLocale();
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   if (!open || !promoter) return null;
 
   const isBanned = promoter.status === "Banned";
-  const title = isBanned ? "Unban Promoter" : "Ban Promoter";
+  const title = isBanned ? translateAdminText("Unban Promoter", locale) : translateAdminText("Ban Promoter", locale);
   const description = isBanned
     ? "This will restore the promoter's access to the affiliate system."
     : "This will suspend the promoter's access to the affiliate system. They will not be able to earn commissions or withdraw funds.";
@@ -66,13 +68,13 @@ export default function BanPromoterModal({ open, onClose, onConfirm, promoter }:
         {/* Reason */}
         <div className="mb-5">
           <label className="mb-1.5 block text-sm font-medium text-gray-300">
-            Reason <span className="text-red-400">*</span>
+            {translateAdminText("Reason", locale)} <span className="text-red-400">*</span>
           </label>
           <textarea
             rows={3}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder={isBanned ? "Reason for unbanning..." : "Reason for banning..."}
+            placeholder={translateAdminText(isBanned ? "Reason for unbanning..." : "Reason for banning...", locale)}
             className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-2 text-sm text-gray-200 placeholder-gray-500 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none"
           />
         </div>
@@ -83,7 +85,7 @@ export default function BanPromoterModal({ open, onClose, onConfirm, promoter }:
             onClick={handleClose}
             className="rounded-lg border border-gray-600 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-[#1a1a2e] transition"
           >
-            Cancel
+            {translateAdminText("Cancel", locale)}
           </button>
           <button
             onClick={handleSubmit}
@@ -92,7 +94,7 @@ export default function BanPromoterModal({ open, onClose, onConfirm, promoter }:
               isBanned ? "bg-green-600 hover:bg-green-500" : "bg-red-600 hover:bg-red-500"
             }`}
           >
-            {submitting ? "Processing..." : isBanned ? "Unban Promoter" : "Ban Promoter"}
+            {submitting ? translateAdminText("Processing...", locale) : title}
           </button>
         </div>
       </div>

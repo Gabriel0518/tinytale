@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { adminApi } from "@/lib/adminApi";
+import { formatAdminCurrency, useAdminLocale } from "@/lib/admin-i18n";
 
 interface ReviewWithdrawalModalProps {
   open: boolean;
@@ -31,6 +32,7 @@ export default function ReviewWithdrawalModal({
   onConfirm,
   withdrawal,
 }: ReviewWithdrawalModalProps) {
+  const { locale } = useAdminLocale();
   const [action, setAction] = useState<"approve" | "reject" | null>(null);
   const [remark, setRemark] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -45,8 +47,7 @@ export default function ReviewWithdrawalModal({
 
   if (!open || !withdrawal) return null;
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+  const formatCurrency = (value: number) => formatAdminCurrency(value, locale);
 
   const handleConfirm = async () => {
     if (!action) return;

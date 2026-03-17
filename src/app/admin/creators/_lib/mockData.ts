@@ -2074,7 +2074,13 @@ export function formatAdminDate(value?: string | null, withTime = false) {
 }
 
 export function formatUsd(value: number) {
-  return new Intl.NumberFormat("en-US", {
+  const locale =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("admin_locale")?.startsWith("zh")
+        ? "zh-CN"
+        : "en-US"
+      : "en-US";
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 0,

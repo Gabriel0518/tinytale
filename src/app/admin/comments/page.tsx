@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { adminApi } from "@/lib/adminApi";
 import { useToast } from "@/components/ui/Toast";
+import { formatAdminDateTime, useAdminLocale } from "@/lib/admin-i18n";
 
 // ── Types ──────────────────────────────────────────────
 type CommentStatus = "Visible" | "Pending" | "Hidden";
@@ -31,10 +32,15 @@ const DRAMA_OPTIONS = ["All Dramas", "Love in the Moonlight", "CEO's Secret Wife
 const STATUS_OPTIONS: ("All Status" | CommentStatus)[] = ["All Status", "Visible", "Pending", "Hidden"];
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 50];
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, locale: "zh" | "en"): string {
   const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) +
-    " " + d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  return formatAdminDateTime(d, locale, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 // ── SVG Icons (inline) ─────────────────────────────────
@@ -102,6 +108,7 @@ const statusBadge: Record<CommentStatus, string> = {
 
 // ── Page Component ─────────────────────────────────────
 export default function CommentsPage() {
+  const { locale } = useAdminLocale();
   const [keyword, setKeyword] = useState("");
   const [dramaFilter, setDramaFilter] = useState("All Dramas");
   const [statusFilter, setStatusFilter] = useState<"All Status" | CommentStatus>("All Status");
@@ -400,7 +407,7 @@ export default function CommentsPage() {
 
                     {/* Time */}
                     <td className="px-4 py-3">
-                      <span className="whitespace-nowrap text-sm text-gray-500">{formatDate(comment.createdAt)}</span>
+                      <span className="whitespace-nowrap text-sm text-gray-500">{formatDate(comment.createdAt, locale)}</span>
                     </td>
 
                     {/* Actions */}
