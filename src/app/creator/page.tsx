@@ -18,7 +18,6 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  Stars,
   Users,
 } from "lucide-react";
 import { useAuth } from "@/lib/authContext";
@@ -162,27 +161,18 @@ const creatorTiers = [
   },
 ];
 
-const testimonials = [
+const launchReadiness = [
   {
-    quote:
-      '"I uploaded my first drama series on TinyTale and hit $1,200 in my second month. The dashboard makes it easy to see exactly where my money comes from."',
-    name: "Sarah M.",
-    role: "Independent Creator",
-    location: "Los Angeles, CA",
+    title: "Application package",
+    description: "Prepare a portfolio link, creator bio, tax identity, and a primary work email before you start the application flow.",
   },
   {
-    quote:
-      '"Coming from YouTube Shorts, I was skeptical about a paywall model. But TinyTale viewers actually pay for quality content. My per-viewer revenue is 10x what I made on ads."',
-    name: "James K.",
-    role: "Studio Producer",
-    location: "Toronto, Canada",
+    title: "Content delivery",
+    description: "Each published title should include episode assets, subtitles, pricing rules, and cover art that meets creator review standards.",
   },
   {
-    quote:
-      '"The 48-hour review is real. I submitted on Monday, got approved on Tuesday, and had my first episode live by Wednesday."',
-    name: "Maria L.",
-    role: "Screenwriter & Director",
-    location: "Miami, FL",
+    title: "Settlement readiness",
+    description: "USD settlement requires a verified bank account plus completed tax information before revenue can move to payable status.",
   },
 ];
 
@@ -441,23 +431,18 @@ export default function CreatorLandingPage() {
         <section className="rounded-[28px] border border-[#e2e8f0] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] md:px-7 md:py-7">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <SectionIntro
-              eyebrow="Creator Spotlight"
-              title="Hear from creators who are already earning."
-              description="This section uses placeholder testimonials from the copy spec and should be replaced with verified creator quotes before public launch."
+              eyebrow="Launch Readiness"
+              title="What to prepare before you go live."
+              description="Every card below reflects a real requirement already enforced by the creator application, content review, or settlement workflow."
             />
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#fff7ed] px-3 py-1 text-xs font-semibold text-[#c2410c]">
-              <Stars className="size-3.5" />
-              Simulated copy for illustration purposes
-            </div>
           </div>
           <div className="mt-6 grid gap-4 lg:grid-cols-3">
-            {testimonials.map((item) => (
-              <article key={item.name} className="rounded-[24px] border border-[#e2e8f0] bg-[#f8fafc] p-5">
-                <p className="text-sm leading-7 text-[#334155]">{item.quote}</p>
-                <div className="mt-5 border-t border-[#e2e8f0] pt-4">
-                  <p className="text-sm font-bold text-[#0f172a]">{item.name}</p>
-                  <p className="mt-1 text-xs uppercase tracking-[0.12em] text-[#64748b]">{item.role}</p>
-                  <p className="mt-1 text-xs text-[#94a3b8]">{item.location}</p>
+            {launchReadiness.map((item) => (
+              <article key={item.title} className="rounded-[24px] border border-[#e2e8f0] bg-[#f8fafc] p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1877F2]">{item.title}</p>
+                <p className="mt-3 text-sm leading-7 text-[#334155]">{item.description}</p>
+                <div className="mt-5 border-t border-[#e2e8f0] pt-4 text-xs leading-6 text-[#64748b]">
+                  Mapped to creator center requirements and real backend fields.
                 </div>
               </article>
             ))}

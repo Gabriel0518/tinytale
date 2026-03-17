@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowRight,
   ChartColumn,
@@ -27,13 +27,15 @@ import { useLocale } from '@/hooks/useLocale';
 import { useAuth } from '@/lib/authContext';
 import { creatorApi } from '@/lib/api';
 import { localizePath } from '@/lib/i18n';
-import type { CreatorDashboardOverview } from '@/types/creator';
+import type {
+  CreatorAudienceAnalytics,
+  CreatorContractOverview,
+  CreatorDramaAnalytics,
+  CreatorOverviewAnalytics,
+  CreatorRevenueAnalytics,
+} from '@/types/creator';
 import {
   ANALYTICS_RANGE_OPTIONS,
-  getAudienceSnapshot,
-  getDramaSnapshot,
-  getOverviewSnapshot,
-  getRevenueSnapshot,
   normalizeAnalyticsRange,
   type AnalyticsAgreementData,
   type AnalyticsChartSeries,
@@ -51,7 +53,7 @@ import {
   type AnalyticsStoryRow,
 } from './creatorAnalyticsData';
 
-type AnalyticsPageMode = 'overview' | 'revenue' | 'audience' | 'drama';
+type AnalyticsPageMode = 'overview' | 'revenue' | 'audience' | 'drama' | 'contract';
 
 interface CreatorAnalyticsExperienceProps {
   mode: AnalyticsPageMode;
@@ -166,6 +168,31 @@ function AnalyticsGhostButton({ children }: { children: React.ReactNode }) {
     >
       {children}
     </button>
+  );
+}
+
+function AnalyticsLoadingState({ title = 'Loading analytics...' }: { title?: string }) {
+  return (
+    <AnalyticsCard className="p-8">
+      <div className="flex min-h-[220px] flex-col items-center justify-center gap-4 text-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-[#1876f2] border-t-transparent" />
+        <div>
+          <p className="text-[16px] font-bold text-[#0f172a]">{title}</p>
+          <p className="mt-1 text-sm text-[#64748b]">Fetching the latest creator data from the API.</p>
+        </div>
+      </div>
+    </AnalyticsCard>
+  );
+}
+
+function AnalyticsErrorState({ message }: { message: string }) {
+  return (
+    <AnalyticsCard className="p-8">
+      <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 text-center">
+        <p className="text-[16px] font-bold text-[#0f172a]">Unable to load this workspace</p>
+        <p className="max-w-[520px] text-sm leading-6 text-[#64748b]">{message}</p>
+      </div>
+    </AnalyticsCard>
   );
 }
 
@@ -792,11 +819,127 @@ function HighlightsCard({ items }: { items: Array<{ label: string; value: string
   );
 }
 
-function OverviewContent({ range, overview }: { range: AnalyticsRange; overview: ReturnType<typeof getOverviewSnapshot> }) {
+function ContractSummaryCard({ contract }: { contract: CreatorContractOverview }) {
+  const rows = [
+    { label: 'Agreement Version', value: contract.agreement.version, helper: contract.agreement.title },
+    { label: 'Current Status', value: contract.agreement.statusLabel, helper: `Signature: ${contract.agreement.signatureName || 'Pending'}` },
+    { label: 'Signed At', value: contract.agreement.signedAt ? new Date(contract.agreement.signedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Awaiting signature', helper: `Effective: ${contract.agreement.effectiveAt ? new Date(contract.agreement.effectiveAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Pending'}` },
+    { label: 'Renewal', value: contract.agreement.nextRenewalAt ? new Date(contract.agreement.nextRenewalAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No renewal scheduled', helper: `Policy ${contract.policy.version}` },
+  ];
+
+  return (
+    <AnalyticsCard className="p-6">
+      <h2 className="text-[18px] font-bold leading-7 text-[#0f172a]">Agreement Summary</h2>
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        {rows.map((row) => (
+          <div key={row.label} className="rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-4">
+            <p className="text-[12px] font-bold uppercase tracking-[0.05em] text-[#94a3b8]">{row.label}</p>
+            <p className="mt-1 text-[18px] font-black text-[#0f172a]">{row.value}</p>
+            <p className="mt-2 text-sm leading-6 text-[#64748b]">{row.helper}</p>
+          </div>
+        ))}
+      </div>
+    </AnalyticsCard>
+  );
+}
+
+function ContractCommercialTerms({ contract }: { contract: CreatorContractOverview }) {
+  const rows = [
+    { label: 'Settlement Currency', value: contract.agreement.settlementCurrency, helper: 'All creator revenue is normalized and paid out in USD.' },
+    { label: 'Creator Share', value: `${Math.round(contract.agreement.creatorShareRate * 100)}%`, helper: 'Applied to eligible unlock revenue after platform policy checks.' },
+    { label: 'Platform Fee', value: `${Math.round(contract.agreement.platformFeeRate * 100)}%`, helper: 'Covers platform processing, distribution, and support operations.' },
+    { label: 'Refund Reserve', value: `${Math.round(contract.agreement.refundReserveRate * 100)}%`, helper: 'Held temporarily against chargebacks and refund exposure.' },
+    { label: 'Hold Window', value: `${contract.agreement.holdDays} days`, helper: 'Revenue clears after the rolling verification hold expires.' },
+    { label: 'Minimum Payout', value: `$${contract.agreement.minimumPayoutUsd.toFixed(2)}`, helper: `Statements are scheduled on day ${contract.agreement.payoutScheduleDay} each month.` },
+  ];
+
+  return (
+    <AnalyticsCard className="p-6">
+      <h2 className="text-[18px] font-bold leading-7 text-[#0f172a]">Commercial Terms</h2>
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        {rows.map((row) => (
+          <div key={row.label} className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
+            <p className="text-[12px] font-bold uppercase tracking-[0.05em] text-[#94a3b8]">{row.label}</p>
+            <p className="mt-1 text-[18px] font-black text-[#0f172a]">{row.value}</p>
+            <p className="mt-2 text-sm leading-6 text-[#64748b]">{row.helper}</p>
+          </div>
+        ))}
+      </div>
+    </AnalyticsCard>
+  );
+}
+
+function ContractComplianceCard({ contract }: { contract: CreatorContractOverview }) {
+  const taxProfile = contract.taxInfo.legalName
+    ? `${contract.taxInfo.legalName} • ${contract.taxInfo.taxIdType.toUpperCase()}`
+    : 'No tax information submitted';
+  const payoutProfile = contract.bankAccount.bankName
+    ? `${contract.bankAccount.bankName} ${contract.bankAccount.accountNumberMasked}`.trim()
+    : 'No payout account on file';
+
+  return (
+    <AnalyticsCard className="p-6">
+      <h2 className="text-[18px] font-bold leading-7 text-[#0f172a]">Compliance & Settlement Readiness</h2>
+      <div className="mt-6 space-y-4">
+        <div className="rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-4">
+          <p className="text-[12px] font-bold uppercase tracking-[0.05em] text-[#94a3b8]">Payout Account</p>
+          <p className="mt-1 text-[18px] font-black text-[#0f172a]">{contract.bankAccount.verificationLabel}</p>
+          <p className="mt-2 text-sm leading-6 text-[#64748b]">{payoutProfile}</p>
+        </div>
+        <div className="rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-4">
+          <p className="text-[12px] font-bold uppercase tracking-[0.05em] text-[#94a3b8]">Tax Information</p>
+          <p className="mt-1 text-[18px] font-black text-[#0f172a]">{contract.taxInfo.status === 'submitted' ? 'Submitted' : 'Missing'}</p>
+          <p className="mt-2 text-sm leading-6 text-[#64748b]">{taxProfile}</p>
+        </div>
+      </div>
+    </AnalyticsCard>
+  );
+}
+
+function ContractTimelineCard({ items }: { items: CreatorContractOverview['timeline'] }) {
+  return (
+    <AnalyticsCard className="p-6">
+      <h2 className="text-[18px] font-bold leading-7 text-[#0f172a]">Contract Timeline</h2>
+      <div className="mt-6 space-y-4">
+        {items.map((item) => (
+          <div key={item.label} className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[12px] font-bold uppercase tracking-[0.05em] text-[#94a3b8]">{item.label}</p>
+                <p className="mt-1 text-[16px] font-bold text-[#0f172a]">{item.value}</p>
+              </div>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-[#64748b]">{item.helper}</p>
+          </div>
+        ))}
+      </div>
+    </AnalyticsCard>
+  );
+}
+
+function PolicyNotesCard({ contract }: { contract: CreatorContractOverview }) {
+  return (
+    <AnalyticsCard className="p-6">
+      <h2 className="text-[18px] font-bold leading-7 text-[#0f172a]">Policy Notes</h2>
+      <div className="mt-6 space-y-3">
+        {contract.policy.notes.map((note, index) => (
+          <div key={`${index}-${note}`} className="rounded-[18px] border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 text-sm leading-6 text-[#475569]">
+            {note}
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-xs text-[#94a3b8]">
+        Last updated {contract.policy.lastUpdatedAt ? new Date(contract.policy.lastUpdatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'not recorded'}.
+      </p>
+    </AnalyticsCard>
+  );
+}
+
+function OverviewContent({ range, overview }: { range: AnalyticsRange; overview: CreatorOverviewAnalytics }) {
   return (
     <AnalyticsPageShell
       title="TinyTale Analytics"
-      description={`Creator-wide views, followers, revenue, and audience behavior across ${rangeLabel(range).toLowerCase()}.`}
+      description={`Creator-wide views, readers, revenue, and audience behavior across ${rangeLabel(range).toLowerCase()}.`}
       activeTab="overview"
       range={range}
       tabPath="/creator/analytics"
@@ -826,23 +969,34 @@ function OverviewContent({ range, overview }: { range: AnalyticsRange; overview:
 function RevenueContent({ range }: { range: AnalyticsRange }) {
   const locale = useLocale();
   const { token } = useAuth();
-  const [remoteSnapshot, setRemoteSnapshot] = useState<ReturnType<typeof getRevenueSnapshot> | null>(null);
+  const [remoteSnapshot, setRemoteSnapshot] = useState<CreatorRevenueAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      setRemoteSnapshot(null);
+      return;
+    }
 
     let cancelled = false;
+    setLoading(true);
+    setError(null);
 
     creatorApi
       .getRevenueAnalytics(token, range)
-      .then((res: any) => {
+      .then((res) => {
         if (!cancelled) {
           setRemoteSnapshot(res?.data || null);
+          setLoading(false);
         }
       })
-      .catch(() => {
+      .catch((err: Error) => {
         if (!cancelled) {
           setRemoteSnapshot(null);
+          setError(err.message || 'Revenue analytics API returned an error.');
+          setLoading(false);
         }
       });
 
@@ -850,8 +1004,6 @@ function RevenueContent({ range }: { range: AnalyticsRange }) {
       cancelled = true;
     };
   }, [range, token]);
-
-  const snapshot = useMemo(() => remoteSnapshot || getRevenueSnapshot(range), [range, remoteSnapshot]);
 
   return (
     <AnalyticsPageShell
@@ -872,22 +1024,29 @@ function RevenueContent({ range }: { range: AnalyticsRange }) {
         </>
       }
     >
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {snapshot.metrics.map((metric) => (
-          <AnalyticsMetricCard key={metric.label} metric={metric} />
-        ))}
-      </div>
+      {loading ? <AnalyticsLoadingState title="Loading revenue analytics..." /> : null}
+      {!loading && error ? <AnalyticsErrorState message={error} /> : null}
+      {!loading && !error && !remoteSnapshot ? <AnalyticsErrorState message="Revenue analytics API returned no data." /> : null}
+      {!loading && !error && remoteSnapshot ? (
+        <>
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {remoteSnapshot.metrics.map((metric) => (
+              <AnalyticsMetricCard key={metric.label} metric={metric} />
+            ))}
+          </div>
 
-      <AnalyticsChartCard chart={snapshot.chart} />
-      <RevenueTitlesTable rows={snapshot.titles} />
+          <AnalyticsChartCard chart={remoteSnapshot.chart} />
+          <RevenueTitlesTable rows={remoteSnapshot.titles} />
 
-      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <BalanceCard {...snapshot.balance} />
-        <div className="grid gap-6 md:grid-cols-2">
-          <RevenueSplitCard rows={snapshot.splitRows} />
-          <ForecastPanel rows={snapshot.forecastRows} />
-        </div>
-      </div>
+          <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
+            <BalanceCard {...remoteSnapshot.balance} />
+            <div className="grid gap-6 md:grid-cols-2">
+              <RevenueSplitCard rows={remoteSnapshot.splitRows} />
+              <ForecastPanel rows={remoteSnapshot.forecastRows} />
+            </div>
+          </div>
+        </>
+      ) : null}
     </AnalyticsPageShell>
   );
 }
@@ -895,23 +1054,34 @@ function RevenueContent({ range }: { range: AnalyticsRange }) {
 function AudienceContent({ range }: { range: AnalyticsRange }) {
   const locale = useLocale();
   const { token } = useAuth();
-  const [remoteSnapshot, setRemoteSnapshot] = useState<ReturnType<typeof getAudienceSnapshot> | null>(null);
+  const [remoteSnapshot, setRemoteSnapshot] = useState<CreatorAudienceAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      setRemoteSnapshot(null);
+      return;
+    }
 
     let cancelled = false;
+    setLoading(true);
+    setError(null);
 
     creatorApi
       .getAudienceAnalytics(token, range)
-      .then((res: any) => {
+      .then((res) => {
         if (!cancelled) {
           setRemoteSnapshot(res?.data || null);
+          setLoading(false);
         }
       })
-      .catch(() => {
+      .catch((err: Error) => {
         if (!cancelled) {
           setRemoteSnapshot(null);
+          setError(err.message || 'Audience analytics API returned an error.');
+          setLoading(false);
         }
       });
 
@@ -919,8 +1089,6 @@ function AudienceContent({ range }: { range: AnalyticsRange }) {
       cancelled = true;
     };
   }, [range, token]);
-
-  const snapshot = useMemo(() => remoteSnapshot || getAudienceSnapshot(range), [range, remoteSnapshot]);
 
   return (
     <AnalyticsPageShell
@@ -941,23 +1109,30 @@ function AudienceContent({ range }: { range: AnalyticsRange }) {
         </>
       }
     >
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {snapshot.metrics.map((metric) => (
-          <AnalyticsMetricCard key={metric.label} metric={metric} />
-        ))}
-      </div>
+      {loading ? <AnalyticsLoadingState title="Loading audience analytics..." /> : null}
+      {!loading && error ? <AnalyticsErrorState message={error} /> : null}
+      {!loading && !error && !remoteSnapshot ? <AnalyticsErrorState message="Audience analytics API returned no data." /> : null}
+      {!loading && !error && remoteSnapshot ? (
+        <>
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {remoteSnapshot.metrics.map((metric) => (
+              <AnalyticsMetricCard key={metric.label} metric={metric} />
+            ))}
+          </div>
 
-      <AnalyticsChartCard chart={snapshot.chart} />
+          <AnalyticsChartCard chart={remoteSnapshot.chart} />
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <GeographyCard data={snapshot.geography} />
-        <DeviceMixCard devices={snapshot.devices} />
-      </div>
+          <div className="grid gap-6 md:grid-cols-2">
+            <GeographyCard data={remoteSnapshot.geography} />
+            <DeviceMixCard devices={remoteSnapshot.devices} />
+          </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-        <HeatmapCard data={snapshot.heatmap} />
-        <AudienceSegmentsCard rows={snapshot.segments} />
-      </div>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+            <HeatmapCard data={remoteSnapshot.heatmap} />
+            <AudienceSegmentsCard rows={remoteSnapshot.segments} />
+          </div>
+        </>
+      ) : null}
     </AnalyticsPageShell>
   );
 }
@@ -965,23 +1140,34 @@ function AudienceContent({ range }: { range: AnalyticsRange }) {
 function DramaContent({ range, dramaId, dramaTitle }: { range: AnalyticsRange; dramaId?: string; dramaTitle?: string }) {
   const locale = useLocale();
   const { token } = useAuth();
-  const [remoteSnapshot, setRemoteSnapshot] = useState<ReturnType<typeof getDramaSnapshot> | null>(null);
+  const [remoteSnapshot, setRemoteSnapshot] = useState<CreatorDramaAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!token || !dramaId) return;
+    if (!token || !dramaId) {
+      setLoading(false);
+      setRemoteSnapshot(null);
+      return;
+    }
 
     let cancelled = false;
+    setLoading(true);
+    setError(null);
 
     creatorApi
       .getDramaAnalytics(token, dramaId, range)
-      .then((res: any) => {
+      .then((res) => {
         if (!cancelled) {
           setRemoteSnapshot(res?.data || null);
+          setLoading(false);
         }
       })
-      .catch(() => {
+      .catch((err: Error) => {
         if (!cancelled) {
           setRemoteSnapshot(null);
+          setError(err.message || 'Drama analytics API returned an error.');
+          setLoading(false);
         }
       });
 
@@ -990,11 +1176,9 @@ function DramaContent({ range, dramaId, dramaTitle }: { range: AnalyticsRange; d
     };
   }, [dramaId, range, token]);
 
-  const snapshot = useMemo(() => remoteSnapshot || getDramaSnapshot(range, dramaTitle), [dramaTitle, range, remoteSnapshot]);
-
   return (
     <AnalyticsPageShell
-      title={snapshot.title}
+      title={remoteSnapshot?.title || dramaTitle || 'Drama Analytics'}
       description="Single-title diagnostic view across views, unlock conversion, episode completion, audience composition, and commercial efficiency."
       activeTab="overview"
       range={range}
@@ -1015,33 +1199,110 @@ function DramaContent({ range, dramaId, dramaTitle }: { range: AnalyticsRange; d
         </>
       }
     >
-      <AnalyticsCard className="p-6">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-[12px] font-bold uppercase tracking-[0.05em] text-[#94a3b8]">{snapshot.seasonLabel}</p>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <h2 className="text-[22px] font-black tracking-[-0.03em] text-[#0f172a]">{snapshot.title}</h2>
-              <span className={cx('inline-flex rounded-full px-2 py-1 text-[10px] font-bold uppercase', getStatusToneClasses(snapshot.statusTone))}>{snapshot.status}</span>
+      {loading ? <AnalyticsLoadingState title="Loading drama analytics..." /> : null}
+      {!loading && error ? <AnalyticsErrorState message={error} /> : null}
+      {!loading && !error && !remoteSnapshot ? <AnalyticsErrorState message="Drama analytics API returned no data." /> : null}
+      {!loading && !error && remoteSnapshot ? (
+        <>
+          <AnalyticsCard className="p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-[12px] font-bold uppercase tracking-[0.05em] text-[#94a3b8]">{remoteSnapshot.seasonLabel}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <h2 className="text-[22px] font-black tracking-[-0.03em] text-[#0f172a]">{remoteSnapshot.title}</h2>
+                  <span className={cx('inline-flex rounded-full px-2 py-1 text-[10px] font-bold uppercase', getStatusToneClasses(remoteSnapshot.statusTone))}>{remoteSnapshot.status}</span>
+                </div>
+              </div>
+              <p className="max-w-[360px] text-[13px] leading-6 text-[#64748b]">This drilldown follows the latest creator spec: views, completion, unlocks, geography, and device context are all visible in one place.</p>
             </div>
+          </AnalyticsCard>
+
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {remoteSnapshot.metrics.map((metric) => (
+              <AnalyticsMetricCard key={metric.label} metric={metric} />
+            ))}
           </div>
-          <p className="max-w-[360px] text-[13px] leading-6 text-[#64748b]">This drilldown follows the latest creator spec: views, completion, unlocks, geography, and device context are all visible in one place.</p>
-        </div>
-      </AnalyticsCard>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-        {snapshot.metrics.map((metric) => (
-          <AnalyticsMetricCard key={metric.label} metric={metric} />
-        ))}
-      </div>
+          <AnalyticsChartCard chart={remoteSnapshot.chart} />
+          <EpisodePerformanceTable rows={remoteSnapshot.episodes} />
 
-      <AnalyticsChartCard chart={snapshot.chart} />
-      <EpisodePerformanceTable rows={snapshot.episodes} />
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1fr)]">
+            <GeographyCard data={remoteSnapshot.geography} />
+            <DeviceMixCard devices={remoteSnapshot.devices} />
+            <HighlightsCard items={remoteSnapshot.highlights} />
+          </div>
+        </>
+      ) : null}
+    </AnalyticsPageShell>
+  );
+}
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1fr)]">
-        <GeographyCard data={snapshot.geography} />
-        <DeviceMixCard devices={snapshot.devices} />
-        <HighlightsCard items={snapshot.highlights} />
-      </div>
+function ContractContent() {
+  const locale = useLocale();
+  const { token } = useAuth();
+  const [contract, setContract] = useState<CreatorContractOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!token) {
+      setLoading(false);
+      setContract(null);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    creatorApi
+      .getContractOverview(token)
+      .then((res) => {
+        if (!cancelled) {
+          setContract(res?.data || null);
+          setLoading(false);
+        }
+      })
+      .catch((err: Error) => {
+        if (!cancelled) {
+          setContract(null);
+          setError(err.message || 'Contract API returned an error.');
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  return (
+    <AnalyticsPageShell
+      title="Contract & Agreement"
+      description="Review the active creator agreement, payout readiness, applied policy version, and compliance checkpoints for this creator account."
+      activeTab="contract"
+      range="7d"
+      tabPath="/creator/contract"
+      actions={<AnalyticsPrimaryButton href={localizePath('/creator/settlements', locale)}>Open Settlements</AnalyticsPrimaryButton>}
+    >
+      {loading ? <AnalyticsLoadingState title="Loading contract overview..." /> : null}
+      {!loading && error ? <AnalyticsErrorState message={error} /> : null}
+      {!loading && !error && !contract ? <AnalyticsErrorState message="Contract API returned no data." /> : null}
+      {!loading && !error && contract ? (
+        <>
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+            <ContractSummaryCard contract={contract} />
+            <ContractComplianceCard contract={contract} />
+          </div>
+
+          <ContractCommercialTerms contract={contract} />
+
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+            <PolicyNotesCard contract={contract} />
+            <ContractTimelineCard items={contract.timeline} />
+          </div>
+        </>
+      ) : null}
     </AnalyticsPageShell>
   );
 }
@@ -1050,27 +1311,43 @@ export default function CreatorAnalyticsExperience({ mode, dramaId }: CreatorAna
   const searchParams = useSearchParams();
   const { token } = useAuth();
   const range = normalizeAnalyticsRange(searchParams.get('range'));
-  const [remoteOverview, setRemoteOverview] = useState<CreatorDashboardOverview | null>(null);
+  const [remoteOverview, setRemoteOverview] = useState<CreatorOverviewAnalytics | null>(null);
   const [dramaTitle, setDramaTitle] = useState<string | undefined>(undefined);
+  const [loading, setLoading] = useState(mode === 'overview');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (mode !== 'overview' || !token) return;
+    if (mode !== 'overview') return;
+    if (!token) {
+      setLoading(false);
+      setRemoteOverview(null);
+      return;
+    }
 
     let cancelled = false;
+    setLoading(true);
+    setError(null);
 
     creatorApi
-      .getDashboardOverview(token)
-      .then((res: any) => {
+      .getOverviewAnalytics(token, range)
+      .then((res) => {
         if (!cancelled) {
           setRemoteOverview(res?.data || null);
+          setLoading(false);
         }
       })
-      .catch(() => undefined);
+      .catch((err: Error) => {
+        if (!cancelled) {
+          setRemoteOverview(null);
+          setError(err.message || 'Overview analytics API returned an error.');
+          setLoading(false);
+        }
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [mode, token]);
+  }, [mode, range, token]);
 
   useEffect(() => {
     if (mode !== 'drama' || !token || !dramaId) return;
@@ -1093,8 +1370,6 @@ export default function CreatorAnalyticsExperience({ mode, dramaId }: CreatorAna
     };
   }, [dramaId, mode, token]);
 
-  const overview = useMemo(() => getOverviewSnapshot(range, remoteOverview), [range, remoteOverview]);
-
   if (mode === 'revenue') {
     return <RevenueContent range={range} />;
   }
@@ -1107,5 +1382,37 @@ export default function CreatorAnalyticsExperience({ mode, dramaId }: CreatorAna
     return <DramaContent range={range} dramaId={dramaId} dramaTitle={dramaTitle} />;
   }
 
-  return <OverviewContent range={range} overview={overview} />;
+  if (mode === 'contract') {
+    return <ContractContent />;
+  }
+
+  if (loading) {
+    return (
+      <AnalyticsPageShell
+        title="TinyTale Analytics"
+        description={`Creator-wide views, readers, revenue, and audience behavior across ${rangeLabel(range).toLowerCase()}.`}
+        activeTab="overview"
+        range={range}
+        tabPath="/creator/analytics"
+      >
+        <AnalyticsLoadingState />
+      </AnalyticsPageShell>
+    );
+  }
+
+  if (error || !remoteOverview) {
+    return (
+      <AnalyticsPageShell
+        title="TinyTale Analytics"
+        description={`Creator-wide views, readers, revenue, and audience behavior across ${rangeLabel(range).toLowerCase()}.`}
+        activeTab="overview"
+        range={range}
+        tabPath="/creator/analytics"
+      >
+        <AnalyticsErrorState message={error || 'Overview analytics API returned no data.'} />
+      </AnalyticsPageShell>
+    );
+  }
+
+  return <OverviewContent range={range} overview={remoteOverview} />;
 }

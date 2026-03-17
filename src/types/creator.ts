@@ -377,6 +377,85 @@ export interface CreatorDramaAnalytics {
   highlights: CreatorDramaAnalyticsHighlight[];
 }
 
+export interface CreatorOverviewAgreementCard {
+  planName: string;
+  expiresAt: string;
+  status: string;
+  revShare: string;
+  copyright: string;
+  href: string;
+}
+
+export interface CreatorOverviewStoryRow {
+  id: string;
+  title: string;
+  subtitle: string;
+  status: string;
+  statusTone: "success" | "info" | "warning";
+  viewsLabel: string;
+  retention: number;
+  revenueLabel: string;
+  href: string;
+  initials: string;
+  gradient: string;
+}
+
+export interface CreatorOverviewAnalytics {
+  metrics: CreatorAnalyticsMetric[];
+  chart: CreatorAnalyticsChartSeries;
+  stories: CreatorOverviewStoryRow[];
+  balance: CreatorAnalyticsBalanceCard;
+  geography: CreatorAnalyticsGeography;
+  agreement: CreatorOverviewAgreementCard;
+  heatmap: CreatorAnalyticsHeatmap;
+}
+
+export interface CreatorContractTimelineItem {
+  label: string;
+  value: string;
+  helper: string;
+}
+
+export interface CreatorContractOverview {
+  creator: {
+    displayName: string;
+    legalName: string;
+    email: string;
+    country: string;
+    creatorType: string;
+    level: string;
+    joinedAt: string | null;
+    approvedAt: string | null;
+  };
+  agreement: {
+    title: string;
+    version: string;
+    status: string;
+    statusLabel: string;
+    signedAt: string | null;
+    effectiveAt: string | null;
+    nextRenewalAt: string | null;
+    signatureName: string;
+    settlementCurrency: string;
+    creatorShareRate: number;
+    platformFeeRate: number;
+    refundReserveRate: number;
+    holdDays: number;
+    minimumPayoutUsd: number;
+    payoutScheduleDay: number;
+    autoReleaseRequiresVerifiedBank: boolean;
+  };
+  bankAccount: CreatorSettlementBankAccount;
+  taxInfo: CreatorSettlementTaxInfo;
+  policy: {
+    version: string;
+    reviewSlaHours: number;
+    notes: string[];
+    lastUpdatedAt: string | null;
+  };
+  timeline: CreatorContractTimelineItem[];
+}
+
 export type CreatorSettlementBankStatus =
   | "missing"
   | "pending_review"

@@ -2,12 +2,14 @@ import type { EpisodeAccessResult, IpGeoData, StreamPlaybackInfo } from '@/types
 import type {
   CreatorApplicationDraft,
   CreatorAudienceAnalytics,
+  CreatorContractOverview,
   CreatorDashboardOverview,
   CreatorDramaAnalytics,
   CreatorDramaEpisodesResponse,
   CreatorDramaListResponse,
   CreatorEpisodeItem,
   CreatorNotificationListResponse,
+  CreatorOverviewAnalytics,
   CreatorRevenueAnalytics,
   CreatorSettlementBankAccount,
   CreatorSettlementDetail,
@@ -506,6 +508,9 @@ export const creatorApi = {
   getDashboardRecentStories: (token: string, limit = 5) =>
     api.get(`/api/creator/dashboard/recent-stories?limit=${limit}`, { token }),
 
+  getOverviewAnalytics: (token: string, range: '7d' | '30d' | '90d') =>
+    api.get<{ success: boolean; data: CreatorOverviewAnalytics }>(`/api/creator/analytics/overview?range=${range}`, { token }),
+
   getRevenueAnalytics: (token: string, range: '7d' | '30d' | '90d') =>
     api.get<{ success: boolean; data: CreatorRevenueAnalytics }>(`/api/creator/analytics/revenue?range=${range}`, { token }),
 
@@ -514,6 +519,9 @@ export const creatorApi = {
 
   getDramaAnalytics: (token: string, id: string, range: '7d' | '30d' | '90d') =>
     api.get<{ success: boolean; data: CreatorDramaAnalytics }>(`/api/creator/dramas/${id}/analytics?range=${range}`, { token }),
+
+  getContractOverview: (token: string) =>
+    api.get<{ success: boolean; data: CreatorContractOverview }>(`/api/creator/contract`, { token }),
 
   getSettlementOverview: (token: string) =>
     api.get<{ success: boolean; data: CreatorSettlementOverview }>(`/api/creator/settlements/overview`, { token }),
