@@ -115,8 +115,10 @@ jobs:
           RELEASES_DIR="$BASE_DIR/releases"
           SHARED_DIR="$BASE_DIR/shared"
           CURRENT_LINK="$BASE_DIR/current"
+          SHARED_NPM_CACHE_DIR="$SHARED_DIR/npm-cache"
+          SHARED_NEXT_CACHE_DIR="$SHARED_DIR/next-cache"
 
-          mkdir -p "$RELEASES_DIR" "$SHARED_DIR"
+          mkdir -p "$RELEASES_DIR" "$SHARED_DIR" "$SHARED_NPM_CACHE_DIR" "$SHARED_NEXT_CACHE_DIR"
 
           resolve_live_dir() {
             if [ -L "$CURRENT_LINK" ]; then
@@ -214,8 +216,26 @@ jobs:
           fi
 
           cd "$TARGET_RELEASE"
-          npm ci --no-audit --no-fund
+          LOCKFILE_HASH="$(sha256sum package-lock.json | awk '{print $1}')"
+          SHARED_NODE_MODULES_DIR="$SHARED_DIR/node_modules-$LOCKFILE_HASH"
+
+          if [ -L node_modules ] || [ -d node_modules ]; then
+            rm -rf node_modules
+          fi
+
+          if [ -d "$SHARED_NODE_MODULES_DIR" ]; then
+            echo "Reusing cached dependencies for lockfile $LOCKFILE_HASH"
+          else
+            echo "Installing dependencies for lockfile $LOCKFILE_HASH"
+            npm_config_cache="$SHARED_NPM_CACHE_DIR" npm ci --no-audit --no-fund
+            mv node_modules "$SHARED_NODE_MODULES_DIR"
+          fi
+
+          ln -sfn "$SHARED_NODE_MODULES_DIR" node_modules
+
           rm -rf .next
+          mkdir -p .next
+          ln -sfn "$SHARED_NEXT_CACHE_DIR" .next/cache
           npm run build
 
           ln -sfn "$TARGET_RELEASE" "$CURRENT_LINK"
