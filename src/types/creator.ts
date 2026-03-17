@@ -709,6 +709,21 @@ export interface CreatorAdminApplicationListItem {
   updatedAt: string;
   assignedReviewer: string | null;
   missingItems: string[];
+  applicationSummary: {
+    legalEntityName: string;
+    contactPhone: string;
+    identityReference: string;
+    age: string;
+    companyAddress: string;
+    region: string;
+    verificationType: CreatorVerificationType;
+    verificationLabel: string;
+    primaryDocumentLabel: string;
+    primaryDocumentName: string;
+    secondaryDocumentLabel: string;
+    secondaryDocumentName: string;
+    secondaryDocumentRequired: boolean;
+  };
 }
 
 export interface CreatorAdminApplicationDetail extends CreatorAdminApplicationListItem {

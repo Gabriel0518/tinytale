@@ -64,6 +64,21 @@ function getPreviewKind(href?: string): PreviewAsset["kind"] | null {
   return null;
 }
 
+function getIdentityMissingItems(items: string[]) {
+  return items.filter((item) =>
+    item.startsWith("Missing company")
+    || item.startsWith("Missing registration ID")
+    || item.startsWith("Missing region")
+    || item.startsWith("Missing full name")
+    || item.startsWith("Missing age")
+    || item.startsWith("Missing ID number")
+    || item.startsWith("Missing passport copy")
+    || item.startsWith("Missing ID card")
+    || item.startsWith("Missing registration document")
+    || item.startsWith("Missing country or region")
+  );
+}
+
 export default function CreatorApplicationDetailPage() {
   const params = useParams();
   const { toast } = useToast();
@@ -104,11 +119,23 @@ export default function CreatorApplicationDetailPage() {
   const checklistDetails = useMemo<ChecklistDetail[]>(() => {
     if (!data) return [];
 
-    const legalEntityName =
-      data.draft.basicInformation.creatorType === "company"
-        ? readValue(data.draft.basicInformation.companyName)
-        : readValue(data.draft.basicInformation.legalName);
+    const legalEntityName = readValue(data.applicationSummary.legalEntityName);
     const representativeName = readValue(data.draft.agreement.signatureName);
+    const identityMissingItems = getIdentityMissingItems(data.missingItems);
+    const uploadedIdentityLinks = [
+      {
+        label: readValue(data.applicationSummary.primaryDocumentName, data.applicationSummary.primaryDocumentLabel),
+        href: data.draft.identityVerification.frontDocumentFileUrl,
+        meta: data.applicationSummary.primaryDocumentLabel,
+      },
+      ...(data.applicationSummary.secondaryDocumentRequired
+        ? [{
+            label: readValue(data.applicationSummary.secondaryDocumentName, data.applicationSummary.secondaryDocumentLabel),
+            href: data.draft.identityVerification.backDocumentFileUrl,
+            meta: data.applicationSummary.secondaryDocumentLabel,
+          }]
+        : []),
+    ];
 
     return [
       {
@@ -119,39 +146,38 @@ export default function CreatorApplicationDetailPage() {
           {
             title: "Submitted identity information",
             fields: [
-              { label: "Verification type", value: readValue(data.draft.identityVerification.verificationType) },
+              { label: "Verification type", value: readValue(data.applicationSummary.verificationLabel) },
               { label: "Legal entity", value: legalEntityName },
               { label: "Representative / signer", value: representativeName },
               {
                 label: data.draft.basicInformation.creatorType === "company" ? "Registration ID" : "Document number",
-                value: readValue(
-                  data.draft.basicInformation.creatorType === "company"
-                    ? data.draft.basicInformation.registrationId
-                    : data.draft.basicInformation.idNumber || data.draft.identityVerification.documentNumber
-                ),
+                value: readValue(data.applicationSummary.identityReference),
               },
               { label: "Country", value: readValue(data.draft.basicInformation.country) },
               data.draft.basicInformation.creatorType === "company"
                 ? { label: "Region", value: readValue(data.draft.basicInformation.region) }
                 : { label: "Age", value: readValue(data.draft.basicInformation.age) },
+              ...(data.draft.basicInformation.creatorType === "company"
+                ? [{ label: "Company address", value: readValue(data.draft.basicInformation.companyAddress) }]
+                : []),
             ],
           },
           {
             title: "Uploaded attachments",
             description: "Open the exact files submitted by the creator for manual inspection.",
-            links: [
-              {
-                label: readValue(data.draft.identityVerification.frontDocumentFileName, "Front document"),
-                href: data.draft.identityVerification.frontDocumentFileUrl,
-                meta: "Front side / primary proof",
-              },
-              {
-                label: readValue(data.draft.identityVerification.backDocumentFileName, "Back document not submitted"),
-                href: data.draft.identityVerification.backDocumentFileUrl,
-                meta: "Back side / secondary proof",
-              },
-            ],
+            links: uploadedIdentityLinks,
           },
+          ...(identityMissingItems.length
+            ? [{
+                title: "Outstanding identity gaps",
+                fields: identityMissingItems.map((item, index) => ({
+                  label: `Gap ${index + 1}`,
+                  value: item,
+                  tone: "warning" as const,
+                })),
+              }]
+            : []),
+          
         ],
       },
       {
@@ -214,7 +240,7 @@ export default function CreatorApplicationDetailPage() {
                 meta: `Reference link ${index + 1}`,
               })),
               {
-                label: readValue(data.draft.identityVerification.frontDocumentFileName, "Identity proof"),
+                label: readValue(data.applicationSummary.primaryDocumentName, data.applicationSummary.primaryDocumentLabel),
                 href: data.draft.identityVerification.frontDocumentFileUrl,
                 meta: "Reference attachment",
               },
@@ -273,7 +299,7 @@ export default function CreatorApplicationDetailPage() {
             title: "Supporting reference",
             links: [
               {
-                label: readValue(data.draft.identityVerification.frontDocumentFileName, "Identity proof"),
+                label: readValue(data.applicationSummary.primaryDocumentName, data.applicationSummary.primaryDocumentLabel),
                 href: data.draft.identityVerification.frontDocumentFileUrl,
                 meta: "Re-open submitted proof",
               },
@@ -392,7 +418,24 @@ export default function CreatorApplicationDetailPage() {
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Contact</p>
                 <p className="mt-3 font-medium text-white">{data.draft.basicInformation.email}</p>
                 <p className="mt-1 text-sm text-gray-400">{data.draft.basicInformation.phone || "No phone provided"}</p>
-                <p className="mt-1 text-sm text-gray-500">{data.draft.basicInformation.country}</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  {data.draft.basicInformation.country}
+                  {data.creatorType === "company" && data.applicationSummary.region ? ` · ${data.applicationSummary.region}` : ""}
+                </p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Legal identity</p>
+                <p className="mt-3 font-medium text-white">{data.applicationSummary.legalEntityName || "Not provided"}</p>
+                <p className="mt-1 text-sm text-gray-400">
+                  {data.creatorType === "company"
+                    ? `Registration ID: ${data.applicationSummary.identityReference || "Not provided"}`
+                    : `Age ${data.applicationSummary.age || "Not provided"} · ID ${data.applicationSummary.identityReference || "Not provided"}`}
+                </p>
+                {data.creatorType === "company" ? (
+                  <p className="mt-1 text-sm text-gray-500">{data.applicationSummary.companyAddress || "No company address provided"}</p>
+                ) : (
+                  <p className="mt-1 text-sm text-gray-500">{data.applicationSummary.verificationLabel}</p>
+                )}
               </div>
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Agreement</p>
@@ -566,8 +609,10 @@ export default function CreatorApplicationDetailPage() {
                 <div className="rounded-xl bg-[#0f0f17] p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Identity files</p>
                   <div className="mt-3 space-y-2 text-sm text-gray-300">
-                    <p>Front: {data.draft.identityVerification.frontDocumentFileName}</p>
-                    <p>Back: {data.draft.identityVerification.backDocumentFileName || "Not required"}</p>
+                    <p>{data.applicationSummary.primaryDocumentLabel}: {data.applicationSummary.primaryDocumentName || "Not provided"}</p>
+                    {data.applicationSummary.secondaryDocumentRequired ? (
+                      <p>{data.applicationSummary.secondaryDocumentLabel}: {data.applicationSummary.secondaryDocumentName || "Not provided"}</p>
+                    ) : null}
                     <p>ID / Tax: {data.draft.identityVerification.taxIdOrBusinessId || "Optional"}</p>
                   </div>
                 </div>
@@ -603,6 +648,10 @@ export default function CreatorApplicationDetailPage() {
               <div className="flex items-center justify-between gap-4">
                 <span className="text-gray-500">Assigned reviewer</span>
                 <span>{data.assignedReviewer || "Unassigned"}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-gray-500">Verification type</span>
+                <span>{data.applicationSummary.verificationLabel}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span className="text-gray-500">Primary language</span>

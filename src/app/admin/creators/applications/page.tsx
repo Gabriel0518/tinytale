@@ -14,6 +14,11 @@ import type { CreatorAdminApplicationListItem } from "@/types/creator";
 
 const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";
 
+function compactMissingItems(items: string[]) {
+  if (items.length <= 2) return items;
+  return [...items.slice(0, 2), `+${items.length - 2} more`];
+}
+
 export default function CreatorApplicationsPage() {
   const [items, setItems] = useState<CreatorAdminApplicationListItem[]>(mockCreatorApplications);
   const [loading, setLoading] = useState(true);
@@ -115,7 +120,8 @@ export default function CreatorApplicationsPage() {
             <thead>
               <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
                 <th className="pb-3 pr-4 font-medium">Applicant</th>
-                <th className="pb-3 pr-4 font-medium">Creator Profile</th>
+                <th className="pb-3 pr-4 font-medium">Application Profile</th>
+                <th className="pb-3 pr-4 font-medium">Verification</th>
                 <th className="pb-3 pr-4 font-medium">Status</th>
                 <th className="pb-3 pr-4 font-medium">Risk</th>
                 <th className="pb-3 pr-4 font-medium">Assigned Reviewer</th>
@@ -126,11 +132,11 @@ export default function CreatorApplicationsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-gray-500">Loading applications...</td>
+                  <td colSpan={8} className="py-10 text-center text-gray-500">Loading applications...</td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-gray-500">No applications match the current filters.</td>
+                  <td colSpan={8} className="py-10 text-center text-gray-500">No applications match the current filters.</td>
                 </tr>
               ) : filtered.map((item) => {
                 const statusMeta = getCreatorApplicationStatusMeta(item.status);
@@ -140,16 +146,39 @@ export default function CreatorApplicationsPage() {
                     <td className="py-4 pr-4">
                       <p className="font-medium text-white">{item.applicantName}</p>
                       <p className="mt-1 text-xs text-gray-500">{item.email}</p>
+                      <p className="mt-1 text-xs text-gray-500">{item.applicationSummary.contactPhone || "No phone provided"}</p>
                     </td>
                     <td className="py-4 pr-4">
-                      <p className="font-medium text-gray-200">{item.displayName}</p>
-                      <p className="mt-1 text-xs text-gray-500">{item.creatorType === "company" ? "Company / Studio" : "Individual"} · {item.country}</p>
-                      <p className="mt-2 text-xs text-gray-400">{item.genres.join(", ")} · {item.primaryLanguage}</p>
+                      <p className="font-medium text-gray-200">{item.applicationSummary.legalEntityName || item.displayName}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {item.creatorType === "company" ? "Company / Studio" : "Individual"} · {item.country}
+                        {item.creatorType === "company" && item.applicationSummary.region ? ` · ${item.applicationSummary.region}` : ""}
+                      </p>
+                      <p className="mt-2 text-xs text-gray-400">
+                        {item.creatorType === "company"
+                          ? `Registration ID: ${item.applicationSummary.identityReference || "Missing"}`
+                          : `Age ${item.applicationSummary.age || "Missing"} · ID ${item.applicationSummary.identityReference || "Missing"}`}
+                      </p>
+                      {item.creatorType === "company" && item.applicationSummary.companyAddress ? (
+                        <p className="mt-1 max-w-[280px] text-xs leading-5 text-gray-500">{item.applicationSummary.companyAddress}</p>
+                      ) : null}
+                    </td>
+                    <td className="py-4 pr-4">
+                      <p className="font-medium text-gray-200">{item.applicationSummary.verificationLabel}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {item.applicationSummary.primaryDocumentLabel}: {item.applicationSummary.primaryDocumentName || "Missing"}
+                      </p>
+                      {item.applicationSummary.secondaryDocumentRequired ? (
+                        <p className="mt-1 text-xs text-gray-500">
+                          {item.applicationSummary.secondaryDocumentLabel}: {item.applicationSummary.secondaryDocumentName || "Missing"}
+                        </p>
+                      ) : null}
+                      <p className="mt-2 text-xs text-gray-400">{item.genres.join(", ") || "No genres"} · {item.primaryLanguage || "No language"}</p>
                     </td>
                     <td className="py-4 pr-4">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusMeta.className}`}>{statusMeta.label}</span>
                       {item.missingItems.length > 0 ? (
-                        <p className="mt-2 max-w-[220px] text-xs leading-5 text-amber-300">{item.missingItems.join(" • ")}</p>
+                        <p className="mt-2 max-w-[220px] text-xs leading-5 text-amber-300">{compactMissingItems(item.missingItems).join(" • ")}</p>
                       ) : null}
                     </td>
                     <td className="py-4 pr-4">
