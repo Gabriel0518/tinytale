@@ -1,16 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import AdminLanguageSwitcher from "@/components/admin/AdminLanguageSwitcher";
+import { translateAdminText, useAdminLocale } from "@/lib/admin-i18n";
 
 interface AdminHeaderProps {
   title?: string;
 }
 
 export default function AdminHeader({ title = "Overview" }: AdminHeaderProps) {
+  const { locale } = useAdminLocale();
   const [searchQuery, setSearchQuery] = useState("");
 
   const today = new Date();
-  const dateStr = today.toLocaleDateString("en-US", {
+  const dateStr = today.toLocaleDateString(locale === "zh" ? "zh-CN" : "en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -18,7 +21,10 @@ export default function AdminHeader({ title = "Overview" }: AdminHeaderProps) {
   });
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-800/40 bg-[#13131d]/80 px-6 backdrop-blur-md">
+    <header
+      data-admin-i18n-controlled="true"
+      className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-800/40 bg-[#13131d]/80 px-6 backdrop-blur-md"
+    >
       {/* Left: Title */}
       <h1 className="text-lg font-semibold text-white">{title}</h1>
 
@@ -35,7 +41,7 @@ export default function AdminHeader({ title = "Overview" }: AdminHeaderProps) {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
+            placeholder={translateAdminText("Search...", locale)}
             className="w-full rounded-lg border border-gray-700/50 bg-gray-800/50 py-2 pl-10 pr-4 text-sm text-gray-300 placeholder-gray-500 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           />
         </div>
@@ -43,6 +49,7 @@ export default function AdminHeader({ title = "Overview" }: AdminHeaderProps) {
 
       {/* Right: Date + Notifications + User */}
       <div className="flex items-center gap-4">
+        <AdminLanguageSwitcher />
         <span className="hidden text-xs text-gray-400 lg:block">{dateStr}</span>
 
         {/* Notification Bell */}
@@ -59,8 +66,8 @@ export default function AdminHeader({ title = "Overview" }: AdminHeaderProps) {
             A
           </div>
           <div className="hidden md:block">
-            <p className="text-sm font-medium text-white">Admin User</p>
-            <p className="text-[11px] text-gray-500">Super Admin</p>
+            <p className="text-sm font-medium text-white">{translateAdminText("Admin User", locale)}</p>
+            <p className="text-[11px] text-gray-500">{translateAdminText("Super Admin", locale)}</p>
           </div>
         </div>
       </div>

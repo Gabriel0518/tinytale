@@ -5,6 +5,23 @@ interface FetchOptions extends RequestInit {
   token?: string;
 }
 
+function getAdminLanguageHint(): string | null {
+  if (typeof window === 'undefined') return null;
+
+  const storedLocale = window.localStorage.getItem('admin_locale')
+    || window.localStorage.getItem('user_lang');
+  if (storedLocale) return storedLocale;
+
+  const cookieLocale = document.cookie
+    .split('; ')
+    .find((entry) => entry.startsWith('admin_locale=') || entry.startsWith('user_lang='))
+    ?.split('=')
+    .slice(1)
+    .join('=');
+
+  return cookieLocale || null;
+}
+
 function normalizeHeaders(headers?: HeadersInit): Record<string, string> {
   if (!headers) return {};
   if (headers instanceof Headers) {
@@ -28,8 +45,10 @@ class ApiClient {
   }
 
   private getHeaders(options: FetchOptions = {}): HeadersInit {
+    const language = getAdminLanguageHint();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...(language ? { 'x-user-lang': language } : {}),
     };
 
     if (options.token) {
@@ -224,7 +243,10 @@ export const adminApi = {
     form.append('file', file);
     const response = await fetch(`${API_URL}/api/admin/upload/subtitle`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(getAdminLanguageHint() ? { 'x-user-lang': String(getAdminLanguageHint()) } : {}),
+      },
       body: form,
     });
     const data = await response.json();

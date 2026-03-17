@@ -2,11 +2,13 @@
 
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { translateAdminText, useAdminLocale } from "@/lib/admin-i18n";
 
 const ADMIN_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7002";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { locale } = useAdminLocale();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +33,7 @@ export default function AdminLoginPage() {
     setError("");
 
     if (!username || !password) {
-      setError("Please enter both username and password.");
+      setError(translateAdminText("Please enter both username and password.", locale));
       return;
     }
 
@@ -41,7 +43,10 @@ export default function AdminLoginPage() {
       // Try admin-specific auth endpoint first
       const res = await fetch(`${ADMIN_API_URL}/api/admin/auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-lang": locale,
+        },
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
@@ -59,7 +64,7 @@ export default function AdminLoginPage() {
 
       // Admin endpoint responded but auth failed — show its error directly
       if (res.status === 401 || res.status === 400) {
-        setError(data.error?.message || "Invalid username or password");
+        setError(translateAdminText(data.error?.message || "Invalid username or password", locale));
         setLoading(false);
         return;
       }
@@ -71,14 +76,17 @@ export default function AdminLoginPage() {
     try {
       const res = await fetch(`${ADMIN_API_URL}/api/auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-lang": locale,
+        },
         body: JSON.stringify({ email: username, password }),
       });
       const data = await res.json();
 
       if (data.success && data.data?.token) {
         if (data.data.user?.role !== "admin") {
-          setError("Access denied. Admin privileges required.");
+          setError(translateAdminText("Access denied. Admin privileges required.", locale));
           setLoading(false);
           return;
         }
@@ -93,7 +101,7 @@ export default function AdminLoginPage() {
       }
 
       if (data.error?.message) {
-        setError(data.error.message);
+        setError(translateAdminText(data.error.message, locale));
         setLoading(false);
         return;
       }
@@ -101,12 +109,15 @@ export default function AdminLoginPage() {
       // API not available
     }
 
-    setError("Login failed. Please check your credentials.");
+    setError(translateAdminText("Login failed. Please check your credentials.", locale));
     setLoading(false);
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4">
+    <div
+      data-admin-i18n-controlled="true"
+      className="flex min-h-screen items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50 px-4"
+    >
       <div className="w-full max-w-md">
         <div className="rounded-2xl bg-white px-8 py-10 shadow-xl">
           {/* Logo */}
@@ -116,9 +127,9 @@ export default function AdminLoginPage() {
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
-            <h1 className="mt-5 text-2xl font-bold text-gray-900">TinyTale Admin</h1>
+            <h1 className="mt-5 text-2xl font-bold text-gray-900">{translateAdminText("TinyTale Admin", locale)}</h1>
             <p className="mt-1.5 text-sm text-gray-400">
-              Welcome back, please login to your account.
+              {translateAdminText("Welcome back, please login to your account.", locale)}
             </p>
           </div>
 
@@ -133,7 +144,7 @@ export default function AdminLoginPage() {
             {/* Username */}
             <div>
               <label htmlFor="username" className="mb-1.5 block text-sm font-medium text-gray-700">
-                Username
+                {translateAdminText("Username", locale)}
               </label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
@@ -155,7 +166,7 @@ export default function AdminLoginPage() {
             {/* Password */}
             <div>
               <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-gray-700">
-                Password
+                {translateAdminText("Password", locale)}
               </label>
               <div className="relative">
                 <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
@@ -168,14 +179,14 @@ export default function AdminLoginPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  placeholder={translateAdminText("Enter your password", locale)}
                   className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-11 text-sm text-gray-900 placeholder-gray-400 outline-none transition focus:border-indigo-500 focus:bg-white focus:ring-1 focus:ring-indigo-500"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={translateAdminText(showPassword ? "Hide password" : "Show password", locale)}
                 >
                   {showPassword ? (
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -199,7 +210,7 @@ export default function AdminLoginPage() {
                 onChange={(e) => setRemember(e.target.checked)}
                 className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0"
               />
-              <span className="text-sm text-gray-500">Remember me</span>
+              <span className="text-sm text-gray-500">{translateAdminText("Remember me", locale)}</span>
             </label>
 
             {/* Submit */}
@@ -214,10 +225,10 @@ export default function AdminLoginPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Signing in...
+                  {translateAdminText("Signing in...", locale)}
                 </>
               ) : (
-                "Sign in"
+                translateAdminText("Sign in", locale)
               )}
             </button>
           </form>
@@ -225,7 +236,7 @@ export default function AdminLoginPage() {
 
         {/* Footer */}
         <p className="mt-6 text-center text-xs text-gray-400">
-          &copy; 2024 TinyTale. All rights reserved.
+          {translateAdminText("© 2024 TinyTale. All rights reserved.", locale)}
         </p>
       </div>
     </div>

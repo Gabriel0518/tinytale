@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { translateAdminText, useAdminLocale } from "@/lib/admin-i18n";
 
 type NavItem = { href: string; label: string };
 
@@ -122,6 +123,7 @@ const navigation: NavBlock[] = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const { locale } = useAdminLocale();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const isItemActive = (href: string) => {
@@ -156,7 +158,7 @@ export default function AdminSidebar() {
           <svg className="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={group.icon} />
           </svg>
-          {group.label}
+          {translateAdminText(group.label, locale)}
         </Link>
       );
     }
@@ -172,7 +174,7 @@ export default function AdminSidebar() {
           <svg className="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d={group.icon} />
           </svg>
-          <span className="flex-1 text-left">{group.label}</span>
+          <span className="flex-1 text-left">{translateAdminText(group.label, locale)}</span>
           <svg
             className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`}
             fill="none" stroke="currentColor" viewBox="0 0 24 24"
@@ -194,7 +196,7 @@ export default function AdminSidebar() {
                       : "text-gray-500 hover:text-gray-300"
                   }`}
                 >
-                  {item.label}
+                  {translateAdminText(item.label, locale)}
                 </Link>
               );
             })}
@@ -205,7 +207,10 @@ export default function AdminSidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 flex h-full w-60 flex-col bg-[#0f0f17] text-white">
+    <aside
+      data-admin-i18n-controlled="true"
+      className="fixed left-0 top-0 z-40 flex h-full w-60 flex-col bg-[#0f0f17] text-white"
+    >
       {/* Logo */}
       <div className="flex items-center gap-2.5 px-5 py-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600">
@@ -222,7 +227,7 @@ export default function AdminSidebar() {
           <div key={i} className={block.header ? "mt-5" : ""}>
             {block.header && (
               <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-gray-600">
-                {block.header}
+                {translateAdminText(block.header, locale)}
               </p>
             )}
             {block.groups.map(renderGroup)}
@@ -246,7 +251,7 @@ export default function AdminSidebar() {
               window.location.href = "/admin/login";
             }}
             className="text-gray-500 hover:text-gray-300"
-            aria-label="Logout"
+            aria-label={translateAdminText("Logout", locale)}
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

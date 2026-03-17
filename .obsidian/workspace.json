@@ -185,6 +185,8 @@
   },
   "active": "4bbb157e605faead",
   "lastOpenFiles": [
+    "src/components/admin/AdminLanguageSwitcher.tsx",
+    "src/lib/admin-i18n.tsx",
     "src/app/admin/creators/layout.tsx",
     "src/app/admin/creators/dmca/page.tsx",
     "src/app/admin/creators/settlements/page.tsx",
@@ -194,8 +196,6 @@
     "src/app/admin/creators/content/[dramaId]",
     "src/app/admin/creators/content/page.tsx",
     "src/app/admin/creators/tickets/page.tsx",
-    "src/app/admin/creators/policies/page.tsx",
-    "src/app/admin/creators/revenue/page.tsx",
     "docs/CREATOR_CENTER_DESKTOP_BASELINE.md",
     "2026-03-16.md",
     "FixPlan.md",
