@@ -272,6 +272,10 @@ export default function CreatorLandingPage() {
   }, [token]);
 
   const applyEntryHref = useMemo(() => {
+    if (applicationStatus === "approved") {
+      return localizePath("/creator/dashboard", locale);
+    }
+
     if (applicationStatus === "pending" || applicationStatus === "under_review") {
       return localizePath("/creator/pending", locale);
     }
@@ -286,6 +290,10 @@ export default function CreatorLandingPage() {
 
     return localizePath("/creator/apply", locale);
   }, [applicationStatus, locale]);
+
+  const primaryCtaLabel = applicationStatus === "approved" ? "Open Creator Center" : "Apply to Create";
+  const secondaryCtaLabel = applicationStatus === "approved" ? "Open Creator Center" : "Apply Now - It's Free";
+  const accountStatusLabel = applicationStatus === "approved" ? "Creator Account" : "Creator Applicant";
 
   return (
     <div className="min-h-screen bg-[#f5f7f8] text-[#0f172a]">
@@ -319,7 +327,7 @@ export default function CreatorLandingPage() {
             <div className="hidden h-10 items-center gap-3 border-l border-[#e2e8f0] pl-4 sm:flex">
               <div className="text-right leading-tight">
                 <p className="text-sm font-bold text-[#0f172a]">{displayName}</p>
-                <p className="text-xs text-[#64748b]">Creator Applicant</p>
+                <p className="text-xs text-[#64748b]">{accountStatusLabel}</p>
               </div>
               <Link href={localizePath("/user/profile", locale)} className="size-10 rounded-full">
                 <div className="size-10 rounded-full bg-gradient-to-br from-[#9ca3af] to-[#64748b] p-0.5">
@@ -350,7 +358,7 @@ export default function CreatorLandingPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1877F2] px-6 py-3 text-[14px] font-bold shadow-[0_12px_30px_rgba(24,119,242,0.35)] transition hover:bg-[#166fe5]"
                 href={applyEntryHref}
               >
-                Apply to Create
+                {primaryCtaLabel}
                 <ArrowRight className="size-4" />
               </Link>
             </div>
@@ -531,7 +539,7 @@ export default function CreatorLandingPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-[14px] font-bold text-[#0f172a] transition hover:bg-[#f8fafc]"
                 href={applyEntryHref}
               >
-                Apply Now - It&apos;s Free
+                {secondaryCtaLabel}
                 <ArrowRight className="size-4" />
               </Link>
               <Link
