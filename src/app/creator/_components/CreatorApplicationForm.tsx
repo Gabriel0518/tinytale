@@ -33,6 +33,7 @@ import {
 } from "@/lib/creator";
 import { useCountryCatalog } from "@/hooks/useCountryCatalog";
 import { localizePath } from "@/lib/i18n";
+import { resolveLocaleCopy } from "@/lib/locale-copy";
 import { useLocale } from "@/hooks/useLocale";
 import type { CountryOption } from "@/lib/countries";
 import type { CreatorApplicationDraft, CreatorProfileType, CreatorVerificationType } from "@/types/creator";
@@ -54,6 +55,449 @@ const VERIFICATION_OPTIONS: Array<{
   { value: "passport", title: "Passport", description: "International passport for identity verification." },
   { value: "business_license", title: "Business License", description: "Required for company-based applications." },
 ];
+
+type AgreementBlock =
+  | { type: "paragraph"; text: string }
+  | { type: "bullets"; items: string[] };
+
+type AgreementSectionCopy = {
+  title: string;
+  blocks: AgreementBlock[];
+};
+
+type AgreementCopy = {
+  intro: string;
+  sections: AgreementSectionCopy[];
+};
+
+const CREATOR_AGREEMENT_COPY: Record<string, AgreementCopy> = {
+  en: {
+    intro:
+      'Welcome to TinyTale! Please read this agreement carefully before completing your registration. By finishing the registration process, checking "I have read and agree to this agreement," or uploading any content to TinyTale, you acknowledge that you fully understand and agree to all terms herein. This agreement is legally binding between you and TinyTale. If you do not agree with any provision, please stop registration immediately.',
+    sections: [
+      {
+        title: "1. Definitions",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              '"TinyTale" or "Platform" refers to the short drama video streaming platform operated by Coinrizon Limited, including the website, mobile applications, and related services. "Creator" or "You" refers to the individual or entity that registers and uploads short drama content on TinyTale. "Content" refers to short drama videos, scripts, audio, images, text descriptions, and other related materials uploaded by the Creator. "Viewer" refers to users who watch or pay to unlock short drama content on TinyTale.',
+          },
+        ],
+      },
+      {
+        title: "2. Content rights and licensing",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "You warrant that you hold complete and lawful intellectual property rights to all uploaded content, or have obtained proper authorization. Copyright ownership of the content remains with you.",
+          },
+          {
+            type: "paragraph",
+            text:
+              "Upon uploading, you grant TinyTale a worldwide, royalty-free, non-exclusive, sublicensable, irrevocable license to:",
+          },
+          {
+            type: "bullets",
+            items: [
+              "Store, display, stream, and distribute your content on the platform and partner channels;",
+              "Translate, dub, edit, add subtitles, or create promotional materials from your content for marketing and commercial purposes;",
+              "Allow viewers to watch and share your content through paid (coin unlock, VIP subscription) or free access;",
+              "Use your creator name, avatar, and content clips for platform marketing and promotion.",
+            ],
+          },
+          {
+            type: "paragraph",
+            text:
+              "If a third party infringes upon your content rights on the platform, you authorize TinyTale to take legal action on the platform's behalf (but without obligation). Any proceeds from such actions, after deducting reasonable costs, will be distributed according to the revenue-sharing rules in this agreement.",
+          },
+        ],
+      },
+      {
+        title: "3. Revenue sharing and settlement",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "Revenue sources: You are entitled to a share of revenue generated when viewers pay to unlock episodes with coins, subscribe to VIP memberships, or tip your content, in accordance with this agreement.",
+          },
+          {
+            type: "paragraph",
+            text:
+              "Revenue calculation: The specific revenue formula, split ratio, and deductions (including but not limited to app store fees, Stripe payment processing fees, and operational costs) are subject to the latest settlement rules published in the TinyTale Creator Center. All creator-facing revenue is displayed in USD. TinyTale reserves the right to adjust the revenue-sharing rules based on business development, with updated rules posted in the Creator Center.",
+          },
+          {
+            type: "paragraph",
+            text:
+              "Settlement cycle: Revenue is settled on a calendar-month basis. TinyTale will calculate the previous month's distributable revenue and settle it to your linked payout account within 15 business days of the following month.",
+          },
+          {
+            type: "paragraph",
+            text:
+              "Withdrawal and taxes: You must meet the platform's minimum withdrawal threshold to request a payout. You are solely responsible for any personal income tax and other taxes arising from your earnings. Where required by law, TinyTale may withhold taxes before disbursing revenue.",
+          },
+        ],
+      },
+      {
+        title: "4. Creator obligations",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "Content legality: You warrant that your uploaded content does not infringe any third party's intellectual property, likeness, reputation, or privacy rights; does not contain obscene, violent, extremist, discriminatory, hateful, or misleading material or content that violates applicable laws; and does not include unauthorized music, film clips, trademarks, or other protected materials.",
+          },
+          {
+            type: "paragraph",
+            text:
+              "Accurate information: You must provide truthful, accurate, and complete registration and payout information and update it promptly. You bear all consequences arising from inaccurate information.",
+          },
+          {
+            type: "paragraph",
+            text:
+              "No fraud: You must not artificially inflate view counts, revenue, or rankings through view botting, fake transactions, bot accounts, or other illegitimate means.",
+          },
+        ],
+      },
+      {
+        title: "5. Content review and moderation",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "TinyTale reserves the right to review all uploaded content. The platform may refuse to publish, take down, or delete content that violates this agreement or platform rules. Every drama submission is reviewed for compliance, rights ownership, metadata quality, and age-rating accuracy.",
+          },
+        ],
+      },
+      {
+        title: "6. DMCA and copyright enforcement",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "You agree to cooperate with copyright reviews, DMCA notices, and counter-notice procedures. Confirmed repeat infringement may trigger suspension or permanent termination of your creator account in accordance with platform policy.",
+          },
+          {
+            type: "paragraph",
+            text:
+              "If you discover that another party has infringed upon your rights on the platform, you may submit an infringement notice through the platform's designated complaint channel, and TinyTale will process it in accordance with applicable law.",
+          },
+        ],
+      },
+      {
+        title: "7. Account management and enforcement",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "If you violate this agreement, TinyTale may, depending on severity, take the following actions:",
+          },
+          {
+            type: "bullets",
+            items: [
+              "Issue a warning or restrict account features;",
+              "Remove or take down infringing content;",
+              "Freeze or deduct unsettled revenue;",
+              "Suspend or permanently ban your account.",
+            ],
+          },
+        ],
+      },
+      {
+        title: "8. Liability and indemnification",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "If your uploaded content causes TinyTale or its affiliates to face third-party claims, lawsuits, regulatory penalties, app store removal, or termination of partnerships, you shall indemnify TinyTale for all direct and indirect losses, including damages, fines, settlement costs, legal fees, and losses from business interruption or reputational harm.",
+          },
+          {
+            type: "paragraph",
+            text:
+              "TinyTale may deduct such amounts directly from your unsettled revenue. Any shortfall must be paid within 15 days of notice.",
+          },
+        ],
+      },
+      {
+        title: "9. Banking, payouts, and tax responsibilities",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "Bank account or payment method verification is required before payout processing. You are responsible for local tax reporting and must ensure your payout information remains accurate and current. TinyTale is not liable for payment delays caused by incorrect payout information.",
+          },
+        ],
+      },
+      {
+        title: "10. Agreement changes and termination",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "Changes: TinyTale reserves the right to modify this agreement at any time. Changes will be communicated through prominent platform announcements, email to your registered address, or in-app notifications. Continued use of the platform after such notice constitutes acceptance of the updated terms.",
+          },
+          {
+            type: "paragraph",
+            text:
+              "Your termination right: You may stop using the platform and deactivate your account at any time; however, previously uploaded content and the licenses granted to TinyTale remain in effect after account closure.",
+          },
+          {
+            type: "paragraph",
+            text:
+              "Platform termination right: TinyTale may unilaterally terminate this agreement and ban your account for serious violations. After termination, unsettled revenue will be handled per platform rules; already-settled revenue is unaffected.",
+          },
+        ],
+      },
+      {
+        title: "11. Privacy and data protection",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "TinyTale collects, uses, and protects your personal information and content data in accordance with the TinyTale Privacy Policy. The platform may use your content data (such as view counts, audience demographics, and revenue data) for operational analysis, algorithm optimization, and business decisions, but will not disclose your personal identity to third parties except as required by law.",
+          },
+        ],
+      },
+      {
+        title: "12. Governing law and dispute resolution",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "This agreement is governed by the laws of the Hong Kong Special Administrative Region. Any dispute arising from or in connection with this agreement shall first be resolved through amicable negotiation. If negotiation fails, either party may submit the dispute to the Singapore International Arbitration Centre (SIAC) for resolution.",
+          },
+        ],
+      },
+      {
+        title: "13. Miscellaneous",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "This agreement constitutes the entire agreement between you and TinyTale regarding creator services and supersedes any prior oral or written agreements on the same subject matter. If any provision is held invalid or unenforceable by a court or arbitral tribunal of competent jurisdiction, the invalidity of that provision shall not affect the validity of the remaining provisions.",
+          },
+          {
+            type: "paragraph",
+            text: "For questions about this agreement, please contact us at: support@tinytale.top",
+          },
+        ],
+      },
+    ],
+  },
+  zh: {
+    intro:
+      "欢迎使用 TinyTale。请你在完成注册前认真阅读本协议。只要你完成注册流程、勾选“我已阅读并同意本协议”，或向 TinyTale 上传任何内容，即表示你已充分理解并接受本协议全部条款。本协议对你与 TinyTale 均具有法律约束力。如你不同意其中任何内容，请立即停止注册或使用。",
+    sections: [
+      {
+        title: "1. 定义",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "“TinyTale”或“平台”是指由 Coinrizon Limited 运营的短剧视频流媒体平台，包括网站、移动应用及相关服务。“创作者”或“你”是指在 TinyTale 注册并上传短剧内容的个人或机构。“内容”是指创作者上传的短剧视频、剧本、音频、图片、文字说明及其他相关材料。“观众”是指在 TinyTale 浏览、观看或付费解锁短剧内容的用户。",
+          },
+        ],
+      },
+      {
+        title: "2. 内容权利与授权",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "你声明并保证，你对所上传的全部内容拥有完整、合法且可处分的知识产权，或已取得充分、有效的授权。内容的著作权及其他原始权利仍归你所有。",
+          },
+          {
+            type: "paragraph",
+            text:
+              "自内容上传之日起，你授予 TinyTale 一项全球范围内、免版税、非独占、可转授权且不可撤销的使用许可，以便平台可以：",
+          },
+          {
+            type: "bullets",
+            items: [
+              "在平台及合作渠道存储、展示、播放、分发你的内容；",
+              "基于运营、推广和商业化目的，对内容进行翻译、配音、剪辑、字幕制作或生成宣传素材；",
+              "允许观众以付费方式（如金币解锁、VIP 订阅）或免费方式观看、分享你的内容；",
+              "在平台宣传、市场推广及品牌传播中使用你的创作者名称、头像和内容片段。",
+            ],
+          },
+          {
+            type: "paragraph",
+            text:
+              "如第三方在平台内侵犯你的内容权利，你授权 TinyTale 以平台名义视情况采取维权措施，但 TinyTale 不因此承担必须维权的义务。相关维权所得在扣除合理成本后，按本协议约定的分成规则处理。",
+          },
+        ],
+      },
+      {
+        title: "3. 收入分成与结算",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "收入来源：观众通过金币解锁剧集、开通 VIP 会员、对内容进行打赏等方式形成的可分配收入，你有权依本协议获得相应分成。",
+          },
+          {
+            type: "paragraph",
+            text:
+              "收入计算：具体分成公式、比例及扣减项（包括但不限于应用商店费用、Stripe 支付通道手续费及平台运营成本），以 TinyTale 创作者中心最新公布的结算规则为准。所有面向创作者展示的收入统一以美元计价。TinyTale 可根据业务发展调整分成规则，并在创作者中心发布更新版本。",
+          },
+          {
+            type: "paragraph",
+            text:
+              "结算周期：平台按自然月进行结算，并将在次月完成上月可结算收入核算后，于 15 个工作日内结算至你绑定的收款账户。",
+          },
+          {
+            type: "paragraph",
+            text:
+              "提现与税务：你需达到平台规定的最低提现门槛后方可申请打款。因创作收入产生的个人所得税或其他税费，由你自行依法申报并承担；如法律要求，TinyTale 有权在打款前依法代扣代缴。",
+          },
+        ],
+      },
+      {
+        title: "4. 创作者义务",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "内容合法合规：你保证上传内容不侵犯任何第三方的知识产权、肖像权、名誉权、隐私权等合法权益；不包含淫秽、暴力、极端、歧视、仇恨、误导性内容或任何违反适用法律法规的内容；也不得包含未经授权的音乐、影视片段、商标或其他受保护素材。",
+          },
+          {
+            type: "paragraph",
+            text:
+              "信息真实准确：你应提供真实、准确、完整的注册信息、身份信息及收款信息，并在信息发生变化时及时更新。因信息不实、不完整或未及时更新导致的一切后果，由你自行承担。",
+          },
+          {
+            type: "paragraph",
+            text:
+              "禁止作弊与刷量：你不得通过刷量、虚假交易、机器人账号、异常流量或其他不正当方式人为提升播放量、收入、排名或平台数据表现。",
+          },
+        ],
+      },
+      {
+        title: "5. 内容审核与平台管理",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "TinyTale 有权对全部上传内容进行审核。对于违反本协议或平台规则的内容，平台可拒绝发布、下架、删除或采取其他必要措施。每一部短剧提交后，平台都会对其合规性、权利归属、元数据质量以及年龄分级准确性进行审核。",
+          },
+        ],
+      },
+      {
+        title: "6. DMCA 与版权维权",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "你同意配合平台处理版权审核、DMCA 通知及反通知流程。若平台确认存在重复侵权情形，可依据平台政策暂停或永久终止你的创作者账号。",
+          },
+          {
+            type: "paragraph",
+            text:
+              "如你发现平台内其他主体侵犯了你的合法权益，可通过平台指定的投诉渠道提交侵权通知，TinyTale 将依据适用法律及平台规则进行处理。",
+          },
+        ],
+      },
+      {
+        title: "7. 账号管理与违规处理",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "如你违反本协议，TinyTale 有权根据违规程度采取以下一项或多项措施：",
+          },
+          {
+            type: "bullets",
+            items: [
+              "发出警告或限制账号部分功能；",
+              "移除、下架相关违规内容；",
+              "冻结或扣减未结算收入；",
+              "暂停或永久封禁你的创作者账号。",
+            ],
+          },
+        ],
+      },
+      {
+        title: "8. 责任承担与赔偿",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "如因你上传的内容导致 TinyTale 或其关联方遭受第三方索赔、诉讼、监管处罚、应用商店下架、合作终止或其他损失，你应就由此产生的全部直接及间接损失向 TinyTale 进行赔偿，包括但不限于赔偿金、罚款、和解费用、律师费、商誉损失及业务中断损失。",
+          },
+          {
+            type: "paragraph",
+            text:
+              "TinyTale 有权直接从你尚未结算的收入中抵扣相关金额；若不足抵扣，你应在收到通知后 15 日内补足。",
+          },
+        ],
+      },
+      {
+        title: "9. 收款账户、打款与税务责任",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "在平台处理打款前，你必须完成收款账户或支付方式验证。你需自行履行所在地税务申报义务，并保证收款信息始终准确、有效。因收款信息错误导致的打款延误、失败或损失，TinyTale 不承担责任。",
+          },
+        ],
+      },
+      {
+        title: "10. 协议变更与终止",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "协议变更：TinyTale 有权根据业务、合规或运营需要随时修改本协议，并通过平台公告、注册邮箱通知或站内消息等方式向你提示。你在收到通知后继续使用平台，即视为接受修订后的协议。",
+          },
+          {
+            type: "paragraph",
+            text:
+              "你主动终止：你可随时停止使用平台并申请停用账号，但你此前已上传内容所授予 TinyTale 的相关使用许可，在账号关闭后仍继续有效。",
+          },
+          {
+            type: "paragraph",
+            text:
+              "平台终止权：若你存在严重违规行为，TinyTale 有权单方终止本协议并封禁账号。终止后，未结算收入将按平台规则处理，已结算收入不受影响。",
+          },
+        ],
+      },
+      {
+        title: "11. 隐私与数据保护",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "TinyTale 将依照《TinyTale 隐私政策》收集、使用并保护你的个人信息及内容数据。平台可基于运营分析、算法优化和业务决策需要，使用与你内容表现相关的数据（如播放量、受众画像、收入数据等），但除法律法规另有要求外，不会向第三方披露可直接识别你个人身份的信息。",
+          },
+        ],
+      },
+      {
+        title: "12. 适用法律与争议解决",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "本协议受香港特别行政区法律管辖。因本协议引起或与本协议有关的任何争议，双方应先友好协商解决；协商不成的，任一方均可将争议提交至新加坡国际仲裁中心（SIAC）依其届时有效的仲裁规则处理。",
+          },
+        ],
+      },
+      {
+        title: "13. 其他条款",
+        blocks: [
+          {
+            type: "paragraph",
+            text:
+              "本协议构成你与 TinyTale 就创作者服务事项达成的完整约定，并取代此前双方就同类事项形成的所有口头或书面约定。如本协议任一条款被有管辖权的法院或仲裁机构认定为无效或不可执行，不影响其余条款的效力。",
+          },
+          {
+            type: "paragraph",
+            text: "如你对本协议有任何疑问，请联系：support@tinytale.top",
+          },
+        ],
+      },
+    ],
+  },
+};
 
 function createDefaultDraft() {
   return createEmptyCreatorApplicationDraft();
@@ -1206,6 +1650,8 @@ function StepAgreement({
   draft: CreatorApplicationDraft;
   onChange: (updater: (current: CreatorApplicationDraft) => CreatorApplicationDraft) => void;
 }) {
+  const locale = useLocale();
+  const agreementCopy = resolveLocaleCopy(CREATOR_AGREEMENT_COPY, locale);
   const agreementRef = useRef<HTMLDivElement>(null);
 
   function markAgreementReviewed() {
@@ -1241,85 +1687,23 @@ function StepAgreement({
           }}
           className="max-h-[420px] space-y-5 overflow-y-auto px-4 py-4 text-sm leading-7 text-[#334155]"
         >
-          <p className="font-medium text-[#0f172a]">
-            Welcome to TinyTale! Please read this agreement carefully before completing your registration. By finishing the registration process, checking &quot;I have read and agree to this agreement,&quot; or uploading any content to TinyTale, you acknowledge that you fully understand and agree to all terms herein. This agreement is legally binding between you and TinyTale. If you do not agree with any provision, please stop registration immediately.
-          </p>
+          <p className="font-medium text-[#0f172a]">{agreementCopy.intro}</p>
 
-          <AgreementSection title="1. Definitions">
-            <p>&quot;TinyTale&quot; or &quot;Platform&quot; refers to the short drama video streaming platform operated by Coinrizon Limited, including the website, mobile applications, and related services. &quot;Creator&quot; or &quot;You&quot; refers to the individual or entity that registers and uploads short drama content on TinyTale. &quot;Content&quot; refers to short drama videos, scripts, audio, images, text descriptions, and other related materials uploaded by the Creator. &quot;Viewer&quot; refers to users who watch or pay to unlock short drama content on TinyTale.</p>
-          </AgreementSection>
-
-          <AgreementSection title="2. Content rights and licensing">
-            <p>You warrant that you hold complete and lawful intellectual property rights to all uploaded content, or have obtained proper authorization. Copyright ownership of the content remains with you.</p>
-            <p>Upon uploading, you grant TinyTale a worldwide, royalty-free, non-exclusive, sublicensable, irrevocable license to:</p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Store, display, stream, and distribute your content on the platform and partner channels;</li>
-              <li>Translate, dub, edit, add subtitles, or create promotional materials from your content for marketing and commercial purposes;</li>
-              <li>Allow viewers to watch and share your content through paid (coin unlock, VIP subscription) or free access;</li>
-              <li>Use your creator name, avatar, and content clips for platform marketing and promotion.</li>
-            </ul>
-            <p>If a third party infringes upon your content rights on the platform, you authorize TinyTale to take legal action on the platform&apos;s behalf (but without obligation). Any proceeds from such actions, after deducting reasonable costs, will be distributed according to the revenue-sharing rules in this agreement.</p>
-          </AgreementSection>
-
-          <AgreementSection title="3. Revenue sharing and settlement">
-            <p><strong>Revenue sources:</strong> You are entitled to a share of revenue generated when viewers pay to unlock episodes with coins, subscribe to VIP memberships, or tip your content, in accordance with this agreement.</p>
-            <p><strong>Revenue calculation:</strong> The specific revenue formula, split ratio, and deductions (including but not limited to app store fees, Stripe payment processing fees, and operational costs) are subject to the latest settlement rules published in the TinyTale Creator Center. All creator-facing revenue is displayed in USD. TinyTale reserves the right to adjust the revenue-sharing rules based on business development, with updated rules posted in the Creator Center.</p>
-            <p><strong>Settlement cycle:</strong> Revenue is settled on a calendar-month basis. TinyTale will calculate the previous month&apos;s distributable revenue and settle it to your linked payout account within 15 business days of the following month.</p>
-            <p><strong>Withdrawal and taxes:</strong> You must meet the platform&apos;s minimum withdrawal threshold to request a payout. You are solely responsible for any personal income tax and other taxes arising from your earnings. Where required by law, TinyTale may withhold taxes before disbursing revenue.</p>
-          </AgreementSection>
-
-          <AgreementSection title="4. Creator obligations">
-            <p><strong>Content legality:</strong> You warrant that your uploaded content does not infringe any third party&apos;s intellectual property, likeness, reputation, or privacy rights; does not contain obscene, violent, extremist, discriminatory, hateful, or misleading material or content that violates applicable laws; and does not include unauthorized music, film clips, trademarks, or other protected materials.</p>
-            <p><strong>Accurate information:</strong> You must provide truthful, accurate, and complete registration and payout information and update it promptly. You bear all consequences arising from inaccurate information.</p>
-            <p><strong>No fraud:</strong> You must not artificially inflate view counts, revenue, or rankings through view botting, fake transactions, bot accounts, or other illegitimate means.</p>
-          </AgreementSection>
-
-          <AgreementSection title="5. Content review and moderation">
-            <p>TinyTale reserves the right to review all uploaded content. The platform may refuse to publish, take down, or delete content that violates this agreement or platform rules. Every drama submission is reviewed for compliance, rights ownership, metadata quality, and age-rating accuracy.</p>
-          </AgreementSection>
-
-          <AgreementSection title="6. DMCA and copyright enforcement">
-            <p>You agree to cooperate with copyright reviews, DMCA notices, and counter-notice procedures. Confirmed repeat infringement may trigger suspension or permanent termination of your creator account in accordance with platform policy.</p>
-            <p>If you discover that another party has infringed upon your rights on the platform, you may submit an infringement notice through the platform&apos;s designated complaint channel, and TinyTale will process it in accordance with applicable law.</p>
-          </AgreementSection>
-
-          <AgreementSection title="7. Account management and enforcement">
-            <p>If you violate this agreement, TinyTale may, depending on severity, take the following actions:</p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Issue a warning or restrict account features;</li>
-              <li>Remove or take down infringing content;</li>
-              <li>Freeze or deduct unsettled revenue;</li>
-              <li>Suspend or permanently ban your account.</li>
-            </ul>
-          </AgreementSection>
-
-          <AgreementSection title="8. Liability and indemnification">
-            <p>If your uploaded content causes TinyTale or its affiliates to face third-party claims, lawsuits, regulatory penalties, app store removal, or termination of partnerships, you shall indemnify TinyTale for all direct and indirect losses, including damages, fines, settlement costs, legal fees, and losses from business interruption or reputational harm.</p>
-            <p>TinyTale may deduct such amounts directly from your unsettled revenue. Any shortfall must be paid within 15 days of notice.</p>
-          </AgreementSection>
-
-          <AgreementSection title="9. Banking, payouts, and tax responsibilities">
-            <p>Bank account or payment method verification is required before payout processing. You are responsible for local tax reporting and must ensure your payout information remains accurate and current. TinyTale is not liable for payment delays caused by incorrect payout information.</p>
-          </AgreementSection>
-
-          <AgreementSection title="10. Agreement changes and termination">
-            <p><strong>Changes:</strong> TinyTale reserves the right to modify this agreement at any time. Changes will be communicated through prominent platform announcements, email to your registered address, or in-app notifications. Continued use of the platform after such notice constitutes acceptance of the updated terms.</p>
-            <p><strong>Your termination right:</strong> You may stop using the platform and deactivate your account at any time; however, previously uploaded content and the licenses granted to TinyTale remain in effect after account closure.</p>
-            <p><strong>Platform termination right:</strong> TinyTale may unilaterally terminate this agreement and ban your account for serious violations. After termination, unsettled revenue will be handled per platform rules; already-settled revenue is unaffected.</p>
-          </AgreementSection>
-
-          <AgreementSection title="11. Privacy and data protection">
-            <p>TinyTale collects, uses, and protects your personal information and content data in accordance with the TinyTale Privacy Policy. The platform may use your content data (such as view counts, audience demographics, and revenue data) for operational analysis, algorithm optimization, and business decisions, but will not disclose your personal identity to third parties except as required by law.</p>
-          </AgreementSection>
-
-          <AgreementSection title="12. Governing law and dispute resolution">
-            <p>This agreement is governed by the laws of the Hong Kong Special Administrative Region. Any dispute arising from or in connection with this agreement shall first be resolved through amicable negotiation. If negotiation fails, either party may submit the dispute to the Singapore International Arbitration Centre (SIAC) for resolution.</p>
-          </AgreementSection>
-
-          <AgreementSection title="13. Miscellaneous">
-            <p>This agreement constitutes the entire agreement between you and TinyTale regarding creator services and supersedes any prior oral or written agreements on the same subject matter. If any provision is held invalid or unenforceable by a court or arbitral tribunal of competent jurisdiction, the invalidity of that provision shall not affect the validity of the remaining provisions.</p>
-            <p>For questions about this agreement, please contact us at: support@tinytale.top</p>
-          </AgreementSection>
+          {agreementCopy.sections.map((section) => (
+            <AgreementSection key={section.title} title={section.title}>
+              {section.blocks.map((block, index) =>
+                block.type === "paragraph" ? (
+                  <p key={`${section.title}-paragraph-${index}`}>{block.text}</p>
+                ) : (
+                  <ul key={`${section.title}-bullets-${index}`} className="list-disc space-y-1 pl-5">
+                    {block.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )
+              )}
+            </AgreementSection>
+          ))}
         </div>
       </div>
 
