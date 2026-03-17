@@ -20,6 +20,7 @@ import type {
   CreatorTicketPriority,
 } from '@/types/creator';
 import { serializeCreatorApplicationDraft } from '@/lib/creator';
+import type { CountryCatalogItem } from '@/lib/countries';
 import { detectClientLocale } from '@/lib/i18n';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
@@ -243,6 +244,30 @@ export const episodesApi = {
 // Categories API
 export const categoriesApi = {
   getAll: () => api.get('/api/categories'),
+};
+
+export const countriesApi = {
+  getAll: (params?: {
+    q?: string;
+    alpha2?: string;
+    alpha3?: string;
+    currencyCode?: string;
+    tier?: number;
+    page?: number;
+    limit?: number;
+    includeDisabled?: boolean;
+  }) => {
+    const query = params
+      ? new URLSearchParams(
+          Object.entries(params)
+            .filter(([, value]) => value !== undefined && value !== null && value !== '')
+            .map(([key, value]) => [key, String(value)])
+        ).toString()
+      : '';
+    return api.get<{ success: boolean; data: { items: CountryCatalogItem[]; pagination: { page: number; limit: number; total: number; totalPages: number } } }>(
+      `/api/countries${query ? `?${query}` : ''}`
+    );
+  },
 };
 
 // User API

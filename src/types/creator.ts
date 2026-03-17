@@ -18,8 +18,12 @@ export type CreatorApplicationStatus =
 export interface CreatorApplicationBasicInformation {
   creatorType: CreatorProfileType;
   legalName: string;
+  age: string;
+  idNumber: string;
   companyName: string;
-  representativeName: string;
+  registrationId: string;
+  companyAddress: string;
+  region: string;
   email: string;
   phone: string;
   country: string;

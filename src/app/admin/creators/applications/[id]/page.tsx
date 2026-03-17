@@ -108,10 +108,7 @@ export default function CreatorApplicationDetailPage() {
       data.draft.basicInformation.creatorType === "company"
         ? readValue(data.draft.basicInformation.companyName)
         : readValue(data.draft.basicInformation.legalName);
-    const representativeName =
-      data.draft.basicInformation.creatorType === "company"
-        ? readValue(data.draft.basicInformation.representativeName)
-        : readValue(data.draft.agreement.signatureName);
+    const representativeName = readValue(data.draft.agreement.signatureName);
 
     return [
       {
@@ -125,9 +122,18 @@ export default function CreatorApplicationDetailPage() {
               { label: "Verification type", value: readValue(data.draft.identityVerification.verificationType) },
               { label: "Legal entity", value: legalEntityName },
               { label: "Representative / signer", value: representativeName },
-              { label: "Document number", value: readValue(data.draft.identityVerification.documentNumber) },
-              { label: "Issue country", value: readValue(data.draft.identityVerification.issueCountry) },
-              { label: "Tax / business ID", value: readValue(data.draft.identityVerification.taxIdOrBusinessId) },
+              {
+                label: data.draft.basicInformation.creatorType === "company" ? "Registration ID" : "Document number",
+                value: readValue(
+                  data.draft.basicInformation.creatorType === "company"
+                    ? data.draft.basicInformation.registrationId
+                    : data.draft.basicInformation.idNumber || data.draft.identityVerification.documentNumber
+                ),
+              },
+              { label: "Country", value: readValue(data.draft.basicInformation.country) },
+              data.draft.basicInformation.creatorType === "company"
+                ? { label: "Region", value: readValue(data.draft.basicInformation.region) }
+                : { label: "Age", value: readValue(data.draft.basicInformation.age) },
             ],
           },
           {

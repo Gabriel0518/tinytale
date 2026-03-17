@@ -6,7 +6,7 @@ import type {
   CreatorTicketCategory,
 } from "@/types/creator";
 
-export const CREATOR_APPLICATION_STORAGE_KEY = "creator_application_draft_v4";
+export const CREATOR_APPLICATION_STORAGE_KEY = "creator_application_draft_v5";
 
 export const CREATOR_APPLICATION_STEP_TITLES = [
   "Basic Info",
@@ -38,23 +38,17 @@ export const CREATOR_LANGUAGE_OPTIONS = [
   "Other",
 ] as const;
 
-export const CREATOR_COUNTRY_OPTIONS = [
-  "United States",
-  "Canada",
-  "United Kingdom",
-  "Australia",
-  "Singapore",
-  "Japan",
-  "Other",
-] as const;
-
 export function createEmptyCreatorApplicationDraft(): CreatorApplicationDraft {
   return {
     basicInformation: {
       creatorType: "individual",
       legalName: "",
+      age: "",
+      idNumber: "",
       companyName: "",
-      representativeName: "",
+      registrationId: "",
+      companyAddress: "",
+      region: "",
       email: "",
       phone: "",
       country: "",
@@ -115,9 +109,23 @@ export function deserializeCreatorApplicationDraft(
     basicInformation: {
       ...fallback.basicInformation,
       creatorType: identityType === "agency" || identityType === "company" ? "company" : fallback.basicInformation.creatorType,
-      legalName: String(remote?.basicInformation?.fullName || fallback.basicInformation.legalName || ""),
+      legalName: String(remote?.basicInformation?.legalName || remote?.basicInformation?.fullName || fallback.basicInformation.legalName || ""),
+      age: String(remote?.basicInformation?.age || fallback.basicInformation.age || ""),
+      idNumber: String(
+        remote?.basicInformation?.idNumber
+          || remote?.identityVerification?.documentNumber
+          || fallback.basicInformation.idNumber
+          || ""
+      ),
       companyName: String(remote?.basicInformation?.companyName || fallback.basicInformation.companyName || ""),
-      representativeName: String(remote?.basicInformation?.representativeName || fallback.basicInformation.representativeName || ""),
+      registrationId: String(
+        remote?.basicInformation?.registrationId
+          || remote?.identityVerification?.taxIdOrBusinessId
+          || fallback.basicInformation.registrationId
+          || ""
+      ),
+      companyAddress: String(remote?.basicInformation?.companyAddress || fallback.basicInformation.companyAddress || ""),
+      region: String(remote?.basicInformation?.region || fallback.basicInformation.region || ""),
       email: String(remote?.basicInformation?.workEmail || remote?.basicInformation?.email || fallback.basicInformation.email || ""),
       phone: String(remote?.basicInformation?.phone || fallback.basicInformation.phone || ""),
       country: String(remote?.basicInformation?.country || fallback.basicInformation.country || ""),
@@ -161,16 +169,34 @@ export function deserializeCreatorApplicationDraft(
 export function serializeCreatorApplicationDraft(draft: CreatorApplicationDraft) {
   const firstPortfolioLink = draft.creativeInformation.portfolioLinks.find((value) => value.trim()) || "";
   const firstGenre = draft.creativeInformation.genres[0] || "";
+  const identityType = draft.basicInformation.creatorType === "company" ? "agency" : "individual";
+  const documentNumber =
+    draft.basicInformation.creatorType === "company"
+      ? draft.basicInformation.registrationId.trim()
+      : draft.basicInformation.idNumber.trim();
+  const issueCountry = draft.identityVerification.issueCountry.trim() || draft.basicInformation.country.trim();
+  const taxIdOrBusinessId =
+    draft.identityVerification.taxIdOrBusinessId.trim()
+    || (draft.basicInformation.creatorType === "company" ? draft.basicInformation.registrationId.trim() : "");
+  const frontDocumentFileName = draft.identityVerification.frontDocumentFileName.trim();
+  const backDocumentFileName = draft.identityVerification.backDocumentFileName.trim();
+  const frontDocumentFileUrl = draft.identityVerification.frontDocumentFileUrl || "";
+  const backDocumentFileUrl = draft.identityVerification.backDocumentFileUrl || "";
 
   return {
     basicInformation: {
-      identityType: draft.basicInformation.creatorType === "company" ? "agency" : "individual",
+      identityType,
       fullName:
         draft.basicInformation.creatorType === "company"
-          ? draft.basicInformation.representativeName.trim() || draft.basicInformation.legalName.trim()
+          ? draft.basicInformation.companyName.trim()
           : draft.basicInformation.legalName.trim(),
+      legalName: draft.basicInformation.legalName.trim(),
+      age: draft.basicInformation.age.trim(),
+      idNumber: draft.basicInformation.idNumber.trim(),
       companyName: draft.basicInformation.companyName.trim(),
-      representativeName: draft.basicInformation.representativeName.trim(),
+      registrationId: draft.basicInformation.registrationId.trim(),
+      companyAddress: draft.basicInformation.companyAddress.trim(),
+      region: draft.basicInformation.region.trim(),
       workEmail: draft.basicInformation.email.trim(),
       phone: draft.basicInformation.phone.trim(),
       country: draft.basicInformation.country.trim(),
@@ -187,16 +213,16 @@ export function serializeCreatorApplicationDraft(draft: CreatorApplicationDraft)
       shortBio: draft.creativeInformation.bio.trim(),
     },
     identityVerification: {
-      verificationType: draft.identityVerification.verificationType,
-      documentNumber: draft.identityVerification.documentNumber.trim(),
-      issueCountry: draft.identityVerification.issueCountry.trim(),
-      taxIdOrBusinessId: draft.identityVerification.taxIdOrBusinessId.trim(),
-      frontDocumentFileName: draft.identityVerification.frontDocumentFileName.trim(),
-      backDocumentFileName: draft.identityVerification.backDocumentFileName.trim(),
-      documentFileName: draft.identityVerification.frontDocumentFileName.trim(),
-      frontDocumentFileUrl: draft.identityVerification.frontDocumentFileUrl || "",
-      backDocumentFileUrl: draft.identityVerification.backDocumentFileUrl || "",
-      documentFileUrl: draft.identityVerification.frontDocumentFileUrl || "",
+      verificationType: draft.basicInformation.creatorType === "company" ? "business_license" : draft.identityVerification.verificationType,
+      documentNumber,
+      issueCountry,
+      taxIdOrBusinessId,
+      frontDocumentFileName,
+      backDocumentFileName,
+      documentFileName: frontDocumentFileName,
+      frontDocumentFileUrl,
+      backDocumentFileUrl,
+      documentFileUrl: frontDocumentFileUrl,
     },
     agreement: {
       acceptedTerms: draft.agreement.acceptedTerms,

@@ -22,14 +22,15 @@ import { creatorApi } from "@/lib/api";
 import {
   CREATOR_APPLICATION_STEP_TITLES,
   CREATOR_APPLICATION_STORAGE_KEY,
-  CREATOR_COUNTRY_OPTIONS,
   CREATOR_GENRE_OPTIONS,
   CREATOR_LANGUAGE_OPTIONS,
   createEmptyCreatorApplicationDraft,
   deserializeCreatorApplicationDraft,
 } from "@/lib/creator";
+import { useCountryCatalog } from "@/hooks/useCountryCatalog";
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import type { CountryOption } from "@/lib/countries";
 import type { CreatorApplicationDraft, CreatorProfileType, CreatorVerificationType } from "@/types/creator";
 
 const STEP_CONFIG = [
@@ -76,21 +77,45 @@ function compactLinks(values: string[]): string[] {
   return next;
 }
 
+function isPositiveInteger(value: string): boolean {
+  return /^[1-9]\d*$/.test(value.trim());
+}
+
+function getIdentityPrimaryUploadLabel(draft: CreatorApplicationDraft): string {
+  if (draft.basicInformation.creatorType === "company") return "Registration Document";
+  return draft.identityVerification.verificationType === "passport" ? "Passport Copy" : "ID Card Front";
+}
+
+function getIdentitySecondaryUploadLabel(_draft: CreatorApplicationDraft): string {
+  return "ID Card Back";
+}
+
+function getIdentityVerificationTitle(draft: CreatorApplicationDraft): string {
+  if (draft.basicInformation.creatorType === "company") return "Business Registration";
+  return draft.identityVerification.verificationType === "passport" ? "Passport" : "Government ID";
+}
+
 function validateStep(step: number, draft: CreatorApplicationDraft): string[] {
   const errors: string[] = [];
 
   if (step === 1) {
     if (draft.basicInformation.creatorType === "company") {
       if (!draft.basicInformation.companyName.trim()) errors.push("Company name is required.");
-      if (!draft.basicInformation.representativeName.trim()) errors.push("Legal representative is required.");
-    } else if (!draft.basicInformation.legalName.trim()) {
-      errors.push("Legal name is required.");
+      if (!draft.basicInformation.registrationId.trim()) errors.push("Registration ID is required.");
+      if (!draft.basicInformation.companyAddress.trim()) errors.push("Company address is required.");
+      if (!draft.basicInformation.region.trim()) errors.push("Region is required.");
+    } else {
+      if (!draft.basicInformation.legalName.trim()) errors.push("Full name is required.");
+      if (!draft.basicInformation.age.trim()) {
+        errors.push("Age is required.");
+      } else if (!isPositiveInteger(draft.basicInformation.age)) {
+        errors.push("Age must be a valid whole number.");
+      }
+      if (!draft.basicInformation.idNumber.trim()) errors.push("ID number is required.");
     }
 
-    if (!draft.basicInformation.email.trim() && !draft.basicInformation.phone.trim()) {
-      errors.push("Provide at least one contact method: email or phone.");
-    }
-
+    if (!draft.basicInformation.email.trim()) errors.push("Email is required.");
+    if (!draft.basicInformation.phone.trim()) errors.push("Phone number is required.");
     if (!draft.basicInformation.country.trim()) errors.push("Country or region is required.");
   }
 
@@ -105,10 +130,16 @@ function validateStep(step: number, draft: CreatorApplicationDraft): string[] {
 
   if (step === 3) {
     if (!draft.identityVerification.frontDocumentFileName.trim()) {
-      errors.push("Upload the front document file.");
+      errors.push(
+        draft.basicInformation.creatorType === "company"
+          ? "Upload the registration document."
+          : draft.identityVerification.verificationType === "passport"
+            ? "Upload the passport copy."
+            : "Upload the ID card front."
+      );
     }
-    if (draft.basicInformation.creatorType === "company" && !draft.identityVerification.taxIdOrBusinessId.trim()) {
-      errors.push("Business ID or tax ID is required for company applications.");
+    if (draft.basicInformation.creatorType === "individual" && draft.identityVerification.verificationType === "government_id" && !draft.identityVerification.backDocumentFileName.trim()) {
+      errors.push("Upload the ID card back.");
     }
   }
 
@@ -137,6 +168,7 @@ interface CreatorApplicationFormProps {
 export default function CreatorApplicationForm({ step }: CreatorApplicationFormProps) {
   const router = useRouter();
   const locale = useLocale();
+  const { options: countryOptions } = useCountryCatalog(locale);
   const { token, user } = useAuth();
   const [draft, setDraft] = useState<CreatorApplicationDraft>(createDefaultDraft());
   const [ready, setReady] = useState(false);
@@ -361,7 +393,7 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
           </div>
         ) : null}
 
-        {step === 1 ? <StepBasic draft={draft} onChange={updateDraft} /> : null}
+        {step === 1 ? <StepBasic draft={draft} onChange={updateDraft} countryOptions={countryOptions} /> : null}
         {step === 2 ? <StepCreative draft={draft} onChange={updateDraft} /> : null}
         {step === 3 ? <StepIdentity draft={draft} onChange={updateDraft} /> : null}
         {step === 4 ? <StepAgreement draft={draft} onChange={updateDraft} /> : null}
@@ -462,10 +494,14 @@ function SelectField({
 }: {
   label: string;
   value: string;
-  options: readonly string[];
+  options: readonly string[] | CountryOption[];
   onChange: (value: string) => void;
   placeholder?: string;
 }) {
+  const normalizedOptions = options.map((option) =>
+    typeof option === "string" ? { value: option, label: option } : option
+  );
+
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
@@ -475,9 +511,9 @@ function SelectField({
         className="h-11 w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] px-4 text-sm text-[#0f172a] outline-none focus:border-[#1876f2] focus:bg-white"
       >
         <option value="">{placeholder}</option>
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
+        {normalizedOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
           </option>
         ))}
       </select>
@@ -498,9 +534,11 @@ function SectionCard({ title, description, children }: { title: string; descript
 function StepBasic({
   draft,
   onChange,
+  countryOptions,
 }: {
   draft: CreatorApplicationDraft;
   onChange: (updater: (current: CreatorApplicationDraft) => CreatorApplicationDraft) => void;
+  countryOptions: CountryOption[];
 }) {
   return (
     <SectionCard
@@ -523,6 +561,15 @@ function StepBasic({
                       ...current.basicInformation,
                       creatorType: option,
                     },
+                    identityVerification: {
+                      ...current.identityVerification,
+                      verificationType:
+                        option === "company"
+                          ? "business_license"
+                          : current.identityVerification.verificationType === "business_license"
+                            ? "government_id"
+                            : current.identityVerification.verificationType,
+                    },
                   }))
                 }
                 className={`rounded-2xl px-4 py-2 text-[13px] font-semibold transition ${
@@ -538,7 +585,7 @@ function StepBasic({
 
       <div className="grid gap-5 md:grid-cols-2">
         <InputField
-          label={draft.basicInformation.creatorType === "company" ? "Company Name" : "Legal Name"}
+          label={draft.basicInformation.creatorType === "company" ? "Company Name" : "Full Name"}
           value={draft.basicInformation.creatorType === "company" ? draft.basicInformation.companyName : draft.basicInformation.legalName}
           onChange={(value) =>
             onChange((current) => ({
@@ -553,27 +600,64 @@ function StepBasic({
           icon={draft.basicInformation.creatorType === "company" ? <Building2 className="h-4 w-4" /> : <User className="h-4 w-4" />}
         />
 
-        <InputField
-          label={draft.basicInformation.creatorType === "company" ? "Legal Representative" : "Display / Pen Name"}
-          value={draft.basicInformation.creatorType === "company" ? draft.basicInformation.representativeName : draft.basicInformation.legalName}
-          onChange={(value) =>
-            onChange((current) => ({
-              ...current,
-              basicInformation: {
-                ...current.basicInformation,
-                ...(current.basicInformation.creatorType === "company"
-                  ? { representativeName: value }
-                  : { legalName: value }),
-              },
-            }))
-          }
-          placeholder={draft.basicInformation.creatorType === "company" ? "Jamie Lee" : "Alex Morgan"}
-          icon={<User className="h-4 w-4" />}
-          optional={draft.basicInformation.creatorType !== "company"}
-        />
+        {draft.basicInformation.creatorType === "company" ? (
+          <InputField
+            label="Registration ID"
+            value={draft.basicInformation.registrationId}
+            onChange={(value) =>
+              onChange((current) => ({
+                ...current,
+                basicInformation: { ...current.basicInformation, registrationId: value },
+              }))
+            }
+            placeholder="US-12345678"
+            icon={<FileText className="h-4 w-4" />}
+          />
+        ) : (
+          <InputField
+            label="Age"
+            type="number"
+            value={draft.basicInformation.age}
+            onChange={(value) =>
+              onChange((current) => ({
+                ...current,
+                basicInformation: { ...current.basicInformation, age: value },
+              }))
+            }
+            placeholder="28"
+            icon={<BadgeCheck className="h-4 w-4" />}
+          />
+        )}
       </div>
 
       <div className="grid gap-5 md:grid-cols-2">
+        {draft.basicInformation.creatorType === "company" ? (
+          <InputField
+            label="Company Address"
+            value={draft.basicInformation.companyAddress}
+            onChange={(value) =>
+              onChange((current) => ({
+                ...current,
+                basicInformation: { ...current.basicInformation, companyAddress: value },
+              }))
+            }
+            placeholder="350 Fifth Avenue, New York, NY"
+            icon={<Building2 className="h-4 w-4" />}
+          />
+        ) : (
+          <InputField
+            label="ID Number"
+            value={draft.basicInformation.idNumber}
+            onChange={(value) =>
+              onChange((current) => ({
+                ...current,
+                basicInformation: { ...current.basicInformation, idNumber: value },
+              }))
+            }
+            placeholder="A123456789"
+            icon={<ShieldCheck className="h-4 w-4" />}
+          />
+        )}
         <InputField
           label="Email"
           type="email"
@@ -586,8 +670,10 @@ function StepBasic({
           }
           placeholder="creator@studio.com"
           icon={<Mail className="h-4 w-4" />}
-          optional={!draft.basicInformation.phone.trim()}
         />
+      </div>
+
+      <div className="grid gap-5 md:grid-cols-2">
         <InputField
           label="Phone Number"
           value={draft.basicInformation.phone}
@@ -599,14 +685,29 @@ function StepBasic({
           }
           placeholder="+1 555 010 3000"
           icon={<Phone className="h-4 w-4" />}
-          optional={!draft.basicInformation.email.trim()}
         />
+        {draft.basicInformation.creatorType === "company" ? (
+          <InputField
+            label="Region"
+            value={draft.basicInformation.region}
+            onChange={(value) =>
+              onChange((current) => ({
+                ...current,
+                basicInformation: { ...current.basicInformation, region: value },
+              }))
+            }
+            placeholder="California"
+            icon={<Globe2 className="h-4 w-4" />}
+          />
+        ) : (
+          <div />
+        )}
       </div>
 
       <SelectField
         label="Country / Region"
         value={draft.basicInformation.country}
-        options={CREATOR_COUNTRY_OPTIONS}
+        options={countryOptions}
         onChange={(value) =>
           onChange((current) => ({
             ...current,
@@ -617,7 +718,9 @@ function StepBasic({
       />
 
       <div className="rounded-2xl border border-[#dbeafe] bg-[#eff6ff] px-4 py-3 text-sm text-[#1d4ed8]">
-        At least one contact method is required. Company applications must include both the company entity and its legal representative.
+        {draft.basicInformation.creatorType === "company"
+          ? "Company applications require the legal entity record, registration identifier, mailing address, and operating region."
+          : "Individual applications require the creator's legal profile, age, ID number, and direct contact information."}
       </div>
     </SectionCard>
   );
@@ -774,18 +877,31 @@ function StepIdentity({
   onChange: (updater: (current: CreatorApplicationDraft) => CreatorApplicationDraft) => void;
 }) {
   const frontInputRef = useRef<HTMLInputElement>(null);
-  const backInputRef = useRef<HTMLInputElement>(null);
+  const secondaryInputRef = useRef<HTMLInputElement>(null);
+  const verificationOptions =
+    draft.basicInformation.creatorType === "company"
+      ? VERIFICATION_OPTIONS.filter((option) => option.value === "business_license")
+      : VERIFICATION_OPTIONS.filter((option) => option.value !== "business_license");
+  const showSecondaryUpload =
+    draft.basicInformation.creatorType === "individual" && draft.identityVerification.verificationType === "government_id";
 
   return (
     <SectionCard
       title="Identity verification"
-      description="Identity and rights verification are required before TinyTale enables uploads, contracts, and payouts."
+      description={
+        draft.basicInformation.creatorType === "company"
+          ? "Upload the company registration document used to verify the legal entity before creator access is activated."
+          : "Upload the identity document that matches your creator profile. TinyTale uses this to verify the applicant before uploads and payouts are enabled."
+      }
     >
       <div>
         <FieldLabel>Verification Document</FieldLabel>
-        <div className="grid gap-3 md:grid-cols-3">
-          {VERIFICATION_OPTIONS.map((option) => {
-            const active = draft.identityVerification.verificationType === option.value;
+        <div className={`grid gap-3 ${verificationOptions.length > 1 ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
+          {verificationOptions.map((option) => {
+            const active =
+              draft.basicInformation.creatorType === "company"
+                ? option.value === "business_license"
+                : draft.identityVerification.verificationType === option.value;
             return (
               <button
                 key={option.value}
@@ -793,7 +909,10 @@ function StepIdentity({
                 onClick={() =>
                   onChange((current) => ({
                     ...current,
-                    identityVerification: { ...current.identityVerification, verificationType: option.value },
+                    identityVerification: {
+                      ...current.identityVerification,
+                      verificationType: option.value,
+                    },
                   }))
                 }
                 className={`rounded-2xl border-2 p-3.5 text-left transition ${
@@ -808,49 +927,9 @@ function StepIdentity({
         </div>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <InputField
-          label="Document Number"
-          value={draft.identityVerification.documentNumber}
-          onChange={(value) =>
-            onChange((current) => ({
-              ...current,
-              identityVerification: { ...current.identityVerification, documentNumber: value },
-            }))
-          }
-          placeholder="Optional for now"
-          optional
-        />
-        <InputField
-          label={draft.basicInformation.creatorType === "company" ? "Business ID / Tax ID" : "Tax ID / Business ID"}
-          value={draft.identityVerification.taxIdOrBusinessId}
-          onChange={(value) =>
-            onChange((current) => ({
-              ...current,
-              identityVerification: { ...current.identityVerification, taxIdOrBusinessId: value },
-            }))
-          }
-          placeholder={draft.basicInformation.creatorType === "company" ? "Company tax ID" : "Optional"}
-          optional={draft.basicInformation.creatorType !== "company"}
-        />
-      </div>
-
-      <SelectField
-        label="Issue Country"
-        value={draft.identityVerification.issueCountry}
-        options={CREATOR_COUNTRY_OPTIONS}
-        onChange={(value) =>
-          onChange((current) => ({
-            ...current,
-            identityVerification: { ...current.identityVerification, issueCountry: value },
-          }))
-        }
-        placeholder="Country that issued the document"
-      />
-
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className={`grid gap-4 ${showSecondaryUpload ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
         <UploadCard
-          label="Front Document"
+          label={getIdentityPrimaryUploadLabel(draft)}
           fileName={draft.identityVerification.frontDocumentFileName}
           inputRef={frontInputRef}
           onSelect={(file) =>
@@ -863,25 +942,30 @@ function StepIdentity({
             }))
           }
         />
-        <UploadCard
-          label="Back Document"
-          fileName={draft.identityVerification.backDocumentFileName}
-          inputRef={backInputRef}
-          optional
-          onSelect={(file) =>
-            onChange((current) => ({
-              ...current,
-              identityVerification: {
-                ...current.identityVerification,
-                backDocumentFileName: file.name,
-              },
-            }))
-          }
-        />
+        {showSecondaryUpload ? (
+          <UploadCard
+            label={getIdentitySecondaryUploadLabel(draft)}
+            fileName={draft.identityVerification.backDocumentFileName}
+            inputRef={secondaryInputRef}
+            onSelect={(file) =>
+              onChange((current) => ({
+                ...current,
+                identityVerification: {
+                  ...current.identityVerification,
+                  backDocumentFileName: file.name,
+                },
+              }))
+            }
+          />
+        ) : null}
       </div>
 
       <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fbff] px-4 py-3 text-sm leading-6 text-[#1e3a8a]">
-        TinyTale currently stores uploaded filenames locally in the frontend draft. Backend file verification URLs will be plugged into the same fields when the verification upload pipeline is completed.
+        {draft.basicInformation.creatorType === "company"
+          ? "Company accounts submit one registration file in this step. Registration ID, address, country, and region stay linked to the first step and are preserved when you move backward."
+          : draft.identityVerification.verificationType === "passport"
+            ? "Passport verification requires one passport image or PDF. Your Step 1 identity details stay intact if you go back to edit them."
+            : "Government ID verification requires both the front and back of the ID card. Your Step 1 profile details stay intact if you go back to edit them."}
       </div>
     </SectionCard>
   );
@@ -1065,7 +1149,6 @@ function StepReview({
   onSaveDraft: () => void;
   submitting: boolean;
 }) {
-  const contactValue = draft.basicInformation.email.trim() || draft.basicInformation.phone.trim() || "-";
   const primaryName = draft.basicInformation.creatorType === "company" ? draft.basicInformation.companyName || "-" : draft.basicInformation.legalName || "-";
 
   return (
@@ -1073,9 +1156,21 @@ function StepReview({
       <ReviewCard title="Basic Information" icon={<User className="h-5 w-5 text-[#1876f2]" />} onEdit={() => onEdit(1)}>
         <div className="grid gap-4 md:grid-cols-2">
           <ReviewField label="Applicant Type" value={draft.basicInformation.creatorType === "company" ? "Company / Studio" : "Individual Creator"} />
-          <ReviewField label="Primary Name" value={primaryName} />
-          {draft.basicInformation.creatorType === "company" ? <ReviewField label="Representative" value={draft.basicInformation.representativeName || "-"} /> : null}
-          <ReviewField label="Contact" value={contactValue} />
+          <ReviewField label={draft.basicInformation.creatorType === "company" ? "Company Name" : "Full Name"} value={primaryName} />
+          {draft.basicInformation.creatorType === "company" ? (
+            <>
+              <ReviewField label="Registration ID" value={draft.basicInformation.registrationId || "-"} />
+              <ReviewField label="Company Address" value={draft.basicInformation.companyAddress || "-"} />
+              <ReviewField label="Region" value={draft.basicInformation.region || "-"} />
+            </>
+          ) : (
+            <>
+              <ReviewField label="Age" value={draft.basicInformation.age || "-"} />
+              <ReviewField label="ID Number" value={draft.basicInformation.idNumber || "-"} />
+            </>
+          )}
+          <ReviewField label="Email" value={draft.basicInformation.email || "-"} />
+          <ReviewField label="Phone Number" value={draft.basicInformation.phone || "-"} />
           <ReviewField label="Country / Region" value={draft.basicInformation.country || "-"} />
         </div>
       </ReviewCard>
@@ -1089,10 +1184,11 @@ function StepReview({
 
       <ReviewCard title="Identity Verification" icon={<ShieldCheck className="h-5 w-5 text-[#1876f2]" />} onEdit={() => onEdit(3)}>
         <div className="grid gap-4 md:grid-cols-2">
-          <ReviewField label="Verification Type" value={VERIFICATION_OPTIONS.find((item) => item.value === draft.identityVerification.verificationType)?.title || "-"} />
-          <ReviewField label="Issue Country" value={draft.identityVerification.issueCountry || "-"} />
-          <ReviewField label="Front Document" value={draft.identityVerification.frontDocumentFileName || "-"} />
-          <ReviewField label="Back Document" value={draft.identityVerification.backDocumentFileName || "-"} />
+          <ReviewField label="Verification Type" value={getIdentityVerificationTitle(draft)} />
+          <ReviewField label={getIdentityPrimaryUploadLabel(draft)} value={draft.identityVerification.frontDocumentFileName || "-"} />
+          {draft.basicInformation.creatorType === "individual" && draft.identityVerification.verificationType === "government_id" ? (
+            <ReviewField label={getIdentitySecondaryUploadLabel(draft)} value={draft.identityVerification.backDocumentFileName || "-"} />
+          ) : null}
         </div>
       </ReviewCard>
 

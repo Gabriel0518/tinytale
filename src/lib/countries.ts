@@ -1,9 +1,31 @@
 // Unified country/region system for TinyTale
 // All pages that need country selection should import from here.
 
+import type { SupportedLocale } from "@/lib/i18n";
+
 export interface CountryGroup {
   label: string;
   countries: string[];
+}
+
+export interface CountryCatalogItem {
+  _id?: string;
+  countryEn: string;
+  countryCn: string;
+  alpha2: string;
+  alpha3: string;
+  timezone: string;
+  currencyCode: string;
+  currencySymbol: string;
+  currencyName: string;
+  tier: number;
+  enabled: boolean;
+}
+
+export interface CountryOption {
+  value: string;
+  label: string;
+  alpha2: string;
 }
 
 export const COUNTRY_GROUPS: CountryGroup[] = [
@@ -27,3 +49,20 @@ export const COUNTRY_GROUPS: CountryGroup[] = [
 ];
 
 export const ALL_COUNTRIES: string[] = COUNTRY_GROUPS.flatMap(g => g.countries);
+
+export function getCountryDisplayName(country: Pick<CountryCatalogItem, "countryEn" | "countryCn">, locale: SupportedLocale): string {
+  if (locale === "zh" && country.countryCn.trim()) {
+    return country.countryCn.trim();
+  }
+  return country.countryEn.trim();
+}
+
+export function mapCountryCatalogToOptions(items: CountryCatalogItem[], locale: SupportedLocale): CountryOption[] {
+  return items
+    .filter((item) => item.enabled !== false && item.countryEn.trim())
+    .map((item) => ({
+      value: item.countryEn.trim(),
+      label: getCountryDisplayName(item, locale),
+      alpha2: item.alpha2.trim().toUpperCase(),
+    }));
+}

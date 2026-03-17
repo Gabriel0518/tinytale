@@ -8,6 +8,7 @@ import { ChevronLeft, FileText, Loader2, ShieldCheck } from "lucide-react";
 import { creatorApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
+import { useCountryCatalog } from "@/hooks/useCountryCatalog";
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import type { CreatorSettlementTaxInfo } from "@/types/creator";
@@ -58,6 +59,7 @@ function formatDate(value: string | null) {
 
 export default function CreatorSettlementTaxInformationPage() {
   const locale = useLocale();
+  const { options: countryOptions } = useCountryCatalog(locale);
   const { token } = useAuth();
   const { toast } = useToast();
 
@@ -252,7 +254,18 @@ export default function CreatorSettlementTaxInformationPage() {
           </div>
           <div>
             <FieldLabel>Country</FieldLabel>
-            <input className={inputClassName} value={form.country} onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))} />
+            <select
+              className={inputClassName}
+              value={form.country}
+              onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))}
+            >
+              <option value="">Select country</option>
+              {countryOptions.map((option) => (
+                <option key={`${option.alpha2}-${option.value}`} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="md:col-span-2">
             <FieldLabel>Certification Signature</FieldLabel>
