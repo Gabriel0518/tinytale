@@ -12,6 +12,7 @@ import { localizePath, removeLocalePrefix } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import CreatorSidebar from "./_components/CreatorSidebar";
 import CreatorTopHeader from "./_components/CreatorTopHeader";
+import CreatorI18nProvider from "./_components/CreatorI18nProvider";
 
 const APPROVED_ONLY_PREFIXES = [
   "/creator/dashboard",
@@ -138,47 +139,51 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
 
   if (authLoading || checking) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f5f7f8]">
-        <div className="h-9 w-9 animate-spin rounded-full border-2 border-[#1877F2] border-t-transparent" />
-      </div>
+      <CreatorI18nProvider locale={locale}>
+        <div className="flex min-h-screen items-center justify-center bg-[#f5f7f8]">
+          <div className="h-9 w-9 animate-spin rounded-full border-2 border-[#1877F2] border-t-transparent" />
+        </div>
+      </CreatorI18nProvider>
     );
   }
 
   if (isLanding) {
-    return <>{children}</>;
+    return <CreatorI18nProvider locale={locale}>{children}</CreatorI18nProvider>;
   }
 
   if (!isApprovedOnlyPath) {
-    return <>{children}</>;
+    return <CreatorI18nProvider locale={locale}>{children}</CreatorI18nProvider>;
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f7f8]">
-      <CreatorSidebar locale={locale} normalizedPath={normalizedPath} user={user} />
-      <div className="min-h-screen lg:ml-[272px]">
-        <CreatorTopHeader locale={locale} />
-        <nav className="border-b border-[#e2e8f0] bg-white px-4 py-2 lg:hidden">
-          <div className="flex gap-2 overflow-x-auto">
-            {MOBILE_NAV_ITEMS.map((item) => {
-              const active = normalizedPath === item.href || normalizedPath.startsWith(`${item.href}/`);
-              return (
-                <Link
-                  key={item.href}
-                  href={localizePath(item.href, locale)}
-                  className={`whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold ${
-                    active ? "bg-[#dbeafe] text-[#1d4ed8]" : "bg-[#f8fafc] text-[#475569]"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
-        <main className="p-4 md:p-5 lg:px-6 lg:py-6 xl:px-8 xl:py-7 2xl:px-10">
-          <div className="mx-auto w-full max-w-[1320px]">{children}</div>
-        </main>
+    <CreatorI18nProvider locale={locale}>
+      <div className="min-h-screen bg-[#f5f7f8]">
+        <CreatorSidebar locale={locale} normalizedPath={normalizedPath} user={user} />
+        <div className="min-h-screen lg:ml-[272px]">
+          <CreatorTopHeader locale={locale} />
+          <nav className="border-b border-[#e2e8f0] bg-white px-4 py-2 lg:hidden">
+            <div className="flex gap-2 overflow-x-auto">
+              {MOBILE_NAV_ITEMS.map((item) => {
+                const active = normalizedPath === item.href || normalizedPath.startsWith(`${item.href}/`);
+                return (
+                  <Link
+                    key={item.href}
+                    href={localizePath(item.href, locale)}
+                    className={`whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold ${
+                      active ? "bg-[#dbeafe] text-[#1d4ed8]" : "bg-[#f8fafc] text-[#475569]"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+          <main className="p-4 md:p-5 lg:px-6 lg:py-6 xl:px-8 xl:py-7 2xl:px-10">
+            <div className="mx-auto w-full max-w-[1320px]">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </CreatorI18nProvider>
   );
 }
