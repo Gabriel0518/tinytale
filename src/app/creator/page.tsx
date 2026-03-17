@@ -26,44 +26,6 @@ import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
 
-const stats = [
-  {
-    label: "UP TO 60%",
-    value: "Revenue share",
-    description: "For top-tier creators publishing high-performing drama catalogs.",
-  },
-  {
-    label: "48 HOURS",
-    value: "Review turnaround",
-    description: "Most creator applications are reviewed within two business days.",
-  },
-  {
-    label: "$0 UPFRONT",
-    value: "No fees, ever",
-    description: "No deposits, onboarding costs, or hidden platform charges.",
-  },
-  {
-    label: "MONTHLY",
-    value: "USD payouts",
-    description: "Settle earnings to your verified bank account every month.",
-  },
-];
-
-const heroSignals = [
-  {
-    title: "Dedicated drama audience",
-    description: "TinyTale viewers open the platform to binge vertical series, not to scroll past unrelated content.",
-  },
-  {
-    title: "Built-in creator operations",
-    description: "Upload episodes, manage subtitles, watch analytics, and handle settlements without third-party tools.",
-  },
-  {
-    title: "Predictable monthly payouts",
-    description: "Coin unlock revenue settles in USD with transparent breakdowns and creator-side support tracking.",
-  },
-];
-
 const whyTinyTale = [
   {
     title: "Viewers come here to watch dramas.",
@@ -334,59 +296,23 @@ export default function CreatorLandingPage() {
       </header>
 
       <main className="mx-auto flex w-full max-w-[1320px] flex-col gap-6 px-4 pb-16 pt-6 md:px-6 xl:px-0">
-        <section className="relative overflow-hidden rounded-[32px] border border-[#dbe2ea] bg-[#0f172a] px-5 py-8 text-white md:px-8 md:py-10 lg:px-10 lg:py-12">
+        <section className="relative overflow-hidden rounded-[32px] border border-[#dbe2ea] bg-[#0f172a] px-5 py-10 text-white md:px-8 md:py-12 lg:px-10 lg:py-14">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.26),_transparent_42%),radial-gradient(circle_at_80%_20%,_rgba(236,72,153,0.18),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(148,163,184,0.18),_transparent_38%)]" />
-          <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1.08fr)_minmax(440px,0.92fr)] lg:items-stretch">
-            <div className="flex flex-col justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#93c5fd]">Now Accepting Creators</p>
-              <h1 className="mt-4 max-w-[760px] text-[38px] font-black leading-[0.96] tracking-[-0.05em] sm:text-[46px] md:text-[54px] lg:text-[58px] xl:text-[64px]">
-                Your stories deserve an audience and a paycheck.
-              </h1>
-              <p className="mt-5 max-w-[760px] text-[15px] leading-7 text-[#cbd5e1] md:text-[17px]">
-                TinyTale is the premium short drama platform where creators earn up to 60% revenue share in USD. No follower minimums. No algorithm lottery. Just great stories, real viewers, and monthly payouts.
-              </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1877F2] px-6 py-3 text-[14px] font-bold shadow-[0_12px_30px_rgba(24,119,242,0.35)] transition hover:bg-[#166fe5]"
-                  href={localizePath("/creator/apply", locale)}
-                >
-                  Apply to Create
-                  <ArrowRight className="size-4" />
-                </Link>
-                <a
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-[14px] font-bold text-white backdrop-blur-sm transition hover:bg-white/15"
-                  href="#how-it-works"
-                >
-                  See How It Works
-                </a>
-              </div>
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-[#cbd5e1] md:text-sm">
-                <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1">No credit card required</span>
-                <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1">48-hour review</span>
-                <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1">Monthly USD settlements</span>
-              </div>
-
-              <div className="mt-8 grid gap-3 md:grid-cols-3">
-                {heroSignals.map((item) => (
-                  <article
-                    key={item.title}
-                    className="rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.04))] px-4 py-4 backdrop-blur-sm"
-                  >
-                    <p className="text-sm font-bold text-white">{item.title}</p>
-                    <p className="mt-2 text-[13px] leading-6 text-[#cbd5e1]">{item.description}</p>
-                  </article>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              {stats.map((item) => (
-                <article key={item.label} className="flex h-full min-h-[182px] flex-col rounded-[24px] border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#93c5fd]">{item.label}</p>
-                  <p className="mt-3 text-[24px] font-black leading-none text-white">{item.value}</p>
-                  <p className="mt-3 text-sm leading-6 text-[#cbd5e1]">{item.description}</p>
-                </article>
-              ))}
+          <div className="relative max-w-[760px]">
+            <h1 className="text-[38px] font-black leading-[0.96] tracking-[-0.05em] sm:text-[46px] md:text-[54px] lg:text-[58px] xl:text-[64px]">
+              Your stories deserve an audience and a paycheck.
+            </h1>
+            <p className="mt-5 max-w-[680px] text-[15px] leading-7 text-[#cbd5e1] md:text-[17px]">
+              Publish premium short dramas on TinyTale and turn strong storytelling into real revenue with a platform built for vertical series.
+            </p>
+            <div className="mt-8">
+              <Link
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1877F2] px-6 py-3 text-[14px] font-bold shadow-[0_12px_30px_rgba(24,119,242,0.35)] transition hover:bg-[#166fe5]"
+                href={localizePath("/creator/apply", locale)}
+              >
+                Apply to Create
+                <ArrowRight className="size-4" />
+              </Link>
             </div>
           </div>
         </section>
