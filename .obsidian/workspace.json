@@ -185,6 +185,8 @@
   },
   "active": "4bbb157e605faead",
   "lastOpenFiles": [
+    "src/app/admin/creators/layout.tsx",
+    "src/app/admin/creators/dmca/page.tsx",
     "src/app/admin/creators/settlements/page.tsx",
     "src/app/admin/creators/payout-requests/page.tsx",
     "src/app/admin/creators/bank-accounts/page.tsx",
@@ -194,8 +196,6 @@
     "src/app/admin/creators/tickets/page.tsx",
     "src/app/admin/creators/policies/page.tsx",
     "src/app/admin/creators/revenue/page.tsx",
-    "src/app/admin/creators/dmca/page.tsx",
-    "src/app/admin/creators/[id]/page.tsx",
     "docs/CREATOR_CENTER_DESKTOP_BASELINE.md",
     "2026-03-16.md",
     "FixPlan.md",
