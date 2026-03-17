@@ -9,12 +9,15 @@ import {
   BriefcaseBusiness,
   Building2,
   Check,
+  ExternalLink,
   FileText,
   Globe2,
   Link as LinkIcon,
+  Loader2,
   Mail,
   Phone,
   ShieldCheck,
+  Trash2,
   Upload,
   User,
 } from "lucide-react";
@@ -94,6 +97,16 @@ function getIdentitySecondaryUploadLabel(_draft: CreatorApplicationDraft): strin
 function getIdentityVerificationTitle(draft: CreatorApplicationDraft): string {
   if (draft.basicInformation.creatorType === "company") return "Business Registration";
   return draft.identityVerification.verificationType === "passport" ? "Passport" : "Government ID";
+}
+
+function isImageDocument(fileName: string, fileUrl?: string): boolean {
+  const source = `${fileName} ${fileUrl || ""}`.toLowerCase();
+  return /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?|$)/i.test(source);
+}
+
+function isPdfDocument(fileName: string, fileUrl?: string): boolean {
+  const source = `${fileName} ${fileUrl || ""}`.toLowerCase();
+  return /\.pdf(\?|$)/i.test(source);
 }
 
 function validateStep(step: number, draft: CreatorApplicationDraft): string[] {
@@ -397,7 +410,7 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
 
         {step === 1 ? <StepBasic draft={draft} onChange={updateDraft} countryOptions={countryOptions} /> : null}
         {step === 2 ? <StepCreative draft={draft} onChange={updateDraft} /> : null}
-        {step === 3 ? <StepIdentity draft={draft} onChange={updateDraft} /> : null}
+        {step === 3 ? <StepIdentity draft={draft} onChange={updateDraft} token={token} /> : null}
         {step === 4 ? <StepAgreement draft={draft} onChange={updateDraft} /> : null}
         {step === 5 ? <StepReview draft={draft} onEdit={pushStep} onSubmit={handleSubmit} onSaveDraft={handleSaveDraft} submitting={submitting} /> : null}
 
@@ -910,9 +923,11 @@ function StepCreative({
 function StepIdentity({
   draft,
   onChange,
+  token,
 }: {
   draft: CreatorApplicationDraft;
   onChange: (updater: (current: CreatorApplicationDraft) => CreatorApplicationDraft) => void;
+  token?: string | null;
 }) {
   const frontInputRef = useRef<HTMLInputElement>(null);
   const secondaryInputRef = useRef<HTMLInputElement>(null);
@@ -922,6 +937,67 @@ function StepIdentity({
       : VERIFICATION_OPTIONS.filter((option) => option.value !== "business_license");
   const showSecondaryUpload =
     draft.basicInformation.creatorType === "individual" && draft.identityVerification.verificationType === "government_id";
+
+  async function persistIdentityDraft(updater: (current: CreatorApplicationDraft) => CreatorApplicationDraft) {
+    const nextDraft = {
+      ...updater(draft),
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (token) {
+      await creatorApi.saveApplicationDraft(token, nextDraft);
+    }
+
+    onChange(() => nextDraft);
+    return nextDraft;
+  }
+
+  async function handleDocumentSelect(target: "front" | "back", file: File) {
+    if (!token) {
+      throw new Error("Please sign in again before uploading files.");
+    }
+
+    const uploaded = await creatorApi.uploadApplicationDocument(token, file);
+    const nameField = target === "front" ? "frontDocumentFileName" : "backDocumentFileName";
+    const urlField = target === "front" ? "frontDocumentFileUrl" : "backDocumentFileUrl";
+
+    try {
+      await persistIdentityDraft((current) => ({
+        ...current,
+        identityVerification: {
+          ...current.identityVerification,
+          [nameField]: uploaded.data.filename,
+          [urlField]: uploaded.data.url,
+        },
+      }));
+    } catch (error) {
+      try {
+        await creatorApi.deleteApplicationDocument(token, uploaded.data.url);
+      } catch {
+        // Ignore cleanup failures and surface the original error.
+      }
+      throw error;
+    }
+  }
+
+  async function handleDocumentRemove(target: "front" | "back") {
+    const nameField = target === "front" ? "frontDocumentFileName" : "backDocumentFileName";
+    const urlField = target === "front" ? "frontDocumentFileUrl" : "backDocumentFileUrl";
+    const existingUrl = target === "front" ? draft.identityVerification.frontDocumentFileUrl : draft.identityVerification.backDocumentFileUrl;
+
+    if (existingUrl && token) {
+      await creatorApi.deleteApplicationDocument(token, existingUrl);
+    }
+
+    await persistIdentityDraft((current) => ({
+      ...current,
+      identityVerification: {
+        ...current.identityVerification,
+        [nameField]: "",
+        [urlField]: "",
+      },
+    }));
+  }
 
   return (
     <SectionCard
@@ -969,31 +1045,19 @@ function StepIdentity({
         <UploadCard
           label={getIdentityPrimaryUploadLabel(draft)}
           fileName={draft.identityVerification.frontDocumentFileName}
+          fileUrl={draft.identityVerification.frontDocumentFileUrl}
           inputRef={frontInputRef}
-          onSelect={(file) =>
-            onChange((current) => ({
-              ...current,
-              identityVerification: {
-                ...current.identityVerification,
-                frontDocumentFileName: file.name,
-              },
-            }))
-          }
+          onSelect={(file) => handleDocumentSelect("front", file)}
+          onRemove={() => handleDocumentRemove("front")}
         />
         {showSecondaryUpload ? (
           <UploadCard
             label={getIdentitySecondaryUploadLabel(draft)}
             fileName={draft.identityVerification.backDocumentFileName}
+            fileUrl={draft.identityVerification.backDocumentFileUrl}
             inputRef={secondaryInputRef}
-            onSelect={(file) =>
-              onChange((current) => ({
-                ...current,
-                identityVerification: {
-                  ...current.identityVerification,
-                  backDocumentFileName: file.name,
-                },
-              }))
-            }
+            onSelect={(file) => handleDocumentSelect("back", file)}
+            onRemove={() => handleDocumentRemove("back")}
           />
         ) : null}
       </div>
@@ -1012,38 +1076,125 @@ function StepIdentity({
 function UploadCard({
   label,
   fileName,
+  fileUrl,
   inputRef,
   onSelect,
+  onRemove,
   optional,
 }: {
   label: string;
   fileName: string;
-  inputRef: React.RefObject<HTMLInputElement>;
-  onSelect: (file: File) => void;
+  fileUrl?: string;
+  inputRef: React.MutableRefObject<HTMLInputElement | null>;
+  onSelect: (file: File) => Promise<void> | void;
+  onRemove?: () => Promise<void> | void;
   optional?: boolean;
 }) {
+  const [busy, setBusy] = useState<"uploading" | "removing" | null>(null);
+  const [error, setError] = useState("");
+  const hasFile = Boolean(fileName || fileUrl);
+  const previewIsImage = isImageDocument(fileName, fileUrl);
+  const previewIsPdf = isPdfDocument(fileName, fileUrl);
+
+  async function handleSelection(file: File) {
+    setBusy("uploading");
+    setError("");
+    try {
+      await onSelect(file);
+    } catch (selectError: any) {
+      setError(selectError?.message || "Upload failed. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleRemove() {
+    if (!onRemove) return;
+    setBusy("removing");
+    setError("");
+    try {
+      await onRemove();
+    } catch (removeError: any) {
+      setError(removeError?.message || "Failed to remove file. Please try again.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div>
       <FieldLabel optional={optional}>{label}</FieldLabel>
-      <label
-        className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#cbd5e1] bg-[#f8fafc] px-4 py-6 text-center hover:border-[#93c5fd] hover:bg-[#f0f7ff]"
+      <button
+        type="button"
+        disabled={busy !== null}
+        className="flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#cbd5e1] bg-[#f8fafc] px-4 py-6 text-center transition hover:border-[#93c5fd] hover:bg-[#f0f7ff] disabled:cursor-not-allowed disabled:opacity-70"
         onClick={() => inputRef.current?.click()}
       >
-        <Upload className="h-6 w-6 text-[#94a3b8]" />
-        <p className="mt-2 text-sm font-semibold text-[#334155]">{fileName || `Select ${label}`}</p>
+        {busy === "uploading" ? <Loader2 className="h-6 w-6 animate-spin text-[#1876f2]" /> : <Upload className="h-6 w-6 text-[#94a3b8]" />}
+        <p className="mt-2 text-sm font-semibold text-[#334155]">{busy === "uploading" ? "Uploading..." : fileName || `Select ${label}`}</p>
         <p className="mt-1 text-xs text-[#94a3b8]">JPG, PNG, or PDF up to 10MB</p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".jpg,.jpeg,.png,.pdf"
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) onSelect(file);
-            event.currentTarget.value = "";
-          }}
-        />
-      </label>
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".jpg,.jpeg,.png,.pdf"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) {
+            void handleSelection(file);
+          }
+          event.currentTarget.value = "";
+        }}
+      />
+      {error ? <p className="mt-2 text-xs font-medium text-[#dc2626]">{error}</p> : null}
+      {hasFile ? (
+        <div className="mt-3 rounded-2xl border border-[#dbe2ea] bg-white p-3 shadow-sm">
+          <div className="flex items-start gap-3">
+            {previewIsImage && fileUrl ? (
+              <img
+                src={fileUrl}
+                alt="Uploaded file"
+                className="h-16 w-16 rounded-xl border border-[#e2e8f0] object-cover"
+              />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl border border-[#e2e8f0] bg-[#f8fafc] text-[#475569]">
+                <FileText className="h-6 w-6" />
+              </div>
+            )}
+
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#94a3b8]">Uploaded file</p>
+              <p className="mt-1 truncate text-sm font-semibold text-[#0f172a]">{fileName || label}</p>
+              <p className="mt-1 text-xs text-[#64748b]">{previewIsPdf ? "PDF" : previewIsImage ? "Image" : "Document"}</p>
+              {fileUrl ? (
+                <a
+                  href={fileUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#1876f2] hover:text-[#1669da]"
+                >
+                  Open file
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              ) : null}
+            </div>
+
+            {onRemove ? (
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={handleRemove}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#fecaca] bg-[#fff1f2] text-[#dc2626] transition hover:bg-[#ffe4e6] disabled:cursor-not-allowed disabled:opacity-70"
+                aria-label="Remove file"
+                title="Remove file"
+              >
+                {busy === "removing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

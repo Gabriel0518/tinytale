@@ -524,6 +524,30 @@ export const creatorApi = {
   submitApplication: (token: string, draft: CreatorApplicationDraft) =>
     api.post('/api/creator/application/submit', serializeCreatorApplicationDraft(draft), { token }),
 
+  uploadApplicationDocument: async (token: string, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch(`${API_URL}/api/creator/application/document`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Application document upload failed');
+    }
+    return data as {
+      success: boolean;
+      data: { url: string; key: string; filename: string; contentType: string; size: number };
+    };
+  },
+
+  deleteApplicationDocument: (token: string, url: string) =>
+    api.delete<{ success: boolean; data: { deleted: boolean; key: string } }>(
+      `/api/creator/application/document?url=${encodeURIComponent(url)}`,
+      { token }
+    ),
+
   getDashboardOverview: (token: string) =>
     api.get<{ success: boolean; data: CreatorDashboardOverview }>('/api/creator/dashboard/overview', { token }),
 
