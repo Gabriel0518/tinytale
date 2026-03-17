@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/authContext";
 import { creatorApi } from "@/lib/api";
+import { useToast } from "@/components/ui/Toast";
 import {
   CREATOR_APPLICATION_STEP_TITLES,
   CREATOR_APPLICATION_STORAGE_KEY,
@@ -629,11 +630,13 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
   const locale = useLocale();
   const { options: countryOptions } = useCountryCatalog(locale);
   const { token, user } = useAuth();
+  const { toast } = useToast();
   const [draft, setDraft] = useState<CreatorApplicationDraft>(createDefaultDraft());
   const [ready, setReady] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const progressPercent = Math.round((step / STEP_CONFIG.length) * 100);
 
   useEffect(() => {
@@ -717,12 +720,20 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
   }
 
   async function handleSaveDraft() {
+    setSavingDraft(true);
+    setSubmitError("");
     try {
       const next = { ...draft, updatedAt: new Date().toISOString() };
       persistLocal(next);
       await persistRemote(next);
+      toast("Draft Saved", "success");
+      router.push(localizePath("/creator", locale));
     } catch (error: any) {
-      setSubmitError(error?.message || "Failed to save draft.");
+      const message = error?.message || "Failed to save draft.";
+      setSubmitError(message);
+      toast(message, "error");
+    } finally {
+      setSavingDraft(false);
     }
   }
 
@@ -856,7 +867,16 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
         {step === 2 ? <StepCreative draft={draft} onChange={updateDraft} /> : null}
         {step === 3 ? <StepIdentity draft={draft} onChange={updateDraft} token={token} /> : null}
         {step === 4 ? <StepAgreement draft={draft} onChange={updateDraft} /> : null}
-        {step === 5 ? <StepReview draft={draft} onEdit={pushStep} onSubmit={handleSubmit} onSaveDraft={handleSaveDraft} submitting={submitting} /> : null}
+        {step === 5 ? (
+          <StepReview
+            draft={draft}
+            onEdit={pushStep}
+            onSubmit={handleSubmit}
+            onSaveDraft={handleSaveDraft}
+            submitting={submitting}
+            savingDraft={savingDraft}
+          />
+        ) : null}
 
         <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-[#e2e8f0] pt-5">
           <div className="flex items-center gap-3">
@@ -873,9 +893,11 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
             <button
               type="button"
               onClick={handleSaveDraft}
-              className="rounded-xl border border-[#dbe2ea] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569] hover:bg-[#f8fafc]"
+              disabled={savingDraft}
+              className="inline-flex items-center gap-2 rounded-xl border border-[#dbe2ea] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Save Draft
+              {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {savingDraft ? "Saving Draft..." : "Save Draft"}
             </button>
           </div>
 
@@ -1776,12 +1798,14 @@ function StepReview({
   onSubmit,
   onSaveDraft,
   submitting,
+  savingDraft,
 }: {
   draft: CreatorApplicationDraft;
   onEdit: (step: number) => void;
   onSubmit: () => void;
-  onSaveDraft: () => void;
+  onSaveDraft: () => Promise<void> | void;
   submitting: boolean;
+  savingDraft: boolean;
 }) {
   const primaryName = draft.basicInformation.creatorType === "company" ? draft.basicInformation.companyName || "-" : draft.basicInformation.legalName || "-";
 
@@ -1845,9 +1869,11 @@ function StepReview({
           <button
             type="button"
             onClick={onSaveDraft}
-            className="rounded-full border border-white/20 bg-white/5 px-4 py-2 text-[13px] font-semibold text-white hover:bg-white/10"
+            disabled={savingDraft}
+            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-[13px] font-semibold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Save Draft
+            {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {savingDraft ? "Saving Draft..." : "Save Draft"}
           </button>
           <button
             type="button"
