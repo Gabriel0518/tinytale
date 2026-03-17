@@ -1,6 +1,9 @@
 export type CreatorProfileType = "individual" | "company";
 
-export type CreatorVerificationType = "government_id" | "passport" | "business_license";
+export type CreatorVerificationType =
+  | "government_id"
+  | "passport"
+  | "business_license";
 
 export type CreatorApplicationStatus =
   | "not_applied"
@@ -123,7 +126,13 @@ export interface CreatorDashboardOverview {
   };
 }
 
-export type CreatorTicketCategory = "technical" | "content" | "payment" | "account" | "policy" | "other";
+export type CreatorTicketCategory =
+  | "technical"
+  | "content"
+  | "payment"
+  | "account"
+  | "policy"
+  | "other";
 export type CreatorTicketPriority = "low" | "medium" | "high" | "urgent";
 export type CreatorTicketStatus =
   | "open"
@@ -368,7 +377,11 @@ export interface CreatorDramaAnalytics {
   highlights: CreatorDramaAnalyticsHighlight[];
 }
 
-export type CreatorSettlementBankStatus = "missing" | "pending_review" | "verified" | "rejected";
+export type CreatorSettlementBankStatus =
+  | "missing"
+  | "pending_review"
+  | "verified"
+  | "rejected";
 
 export interface CreatorSettlementBankAccount {
   accountHolderName: string;
@@ -482,7 +495,12 @@ export interface CreatorSettlementDetail {
 }
 
 export type CreatorNotificationCategory = "system" | "performance";
-export type CreatorNotificationIcon = "system" | "ticket" | "settlement" | "performance" | "contract";
+export type CreatorNotificationIcon =
+  | "system"
+  | "ticket"
+  | "settlement"
+  | "performance"
+  | "contract";
 
 export interface CreatorNotification {
   id: string;
@@ -521,7 +539,12 @@ export type CreatorAdminBankStatus =
   | "verified"
   | "rejected"
   | "frozen";
-export type CreatorAdminContractStatus = "draft" | "sent" | "signed" | "renewal_due" | "terminated";
+export type CreatorAdminContractStatus =
+  | "draft"
+  | "sent"
+  | "signed"
+  | "renewal_due"
+  | "terminated";
 
 export interface CreatorAdminDashboardKpi {
   key: string;
@@ -684,7 +707,11 @@ export type CreatorAdminContentReviewStatus =
   | "rejected"
   | "archived";
 
-export type CreatorAdminSlaStatus = "resolved" | "on_track" | "due_soon" | "breach";
+export type CreatorAdminSlaStatus =
+  | "resolved"
+  | "on_track"
+  | "due_soon"
+  | "breach";
 
 export interface CreatorAdminContentReviewListItem {
   dramaId: string;
@@ -732,6 +759,8 @@ export interface CreatorAdminContentReviewDetail extends CreatorAdminContentRevi
     title: string;
     durationSeconds: number;
     status: string;
+    videoUrl?: string;
+    thumbnail?: string;
   }>;
   reviewHistory: Array<{
     id: string;
@@ -834,7 +863,11 @@ export interface CreatorAdminSettlementItem {
 
 export interface CreatorAdminRevenueOverview {
   kpis: Array<{
-    key: "grossRevenueUsd" | "netPayoutUsd" | "pendingPayoutUsd" | "heldAmountUsd";
+    key:
+      | "grossRevenueUsd"
+      | "netPayoutUsd"
+      | "pendingPayoutUsd"
+      | "heldAmountUsd";
     label: string;
     valueUsd: number;
     helper: string;
