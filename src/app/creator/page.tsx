@@ -361,7 +361,7 @@ export default function CreatorLandingPage() {
             {workflowSteps.map(({ step, title, description, icon: Icon }) => (
               <article key={step} className="flex h-full flex-col rounded-[24px] border border-[#e2e8f0] bg-[#f8fafc] p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1877F2]">Step {step}</span>
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1877F2]">{`Step ${step}`}</span>
                   <div className="flex size-10 items-center justify-center rounded-2xl bg-white text-[#1877F2] shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
                     <Icon className="size-5" />
                   </div>
