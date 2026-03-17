@@ -156,7 +156,7 @@ export default function CreatorApplicationsPage() {
                       </p>
                       <p className="mt-2 text-xs text-gray-400">
                         {item.creatorType === "company"
-                          ? `Registration ID: ${item.applicationSummary.identityReference || "Missing"}`
+                          ? `Business Type: ${item.applicationSummary.businessType || "Missing"} · Registration ID: ${item.applicationSummary.identityReference || "Missing"}`
                           : `Age ${item.applicationSummary.age || "Missing"} · ID ${item.applicationSummary.identityReference || "Missing"}`}
                       </p>
                       {item.creatorType === "company" && item.applicationSummary.companyAddress ? (

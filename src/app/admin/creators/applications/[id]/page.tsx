@@ -67,6 +67,7 @@ function getPreviewKind(href?: string): PreviewAsset["kind"] | null {
 function getIdentityMissingItems(items: string[]) {
   return items.filter((item) =>
     item.startsWith("Missing company")
+    || item.startsWith("Missing business type")
     || item.startsWith("Missing registration ID")
     || item.startsWith("Missing region")
     || item.startsWith("Missing full name")
@@ -155,10 +156,13 @@ export default function CreatorApplicationDetailPage() {
               },
               { label: "Country", value: readValue(data.draft.basicInformation.country) },
               data.draft.basicInformation.creatorType === "company"
-                ? { label: "Region", value: readValue(data.draft.basicInformation.region) }
+                ? { label: "Business type", value: readValue(data.applicationSummary.businessType) }
                 : { label: "Age", value: readValue(data.draft.basicInformation.age) },
               ...(data.draft.basicInformation.creatorType === "company"
-                ? [{ label: "Company address", value: readValue(data.draft.basicInformation.companyAddress) }]
+                ? [
+                    { label: "Region", value: readValue(data.draft.basicInformation.region) },
+                    { label: "Company address", value: readValue(data.draft.basicInformation.companyAddress) },
+                  ]
                 : []),
             ],
           },
@@ -428,7 +432,7 @@ export default function CreatorApplicationDetailPage() {
                 <p className="mt-3 font-medium text-white">{data.applicationSummary.legalEntityName || "Not provided"}</p>
                 <p className="mt-1 text-sm text-gray-400">
                   {data.creatorType === "company"
-                    ? `Registration ID: ${data.applicationSummary.identityReference || "Not provided"}`
+                    ? `Business Type: ${data.applicationSummary.businessType || "Not provided"} · Registration ID: ${data.applicationSummary.identityReference || "Not provided"}`
                     : `Age ${data.applicationSummary.age || "Not provided"} · ID ${data.applicationSummary.identityReference || "Not provided"}`}
                 </p>
                 {data.creatorType === "company" ? (

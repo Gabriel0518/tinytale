@@ -19,6 +19,7 @@ export interface CreatorApplicationBasicInformation {
   creatorType: CreatorProfileType;
   legalName: string;
   age: string;
+  businessType: string;
   idNumber: string;
   companyName: string;
   registrationId: string;
@@ -714,6 +715,7 @@ export interface CreatorAdminApplicationListItem {
     contactPhone: string;
     identityReference: string;
     age: string;
+    businessType: string;
     companyAddress: string;
     region: string;
     verificationType: CreatorVerificationType;

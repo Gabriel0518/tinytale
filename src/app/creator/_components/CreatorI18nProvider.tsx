@@ -238,6 +238,7 @@ const TRANSLATION_OVERRIDES: Partial<Record<SupportedLocale, Record<string, stri
     "Company / Studio": "公司 / 机构",
     "Company Name": "公司名称",
     "Full Name": "姓名",
+    "Business Type": "公司业务类型",
     "Registration ID": "注册编号",
     Age: "年龄",
     "Company Address": "公司地址",
@@ -247,8 +248,8 @@ const TRANSLATION_OVERRIDES: Partial<Record<SupportedLocale, Record<string, stri
     Region: "地区",
     "Country / Region": "国家 / 地区",
     "Select country or region": "请选择国家 / 地区",
-    "Company applications require the legal entity record, registration identifier, mailing address, and operating region.":
-      "公司申请需提交与收款主体一致的公司名称、注册编号、注册地址及运营地区。",
+    "Company applications require the legal entity record, business type, registration identifier, mailing address, and operating region.":
+      "公司主体申请需提交与收款主体一致的公司名称、业务类型、注册编号、注册地址及运营地区。",
     "Individual applications require the creator's legal profile, age, ID number, and direct contact information.":
       "个人申请需提交真实姓名、年龄、证件号码及可直接联系到本人的联系方式。",
     "Creative profile": "创作资料",
@@ -335,6 +336,7 @@ const TRANSLATION_OVERRIDES: Partial<Record<SupportedLocale, Record<string, stri
     "Saved __ARG_0__h ago": "__ARG_0__ 小时前已保存",
     "Saved __ARG_0__d ago": "__ARG_0__ 天前已保存",
     "Company name is required.": "请填写公司名称。",
+    "Business type is required.": "请填写公司业务类型。",
     "Registration ID is required.": "请填写注册编号。",
     "Company address is required.": "请填写公司地址。",
     "Region is required.": "请填写地区。",

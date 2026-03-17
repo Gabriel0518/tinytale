@@ -28,6 +28,9 @@ export interface CountryOption {
   alpha2: string;
 }
 
+const CHINESE_CHARACTER_REGEX = /[\u3400-\u9fff]/;
+const localizedRegionNameCache = new Map<string, string>();
+
 export const COUNTRY_GROUPS: CountryGroup[] = [
   { label: "North America", countries: ["United States", "Canada", "Mexico", "Guatemala", "Cuba", "Haiti", "Dominican Republic", "Honduras", "El Salvador", "Nicaragua", "Costa Rica", "Panama", "Jamaica", "Trinidad and Tobago", "Bahamas", "Barbados", "Belize", "Antigua and Barbuda", "Dominica", "Grenada", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Puerto Rico"] },
   { label: "South America", countries: ["Brazil", "Argentina", "Colombia", "Peru", "Venezuela", "Chile", "Ecuador", "Bolivia", "Paraguay", "Uruguay", "Guyana", "Suriname"] },
@@ -50,11 +53,56 @@ export const COUNTRY_GROUPS: CountryGroup[] = [
 
 export const ALL_COUNTRIES: string[] = COUNTRY_GROUPS.flatMap(g => g.countries);
 
-export function getCountryDisplayName(country: Pick<CountryCatalogItem, "countryEn" | "countryCn">, locale: SupportedLocale): string {
-  if (locale === "zh" && country.countryCn.trim()) {
-    return country.countryCn.trim();
+function containsChineseCharacters(value: string): boolean {
+  return CHINESE_CHARACTER_REGEX.test(value);
+}
+
+function getLocalizedRegionName(alpha2: string, locale: SupportedLocale): string {
+  const code = alpha2.trim().toUpperCase();
+  if (!code || locale !== "zh") return "";
+
+  const cacheKey = `${locale}:${code}`;
+  const cached = localizedRegionNameCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  let next = "";
+
+  try {
+    if (typeof Intl !== "undefined" && typeof Intl.DisplayNames === "function") {
+      const displayNames = new Intl.DisplayNames(["zh-Hans-CN", "zh-Hans", "zh"], { type: "region" });
+      const localized = displayNames.of(code);
+      if (localized && localized.toUpperCase() !== code) {
+        next = localized;
+      }
+    }
+  } catch {
+    next = "";
   }
-  return country.countryEn.trim();
+
+  localizedRegionNameCache.set(cacheKey, next);
+  return next;
+}
+
+export function getCountryDisplayName(country: Pick<CountryCatalogItem, "countryEn" | "countryCn" | "alpha2">, locale: SupportedLocale): string {
+  const englishName = country.countryEn.trim();
+  const chineseName = country.countryCn.trim();
+
+  if (locale === "zh") {
+    if (chineseName && containsChineseCharacters(chineseName)) {
+      return chineseName;
+    }
+
+    const localizedName = getLocalizedRegionName(country.alpha2, locale);
+    if (localizedName) {
+      return localizedName;
+    }
+
+    if (chineseName) {
+      return chineseName;
+    }
+  }
+
+  return englishName;
 }
 
 export function mapCountryCatalogToOptions(items: CountryCatalogItem[], locale: SupportedLocale): CountryOption[] {
@@ -64,5 +112,6 @@ export function mapCountryCatalogToOptions(items: CountryCatalogItem[], locale: 
       value: item.countryEn.trim(),
       label: getCountryDisplayName(item, locale),
       alpha2: item.alpha2.trim().toUpperCase(),
-    }));
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label, locale === "zh" ? "zh-Hans" : "en"));
 }

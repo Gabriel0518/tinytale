@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
+  BriefcaseBusiness,
   Building2,
   Check,
   FileText,
@@ -101,6 +102,7 @@ function validateStep(step: number, draft: CreatorApplicationDraft): string[] {
   if (step === 1) {
     if (draft.basicInformation.creatorType === "company") {
       if (!draft.basicInformation.companyName.trim()) errors.push("Company name is required.");
+      if (!draft.basicInformation.businessType.trim()) errors.push("Business type is required.");
       if (!draft.basicInformation.registrationId.trim()) errors.push("Registration ID is required.");
       if (!draft.basicInformation.companyAddress.trim()) errors.push("Company address is required.");
       if (!draft.basicInformation.region.trim()) errors.push("Region is required.");
@@ -602,16 +604,16 @@ function StepBasic({
 
         {draft.basicInformation.creatorType === "company" ? (
           <InputField
-            label="Registration ID"
-            value={draft.basicInformation.registrationId}
+            label="Business Type"
+            value={draft.basicInformation.businessType}
             onChange={(value) =>
               onChange((current) => ({
                 ...current,
-                basicInformation: { ...current.basicInformation, registrationId: value },
+                basicInformation: { ...current.basicInformation, businessType: value },
               }))
             }
-            placeholder="US-12345678"
-            icon={<FileText className="h-4 w-4" />}
+            placeholder="Short drama studio / MCN / Talent agency"
+            icon={<BriefcaseBusiness className="h-4 w-4" />}
           />
         ) : (
           <InputField
@@ -633,16 +635,16 @@ function StepBasic({
       <div className="grid gap-5 md:grid-cols-2">
         {draft.basicInformation.creatorType === "company" ? (
           <InputField
-            label="Company Address"
-            value={draft.basicInformation.companyAddress}
+            label="Registration ID"
+            value={draft.basicInformation.registrationId}
             onChange={(value) =>
               onChange((current) => ({
                 ...current,
-                basicInformation: { ...current.basicInformation, companyAddress: value },
+                basicInformation: { ...current.basicInformation, registrationId: value },
               }))
             }
-            placeholder="350 Fifth Avenue, New York, NY"
-            icon={<Building2 className="h-4 w-4" />}
+            placeholder="US-12345678"
+            icon={<FileText className="h-4 w-4" />}
           />
         ) : (
           <InputField
@@ -659,34 +661,71 @@ function StepBasic({
           />
         )}
         <InputField
-          label="Email"
-          type="email"
-          value={draft.basicInformation.email}
+          label={draft.basicInformation.creatorType === "company" ? "Company Address" : "Email"}
+          type={draft.basicInformation.creatorType === "company" ? "text" : "email"}
+          value={draft.basicInformation.creatorType === "company" ? draft.basicInformation.companyAddress : draft.basicInformation.email}
           onChange={(value) =>
             onChange((current) => ({
               ...current,
-              basicInformation: { ...current.basicInformation, email: value },
+              basicInformation: {
+                ...current.basicInformation,
+                [current.basicInformation.creatorType === "company" ? "companyAddress" : "email"]: value,
+              },
             }))
           }
-          placeholder="creator@studio.com"
-          icon={<Mail className="h-4 w-4" />}
+          placeholder={draft.basicInformation.creatorType === "company" ? "350 Fifth Avenue, New York, NY" : "creator@studio.com"}
+          icon={draft.basicInformation.creatorType === "company" ? <Building2 className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
         />
       </div>
 
-      <div className="grid gap-5 md:grid-cols-2">
-        <InputField
-          label="Phone Number"
-          value={draft.basicInformation.phone}
-          onChange={(value) =>
-            onChange((current) => ({
-              ...current,
-              basicInformation: { ...current.basicInformation, phone: value },
-            }))
-          }
-          placeholder="+1 555 010 3000"
-          icon={<Phone className="h-4 w-4" />}
-        />
-        {draft.basicInformation.creatorType === "company" ? (
+      {draft.basicInformation.creatorType === "company" ? (
+        <div className="grid gap-5 md:grid-cols-2">
+          <InputField
+            label="Email"
+            type="email"
+            value={draft.basicInformation.email}
+            onChange={(value) =>
+              onChange((current) => ({
+                ...current,
+                basicInformation: { ...current.basicInformation, email: value },
+              }))
+            }
+            placeholder="creator@studio.com"
+            icon={<Mail className="h-4 w-4" />}
+          />
+          <InputField
+            label="Phone Number"
+            value={draft.basicInformation.phone}
+            onChange={(value) =>
+              onChange((current) => ({
+                ...current,
+                basicInformation: { ...current.basicInformation, phone: value },
+              }))
+            }
+            placeholder="+1 555 010 3000"
+            icon={<Phone className="h-4 w-4" />}
+          />
+        </div>
+      ) : (
+        <div className="grid gap-5 md:grid-cols-2">
+          <InputField
+            label="Phone Number"
+            value={draft.basicInformation.phone}
+            onChange={(value) =>
+              onChange((current) => ({
+                ...current,
+                basicInformation: { ...current.basicInformation, phone: value },
+              }))
+            }
+            placeholder="+1 555 010 3000"
+            icon={<Phone className="h-4 w-4" />}
+          />
+          <div />
+        </div>
+      )}
+
+      {draft.basicInformation.creatorType === "company" ? (
+        <div className="grid gap-5 md:grid-cols-2">
           <InputField
             label="Region"
             value={draft.basicInformation.region}
@@ -699,10 +738,9 @@ function StepBasic({
             placeholder="California"
             icon={<Globe2 className="h-4 w-4" />}
           />
-        ) : (
           <div />
-        )}
-      </div>
+        </div>
+      ) : null}
 
       <SelectField
         label="Country / Region"
@@ -719,7 +757,7 @@ function StepBasic({
 
       <div className="rounded-2xl border border-[#dbeafe] bg-[#eff6ff] px-4 py-3 text-sm text-[#1d4ed8]">
         {draft.basicInformation.creatorType === "company"
-          ? "Company applications require the legal entity record, registration identifier, mailing address, and operating region."
+          ? "Company applications require the legal entity record, business type, registration identifier, mailing address, and operating region."
           : "Individual applications require the creator's legal profile, age, ID number, and direct contact information."}
       </div>
     </SectionCard>
@@ -1159,6 +1197,7 @@ function StepReview({
           <ReviewField label={draft.basicInformation.creatorType === "company" ? "Company Name" : "Full Name"} value={primaryName} />
           {draft.basicInformation.creatorType === "company" ? (
             <>
+              <ReviewField label="Business Type" value={draft.basicInformation.businessType || "-"} />
               <ReviewField label="Registration ID" value={draft.basicInformation.registrationId || "-"} />
               <ReviewField label="Company Address" value={draft.basicInformation.companyAddress || "-"} />
               <ReviewField label="Region" value={draft.basicInformation.region || "-"} />

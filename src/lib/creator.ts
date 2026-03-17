@@ -6,7 +6,7 @@ import type {
   CreatorTicketCategory,
 } from "@/types/creator";
 
-export const CREATOR_APPLICATION_STORAGE_KEY = "creator_application_draft_v5";
+export const CREATOR_APPLICATION_STORAGE_KEY = "creator_application_draft_v6";
 
 export const CREATOR_APPLICATION_STEP_TITLES = [
   "Basic Info",
@@ -44,6 +44,7 @@ export function createEmptyCreatorApplicationDraft(): CreatorApplicationDraft {
       creatorType: "individual",
       legalName: "",
       age: "",
+      businessType: "",
       idNumber: "",
       companyName: "",
       registrationId: "",
@@ -111,6 +112,7 @@ export function deserializeCreatorApplicationDraft(
       creatorType: identityType === "agency" || identityType === "company" ? "company" : fallback.basicInformation.creatorType,
       legalName: String(remote?.basicInformation?.legalName || remote?.basicInformation?.fullName || fallback.basicInformation.legalName || ""),
       age: String(remote?.basicInformation?.age || fallback.basicInformation.age || ""),
+      businessType: String(remote?.basicInformation?.businessType || fallback.basicInformation.businessType || ""),
       idNumber: String(
         remote?.basicInformation?.idNumber
           || remote?.identityVerification?.documentNumber
@@ -192,6 +194,7 @@ export function serializeCreatorApplicationDraft(draft: CreatorApplicationDraft)
           : draft.basicInformation.legalName.trim(),
       legalName: draft.basicInformation.legalName.trim(),
       age: draft.basicInformation.age.trim(),
+      businessType: draft.basicInformation.businessType.trim(),
       idNumber: draft.basicInformation.idNumber.trim(),
       companyName: draft.basicInformation.companyName.trim(),
       registrationId: draft.basicInformation.registrationId.trim(),
