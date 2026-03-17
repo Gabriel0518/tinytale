@@ -21,9 +21,13 @@ import {
   Users,
 } from "lucide-react";
 import { useAuth } from "@/lib/authContext";
+import { creatorApi } from "@/lib/api";
+import { normalizeCreatorApplicationStatus } from "@/lib/creator";
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
+import { useEffect, useMemo, useState } from "react";
+import type { CreatorApplicationStatus } from "@/types/creator";
 
 const whyTinyTale = [
   {
@@ -225,8 +229,9 @@ function SectionIntro({ eyebrow, title, description }: { eyebrow: string; title:
 }
 
 export default function CreatorLandingPage() {
-  const { user } = useAuth();
+  const { token, user } = useAuth();
   const locale = useLocale();
+  const [applicationStatus, setApplicationStatus] = useState<CreatorApplicationStatus>("draft");
   const displayName = user?.nickname?.trim() || user?.email?.split("@")[0] || "Creator";
   const initials =
     displayName
@@ -236,6 +241,51 @@ export default function CreatorLandingPage() {
       .map((part) => part[0]?.toUpperCase() || "")
       .join("")
       .slice(0, 2) || "CR";
+
+  useEffect(() => {
+    if (!token) {
+      setApplicationStatus("draft");
+      return;
+    }
+
+    let cancelled = false;
+
+    creatorApi
+      .getApplicationStatus(token)
+      .then((res: any) => {
+        if (cancelled) return;
+        const status = normalizeCreatorApplicationStatus(
+          res?.data?.applicationStatus ||
+            res?.data?.status ||
+            res?.data?.application?.status ||
+            res?.data?.creator?.status
+        );
+        setApplicationStatus(status);
+      })
+      .catch(() => {
+        if (!cancelled) setApplicationStatus("draft");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const applyEntryHref = useMemo(() => {
+    if (applicationStatus === "pending" || applicationStatus === "under_review") {
+      return localizePath("/creator/pending", locale);
+    }
+
+    if (
+      applicationStatus === "need_more_info" ||
+      applicationStatus === "rejected" ||
+      applicationStatus === "suspended"
+    ) {
+      return localizePath("/creator/apply/status", locale);
+    }
+
+    return localizePath("/creator/apply", locale);
+  }, [applicationStatus, locale]);
 
   return (
     <div className="min-h-screen bg-[#f5f7f8] text-[#0f172a]">
@@ -298,7 +348,7 @@ export default function CreatorLandingPage() {
             <div className="mt-8">
               <Link
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1877F2] px-6 py-3 text-[14px] font-bold shadow-[0_12px_30px_rgba(24,119,242,0.35)] transition hover:bg-[#166fe5]"
-                href={localizePath("/creator/apply", locale)}
+                href={applyEntryHref}
               >
                 Apply to Create
                 <ArrowRight className="size-4" />
@@ -479,7 +529,7 @@ export default function CreatorLandingPage() {
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
               <Link
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 text-[14px] font-bold text-[#0f172a] transition hover:bg-[#f8fafc]"
-                href={localizePath("/creator/apply", locale)}
+                href={applyEntryHref}
               >
                 Apply Now - It&apos;s Free
                 <ArrowRight className="size-4" />

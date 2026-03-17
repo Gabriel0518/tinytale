@@ -48,6 +48,8 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
 
   const isLanding = normalizedPath === "/creator";
   const isPendingPage = normalizedPath === "/creator/pending";
+  const isApplyPath =
+    normalizedPath === "/creator/apply" || normalizedPath.startsWith("/creator/apply/");
   const isApprovedOnlyPath = useMemo(
     () => APPROVED_ONLY_PREFIXES.some((p) => normalizedPath === p || normalizedPath.startsWith(`${p}/`)),
     [normalizedPath]
@@ -81,7 +83,7 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
         const status = normalizeCreatorApplicationStatus(rawStatus);
 
         if (PENDING_STATUSES.has(status)) {
-          if (!isPendingPage) {
+          if (isApprovedOnlyPath || isApplyPath) {
             router.replace(localizePath("/creator/pending", locale));
             return;
           }
@@ -134,6 +136,7 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
     pathname,
     isLanding,
     isPendingPage,
+    isApplyPath,
     isApprovedOnlyPath,
   ]);
 
