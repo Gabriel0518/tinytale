@@ -56,6 +56,13 @@ export default function CreatorListPage() {
     return true;
   }), [bankStatus, items, search, status]);
 
+  const summary = useMemo(() => ({
+    active: items.filter((item) => item.status === "active").length,
+    restricted: items.filter((item) => item.status === "restricted" || item.status === "suspended").length,
+    pendingBank: items.filter((item) => item.bankStatus === "pending_review" || item.bankStatus === "missing").length,
+    highRiskLoad: items.filter((item) => item.openTickets > 0 || item.dmcaStrikes > 0).length,
+  }), [items]);
+
   return (
     <div className="space-y-6 text-gray-200">
       <section className="rounded-2xl border border-gray-700/50 bg-[#13131d] p-6">
@@ -69,6 +76,13 @@ export default function CreatorListPage() {
             Back to dashboard
           </Link>
         </div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Active</p><p className="mt-3 text-3xl font-bold text-emerald-300">{summary.active}</p></article>
+        <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Restricted / Suspended</p><p className="mt-3 text-3xl font-bold text-rose-300">{summary.restricted}</p></article>
+        <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Bank blockers</p><p className="mt-3 text-3xl font-bold text-amber-300">{summary.pendingBank}</p></article>
+        <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Ops watchlist</p><p className="mt-3 text-3xl font-bold text-white">{summary.highRiskLoad}</p></article>
       </section>
 
       <section className={panelClassName}>
@@ -102,9 +116,10 @@ export default function CreatorListPage() {
         </div>
       </section>
 
-      <section className={panelClassName}>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1180px] text-sm">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+        <article className={panelClassName}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1180px] text-sm">
             <thead>
               <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
                 <th className="pb-3 pr-4 font-medium">Creator</th>
@@ -157,7 +172,28 @@ export default function CreatorListPage() {
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
+        </article>
+
+        <div className="space-y-4">
+          <article className={panelClassName}>
+            <h2 className="text-lg font-semibold text-white">Lifecycle management</h2>
+            <div className="mt-5 grid gap-3">
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Directory purpose</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Use this page as the operational index for creator health before jumping into individual detail, finance, or compliance flows.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Watch bank readiness</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Creators with blocked bank states should usually be triaged before payout release or settlement confirmation.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Escalate risk</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Open tickets and DMCA strikes are the fastest signal that a creator needs deeper review in support or trust workflows.</p>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
     </div>

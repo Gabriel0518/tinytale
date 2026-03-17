@@ -136,7 +136,7 @@ export default function CreatorContentReviewPage() {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
         <article className={panelClassName}>
           <div className="flex items-center justify-between gap-4">
             <div>

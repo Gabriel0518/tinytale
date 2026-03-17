@@ -59,6 +59,7 @@ export default function CreatorApplicationsPage() {
     underReview: items.filter((item) => item.status === "under_review").length,
     needMoreInfo: items.filter((item) => item.status === "need_more_info").length,
     approved: items.filter((item) => item.status === "approved").length,
+    highRisk: items.filter((item) => item.riskLevel === "high").length,
   };
 
   return (
@@ -70,21 +71,14 @@ export default function CreatorApplicationsPage() {
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Creator application review queue</h1>
             <p className="mt-3 text-sm leading-6 text-gray-400">Review identity, portfolio quality, agreement acceptance, and risk checks before enabling creator access. This queue matches the spec-defined onboarding states and can attach to `/api/admin/applications/*` directly.</p>
           </div>
-          <div className="grid min-w-[280px] grid-cols-3 gap-3">
-            <div className="rounded-xl bg-[#0f0f17] p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Under Review</p>
-              <p className="mt-2 text-2xl font-bold text-white">{summary.underReview}</p>
-            </div>
-            <div className="rounded-xl bg-[#0f0f17] p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Need Info</p>
-              <p className="mt-2 text-2xl font-bold text-white">{summary.needMoreInfo}</p>
-            </div>
-            <div className="rounded-xl bg-[#0f0f17] p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Approved</p>
-              <p className="mt-2 text-2xl font-bold text-white">{summary.approved}</p>
-            </div>
-          </div>
         </div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Under review</p><p className="mt-3 text-3xl font-bold text-white">{summary.underReview}</p></article>
+        <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Need info</p><p className="mt-3 text-3xl font-bold text-amber-300">{summary.needMoreInfo}</p></article>
+        <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Approved</p><p className="mt-3 text-3xl font-bold text-emerald-300">{summary.approved}</p></article>
+        <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">High risk</p><p className="mt-3 text-3xl font-bold text-rose-300">{summary.highRisk}</p></article>
       </section>
 
       <section className={panelClassName}>
@@ -114,9 +108,10 @@ export default function CreatorApplicationsPage() {
         </div>
       </section>
 
-      <section className={panelClassName}>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px] text-sm">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+        <article className={panelClassName}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1100px] text-sm">
             <thead>
               <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
                 <th className="pb-3 pr-4 font-medium">Applicant</th>
@@ -174,7 +169,28 @@ export default function CreatorApplicationsPage() {
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
+        </article>
+
+        <div className="space-y-4">
+          <article className={panelClassName}>
+            <h2 className="text-lg font-semibold text-white">Queue priorities</h2>
+            <div className="mt-5 grid gap-3">
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Review first</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Prioritize high-risk applications and those already in `under_review` so onboarding does not stall in the middle state.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Request more info</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Use `need more info` when identity files, portfolio proof, or agreement details are incomplete but still recoverable.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Reject</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Reject only for clear risk, rights, or authenticity failures that should stop creator access rather than trigger resubmission.</p>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
     </div>
