@@ -22,11 +22,20 @@ const TRANSLATION_OVERRIDES: Partial<Record<SupportedLocale, Record<string, stri
     Settings: "设置",
     "New Drama": "新建短剧",
     "Apply to Create": "申请入驻",
+    "Apply Now - It's Free": "立即申请，免费加入",
     "Support Tickets": "支持工单",
     "Settlement Center": "结算中心",
     "Creator Onboarding": "创作者入驻",
     "Basic Info": "基础信息",
     "Creative Profile": "创作资料",
+    "Step __ARG_0__": "第 __ARG_0__ 步",
+    Bronze: "青铜",
+    Silver: "白银",
+    Gold: "黄金",
+    Requirements: "要求",
+    Perks: "权益",
+    "Revenue share": "收入分成",
+    "We're actively recruiting creators.": "我们正在积极招募创作者。",
     "Your stories deserve an audience and a paycheck.": "你的故事值得被看见，也值得赚钱。",
     "Publish premium short dramas on TinyTale and turn strong storytelling into real revenue with a platform built for vertical series.":
       "在 TinyTale 发布高品质短剧，用专为竖屏剧集打造的平台把好故事变成真实收入。",
@@ -37,6 +46,7 @@ const TEXT_NODE_ORIGINALS = new WeakMap<Text, string>();
 const ELEMENT_ATTR_ORIGINALS = new WeakMap<Element, Partial<Record<"placeholder" | "title" | "aria-label" | "value", string>>>();
 
 const TEMPLATE_RULES: Array<{ pattern: RegExp; template: string }> = [
+  { pattern: /^Step (\d+)$/i, template: "Step __ARG_0__" },
   { pattern: /^Modified (\d+) hours ago$/i, template: "Modified __ARG_0__ hours ago" },
   { pattern: /^Updated (\d+) days ago$/i, template: "Updated __ARG_0__ days ago" },
   { pattern: /^Updated ([A-Za-z]{3,9}\s+\d{1,2},\s+\d{4})$/i, template: "Updated __ARG_0__" },
