@@ -99,15 +99,16 @@ jobs:
           SSH_PORT="${VPS_SSH_PORT:-22}"
           PM2_APP="${VPS_PM2_FRONTEND_APP:-tinytale-web}"
           HEALTH_URL="${VPS_FRONTEND_HEALTHCHECK_URL:-http://127.0.0.1:7001/zh}"
-          SSH_ARGS=(-p "$SSH_PORT")
+          SSH_ARGS=(-p "$SSH_PORT" -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
 
           if ! ssh-keygen -F "$VPS_HOST" >/dev/null 2>&1; then
             echo "No known_hosts entry found for $VPS_HOST; falling back to relaxed host checking"
             SSH_ARGS+=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
           fi
 
-          ssh "${SSH_ARGS[@]}" "$VPS_SSH_USER@$VPS_HOST" \
-            "VPS_FRONTEND_PATH='$VPS_FRONTEND_PATH' PM2_APP='$PM2_APP' HEALTH_URL='$HEALTH_URL' DEPLOY_REF='$DEPLOY_REF' bash -s" <<'EOF'
+          run_remote_deploy() {
+            ssh "${SSH_ARGS[@]}" "$VPS_SSH_USER@$VPS_HOST" \
+              "VPS_FRONTEND_PATH='$VPS_FRONTEND_PATH' PM2_APP='$PM2_APP' HEALTH_URL='$HEALTH_URL' DEPLOY_REF='$DEPLOY_REF' bash -s" <<'EOF'
           set -Eeuo pipefail
 
           FRONTEND_LINK="$VPS_FRONTEND_PATH"
@@ -117,8 +118,11 @@ jobs:
           CURRENT_LINK="$BASE_DIR/current"
           SHARED_NPM_CACHE_DIR="$SHARED_DIR/npm-cache"
           SHARED_NEXT_CACHE_DIR="$SHARED_DIR/next-cache"
+          LOCK_FILE="$BASE_DIR/deploy.lock"
 
           mkdir -p "$RELEASES_DIR" "$SHARED_DIR" "$SHARED_NPM_CACHE_DIR" "$SHARED_NEXT_CACHE_DIR"
+          exec 9>"$LOCK_FILE"
+          flock 9
 
           resolve_live_dir() {
             if [ -L "$CURRENT_LINK" ]; then
@@ -265,6 +269,27 @@ jobs:
           trap - ERR
           echo "Frontend deploy finished: $TARGET_SHA"
           EOF
+          }
+
+          deploy_exit_code=0
+          for attempt in 1 2 3; do
+            if run_remote_deploy; then
+              deploy_exit_code=0
+              break
+            fi
+
+            deploy_exit_code=$?
+            if [ "$deploy_exit_code" -ne 255 ] || [ "$attempt" -eq 3 ]; then
+              break
+            fi
+
+            echo "SSH deploy attempt $attempt failed with exit code $deploy_exit_code, retrying..."
+            sleep $((attempt * 10))
+          done
+
+          if [ "$deploy_exit_code" -ne 0 ]; then
+            exit "$deploy_exit_code"
+          fi
 
       - name: Purge Cloudflare cache (optional)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.skip_purge != 'true' }}
