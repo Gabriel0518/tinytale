@@ -185,92 +185,110 @@ export default function CreatorBankAccountsPage() {
         </div>
       </section>
 
-      <section className={panelClassName}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
-            <Landmark className="h-5 w-5" />
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+        <article className={panelClassName}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
+              <Landmark className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Account queue</h2>
+              <p className="text-sm text-gray-400">Compact finance list. Review each payout method from the action modal.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Account queue</h2>
-            <p className="text-sm text-gray-400">Compact finance list. Review each payout method from the action modal.</p>
-          </div>
-        </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
-                <th className="pb-3 pr-4 font-medium">Creator</th>
-                <th className="pb-3 pr-4 font-medium">Bank Account</th>
-                <th className="pb-3 pr-4 font-medium">Balance</th>
-                <th className="pb-3 pr-4 font-medium">Settlement</th>
-                <th className="pb-3 pr-4 font-medium">Status</th>
-                <th className="pb-3 font-medium text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-10 text-center text-gray-500">Loading bank review queue...</td>
+          <div className="mt-5 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
+                  <th className="pb-3 pr-4 font-medium">Creator</th>
+                  <th className="pb-3 pr-4 font-medium">Bank Account</th>
+                  <th className="pb-3 pr-4 font-medium">Balance</th>
+                  <th className="pb-3 pr-4 font-medium">Settlement</th>
+                  <th className="pb-3 pr-4 font-medium">Status</th>
+                  <th className="pb-3 font-medium text-right">Action</th>
                 </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-10 text-center text-gray-500">No bank accounts match the current filters.</td>
-                </tr>
-              ) : filtered.map((item) => {
-                const bankMeta = getCreatorBankStatusMeta(item.bankStatus);
-                const creatorMeta = getCreatorLifecycleMeta(item.creatorStatus);
-                return (
-                  <tr key={item.creatorId} className="border-b border-gray-800/60 align-top">
-                    <td className="py-4 pr-4">
-                      <p className="font-medium text-white">{item.creatorName}</p>
-                      <p className="mt-1 text-xs text-gray-500">{item.creatorEmail}</p>
-                      <p className="mt-2 text-xs text-gray-400">{item.country} · Updated {formatAdminDate(item.updatedAt, true)}</p>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <p className="font-medium text-gray-200">{item.bankName || "No bank submitted"}</p>
-                      <p className="mt-1 text-xs text-gray-500">{item.accountHolderName || "Missing account holder"}</p>
-                      <p className="mt-2 text-xs text-gray-400">{item.maskedAccountNumber || "Missing account number"}</p>
-                    </td>
-                    <td className="py-4 pr-4">
-                      <p className="font-medium text-white">{formatUsd(item.availableBalanceUsd)}</p>
-                      <p className="mt-1 text-xs text-gray-500">Pending {formatUsd(item.pendingBalanceUsd)}</p>
-                    </td>
-                    <td className="py-4 pr-4 text-gray-300">
-                      {item.nextSettlementDate ? formatAdminDate(item.nextSettlementDate) : "No schedule"}
-                    </td>
-                    <td className="py-4 pr-4">
-                      <div className="flex flex-col items-start gap-2">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${creatorMeta.className}`}>{creatorMeta.label}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setActiveModalId(item.creatorId)}
-                        className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500"
-                      >
-                        Open action
-                      </button>
-                    </td>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-gray-500">Loading bank review queue...</td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-gray-500">No bank accounts match the current filters.</td>
+                  </tr>
+                ) : filtered.map((item) => {
+                  const bankMeta = getCreatorBankStatusMeta(item.bankStatus);
+                  const creatorMeta = getCreatorLifecycleMeta(item.creatorStatus);
+                  return (
+                    <tr key={item.creatorId} className="border-b border-gray-800/60 align-top">
+                      <td className="py-4 pr-4">
+                        <p className="font-medium text-white">{item.creatorName}</p>
+                        <p className="mt-1 text-xs text-gray-500">{item.creatorEmail}</p>
+                        <p className="mt-2 text-xs text-gray-400">{item.country} · Updated {formatAdminDate(item.updatedAt, true)}</p>
+                      </td>
+                      <td className="py-4 pr-4">
+                        <p className="font-medium text-gray-200">{item.bankName || "No bank submitted"}</p>
+                        <p className="mt-1 text-xs text-gray-500">{item.accountHolderName || "Missing account holder"}</p>
+                        <p className="mt-2 text-xs text-gray-400">{item.maskedAccountNumber || "Missing account number"}</p>
+                      </td>
+                      <td className="py-4 pr-4">
+                        <p className="font-medium text-white">{formatUsd(item.availableBalanceUsd)}</p>
+                        <p className="mt-1 text-xs text-gray-500">Pending {formatUsd(item.pendingBalanceUsd)}</p>
+                      </td>
+                      <td className="py-4 pr-4 text-gray-300">
+                        {item.nextSettlementDate ? formatAdminDate(item.nextSettlementDate) : "No schedule"}
+                      </td>
+                      <td className="py-4 pr-4">
+                        <div className="flex flex-col items-start gap-2">
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
+                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${creatorMeta.className}`}>{creatorMeta.label}</span>
+                        </div>
+                      </td>
+                      <td className="py-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setActiveModalId(item.creatorId)}
+                          className="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-500"
+                        >
+                          Open action
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </article>
 
-      <section className={panelClassName}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Finance review policy</h2>
-            <p className="text-sm text-gray-400">All account decisions are now handled from the row-level action modal to keep the queue compact.</p>
-          </div>
+        <div className="space-y-4">
+          <article className={panelClassName}>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-white">Finance review policy</h2>
+                <p className="text-sm text-gray-400">All account decisions are handled from the row-level action modal to keep the queue compact.</p>
+              </div>
+            </div>
+            <div className="mt-5 grid gap-3">
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Verification gate</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Verified bank details should be cleared before statements move into payout release or manual payment confirmation.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">When to reject</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Reject when account holder proof, bank name, or routing details are incomplete and require creator resubmission.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">When to freeze</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Freeze the payout method if compliance review, ownership checks, or repeated mismatch patterns block finance release.</p>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
 

@@ -203,19 +203,20 @@ export default function CreatorPayoutRequestsPage() {
         </div>
       </section>
 
-      <section className={panelClassName}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
-            <HandCoins className="h-5 w-5" />
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+        <article className={panelClassName}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
+              <HandCoins className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Payout queue</h2>
+              <p className="text-sm text-gray-400">Simple finance list. Open the action modal from the row that needs a decision.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Payout queue</h2>
-            <p className="text-sm text-gray-400">Simple finance list. Open the action modal from the row that needs a decision.</p>
-          </div>
-        </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <div className="mt-5 overflow-x-auto">
+            <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
                 <th className="pb-3 pr-4 font-medium">Creator</th>
@@ -275,7 +276,28 @@ export default function CreatorPayoutRequestsPage() {
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
+        </article>
+
+        <div className="space-y-4">
+          <article className={panelClassName}>
+            <h2 className="text-lg font-semibold text-white">Payout handling notes</h2>
+            <div className="mt-5 grid gap-3">
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Confirm</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Use confirm when the settlement is released, the bank method is valid, and the request is ready for finance execution.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Hold</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Use hold for reserve disputes, account mismatches, compliance review, or any payout blocker that still needs follow-up.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Mark paid</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Record a transfer reference when payment is complete so downstream audit and creator support can trace the release.</p>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
 

@@ -197,19 +197,20 @@ export default function CreatorSettlementsAdminPage() {
         </div>
       </section>
 
-      <section className={panelClassName}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
-            <ReceiptText className="h-5 w-5" />
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+        <article className={panelClassName}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
+              <ReceiptText className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Settlement list</h2>
+              <p className="text-sm text-gray-400">Use the row action modal to review statement math and release decisions.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Settlement list</h2>
-            <p className="text-sm text-gray-400">Use the row action modal to review statement math and release decisions.</p>
-          </div>
-        </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <div className="mt-5 overflow-x-auto">
+            <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
                 <th className="pb-3 pr-4 font-medium">Statement</th>
@@ -268,7 +269,28 @@ export default function CreatorSettlementsAdminPage() {
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
+        </article>
+
+        <div className="space-y-4">
+          <article className={panelClassName}>
+            <h2 className="text-lg font-semibold text-white">Settlement review guide</h2>
+            <div className="mt-5 grid gap-3">
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Confirm statements</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Confirm when gross revenue, fees, reserve, and release timing are aligned with the creator commercial policy.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Hold or dispute</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Use hold or disputed status when the revenue chain is incomplete, reserve logic is contested, or downstream payout must stop.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Mark paid</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Only mark paid after finance execution so payout requests, creator balances, and support records remain consistent.</p>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
 

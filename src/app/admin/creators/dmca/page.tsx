@@ -228,19 +228,20 @@ export default function CreatorDmcaPage() {
         </div>
       </section>
 
-      <section className={panelClassName}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-300">
-            <Gavel className="h-5 w-5" />
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+        <article className={panelClassName}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-300">
+              <Gavel className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Case queue</h2>
+              <p className="text-sm text-gray-400">Compact case list. All decisions open in the row-level modal.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Case queue</h2>
-            <p className="text-sm text-gray-400">Compact case list. All decisions open in the row-level modal.</p>
-          </div>
-        </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <div className="mt-5 overflow-x-auto">
+            <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
                 <th className="pb-3 pr-4 font-medium">Case</th>
@@ -298,31 +299,32 @@ export default function CreatorDmcaPage() {
                 );
               })}
             </tbody>
-          </table>
-        </div>
-      </section>
+            </table>
+          </div>
+        </article>
 
-      <section className={panelClassName}>
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-            <div className="flex items-center gap-2 text-amber-300">
-              <AlertTriangle className="h-4 w-4" />
-              <p className="font-medium text-white">Takedown action</p>
+        <article className={panelClassName}>
+          <div className="grid gap-4">
+            <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+              <div className="flex items-center gap-2 text-amber-300">
+                <AlertTriangle className="h-4 w-4" />
+                <p className="font-medium text-white">Takedown action</p>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-gray-400">When a claim is upheld, archive the affected title and attach the case note so finance and creator support see the same record.</p>
             </div>
-            <p className="mt-2 text-sm leading-6 text-gray-400">When a claim is upheld, archive the affected title and attach the case note so finance and creator support see the same record.</p>
-          </div>
-          <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-            <p className="font-medium text-white">Counter-notice window</p>
-            <p className="mt-2 text-sm leading-6 text-gray-400">Use the counter-notice state when the creator submits proof and the complaint is still under legal review.</p>
-          </div>
-          <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-            <div className="flex items-center gap-2 text-rose-300">
-              <ShieldAlert className="h-4 w-4" />
-              <p className="font-medium text-white">Strike enforcement</p>
+            <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+              <p className="font-medium text-white">Counter-notice window</p>
+              <p className="mt-2 text-sm leading-6 text-gray-400">Use the counter-notice state when the creator submits proof and the complaint is still under legal review.</p>
             </div>
-            <p className="mt-2 text-sm leading-6 text-gray-400">Case outcomes with strike impact should feed the creator strike trail for later restrictions without re-auditing old cases.</p>
+            <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+              <div className="flex items-center gap-2 text-rose-300">
+                <ShieldAlert className="h-4 w-4" />
+                <p className="font-medium text-white">Strike enforcement</p>
+              </div>
+              <p className="mt-2 text-sm leading-6 text-gray-400">Case outcomes with strike impact should feed the creator strike trail for later restrictions without re-auditing old cases.</p>
+            </div>
           </div>
-        </div>
+        </article>
       </section>
 
       {activeModalItem ? (

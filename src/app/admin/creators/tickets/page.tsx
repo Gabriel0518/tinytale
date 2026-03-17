@@ -91,6 +91,12 @@ export default function CreatorTicketsAdminPage() {
     if (status !== "all" && item.status !== status) return false;
     return true;
   }), [items, search, status]);
+  const stats = useMemo(() => ({
+    open: items.filter((item) => item.status === "open").length,
+    inProgress: items.filter((item) => item.status === "in_progress").length,
+    waitingCreator: items.filter((item) => item.status === "waiting_creator").length,
+    waitingSupport: items.filter((item) => item.status === "waiting_support").length,
+  }), [items]);
 
   useEffect(() => {
     if (!activeModalId) {
@@ -228,19 +234,20 @@ export default function CreatorTicketsAdminPage() {
         </div>
       </section>
 
-      <section className={panelClassName}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
-            <LifeBuoy className="h-5 w-5" />
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_360px]">
+        <article className={panelClassName}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
+              <LifeBuoy className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Ticket queue</h2>
+              <p className="text-sm text-gray-400">Reply, update status, and inspect the thread from the action modal.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Ticket queue</h2>
-            <p className="text-sm text-gray-400">Reply, update status, and inspect the thread from the action modal.</p>
-          </div>
-        </div>
 
-        <div className="mt-5 overflow-x-auto">
-          <table className="min-w-full text-sm">
+          <div className="mt-5 overflow-x-auto">
+            <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
                 <th className="pb-3 pr-4 font-medium">Ticket</th>
@@ -298,7 +305,49 @@ export default function CreatorTicketsAdminPage() {
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
+        </article>
+
+        <div className="space-y-4">
+          <article className={panelClassName}>
+            <h2 className="text-lg font-semibold text-white">Queue snapshot</h2>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Open</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{stats.open}</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">In progress</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{stats.inProgress}</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Waiting creator</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{stats.waitingCreator}</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Waiting support</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{stats.waitingSupport}</p>
+              </div>
+            </div>
+          </article>
+          <article className={panelClassName}>
+            <h2 className="text-lg font-semibold text-white">Support routing guide</h2>
+            <div className="mt-5 grid gap-3">
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Use waiting creator</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Set this when the next unblocker is creator-side evidence, payment details, or content clarification.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Use waiting support</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Set this when finance, policy, or content ops still owe the next action and the creator is waiting on an internal update.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Resolve or close</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Resolve when the request is completed. Close only after the thread is fully finished and no more follow-up is expected.</p>
+              </div>
+            </div>
+          </article>
         </div>
       </section>
 
