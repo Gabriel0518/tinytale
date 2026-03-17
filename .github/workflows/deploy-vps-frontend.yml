@@ -217,7 +217,8 @@ jobs:
 
           cd "$TARGET_RELEASE"
           LOCKFILE_HASH="$(sha256sum package-lock.json | awk '{print $1}')"
-          SHARED_NODE_MODULES_DIR="$SHARED_DIR/node_modules-$LOCKFILE_HASH"
+          SHARED_DEPENDENCY_DIR="$SHARED_DIR/deps-$LOCKFILE_HASH"
+          SHARED_NODE_MODULES_DIR="$SHARED_DEPENDENCY_DIR/node_modules"
 
           if [ -L node_modules ] || [ -d node_modules ]; then
             rm -rf node_modules
@@ -227,6 +228,7 @@ jobs:
             echo "Reusing cached dependencies for lockfile $LOCKFILE_HASH"
           else
             echo "Installing dependencies for lockfile $LOCKFILE_HASH"
+            mkdir -p "$SHARED_DEPENDENCY_DIR"
             npm_config_cache="$SHARED_NPM_CACHE_DIR" npm ci --no-audit --no-fund
             mv node_modules "$SHARED_NODE_MODULES_DIR"
           fi
