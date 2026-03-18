@@ -1740,6 +1740,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const freeEpisodesCount = episodes.filter((episode) => episode.isFree).length;
   const paidEpisodesCount = Math.max(0, episodes.length - freeEpisodesCount);
   const readyEpisodesCount = episodes.filter((episode) => (episode.streamVideoId || episode.videoUrl) && episode.subtitleUrl).length;
+  const stepOnePanelClassName = "rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] md:p-6";
+  const stepOneTitleClassName = "text-[22px] font-black tracking-[-0.03em] text-[#0f172a] md:text-[24px]";
+  const stepOneLabelClassName = "text-[13px] font-semibold text-[#0f172a]";
+  const stepOneInputClassName = "h-12 w-full rounded-2xl border border-[#d7dde8] bg-[#f8fafc] px-4 text-[15px] text-[#0f172a] outline-none transition focus:border-[#1876f2] focus:bg-white";
+  const stepOneTextareaClassName = "w-full rounded-2xl border border-[#d7dde8] bg-[#f8fafc] px-4 py-3 text-[15px] text-[#0f172a] outline-none transition focus:border-[#1876f2] focus:bg-white";
 
   return (
     <div className="-mx-4 -mt-6 md:-mx-6 lg:-mx-8 lg:-mt-8">
@@ -1790,8 +1795,32 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       </div>
 
       <div className="px-4 pb-7 pt-6 md:px-7">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="text-[30px] font-black leading-[1.08] tracking-[-0.03em] text-[#0f172a] md:text-[34px]">
+              {t("Upload New Drama")}
+            </h1>
+            <p className="mt-1 max-w-4xl text-[13px] leading-6 text-[#64748b]">
+              {currentStep === 1
+                ? t("Set up the core metadata, cover assets, and storefront preview before moving into episode uploads.")
+                : currentStep === 2
+                  ? uploadMode === "bulk"
+                    ? t("Upload source media, run auto-slice, and prepare each generated episode for review.")
+                    : t("Manage episode-level uploads, covers, and subtitle assets before monetization.")
+                  : t("Finalize pricing rules and make sure every episode is ready for creator review.")}
+            </p>
+          </div>
+
+          <div className="w-[200px]">
+            <p className="text-right text-[13px] font-medium text-[#0f172a]">{t("Progress: __ARG_0__%", workflowProgress)}</p>
+            <div className="mt-1.5 h-2 rounded-full bg-[#e2e8f0]">
+              <div className="h-2 rounded-full bg-[#1876f2]" style={{ width: `${workflowProgress}%` }} />
+            </div>
+          </div>
+        </div>
+
         {currentStep !== 1 ? (
-          <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
+          <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="text-[30px] font-black leading-[1.08] tracking-[-0.03em] text-[#0f172a] md:text-[34px]">
                 {currentStep === 2 ? t("Upload Episodes") : t("Payment Settings")}
@@ -1820,13 +1849,24 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         {currentStep === 1 ? (
           <section className="mt-6 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="space-y-6">
-              <div className="rounded-[28px] border border-[#e2e8f0] bg-white px-6 py-6 shadow-[0px_1px_2px_rgba(15,23,42,0.05),0px_18px_38px_rgba(15,23,42,0.04)] md:px-7">
-                <h2 className="text-[32px] font-black tracking-[-0.03em] text-[#0f172a]">{t("General Information")}</h2>
+              <div className={stepOnePanelClassName}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h2 className={stepOneTitleClassName}>{t("General Information")}</h2>
+                    <p className="mt-1 text-[13px] leading-6 text-[#64748b]">
+                      {t("Keep metadata clean and storefront-ready. Category stays single-select, while release regions support multi-select publishing.")}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-[#f8fafc] px-3 py-2 text-right">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Release Scope")}</p>
+                    <p className="mt-1 text-sm font-semibold text-[#0f172a]">{releaseScopeLabel}</p>
+                  </div>
+                </div>
 
                 <div className="mt-6 space-y-6">
                   <label className="block">
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="text-lg font-bold text-[#0f172a]">{t("Drama Title")}</span>
+                      <span className={stepOneLabelClassName}>{t("Drama Title")}</span>
                       <span className="text-sm text-[#94a3b8]">{dramaForm.title.length}/100</span>
                     </div>
                     <input
@@ -1835,13 +1875,13 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       value={dramaForm.title}
                       onChange={(event) => updateDramaFormField("title", event.target.value)}
                       placeholder={t("Enter drama title")}
-                      className="h-14 w-full rounded-[18px] border border-[#d7dde8] bg-[#f8fafc] px-5 text-[17px] font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2] focus:bg-white"
+                      className={stepOneInputClassName}
                     />
                   </label>
 
                   <label className="block">
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="text-lg font-bold text-[#0f172a]">{t("Description")}</span>
+                      <span className={stepOneLabelClassName}>{t("Description")}</span>
                       <span className="text-sm text-[#94a3b8]">{dramaForm.description.length}/500</span>
                     </div>
                     <textarea
@@ -1850,17 +1890,17 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       placeholder={t("Briefly describe your series...")}
                       rows={5}
                       maxLength={500}
-                      className="w-full rounded-[18px] border border-[#d7dde8] bg-[#f8fafc] px-5 py-4 text-lg text-[#0f172a] outline-none transition focus:border-[#1876f2] focus:bg-white"
+                      className={stepOneTextareaClassName}
                     />
                   </label>
 
                   <div className="grid gap-6 md:grid-cols-2">
                     <div>
-                      <span className="text-lg font-bold text-[#0f172a]">{t("Category")}</span>
+                      <span className={stepOneLabelClassName}>{t("Category")}</span>
                       <select
                         value={selectedCategory}
                         onChange={(event) => selectDramaCategory(event.target.value)}
-                        className="mt-2 h-14 w-full rounded-[18px] border border-[#d7dde8] bg-[#f8fafc] px-5 text-[17px] text-[#0f172a] outline-none transition focus:border-[#1876f2] focus:bg-white"
+                        className={`mt-2 ${stepOneInputClassName}`}
                       >
                         <option value="">{t("Select a category")}</option>
                         {categorySelectOptions.map((option) => (
@@ -1884,9 +1924,14 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-[#e2e8f0] bg-white px-6 py-6 shadow-[0px_1px_2px_rgba(15,23,42,0.05),0px_18px_38px_rgba(15,23,42,0.04)] md:px-7">
+              <div className={stepOnePanelClassName}>
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <h2 className="text-[32px] font-black tracking-[-0.03em] text-[#0f172a]">{t("Cover Image")}</h2>
+                  <div>
+                    <h2 className={stepOneTitleClassName}>{t("Cover Image")}</h2>
+                    <p className="mt-1 text-[13px] leading-6 text-[#64748b]">
+                      {t("Upload both portrait and landscape covers. The active tab changes the recommended asset ratio and preview rendering.")}
+                    </p>
+                  </div>
                   <div className="inline-flex rounded-[14px] bg-[#edf2f7] p-1">
                     {(["cover", "horizontalCover"] as CoverField[]).map((field) => {
                       const config = coverFieldConfig[field];
@@ -1896,7 +1941,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                           key={field}
                           type="button"
                           onClick={() => setActiveCoverField(field)}
-                          className={`rounded-[10px] px-4 py-2 text-sm font-semibold transition ${
+                          className={`rounded-[10px] px-4 py-2 text-[13px] font-semibold transition ${
                             active ? "bg-white text-[#0f172a] shadow-[0px_1px_2px_rgba(15,23,42,0.14)]" : "text-[#64748b]"
                           }`}
                         >
@@ -1907,7 +1952,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   </div>
                 </div>
 
-                <label className="mt-5 block cursor-pointer rounded-[20px] border-2 border-dashed border-[#d4dbe6] bg-[#fbfdff] px-6 py-8 text-center transition hover:border-[#1876f2]">
+                <label className="mt-5 block cursor-pointer rounded-[20px] border-2 border-dashed border-[#d4dbe6] bg-[#fbfdff] px-5 py-6 text-center transition hover:border-[#1876f2]">
                   <input
                     type="file"
                     accept="image/png,image/jpeg,image/webp,image/gif"
@@ -1921,34 +1966,44 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   />
 
                   {activeCoverConfig.value ? (
-                    <div className={`mx-auto w-full max-w-[620px] overflow-hidden rounded-[18px] border border-[#d7dde8] ${activeCoverConfig.aspectClassName}`}>
+                    <div
+                      className={`mx-auto overflow-hidden rounded-[18px] border border-[#d7dde8] bg-white ${
+                        activeCoverField === "cover" ? "w-full max-w-[220px]" : "w-full max-w-[420px]"
+                      } ${activeCoverConfig.aspectClassName}`}
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={activeCoverConfig.value} alt={activeCoverConfig.alt} className="h-full w-full object-cover" />
                     </div>
                   ) : (
-                    <div className="mx-auto flex max-w-[620px] flex-col items-center justify-center py-12 text-[#64748b]">
-                      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#e8f1ff] text-[#1876f2]">
-                        <ImagePlus className="h-7 w-7" />
+                    <div className="mx-auto flex min-h-[240px] max-w-[620px] flex-col items-center justify-center py-8 text-[#64748b]">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e8f1ff] text-[#1876f2]">
+                        <ImagePlus className="h-6 w-6" />
                       </span>
-                      <p className="mt-5 text-2xl font-semibold text-[#0f172a]">
+                      <p className="mt-4 text-lg font-semibold text-[#0f172a]">
                         {coverUploading ? t("Uploading cover...") : t("Drop your image here, or browse")}
                       </p>
-                      <p className="mt-2 text-sm text-[#64748b]">{t("Recommended size: __ARG_0__ (PNG, JPG, max 5MB)", activeCoverRecommendedSize)}</p>
+                      <p className="mt-2 text-[13px] text-[#64748b]">{t("Recommended size: __ARG_0__ (PNG, JPG, max 5MB)", activeCoverRecommendedSize)}</p>
                     </div>
                   )}
                 </label>
 
                 <div className="mt-4 flex items-center justify-between rounded-[14px] bg-[#f8fafc] px-4 py-3">
-                  <p className="text-sm text-[#475569]">{releaseScopeLabel}</p>
+                  <p className="text-[13px] text-[#475569]">{t("Both cover slots need valid uploads before the drama can move to the episode step.")}</p>
                   <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-[#0f172a]">{coverCompletionCount}/2</span>
                 </div>
               </div>
             </div>
 
             <aside className="space-y-4">
-              <div className="rounded-[28px] border border-[#e2e8f0] bg-white p-4 shadow-[0px_1px_2px_rgba(15,23,42,0.05),0px_18px_38px_rgba(15,23,42,0.04)]">
-                <p className="text-[18px] font-bold uppercase tracking-[0.08em] text-[#64748b]">{t("Live Preview")}</p>
-                <div className="mx-auto mt-4 w-[240px] rounded-[32px] border-[8px] border-[#0f172a] bg-[#020617] p-2.5">
+              <div className={stepOnePanelClassName}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#94a3b8]">{t("Live Preview")}</p>
+                    <h3 className="mt-1 text-[18px] font-bold text-[#0f172a]">{t("Mobile storefront card")}</h3>
+                  </div>
+                  <span className="rounded-full bg-[#eff6ff] px-3 py-1 text-[11px] font-bold text-[#1d4ed8]">{selectedCategory || t("Drama")}</span>
+                </div>
+                <div className="mx-auto mt-4 w-[224px] rounded-[30px] border-[7px] border-[#0f172a] bg-[#020617] p-2">
                   <div className="relative overflow-hidden rounded-[24px] bg-[#0b1220]">
                     <div className="aspect-[9/16]">
                       {previewCover ? (
@@ -1960,22 +2015,42 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                     </div>
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-3 pb-3 pt-10 text-white">
                       <div className="mb-2 inline-flex rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold">{selectedCategory || t("Drama")}</div>
-                      <p className="line-clamp-1 text-lg font-bold">{dramaForm.title || t("Your Drama Title Here")}</p>
-                      <p className="mt-1 line-clamp-2 text-xs text-white/80">
+                      <p className="line-clamp-1 text-base font-bold">{dramaForm.title || t("Your Drama Title Here")}</p>
+                      <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-white/80">
                         {dramaForm.description || t("Your description will appear here as the viewer explores the app...")}
                       </p>
-                      <button type="button" className="mt-3 w-full rounded-full bg-white px-3 py-1.5 text-xs font-bold text-[#0f172a]">
+                      <button type="button" className="mt-3 w-full rounded-full bg-white px-3 py-2 text-[11px] font-bold text-[#0f172a]">
                         {t("Watch Now")}
                       </button>
                     </div>
                   </div>
                 </div>
-                <p className="mt-3 text-center text-xs text-[#64748b]">{t("This is how your drama will appear on mobile devices.")}</p>
+                <p className="mt-3 text-center text-[12px] leading-5 text-[#64748b]">{t("This preview mirrors the mobile storefront ratio used across the creator and consumer surfaces.")}</p>
               </div>
 
-              <div className="rounded-[20px] bg-[#1876f2] px-5 py-4 text-white">
+              <div className={stepOnePanelClassName}>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#94a3b8]">{t("Readiness")}</p>
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-2xl bg-[#f8fafc] px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Covers")}</p>
+                    <p className="mt-1 text-sm font-semibold text-[#0f172a]">{t("__ARG_0__ of 2 uploaded", coverCompletionCount)}</p>
+                  </div>
+                  <div className="rounded-2xl bg-[#f8fafc] px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Metadata")}</p>
+                    <p className="mt-1 text-sm font-semibold text-[#0f172a]">
+                      {selectedCategory ? t("Category assigned") : t("Category pending")}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl bg-[#f8fafc] px-4 py-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Regions")}</p>
+                    <p className="mt-1 text-sm font-semibold text-[#0f172a]">{releaseScopeLabel}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-[24px] bg-[#1876f2] px-5 py-5 text-white shadow-[0_12px_30px_rgba(24,118,242,0.22)]">
                 <p className="text-[18px] font-black">{t("Quick Tip")}</p>
-                <p className="mt-2 text-sm leading-6 text-white/90">
+                <p className="mt-2 text-[13px] leading-6 text-white/90">
                   {t("High-quality cover images increase viewership and help your drama stand out in recommendation feeds.")}
                 </p>
               </div>
@@ -2531,7 +2606,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               type="button"
               onClick={saveDraft}
               disabled={busy}
-              className="rounded-[20px] border-2 border-[#0f172a] bg-white px-8 py-3 text-lg font-bold text-[#0f172a] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-12 rounded-[18px] border border-[#cbd5e1] bg-white px-6 text-[15px] font-bold text-[#0f172a] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {t("Save Draft")}
             </button>
@@ -2539,7 +2614,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               type="button"
               onClick={goToEpisodeUploadStep}
               disabled={busy || coverUploading || coverCompletionCount < 2}
-              className="rounded-[20px] bg-[#1876f2] px-10 py-3 text-lg font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] transition hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+              className="h-12 rounded-[18px] bg-[#1876f2] px-7 text-[15px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] transition hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {t("Next Step")}
             </button>
