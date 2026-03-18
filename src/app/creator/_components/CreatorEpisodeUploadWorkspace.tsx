@@ -27,9 +27,10 @@ import { useAuth } from "@/lib/authContext";
 import { API_URL, categoriesApi, creatorApi } from "@/lib/api";
 import { useCountryCatalog } from "@/hooks/useCountryCatalog";
 import { localizePath } from "@/lib/i18n";
-import { getQualityMenuOptions, type QualityValue } from "@/lib/playerQuality";
+import { getQualityMenuOptions, resolveDefaultQuality } from "@/lib/playerQuality";
 import { useLocale } from "@/hooks/useLocale";
-import CloudflarePlayer from "@/components/player/CloudflarePlayer";
+import { CloudflarePlayer, PlayerRoot, usePlayerContext } from "@/components/player";
+import { ControlBar } from "@/components/player/Controls";
 import type { SubtitleTrack } from "@/types";
 import type { CreatorEpisodeItem } from "@/types/creator";
 import type { CreatorEpisodePreviewPayload } from "@/types/creator";
@@ -524,6 +525,136 @@ function CreatorRegionPicker({
   );
 }
 
+type PreviewEpisodeState = CreatorEpisodePreviewPayload & {
+  title: string;
+  episodeNumber: number;
+};
+
+function resolvePreviewDefaultSubtitle(tracks: SubtitleTrack[]): string | null {
+  if (tracks.length === 0) return null;
+  return tracks[0]?.language || null;
+}
+
+function CreatorPreviewPlayerInner({ episode }: { episode: PreviewEpisodeState }) {
+  const { state, actions, playerRef, isFullscreen, toggleFullscreen } = usePlayerContext();
+  const subtitleTracks = useMemo(
+    () => (episode.subtitles || []) as SubtitleTrack[],
+    [episode.subtitles]
+  );
+  const qualityOptions = useMemo(
+    () => getQualityMenuOptions(true, episode.qualityOptions),
+    [episode.qualityOptions]
+  );
+  const [activeSubtitleLanguage, setActiveSubtitleLanguage] = useState<string | null>(() =>
+    resolvePreviewDefaultSubtitle(subtitleTracks)
+  );
+
+  useEffect(() => {
+    actions.setLoading(true);
+    actions.setCurrentTime(0);
+    actions.setDuration(Number(episode.duration || 0));
+    actions.setPlaying(false);
+    actions.setError(null);
+  }, [actions, episode.duration, episode.episodeId]);
+
+  useEffect(() => {
+    const defaultSubtitle = resolvePreviewDefaultSubtitle(subtitleTracks);
+    setActiveSubtitleLanguage((prev) => {
+      if (prev && subtitleTracks.some((track) => track.language === prev)) {
+        return prev;
+      }
+      return defaultSubtitle;
+    });
+  }, [subtitleTracks]);
+
+  useEffect(() => {
+    const defaultQuality = resolveDefaultQuality(qualityOptions);
+    const isCurrentEnabled = qualityOptions.some(
+      (option) => option.value === state.quality && !option.disabled
+    );
+    if (!isCurrentEnabled) {
+      actions.setQuality(defaultQuality);
+    }
+  }, [actions, qualityOptions, state.quality]);
+
+  const handlePlayPause = useCallback(() => {
+    if (state.isPlaying) {
+      playerRef.current?.pause();
+    } else {
+      playerRef.current?.play();
+    }
+  }, [playerRef, state.isPlaying]);
+
+  const handleSeek = useCallback((time: number) => {
+    playerRef.current?.seek(time);
+    actions.setCurrentTime(time);
+  }, [actions, playerRef]);
+
+  const handleVolumeChange = useCallback((volume: number) => {
+    playerRef.current?.setVolume(volume);
+    actions.setVolume(volume);
+  }, [actions, playerRef]);
+
+  const handleToggleMute = useCallback(() => {
+    const nextMuted = !state.isMuted;
+    playerRef.current?.setMuted(nextMuted);
+    actions.toggleMute();
+  }, [actions, playerRef, state.isMuted]);
+
+  const handlePlaybackRateChange = useCallback((rate: number) => {
+    playerRef.current?.setPlaybackRate(rate);
+    actions.setPlaybackRate(rate);
+  }, [actions, playerRef]);
+
+  return (
+    <>
+      <CloudflarePlayer
+        ref={playerRef}
+        streamVideoId={episode.streamVideoId || undefined}
+        videoUrl={episode.playbackUrl || episode.videoUrl || undefined}
+        quality={state.quality}
+        activeSubtitleLanguage={activeSubtitleLanguage}
+        poster={episode.thumbnailUrl || undefined}
+        autoplay
+        subtitles={subtitleTracks}
+        onTimeUpdate={(time, duration) => {
+          actions.setCurrentTime(time);
+          actions.setDuration(duration);
+        }}
+        onPlay={() => actions.setPlaying(true)}
+        onPause={() => actions.setPlaying(false)}
+        onReady={() => actions.setLoading(false)}
+        onError={(message) => actions.setError(message)}
+        className="h-full w-full"
+      />
+      <ControlBar
+        playerState={state}
+        onPlayPause={handlePlayPause}
+        onSeek={handleSeek}
+        onVolumeChange={handleVolumeChange}
+        onToggleMute={handleToggleMute}
+        onPlaybackRateChange={handlePlaybackRateChange}
+        onQualityChange={actions.setQuality}
+        subtitleTracks={subtitleTracks}
+        activeSubtitleLanguage={activeSubtitleLanguage}
+        onSubtitleChange={setActiveSubtitleLanguage}
+        onToggleFullscreen={toggleFullscreen}
+        qualityOptions={qualityOptions}
+        isFullscreen={isFullscreen}
+        title={`Ep ${episode.episodeNumber} - ${episode.title}`}
+      />
+    </>
+  );
+}
+
+function CreatorPreviewPlayer({ episode }: { episode: PreviewEpisodeState }) {
+  return (
+    <PlayerRoot className="h-full w-full">
+      <CreatorPreviewPlayerInner episode={episode} />
+    </PlayerRoot>
+  );
+}
+
 export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: CreatorEpisodeUploadWorkspaceProps) {
   const router = useRouter();
   const locale = useLocale();
@@ -568,9 +699,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const [autoSliceRunning, setAutoSliceRunning] = useState(false);
   const [autoSliceStatusMap, setAutoSliceStatusMap] = useState<Record<string, EpisodeStatusUi>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewEpisode, setPreviewEpisode] = useState<(CreatorEpisodePreviewPayload & { title: string; episodeNumber: number }) | null>(null);
-  const [previewSubtitleLanguage, setPreviewSubtitleLanguage] = useState<string | null>(null);
-  const [previewQuality, setPreviewQuality] = useState<QualityValue>("1080p");
+  const [previewEpisode, setPreviewEpisode] = useState<PreviewEpisodeState | null>(null);
 
   const aliveRef = useRef(true);
   const activeTusUploadsRef = useRef<Record<string, tus.Upload>>({});
@@ -784,33 +913,6 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [previewEpisode]);
-
-  useEffect(() => {
-    if (!previewEpisode) {
-      setPreviewSubtitleLanguage(null);
-      setPreviewQuality("1080p");
-      return;
-    }
-
-    const readyTracks = (previewEpisode.subtitleTracks || []).filter(
-      (track) => track.fileUrl && String(track.status || "").toLowerCase() === "ready"
-    );
-    const preferredTrack =
-      readyTracks.find((track) => track.isDefault) ||
-      readyTracks[0] ||
-      (previewEpisode.subtitles || [])[0] ||
-      null;
-    setPreviewSubtitleLanguage(preferredTrack?.language || null);
-
-    const width = Number(previewEpisode.videoWidth || 0);
-    if (width >= 2500) {
-      setPreviewQuality("2K");
-    } else if (width >= 1600) {
-      setPreviewQuality("1080p");
-    } else {
-      setPreviewQuality("720p");
-    }
   }, [previewEpisode]);
 
   const refreshEpisodes = useCallback(async () => {
@@ -1833,7 +1935,6 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const stepOneLabelClassName = "text-[13px] font-semibold text-[#0f172a]";
   const stepOneInputClassName = "h-12 w-full rounded-2xl border border-[#d7dde8] bg-[#f8fafc] px-4 text-[15px] text-[#0f172a] outline-none transition focus:border-[#1876f2] focus:bg-white";
   const stepOneTextareaClassName = "w-full rounded-2xl border border-[#d7dde8] bg-[#f8fafc] px-4 py-3 text-[15px] text-[#0f172a] outline-none transition focus:border-[#1876f2] focus:bg-white";
-  const previewQualityOptions = getQualityMenuOptions(true);
 
   return (
     <div className="-mx-4 -mt-6 md:-mx-6 lg:-mx-8 lg:-mt-8">
@@ -2856,17 +2957,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       : "max-w-[430px] aspect-[9/16]"
                   }`}
                 >
-                  <CloudflarePlayer
-                    streamVideoId={previewEpisode.streamVideoId || undefined}
-                    videoUrl={previewEpisode.videoUrl || undefined}
-                    quality={previewQuality}
-                    controls
-                    activeSubtitleLanguage={previewSubtitleLanguage}
-                    poster={previewEpisode.thumbnailUrl || undefined}
-                    autoplay
-                    subtitles={(previewEpisode.subtitles || []) as SubtitleTrack[]}
-                    className="h-full w-full"
-                  />
+                  <CreatorPreviewPlayer episode={previewEpisode} />
                 </div>
               </div>
 
@@ -2887,48 +2978,32 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
                 <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Playback Quality")}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {previewQualityOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setPreviewQuality(option.value)}
-                        className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${
-                          previewQuality === option.value ? "bg-[#1876f2] text-white" : "bg-[#eff6ff] text-[#1d4ed8]"
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="mt-2 text-sm font-bold text-[#0f172a]">
+                    {previewEpisode.maxQuality || t("Adaptive playback")}
+                  </p>
+                  <p className="mt-1 text-xs text-[#64748b]">
+                    {t("Use the player settings button to switch stream quality inside the preview.")}
+                  </p>
+                  {previewEpisode.qualityOptions?.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {previewEpisode.qualityOptions.map((option) => (
+                        <span
+                          key={option}
+                          className="rounded-full bg-[#eff6ff] px-3 py-1 text-[11px] font-bold text-[#1d4ed8]"
+                        >
+                          {option === "auto" ? t("Auto") : option.toUpperCase()}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Subtitles")}</p>
                   <p className="mt-2 text-sm font-bold text-[#0f172a]">{t("__ARG_0__ tracks available", previewEpisode.subtitles?.length || 0)}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setPreviewSubtitleLanguage(null)}
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                        previewSubtitleLanguage === null ? "bg-[#1876f2] text-white" : "bg-[#eff6ff] text-[#1d4ed8]"
-                      }`}
-                    >
-                      {t("Off")}
-                    </button>
-                    {(previewEpisode.subtitles || []).map((track) => (
-                      <button
-                        key={track.language}
-                        type="button"
-                        onClick={() => setPreviewSubtitleLanguage(track.language)}
-                        className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                          previewSubtitleLanguage === track.language ? "bg-[#1876f2] text-white" : "bg-[#eff6ff] text-[#1d4ed8]"
-                        }`}
-                      >
-                        {track.label}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="mt-1 text-xs text-[#64748b]">
+                    {t("Subtitle selection is now available directly in the player controls.")}
+                  </p>
                   {previewEpisode.subtitleTracks?.length ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {previewEpisode.subtitleTracks

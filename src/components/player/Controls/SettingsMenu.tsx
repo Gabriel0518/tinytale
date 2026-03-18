@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { PLAYBACK_RATES } from '../types/player';
-import type { QualityMenuOption } from '@/lib/playerQuality';
+import { getQualityMenuOptions, type QualityMenuOption } from '@/lib/playerQuality';
 
 interface SettingsMenuProps {
   playbackRate: number;
@@ -12,11 +12,7 @@ interface SettingsMenuProps {
   qualityOptions?: QualityMenuOption[];
 }
 
-const DEFAULT_QUALITY_OPTIONS: QualityMenuOption[] = [
-  { value: '2K', label: '2K', disabled: true, badge: 'VIP' },
-  { value: '1080p', label: '1080P' },
-  { value: '720p', label: '720P' },
-];
+const DEFAULT_QUALITY_OPTIONS: QualityMenuOption[] = getQualityMenuOptions(true);
 
 export default function SettingsMenu({
   playbackRate,

@@ -257,11 +257,14 @@ export interface CreatorEpisodePreviewPayload {
   episodeId: string;
   streamVideoId?: string;
   videoUrl?: string;
+  playbackUrl?: string;
   thumbnailUrl?: string;
   duration?: number;
   videoWidth?: number;
   videoHeight?: number;
   aspectRatio?: number | null;
+  qualityOptions?: string[];
+  maxQuality?: string;
   subtitles: Array<{
     language: string;
     label: string;

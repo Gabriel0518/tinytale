@@ -242,7 +242,7 @@ export default function PlayEpisodePage() {
   }, [token, episodes, unlockedEpisodeIds]);
 
   const isVip = user?.role === 'admin' || user?.vipStatus === 'active';
-  const qualityOptions = getQualityMenuOptions(isVip);
+  const qualityOptions = getQualityMenuOptions(isVip, streamInfo?.qualityOptions);
   useEffect(() => {
     const isCurrentEnabled = qualityOptions.some((option) => option.value === selectedQuality && !option.disabled);
     if (!isCurrentEnabled) {

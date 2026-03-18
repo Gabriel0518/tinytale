@@ -182,7 +182,10 @@ function PlayerInner({
   hasNext: boolean;
 }) {
   const { state, actions, isFullscreen, toggleFullscreen } = usePlayerContext();
-  const qualityMenuOptions = useMemo(() => getQualityMenuOptions(isVip), [isVip]);
+  const qualityMenuOptions = useMemo(
+    () => getQualityMenuOptions(isVip, streamInfo?.qualityOptions),
+    [isVip, streamInfo?.qualityOptions]
+  );
   const [activeSubtitleLanguage, setActiveSubtitleLanguage] = useState<string | null>(null);
 
   useEffect(() => {
