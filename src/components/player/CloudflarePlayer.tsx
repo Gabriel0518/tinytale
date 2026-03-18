@@ -15,6 +15,7 @@ interface CloudflarePlayerProps {
   videoUrl?: string;
   signedToken?: string;
   quality?: string;
+  controls?: boolean;
   activeSubtitleLanguage?: string | null;
   poster?: string;
   autoplay?: boolean;
@@ -80,6 +81,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       videoUrl,
       signedToken,
       quality = 'auto',
+      controls = false,
       activeSubtitleLanguage = null,
       poster,
       autoplay = false,
@@ -235,11 +237,12 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         videoRef.current.appendChild(videoElement);
 
         const player = videojs(videoElement, {
-          controls: false,
+          controls,
           fill: true,
           preload: 'auto',
           autoplay,
           crossorigin: 'anonymous',
+          playsinline: true,
           poster: poster || undefined,
           sources: [source],
         });
@@ -299,7 +302,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         }
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getBaseSource, autoplay, poster, subtitles, applySubtitleSelection, syncRemoteSubtitleTracks]);
+    }, [getBaseSource, autoplay, poster, subtitles, applySubtitleSelection, syncRemoteSubtitleTracks, controls]);
 
     // Switch HLS quality without rebuilding the player instance.
     useEffect(() => {

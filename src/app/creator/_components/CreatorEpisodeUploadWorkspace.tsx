@@ -8,6 +8,7 @@ import {
   ChevronsUpDown,
   Clapperboard,
   Clock3,
+  ExternalLink,
   FileVideo2,
   GripVertical,
   ImagePlus,
@@ -182,6 +183,53 @@ function mapSubtitleTranslationStatus(episode: CreatorEpisodeItem): EpisodeStatu
     text: `Auto-translating subtitles ${translation.completedCount}/${translation.totalCount}`,
     className: "bg-[#dbeafe] text-[#1d4ed8]",
   };
+}
+
+function getReadySubtitleTracks(episode: CreatorEpisodeItem) {
+  return (episode.subtitleTracks || []).filter((track) => track.fileUrl && String(track.status || "").toLowerCase() === "ready");
+}
+
+function isEpisodeVideoProcessing(episode: CreatorEpisodeItem, statusUi?: EpisodeStatusUi): boolean {
+  if (statusUi && String(statusUi.text || "").toLowerCase().includes("slicing")) return true;
+  const normalized = String(episode.status || "").toLowerCase();
+  return normalized === "processing";
+}
+
+function mapEpisodeSubtitleUi(episode: CreatorEpisodeItem, options?: { videoProcessing?: boolean }): EpisodeStatusUi | null {
+  const readyTracks = getReadySubtitleTracks(episode);
+  const translation = episode.subtitleTranslation;
+  const videoProcessing = Boolean(options?.videoProcessing);
+
+  if (videoProcessing) {
+    if (translation && translation.status !== "failed") {
+      if (translation.status === "completed") {
+        return {
+          text: `${translation.completedCount || readyTracks.length}/${translation.totalCount || readyTracks.length} subtitle files prepared`,
+          className: "bg-[#fef3c7] text-[#b45309]",
+        };
+      }
+      return {
+        text: `Preparing subtitles ${translation.completedCount}/${translation.totalCount}`,
+        className: "bg-[#fef3c7] text-[#b45309]",
+      };
+    }
+
+    if (readyTracks.length > 0 || episode.subtitleUrl) {
+      return {
+        text: `${Math.max(readyTracks.length, episode.subtitleUrl ? 1 : 0)} subtitle file${Math.max(readyTracks.length, episode.subtitleUrl ? 1 : 0) > 1 ? "s" : ""} prepared`,
+        className: "bg-[#fef3c7] text-[#b45309]",
+      };
+    }
+
+    return null;
+  }
+
+  return mapSubtitleTranslationStatus(episode) || (episode.subtitleUrl
+    ? {
+        text: `Subtitle Ready · ${String(episode.subtitleLanguage || "en").toUpperCase()}`,
+        className: "bg-[#f0fdf4] text-[#16a34a]",
+      }
+    : null);
 }
 
 function mapBulkStatus(status: BulkQueueStatus): { label: string; className: string } {
@@ -1819,29 +1867,6 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           </div>
         </div>
 
-        {currentStep !== 1 ? (
-          <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="text-[30px] font-black leading-[1.08] tracking-[-0.03em] text-[#0f172a] md:text-[34px]">
-                {currentStep === 2 ? t("Upload Episodes") : t("Payment Settings")}
-              </h1>
-              <p className="mt-1 text-sm text-[#64748b]">
-                {currentStep === 2
-                  ? uploadMode === "bulk"
-                    ? t("Upload one or more MP4 source files, then prepare episodes for creator review submission.")
-                    : t("Upload each episode individually with custom covers and subtitles.")
-                  : t("Set episode unlock rules before sending the drama to review.")}
-              </p>
-            </div>
-            <div className="w-[180px]">
-              <p className="text-right text-[13px] font-medium text-[#0f172a]">{t("Progress: __ARG_0__%", workflowProgress)}</p>
-              <div className="mt-1 h-2 rounded-full bg-[#e2e8f0]">
-                <div className="h-2 rounded-full bg-[#1876f2]" style={{ width: `${workflowProgress}%` }} />
-              </div>
-            </div>
-          </div>
-        ) : null}
-
         {error ? (
           <div className="mt-4 rounded-2xl border border-[#fecaca] bg-[#fff1f2] px-4 py-3 text-sm text-[#9f1239]">{error}</div>
         ) : null}
@@ -2292,7 +2317,10 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               <div ref={individualGridRef} className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 {episodes.map((episode) => {
                   const statusUi = autoSliceStatusMap[episode._id] || mapEpisodeStatus(episode.status);
-                  const translationUi = mapSubtitleTranslationStatus(episode);
+                  const subtitleUi = mapEpisodeSubtitleUi(episode, {
+                    videoProcessing: isEpisodeVideoProcessing(episode, autoSliceStatusMap[episode._id]),
+                  });
+                  const readySubtitleTracks = getReadySubtitleTracks(episode);
                   const state = uploadState[episode._id];
                   return (
                     <article
@@ -2335,9 +2363,9 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
                       <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-bold leading-4 ${statusUi.className}`}>{t(statusUi.text)}</div>
 
-                      {translationUi ? (
-                        <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold leading-4 ${translationUi.className}`}>
-                          {translationUi.text}
+                      {subtitleUi ? (
+                        <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold leading-4 ${subtitleUi.className}`}>
+                          {subtitleUi.text}
                         </div>
                       ) : null}
 
@@ -2415,7 +2443,38 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                         <span>{t("Upload Subtitle")}</span>
                       </label>
 
-                      {episode.subtitleUrl ? (
+                      {readySubtitleTracks.length > 0 ? (
+                        <div className="mt-3 rounded-[16px] border border-[#e2e8f0] bg-[#f8fafc] p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Subtitle Files")}</p>
+                            <span className="text-[11px] font-semibold text-[#64748b]">{readySubtitleTracks.length}</span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {readySubtitleTracks.slice(0, 4).map((track) => (
+                              <a
+                                key={track.id}
+                                href={track.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1d4ed8] shadow-[0px_1px_2px_rgba(15,23,42,0.06)]"
+                              >
+                                <span>{track.label}</span>
+                                <span className="text-[#94a3b8]">{String(track.format || "vtt").toUpperCase()}</span>
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ))}
+                            {readySubtitleTracks.length > 4 ? (
+                              <button
+                                type="button"
+                                onClick={() => openEpisodePreview(episode)}
+                                className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#475569] shadow-[0px_1px_2px_rgba(15,23,42,0.06)]"
+                              >
+                                {t("View All")}
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : episode.subtitleUrl ? (
                         <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#f0fdf4] px-2 py-1 text-[11px] font-bold text-[#16a34a]">
                           <CheckCircle2 className="h-3 w-3" />
                           {t("Subtitle Ready")} · {String(episode.subtitleLanguage || selectedSubtitleLanguage).toUpperCase()}
@@ -2524,6 +2583,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
                 {episodes.map((episode) => (
                   <div key={episode._id} className="rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-4">
+                    {(() => {
+                      const subtitleUi = mapEpisodeSubtitleUi(episode, {
+                        videoProcessing: isEpisodeVideoProcessing(episode, autoSliceStatusMap[episode._id]),
+                      });
+                      return (
                     <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                       <div className="flex min-w-0 items-center gap-4">
                         <button
@@ -2546,13 +2610,15 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                             <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${mapEpisodeStatus(episode.status).className}`}>
                               {t(mapEpisodeStatus(episode.status).text)}
                             </span>
-                            <span
-                              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                                episode.subtitleUrl ? "bg-[#f0fdf4] text-[#16a34a]" : "bg-[#fff7ed] text-[#c2410c]"
-                              }`}
-                            >
-                              {episode.subtitleUrl ? t("Subtitles Ready") : t("Subtitle Missing")}
-                            </span>
+                            {subtitleUi ? (
+                              <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${subtitleUi.className}`}>
+                                {subtitleUi.text}
+                              </span>
+                            ) : (
+                              <span className="inline-flex rounded-full bg-[#fff7ed] px-2.5 py-1 text-[11px] font-bold text-[#c2410c]">
+                                {t("Subtitle Missing")}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -2593,6 +2659,8 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                         </div>
                       </div>
                     </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>
@@ -2704,6 +2772,8 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   <CloudflarePlayer
                     streamVideoId={previewEpisode.streamVideoId || undefined}
                     videoUrl={previewEpisode.videoUrl || undefined}
+                    quality="1080p"
+                    controls
                     poster={previewEpisode.thumbnailUrl || undefined}
                     autoplay
                     subtitles={(previewEpisode.subtitles || []) as SubtitleTrack[]}
@@ -2737,6 +2807,25 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       </span>
                     ))}
                   </div>
+                  {previewEpisode.subtitleTracks?.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {previewEpisode.subtitleTracks
+                        .filter((track) => track.fileUrl && String(track.status || "").toLowerCase() === "ready")
+                        .map((track) => (
+                          <a
+                            key={track.id}
+                            href={track.fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-full bg-[#f8fafc] px-2.5 py-1 text-[11px] font-semibold text-[#334155]"
+                          >
+                            <span>{track.label}</span>
+                            <span className="text-[#94a3b8]">{String(track.format || "vtt").toUpperCase()}</span>
+                            <ExternalLink className="h-3 w-3 text-[#64748b]" />
+                          </a>
+                        ))}
+                    </div>
+                  ) : null}
                 </div>
 
                 {previewEpisode.subtitleTranslation ? (
