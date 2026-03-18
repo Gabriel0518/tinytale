@@ -788,9 +788,42 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           : {}),
       });
 
-      const createdEpisodes = splitRes.data?.episodes || [];
+      let splitData = splitRes.data;
+      if (splitData?.jobId) {
+        const autoSplitJobId = splitData.jobId;
+        const requestedClips = splitData.totalRequestedClips || 0;
+        setBulkSummary(
+          requestedClips > 0
+            ? t("Auto-slice started. Preparing __ARG_0__ episode clips in the background.", requestedClips)
+            : t("Auto-slice started. Preparing episode clips in the background.")
+        );
+
+        for (let attempt = 0; attempt < 120; attempt += 1) {
+          const jobRes = await creatorApi.getAutoSplitJobStatus(token, autoSplitJobId);
+          splitData = jobRes.data;
+
+          if (splitData.status === "completed" || splitData.status === "failed") {
+            break;
+          }
+
+          if (attempt === 119) {
+            setBulkSummary(t("Auto-slice is still preparing clips in the background. Please refresh in a moment."));
+          } else {
+            const createdCount = splitData.episodes?.length || 0;
+            const totalCount = splitData.totalRequestedClips || requestedClips || createdCount;
+            setBulkSummary(
+              totalCount > 0
+                ? t("Auto-slice is preparing clips: __ARG_0__/__ARG_1__ episodes created", createdCount, totalCount)
+                : t("Auto-slice is preparing clips in the background.")
+            );
+            await wait(5000);
+          }
+        }
+      }
+
+      const createdEpisodes = splitData?.episodes || [];
       await loadEpisodes(targetDramaId);
-      const initialCleanupReason = splitRes.data?.sourceCleanup?.reason ? ` (${splitRes.data.sourceCleanup.reason})` : "";
+      const initialCleanupReason = splitData?.sourceCleanup?.reason ? ` (${splitData.sourceCleanup.reason})` : "";
 
       const uidToEpisodeId = new Map(
         createdEpisodes
@@ -800,6 +833,9 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       const uids = Array.from(uidToEpisodeId.keys());
 
       if (!uids.length) {
+        if (splitData?.status === "failed" && splitData.failureMessage) {
+          throw new Error(splitData.failureMessage);
+        }
         setBulkSummary(t("Auto-slice completed, but no clip uid was returned"));
         return;
       }

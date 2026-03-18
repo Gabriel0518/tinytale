@@ -160,6 +160,35 @@ class ApiClient {
 
 export const api = new ApiClient(API_URL);
 
+type CreatorAutoSplitResponseData = {
+  jobId?: string;
+  status?: 'processing' | 'completed' | 'failed';
+  failureMessage?: string;
+  totalClips: number;
+  totalRequestedClips?: number;
+  episodes: Array<{
+    episodeId: string;
+    episodeNumber: number;
+    title: string;
+    streamVideoId: string;
+    duration: number;
+    cover: string;
+  }>;
+  subtitleSplit?: {
+    enabled: boolean;
+    language: string;
+    processedEpisodes: number;
+    skippedEpisodes: number;
+    errors: Array<{ episodeNumber?: number; message: string }>;
+  };
+  sourceCleanup?: {
+    state: string;
+    sourceVideoUid: string;
+    reason: string;
+  };
+  errors?: Array<{ episodeNumber: number; error: string; code?: string }>;
+};
+
 // Auth API
 export const authApi = {
   login: (email: string, password: string, turnstileToken?: string) =>
@@ -768,31 +797,14 @@ export const creatorApi = {
   ) =>
     api.post<{
       success: boolean;
-      data: {
-        totalClips: number;
-        episodes: Array<{
-          episodeId: string;
-          episodeNumber: number;
-          title: string;
-          streamVideoId: string;
-          duration: number;
-          cover: string;
-        }>;
-        subtitleSplit?: {
-          enabled: boolean;
-          language: string;
-          processedEpisodes: number;
-          skippedEpisodes: number;
-          errors: Array<{ episodeNumber?: number; message: string }>;
-        };
-        sourceCleanup?: {
-          state: string;
-          sourceVideoUid: string;
-          reason: string;
-        };
-        errors?: Array<{ episodeNumber: number; error: string; code?: string }>;
-      };
+      data: CreatorAutoSplitResponseData;
     }>('/api/creator/upload/auto-split', payload, { token }),
+
+  getAutoSplitJobStatus: (token: string, jobId: string) =>
+    api.get<{
+      success: boolean;
+      data: CreatorAutoSplitResponseData;
+    }>(`/api/creator/upload/auto-split/${encodeURIComponent(jobId)}`, { token }),
 
   getClipStatus: (token: string, uids: string[]) =>
     api.get<{
