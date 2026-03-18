@@ -2931,7 +2931,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
       {previewEpisode ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
+          <div className="relative flex max-h-[92vh] w-full max-w-[min(96vw,1380px)] flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
             <div className="flex items-center justify-between gap-4 border-b border-[#e2e8f0] px-5 py-4">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1876f2]">{t("Episode Preview")}</p>
@@ -2948,114 +2948,15 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               </button>
             </div>
 
-            <div className="grid max-h-[calc(92vh-88px)] gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
-              <div className="flex min-h-0 items-center justify-center bg-[#0f172a] px-4 py-6">
-                <div
-                  className={`w-full overflow-hidden rounded-[24px] bg-black shadow-[0px_24px_48px_rgba(15,23,42,0.3)] ${
-                    (previewEpisode.videoWidth || 0) > (previewEpisode.videoHeight || 0) && (previewEpisode.videoHeight || 0) > 0
-                      ? "max-w-4xl aspect-video"
-                      : "max-w-[430px] aspect-[9/16]"
-                  }`}
-                >
-                  <CreatorPreviewPlayer episode={previewEpisode} />
-                </div>
-              </div>
-
-              <div className="min-h-0 space-y-4 overflow-y-auto border-t border-[#e2e8f0] bg-[#f8fafc] p-5 lg:border-l lg:border-t-0">
-                <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Video Layout")}</p>
-                  <p className="mt-2 text-sm font-bold text-[#0f172a]">
-                    {(previewEpisode.videoWidth || 0) > (previewEpisode.videoHeight || 0) && (previewEpisode.videoHeight || 0) > 0
-                      ? t("Landscape")
-                      : t("Portrait")}
-                  </p>
-                  <p className="mt-1 text-xs text-[#64748b]">
-                    {previewEpisode.videoWidth && previewEpisode.videoHeight
-                      ? `${previewEpisode.videoWidth} × ${previewEpisode.videoHeight}`
-                      : t("Preview size will follow the uploaded video aspect ratio")}
-                  </p>
-                </div>
-
-                <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Playback Quality")}</p>
-                  <p className="mt-2 text-sm font-bold text-[#0f172a]">
-                    {previewEpisode.maxQuality || t("Adaptive playback")}
-                  </p>
-                  <p className="mt-1 text-xs text-[#64748b]">
-                    {t("Use the player settings button to switch stream quality inside the preview.")}
-                  </p>
-                  {previewEpisode.qualityOptions?.length ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {previewEpisode.qualityOptions.map((option) => (
-                        <span
-                          key={option}
-                          className="rounded-full bg-[#eff6ff] px-3 py-1 text-[11px] font-bold text-[#1d4ed8]"
-                        >
-                          {option === "auto" ? t("Auto") : option.toUpperCase()}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Subtitles")}</p>
-                  <p className="mt-2 text-sm font-bold text-[#0f172a]">{t("__ARG_0__ tracks available", previewEpisode.subtitles?.length || 0)}</p>
-                  <p className="mt-1 text-xs text-[#64748b]">
-                    {t("Subtitle selection is now available directly in the player controls.")}
-                  </p>
-                  {previewEpisode.subtitleTracks?.length ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {previewEpisode.subtitleTracks
-                        .filter((track) => track.fileUrl && String(track.status || "").toLowerCase() === "ready")
-                        .map((track) => (
-                          <a
-                            key={track.id}
-                            href={track.fileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1 rounded-full bg-[#f8fafc] px-2.5 py-1 text-[11px] font-semibold text-[#334155]"
-                          >
-                            <span>{track.label}</span>
-                            {track.isDefault ? (
-                              <span className="rounded-full bg-[#eff6ff] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-[#1d4ed8]">
-                                {t("Default")}
-                              </span>
-                            ) : null}
-                            <span className="text-[#94a3b8]">{String(track.format || "vtt").toUpperCase()}</span>
-                            <ExternalLink className="h-3 w-3 text-[#64748b]" />
-                          </a>
-                        ))}
-                    </div>
-                  ) : null}
-                </div>
-
-                {previewEpisode.subtitleTranslation ? (
-                  <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Auto Translation")}</p>
-                    <p className="mt-2 text-sm font-bold text-[#0f172a]">{t(formatSubtitleTranslationLabel(previewEpisode.subtitleTranslation.status))}</p>
-                    <div className="mt-3 h-2 rounded-full bg-[#e2e8f0]">
-                      <div
-                        className={`h-2 rounded-full ${
-                          previewEpisode.subtitleTranslation.status === "failed"
-                            ? "bg-[#ef4444]"
-                            : previewEpisode.subtitleTranslation.status === "completed"
-                              ? "bg-[#16a34a]"
-                              : "bg-[#1876f2]"
-                        }`}
-                        style={{ width: `${previewEpisode.subtitleTranslation.status === "completed" ? 100 : Math.max(0, Math.min(100, Number(previewEpisode.subtitleTranslation.progress || 0)))}%` }}
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-[#64748b]">
-                      {previewEpisode.subtitleTranslation.completedCount}/{previewEpisode.subtitleTranslation.totalCount} · {previewEpisode.subtitleTranslation.progress}%
-                    </p>
-                    <p className="mt-1 text-xs text-[#64748b]">
-                      {previewEpisode.subtitleTranslation.status === "failed"
-                        ? previewEpisode.subtitleTranslation.errorMessage || t("Translation task failed")
-                        : `${previewEpisode.subtitleTranslation.targetLanguages.length} target languages`}
-                    </p>
-                  </div>
-                ) : null}
+            <div className="flex max-h-[calc(92vh-88px)] min-h-0 items-center justify-center bg-[#0f172a] px-4 py-6 md:px-6">
+              <div
+                className={`w-full overflow-hidden rounded-[24px] bg-black shadow-[0px_24px_48px_rgba(15,23,42,0.3)] ${
+                  (previewEpisode.videoWidth || 0) > (previewEpisode.videoHeight || 0) && (previewEpisode.videoHeight || 0) > 0
+                    ? "max-w-6xl aspect-video"
+                    : "max-w-[430px] aspect-[9/16]"
+                }`}
+              >
+                <CreatorPreviewPlayer episode={previewEpisode} />
               </div>
             </div>
           </div>
