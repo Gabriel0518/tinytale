@@ -224,12 +224,51 @@ export interface CreatorEpisodeItem {
   subtitleLanguage?: string;
   status: "Draft" | "Processing" | "Published" | "Failed";
   streamVideoId?: string;
+  videoWidth?: number;
+  videoHeight?: number;
   videoFileName?: string;
   subtitleFileName?: string;
   subtitleStatus?: "none" | "uploaded" | "processing" | "ready" | "failed";
   coverStatus?: "none" | "uploaded";
+  subtitleTracks?: Array<{
+    id: string;
+    language: string;
+    label: string;
+    fileUrl: string;
+    format: string;
+    status: string;
+    source: string;
+    isDefault: boolean;
+  }>;
+  subtitleTranslation?: {
+    taskId: string;
+    status: "pending" | "processing" | "completed" | "failed";
+    progress: number;
+    completedCount: number;
+    totalCount: number;
+    errorMessage: string;
+    targetLanguages: string[];
+  } | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface CreatorEpisodePreviewPayload {
+  episodeId: string;
+  streamVideoId?: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  duration?: number;
+  videoWidth?: number;
+  videoHeight?: number;
+  aspectRatio?: number | null;
+  subtitles: Array<{
+    language: string;
+    label: string;
+    src: string;
+  }>;
+  subtitleTracks?: CreatorEpisodeItem["subtitleTracks"];
+  subtitleTranslation?: CreatorEpisodeItem["subtitleTranslation"];
 }
 
 export interface CreatorDramaEpisodesResponse {

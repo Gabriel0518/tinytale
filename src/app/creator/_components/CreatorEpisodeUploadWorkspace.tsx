@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
+  Check,
   CheckCircle2,
   Clapperboard,
   Clock3,
@@ -11,6 +12,7 @@ import {
   GripVertical,
   ImagePlus,
   PauseCircle,
+  PlayCircle,
   Plus,
   RefreshCw,
   Trash2,
@@ -19,10 +21,14 @@ import {
 } from "lucide-react";
 import * as tus from "tus-js-client";
 import { useAuth } from "@/lib/authContext";
-import { API_URL, creatorApi } from "@/lib/api";
+import { API_URL, categoriesApi, creatorApi } from "@/lib/api";
+import { useCountryCatalog } from "@/hooks/useCountryCatalog";
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import CloudflarePlayer from "@/components/player/CloudflarePlayer";
+import type { SubtitleTrack } from "@/types";
 import type { CreatorEpisodeItem } from "@/types/creator";
+import type { CreatorEpisodePreviewPayload } from "@/types/creator";
 import { useCreatorI18n } from "../_lib/creator-i18n";
 
 interface CreatorEpisodeUploadWorkspaceProps {
@@ -30,12 +36,18 @@ interface CreatorEpisodeUploadWorkspaceProps {
 }
 
 type UploadMode = "bulk" | "individual";
+type UploadStep = 1 | 2 | 3;
 
 type UploadState = {
   videoProgress: number;
   videoError: string;
   videoStatusText: string;
   uploading: boolean;
+};
+
+type EpisodeStatusUi = {
+  text: string;
+  className: string;
 };
 
 type BulkQueueStatus = "queued" | "uploading" | "processing" | "done" | "failed" | "cancelled";
@@ -141,6 +153,36 @@ function mapEpisodeStatus(status?: string): { text: string; className: string } 
   return { text: "Draft", className: "bg-[#f1f5f9] text-[#475569]" };
 }
 
+function mapSubtitleTranslationStatus(episode: CreatorEpisodeItem): EpisodeStatusUi | null {
+  const translation = episode.subtitleTranslation;
+  if (!translation) {
+    if ((episode.subtitleTracks?.length || 0) > 1) {
+      return {
+        text: `${episode.subtitleTracks?.length || 0} subtitle languages ready`,
+        className: "bg-[#dcfce7] text-[#166534]",
+      };
+    }
+    return null;
+  }
+
+  if (translation.status === "completed") {
+    return {
+      text: `${translation.completedCount || episode.subtitleTracks?.length || 0}/${translation.totalCount || episode.subtitleTracks?.length || 0} subtitle languages ready`,
+      className: "bg-[#dcfce7] text-[#166534]",
+    };
+  }
+  if (translation.status === "failed") {
+    return {
+      text: `Subtitle translation failed${translation.errorMessage ? `: ${translation.errorMessage}` : ""}`,
+      className: "bg-[#fff7ed] text-[#c2410c]",
+    };
+  }
+  return {
+    text: `Auto-translating subtitles ${translation.completedCount}/${translation.totalCount}`,
+    className: "bg-[#dbeafe] text-[#1d4ed8]",
+  };
+}
+
 function mapBulkStatus(status: BulkQueueStatus): { label: string; className: string } {
   if (status === "done") return { label: "Done", className: "bg-[#dcfce7] text-[#166534]" };
   if (status === "uploading") return { label: "Uploading", className: "bg-[#dbeafe] text-[#1d4ed8]" };
@@ -203,13 +245,89 @@ const SUBTITLE_LANGUAGE_OPTIONS = [
 
 type SubtitleLanguageCode = (typeof SUBTITLE_LANGUAGE_OPTIONS)[number]["code"];
 
+const DRAMA_LANGUAGE_OPTIONS = [
+  { value: "en", label: "English" },
+  { value: "zh", label: "Chinese" },
+  { value: "ja", label: "Japanese" },
+  { value: "es", label: "Spanish" },
+  { value: "pt", label: "Portuguese" },
+  { value: "hi", label: "Hindi" },
+  { value: "id", label: "Indonesian" },
+  { value: "ko", label: "Korean" },
+  { value: "fr", label: "French" },
+] as const;
+
+type DramaFormState = {
+  title: string;
+  description: string;
+  cover: string;
+  categories: string[];
+  language: string;
+  country: string;
+};
+
+const EMPTY_DRAMA_FORM: DramaFormState = {
+  title: "",
+  description: "",
+  cover: "",
+  categories: [],
+  language: "en",
+  country: "",
+};
+
+function isMeaningfulCover(url?: string): boolean {
+  if (!url) return false;
+  const normalized = String(url).trim();
+  return Boolean(normalized) && !normalized.includes("placehold.co");
+}
+
+function normalizeDramaForm(raw: any, fallbackLanguage: string): DramaFormState {
+  return {
+    title: String(raw?.title || "").trim(),
+    description: String(raw?.description || "").trim(),
+    cover: isMeaningfulCover(raw?.cover) ? String(raw.cover) : "",
+    categories: Array.isArray(raw?.categories) ? raw.categories.map((item: unknown) => String(item || "").trim()).filter(Boolean) : [],
+    language: String(raw?.language || fallbackLanguage || "en").trim().toLowerCase() || "en",
+    country: String(raw?.country || "").trim(),
+  };
+}
+
+function extractCategoryOptions(raw: any): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        return String(item.name || item.title || item.slug || "").trim();
+      }
+      return "";
+    })
+    .filter(Boolean);
+}
+
+function getWorkflowProgress(step: UploadStep): number {
+  if (step === 1) return 33;
+  if (step === 2) return 66;
+  return 100;
+}
+
 export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: CreatorEpisodeUploadWorkspaceProps) {
   const router = useRouter();
   const locale = useLocale();
   const { t } = useCreatorI18n();
   const { token } = useAuth();
+  const { options: countryOptions } = useCountryCatalog(locale);
 
   const [dramaId, setDramaId] = useState(initialDramaId || "");
+  const [currentStep, setCurrentStep] = useState<UploadStep>(initialDramaId ? 2 : 1);
+  const [dramaForm, setDramaForm] = useState<DramaFormState>({
+    ...EMPTY_DRAMA_FORM,
+    language: locale || "en",
+  });
+  const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
+  const [categoryInput, setCategoryInput] = useState("");
+  const [pricingTemplate, setPricingTemplate] = useState(30);
+  const [coverUploading, setCoverUploading] = useState(false);
   const [episodes, setEpisodes] = useState<CreatorEpisodeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -235,12 +353,16 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   });
   const [autoSliceDurationMinutes, setAutoSliceDurationMinutes] = useState(2);
   const [autoSliceRunning, setAutoSliceRunning] = useState(false);
+  const [autoSliceStatusMap, setAutoSliceStatusMap] = useState<Record<string, EpisodeStatusUi>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewEpisode, setPreviewEpisode] = useState<(CreatorEpisodePreviewPayload & { title: string; episodeNumber: number }) | null>(null);
 
   const aliveRef = useRef(true);
   const activeTusUploadsRef = useRef<Record<string, tus.Upload>>({});
   const activeVideoUidRef = useRef<Record<string, string>>({});
   const pollingTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const bulkCancelRequestedRef = useRef(false);
+  const individualGridRef = useRef<HTMLDivElement | null>(null);
 
   const progress = useMemo(() => computeProgress(episodes), [episodes]);
 
@@ -293,6 +415,17 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     [t, token]
   );
 
+  const loadDrama = useCallback(
+    async (targetDramaId: string) => {
+      if (!token || !targetDramaId) return null;
+      const response = await creatorApi.getDramaById(token, targetDramaId);
+      const nextDrama = response.data || {};
+      setDramaForm(normalizeDramaForm(nextDrama, locale || "en"));
+      return nextDrama;
+    },
+    [locale, token]
+  );
+
   const ensureDraftDrama = useCallback(async (): Promise<string> => {
     if (!token) throw new Error(t("Missing token"));
     if (dramaId) return dramaId;
@@ -310,6 +443,28 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   }, [dramaId, t, token]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function loadCategoryOptions() {
+      try {
+        const response = await categoriesApi.getAll();
+        if (!cancelled) {
+          setCategoryOptions(extractCategoryOptions(response?.data));
+        }
+      } catch {
+        if (!cancelled) {
+          setCategoryOptions([]);
+        }
+      }
+    }
+
+    loadCategoryOptions();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!token) return;
 
     let cancelled = false;
@@ -317,7 +472,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       try {
         const targetDramaId = initialDramaId || (await ensureDraftDrama());
         if (cancelled) return;
-        await loadEpisodes(targetDramaId);
+        await Promise.all([loadDrama(targetDramaId), loadEpisodes(targetDramaId)]);
       } catch (err: any) {
         if (cancelled) return;
         setError(err?.message || t("Failed to initialize workspace"));
@@ -329,7 +484,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     return () => {
       cancelled = true;
     };
-  }, [token, initialDramaId, ensureDraftDrama, loadEpisodes, t]);
+  }, [token, initialDramaId, ensureDraftDrama, loadDrama, loadEpisodes, t]);
 
   useEffect(() => {
     const uploadRef = activeTusUploadsRef;
@@ -351,10 +506,197 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     };
   }, []);
 
+  useEffect(() => {
+    setAutoSliceStatusMap((prev) => {
+      const next: Record<string, EpisodeStatusUi> = {};
+      const ids = new Set(episodes.map((episode) => episode._id));
+      Object.entries(prev).forEach(([episodeId, value]) => {
+        if (ids.has(episodeId)) next[episodeId] = value;
+      });
+      return next;
+    });
+  }, [episodes]);
+
+  useEffect(() => {
+    if (!previewEpisode) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [previewEpisode]);
+
   const refreshEpisodes = useCallback(async () => {
     if (!dramaId) return;
     await loadEpisodes(dramaId);
   }, [dramaId, loadEpisodes]);
+
+  useEffect(() => {
+    if (!initialDramaId) return;
+    if (!dramaForm.title.trim() || !dramaForm.description.trim() || !isMeaningfulCover(dramaForm.cover)) {
+      setCurrentStep(1);
+      return;
+    }
+    setCurrentStep((prev) => (prev === 1 ? 2 : prev));
+  }, [dramaForm.cover, dramaForm.description, dramaForm.title, initialDramaId]);
+
+  const updateDramaFormField = useCallback(<K extends keyof DramaFormState,>(field: K, value: DramaFormState[K]) => {
+    setDramaForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  }, []);
+
+  const toggleDramaCategory = useCallback((value: string) => {
+    const normalized = value.trim();
+    if (!normalized) return;
+    setDramaForm((prev) => ({
+      ...prev,
+      categories: prev.categories.includes(normalized)
+        ? prev.categories.filter((item) => item !== normalized)
+        : [...prev.categories, normalized].slice(0, 10),
+    }));
+  }, []);
+
+  const addCustomCategory = useCallback(() => {
+    const normalized = categoryInput.trim();
+    if (!normalized) return;
+    toggleDramaCategory(normalized);
+    setCategoryInput("");
+  }, [categoryInput, toggleDramaCategory]);
+
+  const validateBasicInfo = useCallback(() => {
+    if (!dramaForm.title.trim()) return t("Title is required");
+    if (!dramaForm.description.trim()) return t("Description is required");
+    if (!isMeaningfulCover(dramaForm.cover)) return t("Cover image is required");
+    if (dramaForm.categories.length === 0) return t("Select at least one category");
+    if (!dramaForm.language.trim()) return t("Primary language is required");
+    return "";
+  }, [dramaForm, t]);
+
+  const persistDramaForm = useCallback(
+    async (targetDramaId?: string) => {
+      if (!token) throw new Error(t("Missing token"));
+      const resolvedDramaId = targetDramaId || (await ensureDraftDrama());
+      const payload = {
+        title: dramaForm.title.trim() || t("Untitled Story"),
+        description: dramaForm.description.trim(),
+        cover: dramaForm.cover.trim() || "",
+        categories: dramaForm.categories,
+        language: dramaForm.language.trim() || "en",
+        country: dramaForm.country.trim(),
+      };
+      await creatorApi.updateDrama(token, resolvedDramaId, payload);
+      return resolvedDramaId;
+    },
+    [dramaForm, ensureDraftDrama, t, token]
+  );
+
+  const uploadDramaCover = useCallback(
+    async (file: File) => {
+      if (!token) return;
+      setCoverUploading(true);
+      setError("");
+      try {
+        const uploaded = await creatorApi.uploadImageFile(token, file);
+        setDramaForm((prev) => ({
+          ...prev,
+          cover: uploaded.data.url,
+        }));
+      } catch (err: any) {
+        setError(err?.message || t("Failed to upload cover"));
+      } finally {
+        setCoverUploading(false);
+      }
+    },
+    [t, token]
+  );
+
+  const persistEpisodePricing = useCallback(async (targetDramaId?: string) => {
+    const resolvedDramaId = targetDramaId || dramaId;
+    if (!token || !resolvedDramaId || episodes.length === 0) return;
+    await Promise.all(
+      episodes.map((episode) =>
+        creatorApi.updateDramaEpisode(token, resolvedDramaId, episode._id, {
+          isFree: episode.isFree,
+          unlockPrice: episode.isFree ? 0 : Math.max(0, Number(episode.unlockPrice) || 0),
+        })
+      )
+    );
+  }, [dramaId, episodes, token]);
+
+  const applyRecommendedPricing = useCallback(() => {
+    setEpisodes((prev) =>
+      prev.map((episode) => ({
+        ...episode,
+        isFree: episode.episodeNumber === 1,
+        unlockPrice: episode.episodeNumber === 1 ? 0 : Math.max(1, pricingTemplate || 30),
+      }))
+    );
+  }, [pricingTemplate]);
+
+  const applyPriceToLockedEpisodes = useCallback(() => {
+    const nextPrice = Math.max(1, pricingTemplate || 0);
+    setEpisodes((prev) =>
+      prev.map((episode) => ({
+        ...episode,
+        unlockPrice: episode.isFree ? 0 : nextPrice,
+      }))
+    );
+  }, [pricingTemplate]);
+
+  const updateEpisodePricing = useCallback((episodeId: string, patch: Partial<Pick<CreatorEpisodeItem, "isFree" | "unlockPrice">>) => {
+    setEpisodes((prev) =>
+      prev.map((episode) => {
+        if (episode._id !== episodeId) return episode;
+        const nextIsFree = patch.isFree !== undefined ? patch.isFree : episode.isFree;
+        const nextUnlockPrice = nextIsFree ? 0 : Math.max(1, Number(patch.unlockPrice ?? episode.unlockPrice) || 30);
+        return {
+          ...episode,
+          isFree: nextIsFree,
+          unlockPrice: nextUnlockPrice,
+        };
+      })
+    );
+  }, []);
+
+  const goToEpisodeUploadStep = useCallback(async () => {
+    const validationError = validateBasicInfo();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    try {
+      const targetDramaId = await persistDramaForm();
+      if (targetDramaId !== dramaId) {
+        setDramaId(targetDramaId);
+      }
+      setCurrentStep(2);
+    } catch (err: any) {
+      setError(err?.message || t("Failed to save basic info"));
+    } finally {
+      setBusy(false);
+    }
+  }, [dramaId, persistDramaForm, t, validateBasicInfo]);
+
+  const goToPaymentSettingsStep = useCallback(async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const targetDramaId = await persistDramaForm();
+      if (targetDramaId !== dramaId) {
+        setDramaId(targetDramaId);
+      }
+      setCurrentStep(3);
+    } catch (err: any) {
+      setError(err?.message || t("Failed to move to payment settings"));
+    } finally {
+      setBusy(false);
+    }
+  }, [dramaId, persistDramaForm, t]);
 
   const addEpisode = useCallback(async () => {
     if (!token) return;
@@ -410,6 +752,8 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
             status: "Published",
             duration: Number(data.duration || episode.duration || 0),
             thumbnail: data.thumbnail || episode.thumbnail || "",
+            videoWidth: Number(data.videoWidth || 0),
+            videoHeight: Number(data.videoHeight || 0),
           });
           updateEpisodeUploadState(episode._id, {
             videoProgress: 100,
@@ -637,18 +981,16 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     async (episode: CreatorEpisodeItem, file: File) => {
       if (!token || !dramaId) return;
       try {
-        const uploaded = await creatorApi.uploadSubtitleFile(token, file);
-        await patchEpisode(episode._id, {
-          subtitleUrl: uploaded.data.url,
-          subtitleLanguage: selectedSubtitleLanguage,
-          subtitleFileName: file.name,
+        await creatorApi.uploadEpisodeSubtitle(token, dramaId, episode._id, {
+          file,
+          language: selectedSubtitleLanguage,
         });
         await refreshEpisodes();
       } catch (err: any) {
-      setError(err?.message || t("Failed to upload subtitle"));
+        setError(err?.message || t("Failed to upload subtitle"));
       }
     },
-    [token, dramaId, patchEpisode, refreshEpisodes, selectedSubtitleLanguage, t]
+    [token, dramaId, refreshEpisodes, selectedSubtitleLanguage, t]
   );
 
   const uploadAutoSliceSourceVideo = useCallback(
@@ -786,10 +1128,15 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       setError(t("Please upload a source video and wait until it is ready"));
       return;
     }
+    if (!sourceSubtitle) {
+      setError(t("Source subtitle is required before auto-slice"));
+      return;
+    }
 
     setError("");
     setBulkSummary("");
     setAutoSliceRunning(true);
+    setAutoSliceStatusMap({});
 
     try {
       const targetDramaId = await ensureDraftDrama();
@@ -797,13 +1144,9 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         sourceVideoUid: sourceUpload.videoUid,
         episodeDuration: Math.max(1, Math.round(autoSliceDurationMinutes * 60)),
         dramaId: targetDramaId,
-        ...(sourceSubtitle
-          ? {
-              sourceSubtitleUrl: sourceSubtitle.url,
-              sourceSubtitleFormat: sourceSubtitle.format,
-              subtitleLanguage: selectedSubtitleLanguage,
-            }
-          : {}),
+        sourceSubtitleUrl: sourceSubtitle.url,
+        sourceSubtitleFormat: sourceSubtitle.format,
+        subtitleLanguage: selectedSubtitleLanguage,
       });
 
       let splitData = splitRes.data;
@@ -841,6 +1184,12 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
       const createdEpisodes = splitData?.episodes || [];
       await loadEpisodes(targetDramaId);
+      if (createdEpisodes.length > 0) {
+        setUploadMode("individual");
+        requestAnimationFrame(() => {
+          individualGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
       const initialCleanupReason = splitData?.sourceCleanup?.reason ? ` (${splitData.sourceCleanup.reason})` : "";
 
       const uidToEpisodeId = new Map(
@@ -860,6 +1209,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
       const handledReady = new Set<string>();
       const handledFailed = new Set<string>();
+      const monitorEpisodeIds = new Set(Array.from(uidToEpisodeId.values()));
 
       for (let attempt = 0; attempt < 36; attempt += 1) {
         const clipStatus = await creatorApi.getClipStatus(token, uids);
@@ -876,6 +1226,8 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
             await patchEpisode(episodeId, {
               status: "Published",
               duration: Number(clip.duration || 0),
+              videoWidth: Number(clip.videoWidth || 0),
+              videoHeight: Number(clip.videoHeight || 0),
               ...(clip.thumbnail ? { thumbnail: clip.thumbnail } : {}),
             });
           } else if (failedClips.some((failed) => failed.uid === clip.uid) && !handledFailed.has(clip.uid)) {
@@ -884,8 +1236,29 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           }
         }
 
+        const resolvedCount = handledReady.size + handledFailed.size;
+        const progressPercent = uids.length > 0 ? Math.round((resolvedCount / uids.length) * 100) : 0;
+        setAutoSliceStatusMap(() => {
+          const next: Record<string, EpisodeStatusUi> = {};
+          monitorEpisodeIds.forEach((episodeId) => {
+            if (Array.from(handledReady).some((uid) => uidToEpisodeId.get(uid) === episodeId)) {
+              return;
+            }
+            if (Array.from(handledFailed).some((uid) => uidToEpisodeId.get(uid) === episodeId)) {
+              next[episodeId] = { text: "Failed", className: "bg-[#fee2e2] text-[#b91c1c]" };
+              return;
+            }
+            next[episodeId] = {
+              text: `Slicing ${progressPercent}%`,
+              className: "bg-[#fef3c7] text-[#b45309]",
+            };
+          });
+          return next;
+        });
+
         if (clipStatus.data?.allReady) {
           await refreshEpisodes();
+          setAutoSliceStatusMap({});
           setBulkSummary(`${t("Auto-slice completed: __ARG_0__ episodes ready", handledReady.size)}${sourceCleanupText ? ` | ${sourceCleanupText}` : initialCleanupReason}`);
           if (failedClips.length > 0) {
             const reason = failedClips[0]?.errorReasonText || failedClips[0]?.errorReasonCode || t("Unknown processing error");
@@ -900,6 +1273,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
         if (failedClips.length > 0 && handledReady.size + failedClips.length >= uids.length) {
           await refreshEpisodes();
+          setAutoSliceStatusMap({});
           const reason = failedClips[0]?.errorReasonText || failedClips[0]?.errorReasonCode || t("Unknown processing error");
           setBulkSummary(
             `${t("Auto-slice partial success: __ARG_0__ ready, __ARG_1__ failed (__ARG_2__)", handledReady.size, failedClips.length, reason)}${
@@ -920,6 +1294,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         }
       }
     } catch (err: any) {
+      setAutoSliceStatusMap({});
       setError(err?.message || t("Auto-slice failed"));
     } finally {
       setAutoSliceRunning(false);
@@ -975,6 +1350,32 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     setBulkQueue([]);
     setBulkSummary("");
   }, [bulkRunning]);
+
+  const openEpisodePreview = useCallback(
+    async (episode: CreatorEpisodeItem) => {
+      if (!token || !dramaId) return;
+      if (!episode.streamVideoId && !episode.videoUrl) {
+        setError(t("Upload a video before previewing the episode"));
+        return;
+      }
+
+      setError("");
+      setPreviewLoading(true);
+      try {
+        const response = await creatorApi.getDramaEpisodePreview(token, dramaId, episode._id);
+        setPreviewEpisode({
+          ...response.data,
+          title: episode.title,
+          episodeNumber: episode.episodeNumber,
+        });
+      } catch (err: any) {
+        setError(err?.message || t("Failed to load episode preview"));
+      } finally {
+        setPreviewLoading(false);
+      }
+    },
+    [token, dramaId, t]
+  );
 
   const cancelBulkUpload = useCallback(async () => {
     bulkCancelRequestedRef.current = true;
@@ -1080,30 +1481,59 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     setBusy(true);
     setError("");
     try {
-      const targetDramaId = await ensureDraftDrama();
+      const targetDramaId = await persistDramaForm();
+      if (currentStep === 3) {
+        await persistEpisodePricing(targetDramaId);
+      }
       await creatorApi.updateDrama(token, targetDramaId, { updatedAt: new Date().toISOString() });
-      await refreshEpisodes();
+      setDramaId(targetDramaId);
+      await Promise.all([loadDrama(targetDramaId), loadEpisodes(targetDramaId)]);
     } catch (err: any) {
       setError(err?.message || t("Failed to save draft"));
     } finally {
       setBusy(false);
     }
-  }, [token, ensureDraftDrama, refreshEpisodes, t]);
+  }, [currentStep, loadDrama, loadEpisodes, persistDramaForm, persistEpisodePricing, t, token]);
 
   const nextStep = useCallback(async () => {
     if (!token) return;
+    const basicInfoError = validateBasicInfo();
+    if (basicInfoError) {
+      setCurrentStep(1);
+      setError(basicInfoError);
+      return;
+    }
+    if (episodes.some((episode) => !episode.streamVideoId && !episode.videoUrl)) {
+      setCurrentStep(2);
+      setError(t("Upload a video for every episode before submitting for review"));
+      individualGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (episodes.some((episode) => !episode.subtitleUrl)) {
+      setCurrentStep(2);
+      setUploadMode("individual");
+      setError(t("Upload subtitles for every episode before submitting for review"));
+      individualGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (episodes.some((episode) => !episode.isFree && (!Number.isFinite(Number(episode.unlockPrice)) || Number(episode.unlockPrice) <= 0))) {
+      setCurrentStep(3);
+      setError(t("Set a valid unlock price for every paid episode"));
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      const targetDramaId = await ensureDraftDrama();
+      const targetDramaId = await persistDramaForm();
+      await persistEpisodePricing(targetDramaId);
       await creatorApi.submitDramaForReview(token, targetDramaId);
       router.push(localizePath("/creator/dramas", locale));
     } catch (err: any) {
-      setError(err?.message || t("Failed to move to next step"));
+      setError(err?.message || t("Failed to submit drama for review"));
     } finally {
       setBusy(false);
     }
-  }, [token, ensureDraftDrama, router, locale, t]);
+  }, [episodes, locale, persistDramaForm, persistEpisodePricing, router, t, token, validateBasicInfo]);
 
   if (loading) {
     return (
@@ -1114,67 +1544,72 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   }
 
   const canRunBulk = bulkQueue.some((item) => item.status === "queued" || item.status === "failed" || item.status === "cancelled");
+  const workflowProgress = getWorkflowProgress(currentStep);
+  const freeEpisodesCount = episodes.filter((episode) => episode.isFree).length;
+  const paidEpisodesCount = Math.max(0, episodes.length - freeEpisodesCount);
+  const readyEpisodesCount = episodes.filter((episode) => (episode.streamVideoId || episode.videoUrl) && episode.subtitleUrl).length;
+  const availableCategoryOptions = categoryOptions.filter((option) => !dramaForm.categories.includes(option));
+  const topCategoryOptions = availableCategoryOptions.slice(0, 8);
 
   return (
     <div className="-mx-4 -mt-6 md:-mx-6 lg:-mx-8 lg:-mt-8">
       <div className="border-b border-[#e2e8f0] bg-white px-4 py-3.5 md:px-7">
         <div className="flex items-center gap-2 text-sm">
-          <div className="flex items-center gap-2 text-[#64748b]">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e2e8f0] text-xs font-bold text-[#475569]">1</span>
-            <span className="font-medium">{t("Basic Info")}</span>
+          <div className={`flex items-center gap-2 ${currentStep === 1 ? "text-[#0f172a]" : "text-[#64748b]"}`}>
+            <span
+              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                currentStep === 1 ? "bg-[#1876f2] text-white" : "bg-[#e2e8f0] text-[#475569]"
+              }`}
+            >
+              1
+            </span>
+            <span className={currentStep === 1 ? "font-bold" : "font-medium"}>{t("Basic Info")}</span>
           </div>
           <div className="h-px flex-1 bg-[#e2e8f0]" />
-          <div className="flex items-center gap-2 text-[#0f172a]">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1876f2] text-xs font-bold text-white">2</span>
-            <span className="font-bold">{t("Episode Upload")}</span>
+          <div className={`flex items-center gap-2 ${currentStep === 2 ? "text-[#0f172a]" : "text-[#64748b]"}`}>
+            <span
+              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                currentStep === 2 ? "bg-[#1876f2] text-white" : "bg-[#e2e8f0] text-[#475569]"
+              }`}
+            >
+              2
+            </span>
+            <span className={currentStep === 2 ? "font-bold" : "font-medium"}>{t("Episode Upload")}</span>
           </div>
           <div className="h-px flex-1 bg-[#e2e8f0]" />
-          <div className="flex items-center gap-2 text-[#64748b]">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e2e8f0] text-xs font-bold text-[#475569]">3</span>
-            <span className="font-medium">{t("Review & Monetization")}</span>
+          <div className={`flex items-center gap-2 ${currentStep === 3 ? "text-[#0f172a]" : "text-[#64748b]"}`}>
+            <span
+              className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                currentStep === 3 ? "bg-[#1876f2] text-white" : "bg-[#e2e8f0] text-[#475569]"
+              }`}
+            >
+              3
+            </span>
+            <span className={currentStep === 3 ? "font-bold" : "font-medium"}>{t("Payment Settings")}</span>
           </div>
         </div>
       </div>
 
       <div className="px-4 pb-7 pt-6 md:px-7">
-        <div className="border-b border-[#e2e8f0]">
-          <div className="flex items-end gap-1 text-sm">
-            <button
-              type="button"
-              onClick={() => setUploadMode("bulk")}
-              className={`border-b-2 px-5 py-2.5 ${
-                uploadMode === "bulk" ? "border-[#1876f2] font-bold text-[#1876f2]" : "border-transparent font-medium text-[#64748b]"
-              }`}
-            >
-              {t("Bulk Upload (Auto-Slice)")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setUploadMode("individual")}
-              className={`border-b-2 px-5 py-2.5 ${
-                uploadMode === "individual"
-                  ? "border-[#1876f2] font-bold text-[#1876f2]"
-                  : "border-transparent font-medium text-[#64748b]"
-              }`}
-            >
-              {t("Individual Upload")}
-            </button>
-          </div>
-        </div>
-
         <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-[30px] font-black leading-[1.08] tracking-[-0.03em] text-[#0f172a] md:text-[34px]">{t("Upload Episodes")}</h1>
+            <h1 className="text-[30px] font-black leading-[1.08] tracking-[-0.03em] text-[#0f172a] md:text-[34px]">
+              {currentStep === 1 ? t("Basic Info") : currentStep === 2 ? t("Upload Episodes") : t("Payment Settings")}
+            </h1>
             <p className="mt-1 text-sm text-[#64748b]">
-              {uploadMode === "bulk"
-                ? t("Upload one or more MP4 source files, then prepare episodes for creator review submission.")
-                : t("Upload episodes individually with custom covers and subtitles before submitting the drama for review.")}
+              {currentStep === 1
+                ? t("Complete the title, synopsis, cover, category, and language details before uploading episodes.")
+                : currentStep === 2
+                  ? uploadMode === "bulk"
+                    ? t("Upload one or more MP4 source files, then prepare episodes for creator review submission.")
+                    : t("Upload each episode individually with custom covers and subtitles.")
+                  : t("Set episode unlock rules before sending the drama to review.")}
             </p>
           </div>
           <div className="w-[180px]">
-            <p className="text-right text-[13px] font-medium text-[#0f172a]">{t("Progress: __ARG_0__%", progress)}</p>
+            <p className="text-right text-[13px] font-medium text-[#0f172a]">{t("Progress: __ARG_0__%", workflowProgress)}</p>
             <div className="mt-1 h-2 rounded-full bg-[#e2e8f0]">
-              <div className="h-2 rounded-full bg-[#1876f2]" style={{ width: `${progress}%` }} />
+              <div className="h-2 rounded-full bg-[#1876f2]" style={{ width: `${workflowProgress}%` }} />
             </div>
           </div>
         </div>
@@ -1183,339 +1618,687 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           <div className="mt-4 rounded-2xl border border-[#fecaca] bg-[#fff1f2] px-4 py-3 text-sm text-[#9f1239]">{error}</div>
         ) : null}
 
-        {uploadMode === "bulk" ? (
-          <section className="mt-5 space-y-4">
-            <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-[15px] font-bold text-[#0f172a]">{t("Auto-Slice From One Source Video")}</p>
-                  <p className="mt-1 text-xs text-[#64748b]">
-                    {t("Upload one long MP4, set duration per episode, then split to episodes automatically.")}
-                  </p>
-                </div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#1d4ed8]">
-                  <Clapperboard className="h-3.5 w-3.5" />
-                  {t("Creator Auto-Slice")}
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <label className="flex cursor-pointer items-center justify-between rounded-[16px] border border-[#cbd5e1] bg-[#f8fafc] px-4 py-2.5">
-                  <input
-                    type="file"
-                    accept="video/mp4"
-                    className="hidden"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) uploadAutoSliceSourceVideo(file);
-                      event.currentTarget.value = "";
-                    }}
-                    disabled={sourceUpload.uploading || autoSliceRunning}
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[#0f172a]">
-                      {sourceUpload.fileName || t("Upload Source Video (MP4)")}
-                    </p>
-                    <p className="text-xs text-[#64748b]">
-                      {sourceUpload.statusText || t("Cloudflare Stream will transcode before slicing")}
-                    </p>
-                    {sourceUpload.error ? <p className="mt-1 text-xs text-[#b91c1c]">{sourceUpload.error}</p> : null}
+        {currentStep === 1 ? (
+          <section className="mt-5 grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
+            <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748b]">{t("Cover")}</p>
+              <label className="mt-4 flex cursor-pointer flex-col overflow-hidden rounded-[20px] border-2 border-dashed border-[#cbd5e1] bg-[#f8fafc]">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) uploadDramaCover(file);
+                    event.currentTarget.value = "";
+                  }}
+                  disabled={coverUploading}
+                />
+                {dramaForm.cover ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={dramaForm.cover} alt={dramaForm.title || t("Drama cover")} className="aspect-[2/3] w-full object-cover" />
+                ) : (
+                  <div className="flex aspect-[2/3] flex-col items-center justify-center px-6 text-center text-[#64748b]">
+                    <ImagePlus className="h-8 w-8" />
+                    <span className="mt-3 text-sm font-semibold">{coverUploading ? t("Uploading cover...") : t("Upload Cover")}</span>
+                    <span className="mt-1 text-xs">{t("PNG, JPG, WEBP or GIF")}</span>
                   </div>
-                  <UploadCloud className="h-5 w-5 flex-shrink-0 text-[#1876f2]" />
+                )}
+              </label>
+              <p className="mt-3 text-xs leading-5 text-[#64748b]">
+                {t("This cover will be used in creator review and the drama listing after approval.")}
+              </p>
+            </div>
+
+            <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+              <div className="grid gap-5 md:grid-cols-2">
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Title")}</span>
+                  <input
+                    type="text"
+                    value={dramaForm.title}
+                    onChange={(event) => updateDramaFormField("title", event.target.value)}
+                    placeholder={t("Enter drama title")}
+                    className="mt-2 h-12 w-full rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2]"
+                  />
                 </label>
 
-                <div className="rounded-[16px] border border-[#cbd5e1] bg-[#f8fafc] px-4 py-2.5">
-                  <label htmlFor="auto-slice-duration" className="text-xs font-semibold uppercase tracking-[0.04em] text-[#64748b]">
-                    {t("Episode Duration")}
-                  </label>
-                  <div className="mt-2 flex items-center gap-2">
-                    <Clock3 className="h-4 w-4 text-[#64748b]" />
-                    <input
-                      id="auto-slice-duration"
-                      type="number"
-                      min={1}
-                      max={60}
-                      step={1}
-                      value={autoSliceDurationMinutes}
-                      onChange={(event) => setAutoSliceDurationMinutes(Math.max(1, Math.min(60, Number(event.target.value) || 1)))}
-                      className="h-8 w-20 rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm font-semibold text-[#0f172a] outline-none"
-                    />
-                    <span className="text-sm text-[#475569]">{t("minutes / episode")}</span>
-                  </div>
-
-                  <label htmlFor="auto-slice-subtitle-language" className="mt-4 block text-xs font-semibold uppercase tracking-[0.04em] text-[#64748b]">
-                    {t("Subtitle Language")}
-                  </label>
-                  <p className="mt-1 text-xs text-[#64748b]">{t("Applies to uploaded source and episode subtitle files")}</p>
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Primary Language")}</span>
                   <select
-                    id="auto-slice-subtitle-language"
-                    value={selectedSubtitleLanguage}
-                    onChange={(event) => setSelectedSubtitleLanguage(event.target.value as SubtitleLanguageCode)}
-                    className="mt-2 h-9 w-full rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm font-semibold text-[#0f172a] outline-none"
-                    disabled={autoSliceRunning}
+                    value={dramaForm.language}
+                    onChange={(event) => updateDramaFormField("language", event.target.value)}
+                    className="mt-2 h-12 w-full rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2]"
                   >
-                    {SUBTITLE_LANGUAGE_OPTIONS.map((option) => (
-                      <option key={option.code} value={option.code}>
+                    {DRAMA_LANGUAGE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
                     ))}
                   </select>
+                </label>
+              </div>
+
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Country / Region")}</span>
+                  <select
+                    value={dramaForm.country}
+                    onChange={(event) => updateDramaFormField("country", event.target.value)}
+                    className="mt-2 h-12 w-full rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2]"
+                  >
+                    <option value="">{t("Select country")}</option>
+                    {countryOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Categories")}</span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {topCategoryOptions.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        onClick={() => toggleDramaCategory(option)}
+                        className="rounded-full border border-[#cbd5e1] px-3 py-1.5 text-xs font-semibold text-[#475569] hover:border-[#1876f2] hover:text-[#1876f2]"
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      type="text"
+                      value={categoryInput}
+                      onChange={(event) => setCategoryInput(event.target.value)}
+                      placeholder={t("Add custom category")}
+                      className="h-11 flex-1 rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2]"
+                    />
+                    <button
+                      type="button"
+                      onClick={addCustomCategory}
+                      className="rounded-[16px] border border-[#cbd5e1] px-4 text-sm font-semibold text-[#475569] hover:bg-[#f8fafc]"
+                    >
+                      {t("Add")}
+                    </button>
+                  </div>
+                  {dramaForm.categories.length ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {dramaForm.categories.map((category) => (
+                        <button
+                          key={category}
+                          type="button"
+                          onClick={() => toggleDramaCategory(category)}
+                          className="inline-flex items-center gap-1 rounded-full bg-[#eff6ff] px-3 py-1.5 text-xs font-bold text-[#1d4ed8]"
+                        >
+                          <Check className="h-3 w-3" />
+                          {category}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 
-              {sourceUpload.progress > 0 ? (
-                <div className="mt-3">
-                  <div className="h-2 rounded-full bg-[#e2e8f0]">
-                    <div className="h-2 rounded-full bg-[#1876f2]" style={{ width: `${sourceUpload.progress}%` }} />
-                  </div>
-                </div>
-              ) : null}
+              <label className="mt-5 block">
+                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Synopsis")}</span>
+                <textarea
+                  value={dramaForm.description}
+                  onChange={(event) => updateDramaFormField("description", event.target.value)}
+                  placeholder={t("Write a short summary for reviewers and viewers")}
+                  rows={7}
+                  className="mt-2 w-full rounded-[20px] border border-[#cbd5e1] bg-white px-4 py-3 text-sm leading-6 text-[#0f172a] outline-none transition focus:border-[#1876f2]"
+                />
+              </label>
+            </div>
+          </section>
+        ) : null}
 
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-[14px] border border-[#cbd5e1] px-4 py-2 text-xs font-semibold text-[#334155] hover:bg-[#f8fafc]">
-                  <input
-                    type="file"
-                    accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain"
-                    className="hidden"
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      if (file) uploadAutoSliceSubtitle(file);
-                      event.currentTarget.value = "";
-                    }}
-                    disabled={autoSliceRunning}
-                  />
-                  <GripVertical className="h-3.5 w-3.5" />
-                  <span>{sourceSubtitle ? t("Subtitle: __ARG_0__", sourceSubtitle.fileName) : t("Upload Source Subtitle (Optional)")}</span>
-                </label>
-
+        {currentStep === 2 ? (
+          <>
+            <div className="mt-5 border-b border-[#e2e8f0]">
+              <div className="flex items-end gap-1 text-sm">
                 <button
                   type="button"
-                  onClick={runAutoSlice}
-                  disabled={!sourceUpload.ready || autoSliceRunning}
-                  className="inline-flex items-center gap-2 rounded-[16px] bg-[#1876f2] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => setUploadMode("bulk")}
+                  className={`border-b-2 px-5 py-2.5 ${
+                    uploadMode === "bulk" ? "border-[#1876f2] font-bold text-[#1876f2]" : "border-transparent font-medium text-[#64748b]"
+                  }`}
                 >
-                  <Clapperboard className="h-4 w-4" />
-                  {autoSliceRunning ? t("Auto-Slicing...") : t("Start Auto-Slice")}
+                  {t("Bulk Upload (Auto-Slice)")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUploadMode("individual")}
+                  className={`border-b-2 px-5 py-2.5 ${
+                    uploadMode === "individual"
+                      ? "border-[#1876f2] font-bold text-[#1876f2]"
+                      : "border-transparent font-medium text-[#64748b]"
+                  }`}
+                >
+                  {t("Individual Upload")}
                 </button>
               </div>
             </div>
 
-            <label className="flex cursor-pointer flex-col items-center justify-center rounded-[20px] border-2 border-dashed border-[#cbd5e1] bg-white px-6 py-8 text-center transition-colors hover:bg-[#f8fafc]">
-              <input
-                type="file"
-                accept="video/mp4"
-                multiple
-                className="hidden"
-                onChange={(event) => {
-                  selectBulkFiles(event.target.files);
-                  event.currentTarget.value = "";
-                }}
-              />
-              <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#eff6ff] text-[#1876f2]">
-                <UploadCloud className="h-7 w-7" />
-              </span>
-              <p className="text-[15px] font-bold text-[#0f172a]">{t("Select MP4 files for bulk upload")}</p>
-              <p className="mt-1 text-xs text-[#64748b]">{t("Files will be mapped to new episodes in filename order.")}</p>
-            </label>
+            {uploadMode === "bulk" ? (
+              <section className="mt-5 space-y-4">
+                <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-[15px] font-bold text-[#0f172a]">{t("Auto-Slice From One Source Video")}</p>
+                      <p className="mt-1 text-xs text-[#64748b]">
+                        {t("Upload one long MP4, set duration per episode, then split to episodes automatically.")}
+                      </p>
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#1d4ed8]">
+                      <Clapperboard className="h-3.5 w-3.5" />
+                      {t("Creator Auto-Slice")}
+                    </div>
+                  </div>
 
-            {bulkQueue.length ? (
-              <div className="overflow-hidden rounded-[20px] border border-[#e2e8f0] bg-white">
-                <div className="grid grid-cols-[1.6fr_120px_120px_130px_48px] items-center border-b border-[#f1f5f9] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[#94a3b8]">
-                  <span>{t("File")}</span>
-                  <span>{t("Size")}</span>
-                  <span>{t("Progress")}</span>
-                  <span>{t("Status")}</span>
-                  <span />
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <label className="flex cursor-pointer items-center justify-between rounded-[16px] border border-[#cbd5e1] bg-[#f8fafc] px-4 py-2.5">
+                      <input
+                        type="file"
+                        accept="video/mp4"
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) uploadAutoSliceSourceVideo(file);
+                          event.currentTarget.value = "";
+                        }}
+                        disabled={sourceUpload.uploading || autoSliceRunning}
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-[#0f172a]">
+                          {sourceUpload.fileName || t("Upload Source Video (MP4)")}
+                        </p>
+                        <p className="text-xs text-[#64748b]">
+                          {sourceUpload.statusText || t("Cloudflare Stream will transcode before slicing")}
+                        </p>
+                        {sourceUpload.error ? <p className="mt-1 text-xs text-[#b91c1c]">{sourceUpload.error}</p> : null}
+                      </div>
+                      <UploadCloud className="h-5 w-5 flex-shrink-0 text-[#1876f2]" />
+                    </label>
+
+                    <div className="rounded-[16px] border border-[#cbd5e1] bg-[#f8fafc] px-4 py-2.5">
+                      <label htmlFor="auto-slice-duration" className="text-xs font-semibold uppercase tracking-[0.04em] text-[#64748b]">
+                        {t("Episode Duration")}
+                      </label>
+                      <div className="mt-2 flex items-center gap-2">
+                        <Clock3 className="h-4 w-4 text-[#64748b]" />
+                        <input
+                          id="auto-slice-duration"
+                          type="number"
+                          min={1}
+                          max={60}
+                          step={1}
+                          value={autoSliceDurationMinutes}
+                          onChange={(event) => setAutoSliceDurationMinutes(Math.max(1, Math.min(60, Number(event.target.value) || 1)))}
+                          className="h-8 w-20 rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm font-semibold text-[#0f172a] outline-none"
+                        />
+                        <span className="text-sm text-[#475569]">{t("minutes / episode")}</span>
+                      </div>
+
+                      <label htmlFor="auto-slice-subtitle-language" className="mt-4 block text-xs font-semibold uppercase tracking-[0.04em] text-[#64748b]">
+                        {t("Subtitle Language")}
+                      </label>
+                      <p className="mt-1 text-xs text-[#64748b]">{t("Applies to uploaded source and episode subtitle files")}</p>
+                      <select
+                        id="auto-slice-subtitle-language"
+                        value={selectedSubtitleLanguage}
+                        onChange={(event) => setSelectedSubtitleLanguage(event.target.value as SubtitleLanguageCode)}
+                        className="mt-2 h-9 w-full rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm font-semibold text-[#0f172a] outline-none"
+                        disabled={autoSliceRunning}
+                      >
+                        {SUBTITLE_LANGUAGE_OPTIONS.map((option) => (
+                          <option key={option.code} value={option.code}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {sourceUpload.progress > 0 ? (
+                    <div className="mt-3">
+                      <div className="h-2 rounded-full bg-[#e2e8f0]">
+                        <div className="h-2 rounded-full bg-[#1876f2]" style={{ width: `${sourceUpload.progress}%` }} />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-[14px] border border-[#cbd5e1] px-4 py-2 text-xs font-semibold text-[#334155] hover:bg-[#f8fafc]">
+                      <input
+                        type="file"
+                        accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain"
+                        className="hidden"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (file) uploadAutoSliceSubtitle(file);
+                          event.currentTarget.value = "";
+                        }}
+                        disabled={autoSliceRunning}
+                      />
+                      <GripVertical className="h-3.5 w-3.5" />
+                      <span>{sourceSubtitle ? t("Subtitle: __ARG_0__", sourceSubtitle.fileName) : t("Upload Source Subtitle (Required)")}</span>
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={runAutoSlice}
+                      disabled={!sourceUpload.ready || !sourceSubtitle || autoSliceRunning}
+                      className="inline-flex items-center gap-2 rounded-[16px] bg-[#1876f2] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Clapperboard className="h-4 w-4" />
+                      {autoSliceRunning ? t("Auto-Slicing...") : t("Start Auto-Slice")}
+                    </button>
+                  </div>
                 </div>
-                <div className="max-h-[320px] overflow-y-auto">
-                  {bulkQueue.map((item) => {
-                    const statusUi = mapBulkStatus(item.status);
-                    return (
-                      <div key={item.id} className="grid grid-cols-[1.6fr_120px_120px_130px_48px] items-center border-b border-[#f8fafc] px-4 py-2.5 text-sm">
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-[#0f172a]">{item.file.name}</p>
-                          {item.error ? <p className="truncate text-xs text-[#b91c1c]">{item.error}</p> : null}
+
+                <label className="flex cursor-pointer flex-col items-center justify-center rounded-[20px] border-2 border-dashed border-[#cbd5e1] bg-white px-6 py-8 text-center transition-colors hover:bg-[#f8fafc]">
+                  <input
+                    type="file"
+                    accept="video/mp4"
+                    multiple
+                    className="hidden"
+                    onChange={(event) => {
+                      selectBulkFiles(event.target.files);
+                      event.currentTarget.value = "";
+                    }}
+                  />
+                  <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#eff6ff] text-[#1876f2]">
+                    <UploadCloud className="h-7 w-7" />
+                  </span>
+                  <p className="text-[15px] font-bold text-[#0f172a]">{t("Select MP4 files for bulk upload")}</p>
+                  <p className="mt-1 text-xs text-[#64748b]">{t("Files will be mapped to new episodes in filename order.")}</p>
+                </label>
+
+                {bulkQueue.length ? (
+                  <div className="overflow-hidden rounded-[20px] border border-[#e2e8f0] bg-white">
+                    <div className="grid grid-cols-[1.6fr_120px_120px_130px_48px] items-center border-b border-[#f1f5f9] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[#94a3b8]">
+                      <span>{t("File")}</span>
+                      <span>{t("Size")}</span>
+                      <span>{t("Progress")}</span>
+                      <span>{t("Status")}</span>
+                      <span />
+                    </div>
+                    <div className="max-h-[320px] overflow-y-auto">
+                      {bulkQueue.map((item) => {
+                        const statusUi = mapBulkStatus(item.status);
+                        return (
+                          <div key={item.id} className="grid grid-cols-[1.6fr_120px_120px_130px_48px] items-center border-b border-[#f8fafc] px-4 py-2.5 text-sm">
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-[#0f172a]">{item.file.name}</p>
+                              {item.error ? <p className="truncate text-xs text-[#b91c1c]">{item.error}</p> : null}
+                            </div>
+                            <span className="text-xs text-[#64748b]">{formatBytes(item.file.size)}</span>
+                            <span className="text-xs font-semibold text-[#334155]">{item.progress}%</span>
+                            <span className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-bold ${statusUi.className}`}>{t(statusUi.label)}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeBulkItem(item.id)}
+                              disabled={bulkRunning}
+                              className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569] disabled:cursor-not-allowed disabled:opacity-50"
+                              aria-label={`Remove ${item.file.name}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={startBulkUpload}
+                    disabled={bulkRunning || autoSliceRunning || !canRunBulk}
+                    className="inline-flex items-center gap-2 rounded-[16px] bg-[#1876f2] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <UploadCloud className="h-4 w-4" />
+                    {t("Start Bulk Upload")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelBulkUpload}
+                    disabled={!bulkRunning || autoSliceRunning}
+                    className="inline-flex items-center gap-2 rounded-[16px] border border-[#cbd5e1] px-4 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    {t("Stop")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearBulkQueue}
+                    disabled={bulkRunning || autoSliceRunning || bulkQueue.length === 0}
+                    className="inline-flex items-center gap-2 rounded-[16px] border border-[#cbd5e1] px-4 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {t("Clear Queue")}
+                  </button>
+                  {bulkSummary ? <p className="text-sm font-medium text-[#334155]">{bulkSummary}</p> : null}
+                </div>
+              </section>
+            ) : (
+              <div ref={individualGridRef} className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                {episodes.map((episode) => {
+                  const statusUi = autoSliceStatusMap[episode._id] || mapEpisodeStatus(episode.status);
+                  const translationUi = mapSubtitleTranslationStatus(episode);
+                  const state = uploadState[episode._id];
+                  return (
+                    <article
+                      key={episode._id}
+                      className={`rounded-[20px] border bg-white p-4 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] ${
+                        episode.streamVideoId ? "border-[rgba(24,118,242,0.35)]" : "border-[#e2e8f0]"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openEpisodePreview(episode)}
+                        className="relative block w-full overflow-hidden rounded-[16px] border-2 border-dashed border-[#cbd5e1] bg-[#f1f5f9] text-left"
+                      >
+                        {episode.thumbnail ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={episode.thumbnail} alt={episode.title} className="h-[220px] w-full object-cover" />
+                        ) : (
+                          <div className="flex h-[220px] flex-col items-center justify-center text-[#64748b]">
+                            <PlayCircle className="h-6 w-6" />
+                            <span className="mt-2 text-xs font-medium">{t("Open Preview")}</span>
+                          </div>
+                        )}
+                        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-4 py-3 text-white">
+                          <span className="text-xs font-semibold">{t("Preview Episode")}</span>
+                          <PlayCircle className="h-4 w-4" />
                         </div>
-                        <span className="text-xs text-[#64748b]">{formatBytes(item.file.size)}</span>
-                        <span className="text-xs font-semibold text-[#334155]">{item.progress}%</span>
-                        <span className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-bold ${statusUi.className}`}>{t(statusUi.label)}</span>
+                      </button>
+
+                      <div className="mt-4 flex items-center justify-between">
+                        <h3 className="text-[22px] font-black leading-none tracking-[-0.03em] text-[#1e293b] md:text-[24px]">{t("Episode __ARG_0__", episode.episodeNumber)}</h3>
                         <button
                           type="button"
-                          onClick={() => removeBulkItem(item.id)}
-                          disabled={bulkRunning}
-                          className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569] disabled:cursor-not-allowed disabled:opacity-50"
-                          aria-label={`Remove ${item.file.name}`}
+                          onClick={() => removeEpisode(episode._id)}
+                          className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569]"
+                          aria-label={t("Delete episode __ARG_0__", episode.episodeNumber)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
-                    );
-                  })}
+
+                      <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-bold leading-4 ${statusUi.className}`}>{t(statusUi.text)}</div>
+
+                      {translationUi ? (
+                        <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold leading-4 ${translationUi.className}`}>
+                          {translationUi.text}
+                        </div>
+                      ) : null}
+
+                      <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-[#f1f5f9] px-3 py-2 text-[11px] font-bold text-[#334155]">
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) uploadCover(episode, file);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                        <ImagePlus className="h-3.5 w-3.5" />
+                        <span>{episode.thumbnail ? t("Replace Cover") : t("Upload Cover")}</span>
+                      </label>
+
+                      <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-[#f1f5f9] px-3 py-2 text-[11px] font-bold text-[#334155]">
+                        <input
+                          type="file"
+                          accept="video/mp4"
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) uploadVideo(episode, file);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                        <FileVideo2 className="h-3.5 w-3.5" />
+                        <span>{t("Upload Video")}</span>
+                      </label>
+
+                      {state?.videoStatusText ? <p className="mt-2 text-[11px] text-[#64748b]">{state.videoStatusText}</p> : null}
+                      {state?.videoProgress ? (
+                        <div className="mt-1 h-1.5 rounded-full bg-[#e2e8f0]">
+                          <div className="h-1.5 rounded-full bg-[#1876f2]" style={{ width: `${state.videoProgress}%` }} />
+                        </div>
+                      ) : null}
+                      {state?.videoError ? <p className="mt-1 text-[11px] text-[#b91c1c]">{state.videoError}</p> : null}
+
+                      <div className="mt-2 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => cancelEpisodeUpload(episode._id)}
+                          disabled={!state?.uploading}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-[#475569] hover:bg-[#f1f5f9] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <PauseCircle className="h-3.5 w-3.5" />
+                          {t("Cancel")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => retryVideoStatusCheck(episode)}
+                          disabled={!episode.streamVideoId || Boolean(state?.uploading)}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          {t("Retry status")}
+                        </button>
+                      </div>
+
+                      <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-[#f1f5f9] px-3 py-2 text-[11px] font-bold text-[#334155]">
+                        <input
+                          type="file"
+                          accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain"
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) uploadSubtitle(episode, file);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                        <GripVertical className="h-3.5 w-3.5" />
+                        <span>{t("Upload Subtitle")}</span>
+                      </label>
+
+                      {episode.subtitleUrl ? (
+                        <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#f0fdf4] px-2 py-1 text-[11px] font-bold text-[#16a34a]">
+                          <CheckCircle2 className="h-3 w-3" />
+                          {t("Subtitle Ready")} · {String(episode.subtitleLanguage || selectedSubtitleLanguage).toUpperCase()}
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  onClick={addEpisode}
+                  disabled={busy}
+                  className="flex min-h-[264px] flex-col items-center justify-center rounded-[20px] border-2 border-dashed border-[#cbd5e1] px-6 text-[#64748b] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#f1f5f9]">
+                    <Plus className="h-6 w-6" />
+                  </span>
+                  <span className="text-[13px] font-bold">{t("Click to add new episode")}</span>
+                </button>
+              </div>
+            )}
+          </>
+        ) : null}
+
+        {currentStep === 3 ? (
+          <section className="mt-5 grid gap-5 xl:grid-cols-[300px_minmax(0,1fr)]">
+            <div className="space-y-5">
+              <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748b]">{t("Workflow Summary")}</p>
+                <div className="mt-4 space-y-3 text-sm">
+                  <div className="flex items-center justify-between rounded-[16px] bg-[#f8fafc] px-4 py-3">
+                    <span className="text-[#64748b]">{t("Episodes")}</span>
+                    <span className="font-bold text-[#0f172a]">{episodes.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-[16px] bg-[#f8fafc] px-4 py-3">
+                    <span className="text-[#64748b]">{t("Ready for review")}</span>
+                    <span className="font-bold text-[#0f172a]">{readyEpisodesCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-[16px] bg-[#f8fafc] px-4 py-3">
+                    <span className="text-[#64748b]">{t("Free episodes")}</span>
+                    <span className="font-bold text-[#16a34a]">{freeEpisodesCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-[16px] bg-[#f8fafc] px-4 py-3">
+                    <span className="text-[#64748b]">{t("Paid episodes")}</span>
+                    <span className="font-bold text-[#1876f2]">{paidEpisodesCount}</span>
+                  </div>
                 </div>
               </div>
-            ) : null}
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={startBulkUpload}
-                disabled={bulkRunning || autoSliceRunning || !canRunBulk}
-                className="inline-flex items-center gap-2 rounded-[16px] bg-[#1876f2] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <UploadCloud className="h-4 w-4" />
-                {t("Start Bulk Upload")}
-              </button>
-              <button
-                type="button"
-                onClick={cancelBulkUpload}
-                disabled={!bulkRunning || autoSliceRunning}
-                className="inline-flex items-center gap-2 rounded-[16px] border border-[#cbd5e1] px-4 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <XCircle className="h-4 w-4" />
-                {t("Stop")}
-              </button>
-              <button
-                type="button"
-                onClick={clearBulkQueue}
-                disabled={bulkRunning || autoSliceRunning || bulkQueue.length === 0}
-                className="inline-flex items-center gap-2 rounded-[16px] border border-[#cbd5e1] px-4 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Trash2 className="h-4 w-4" />
-                {t("Clear Queue")}
-              </button>
-              {bulkSummary ? <p className="text-sm font-medium text-[#334155]">{bulkSummary}</p> : null}
+              <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748b]">{t("Pricing Presets")}</p>
+                <p className="mt-3 text-sm leading-6 text-[#64748b]">
+                  {t("Use a template price, then adjust individual episodes where needed. Episode 1 is usually free.")}
+                </p>
+                <label className="mt-4 block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Default unlock price")}</span>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={pricingTemplate}
+                      onChange={(event) => setPricingTemplate(Math.max(1, Number(event.target.value) || 1))}
+                      className="h-11 w-28 rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#1876f2]"
+                    />
+                    <span className="text-sm text-[#64748b]">{t("coins")}</span>
+                  </div>
+                </label>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={applyRecommendedPricing}
+                    className="rounded-[16px] bg-[#1876f2] px-4 py-2 text-sm font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da]"
+                  >
+                    {t("Apply Episode 1 Free")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyPriceToLockedEpisodes}
+                    className="rounded-[16px] border border-[#cbd5e1] px-4 py-2 text-sm font-bold text-[#475569] hover:bg-[#f8fafc]"
+                  >
+                    {t("Apply to paid episodes")}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-[20px] font-black tracking-[-0.03em] text-[#0f172a]">{t("Episode Pricing")}</h2>
+                  <p className="mt-1 text-sm text-[#64748b]">{t("Set each episode as free or locked, then define the unlock price.")}</p>
+                </div>
+                <div className="rounded-full bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#1d4ed8]">
+                  {t("Asset readiness: __ARG_0__%", progress)}
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                {episodes.length === 0 ? (
+                  <div className="rounded-[20px] border border-dashed border-[#cbd5e1] bg-[#f8fafc] px-5 py-8 text-center text-sm text-[#64748b]">
+                    {t("Add and upload at least one episode before configuring pricing.")}
+                  </div>
+                ) : null}
+
+                {episodes.map((episode) => (
+                  <div key={episode._id} className="rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-4">
+                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                      <div className="flex min-w-0 items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => openEpisodePreview(episode)}
+                          className="relative h-[96px] w-[72px] flex-shrink-0 overflow-hidden rounded-[14px] border border-[#dbe4f0] bg-white"
+                        >
+                          {episode.thumbnail ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={episode.thumbnail} alt={episode.title} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-[#94a3b8]">
+                              <PlayCircle className="h-5 w-5" />
+                            </div>
+                          )}
+                        </button>
+                        <div className="min-w-0">
+                          <p className="text-[16px] font-bold text-[#0f172a]">{t("Episode __ARG_0__", episode.episodeNumber)}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${mapEpisodeStatus(episode.status).className}`}>
+                              {t(mapEpisodeStatus(episode.status).text)}
+                            </span>
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                                episode.subtitleUrl ? "bg-[#f0fdf4] text-[#16a34a]" : "bg-[#fff7ed] text-[#c2410c]"
+                              }`}
+                            >
+                              {episode.subtitleUrl ? t("Subtitles Ready") : t("Subtitle Missing")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-3 md:items-end">
+                        <div className="inline-flex rounded-[16px] bg-white p-1 shadow-[inset_0_0_0_1px_rgba(203,213,225,1)]">
+                          <button
+                            type="button"
+                            onClick={() => updateEpisodePricing(episode._id, { isFree: true })}
+                            className={`rounded-[12px] px-4 py-2 text-xs font-bold ${
+                              episode.isFree ? "bg-[#dcfce7] text-[#15803d]" : "text-[#64748b]"
+                            }`}
+                          >
+                            {t("Free")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateEpisodePricing(episode._id, { isFree: false, unlockPrice: episode.unlockPrice || pricingTemplate })}
+                            className={`rounded-[12px] px-4 py-2 text-xs font-bold ${
+                              !episode.isFree ? "bg-[#dbeafe] text-[#1d4ed8]" : "text-[#64748b]"
+                            }`}
+                          >
+                            {t("Paid")}
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min={episode.isFree ? 0 : 1}
+                            step={1}
+                            value={episode.isFree ? 0 : episode.unlockPrice}
+                            onChange={(event) => updateEpisodePricing(episode._id, { unlockPrice: Number(event.target.value) || 0 })}
+                            disabled={episode.isFree}
+                            className="h-11 w-28 rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-semibold text-[#0f172a] outline-none transition focus:border-[#1876f2] disabled:cursor-not-allowed disabled:bg-[#e2e8f0] disabled:text-[#94a3b8]"
+                          />
+                          <span className="text-sm text-[#64748b]">{t("coins")}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
-        ) : (
-          <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            {episodes.map((episode) => {
-              const statusUi = mapEpisodeStatus(episode.status);
-              const state = uploadState[episode._id];
-              return (
-                <article
-                  key={episode._id}
-                  className={`rounded-[20px] border bg-white p-4 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] ${
-                    episode.streamVideoId ? "border-[rgba(24,118,242,0.35)]" : "border-[#e2e8f0]"
-                  }`}
-                >
-                  <label className="relative block cursor-pointer overflow-hidden rounded-[16px] border-2 border-dashed border-[#cbd5e1] bg-[#f1f5f9]">
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,image/gif"
-                      className="hidden"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) uploadCover(episode, file);
-                        event.currentTarget.value = "";
-                      }}
-                    />
-                    {episode.thumbnail ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={episode.thumbnail} alt={episode.title} className="h-[220px] w-full object-cover" />
-                    ) : (
-                      <div className="flex h-[220px] flex-col items-center justify-center text-[#64748b]">
-                        <ImagePlus className="h-6 w-6" />
-                        <span className="mt-2 text-xs font-medium">{t("Upload Cover")}</span>
-                      </div>
-                    )}
-                  </label>
-
-                  <div className="mt-4 flex items-center justify-between">
-                    <h3 className="text-[22px] font-black leading-none tracking-[-0.03em] text-[#1e293b] md:text-[24px]">{t("Episode __ARG_0__", episode.episodeNumber)}</h3>
-                    <button
-                      type="button"
-                      onClick={() => removeEpisode(episode._id)}
-                      className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569]"
-                      aria-label={t("Delete episode __ARG_0__", episode.episodeNumber)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-bold leading-4 ${statusUi.className}`}>{t(statusUi.text)}</div>
-
-                  <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-[#f1f5f9] px-3 py-2 text-[11px] font-bold text-[#334155]">
-                    <input
-                      type="file"
-                      accept="video/mp4"
-                      className="hidden"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) uploadVideo(episode, file);
-                        event.currentTarget.value = "";
-                      }}
-                    />
-                    <FileVideo2 className="h-3.5 w-3.5" />
-                    <span>{t("Upload Video")}</span>
-                  </label>
-
-                  {state?.videoStatusText ? <p className="mt-2 text-[11px] text-[#64748b]">{state.videoStatusText}</p> : null}
-                  {state?.videoProgress ? (
-                    <div className="mt-1 h-1.5 rounded-full bg-[#e2e8f0]">
-                      <div className="h-1.5 rounded-full bg-[#1876f2]" style={{ width: `${state.videoProgress}%` }} />
-                    </div>
-                  ) : null}
-                  {state?.videoError ? <p className="mt-1 text-[11px] text-[#b91c1c]">{state.videoError}</p> : null}
-
-                  <div className="mt-2 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => cancelEpisodeUpload(episode._id)}
-                      disabled={!state?.uploading}
-                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-[#475569] hover:bg-[#f1f5f9] disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <PauseCircle className="h-3.5 w-3.5" />
-                      {t("Cancel")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => retryVideoStatusCheck(episode)}
-                      disabled={!episode.streamVideoId || Boolean(state?.uploading)}
-                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      {t("Retry status")}
-                    </button>
-                  </div>
-
-                  <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-[#f1f5f9] px-3 py-2 text-[11px] font-bold text-[#334155]">
-                    <input
-                      type="file"
-                      accept=".srt,.vtt,text/vtt,application/x-subrip,text/plain"
-                      className="hidden"
-                      onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) uploadSubtitle(episode, file);
-                        event.currentTarget.value = "";
-                      }}
-                    />
-                    <GripVertical className="h-3.5 w-3.5" />
-                    <span>{t("Upload Subtitle")}</span>
-                  </label>
-
-                  {episode.subtitleUrl ? (
-                    <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#f0fdf4] px-2 py-1 text-[11px] font-bold text-[#16a34a]">
-                      <CheckCircle2 className="h-3 w-3" />
-                      {t("Subtitle Ready")} · {String(episode.subtitleLanguage || selectedSubtitleLanguage).toUpperCase()}
-                    </div>
-                  ) : null}
-                </article>
-              );
-            })}
-
-            <button
-              type="button"
-              onClick={addEpisode}
-              disabled={busy}
-              className="flex min-h-[264px] flex-col items-center justify-center rounded-[20px] border-2 border-dashed border-[#cbd5e1] px-6 text-[#64748b] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#f1f5f9]">
-                <Plus className="h-6 w-6" />
-              </span>
-              <span className="text-[13px] font-bold">{t("Click to add new episode")}</span>
-            </button>
-          </div>
-        )}
+        ) : null}
 
         <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[#e2e8f0] pt-6">
           <button
@@ -1528,23 +2311,147 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           </button>
 
           <div className="flex items-center gap-4">
-            <Link
-              href={localizePath("/creator/dramas", locale)}
-              className="rounded-[16px] border border-[#cbd5e1] px-5 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc]"
-            >
-              {t("Previous Step")}
-            </Link>
-            <button
-              type="button"
-              onClick={nextStep}
-              disabled={busy || episodes.length === 0}
-              className="rounded-[16px] bg-[#1876f2] px-8 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {t("Submit for Review")}
-            </button>
+            {currentStep === 1 ? (
+              <Link
+                href={localizePath("/creator/dramas", locale)}
+                className="rounded-[16px] border border-[#cbd5e1] px-5 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc]"
+              >
+                {t("Previous Step")}
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCurrentStep((prev) => (prev === 3 ? 2 : 1))}
+                className="rounded-[16px] border border-[#cbd5e1] px-5 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc]"
+              >
+                {t("Previous Step")}
+              </button>
+            )}
+
+            {currentStep === 1 ? (
+              <button
+                type="button"
+                onClick={goToEpisodeUploadStep}
+                disabled={busy || coverUploading}
+                className="rounded-[16px] bg-[#1876f2] px-8 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t("Next Step: Episode Upload")}
+              </button>
+            ) : null}
+
+            {currentStep === 2 ? (
+              <button
+                type="button"
+                onClick={goToPaymentSettingsStep}
+                disabled={busy || episodes.length === 0}
+                className="rounded-[16px] bg-[#1876f2] px-8 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t("Next Step: Payments")}
+              </button>
+            ) : null}
+
+            {currentStep === 3 ? (
+              <button
+                type="button"
+                onClick={nextStep}
+                disabled={busy || episodes.length === 0}
+                className="rounded-[16px] bg-[#1876f2] px-8 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t("Submit for Review")}
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
+
+      {previewLoading ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="rounded-[24px] bg-white px-6 py-5 text-sm font-semibold text-[#0f172a] shadow-2xl">
+            {t("Loading episode preview...")}
+          </div>
+        </div>
+      ) : null}
+
+      {previewEpisode ? (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+          <div className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-[#e2e8f0] px-5 py-4">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1876f2]">{t("Episode Preview")}</p>
+                <h3 className="truncate text-base font-bold text-[#0f172a]">
+                  {t("Episode __ARG_0__", previewEpisode.episodeNumber)} · {previewEpisode.title}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewEpisode(null)}
+                className="rounded-[12px] border border-[#cbd5e1] px-3 py-2 text-xs font-bold text-[#475569] hover:bg-[#f8fafc]"
+              >
+                {t("Close")}
+              </button>
+            </div>
+
+            <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="flex items-center justify-center bg-[#0f172a] px-4 py-6">
+                <div
+                  className={`w-full overflow-hidden rounded-[24px] bg-black shadow-[0px_24px_48px_rgba(15,23,42,0.3)] ${
+                    (previewEpisode.videoWidth || 0) > (previewEpisode.videoHeight || 0) && (previewEpisode.videoHeight || 0) > 0
+                      ? "max-w-4xl aspect-video"
+                      : "max-w-[430px] aspect-[9/16]"
+                  }`}
+                >
+                  <CloudflarePlayer
+                    streamVideoId={previewEpisode.streamVideoId || undefined}
+                    videoUrl={previewEpisode.videoUrl || undefined}
+                    poster={previewEpisode.thumbnailUrl || undefined}
+                    autoplay
+                    subtitles={(previewEpisode.subtitles || []) as SubtitleTrack[]}
+                    className="h-full w-full"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4 border-t border-[#e2e8f0] bg-[#f8fafc] p-5 lg:border-l lg:border-t-0">
+                <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Video Layout")}</p>
+                  <p className="mt-2 text-sm font-bold text-[#0f172a]">
+                    {(previewEpisode.videoWidth || 0) > (previewEpisode.videoHeight || 0) && (previewEpisode.videoHeight || 0) > 0
+                      ? t("Landscape")
+                      : t("Portrait")}
+                  </p>
+                  <p className="mt-1 text-xs text-[#64748b]">
+                    {previewEpisode.videoWidth && previewEpisode.videoHeight
+                      ? `${previewEpisode.videoWidth} × ${previewEpisode.videoHeight}`
+                      : t("Preview size will follow the uploaded video aspect ratio")}
+                  </p>
+                </div>
+
+                <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Subtitles")}</p>
+                  <p className="mt-2 text-sm font-bold text-[#0f172a]">{t("__ARG_0__ tracks available", previewEpisode.subtitles?.length || 0)}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(previewEpisode.subtitles || []).map((track) => (
+                      <span key={track.language} className="rounded-full bg-[#eff6ff] px-2.5 py-1 text-[11px] font-bold text-[#1d4ed8]">
+                        {track.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {previewEpisode.subtitleTranslation ? (
+                  <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Auto Translation")}</p>
+                    <p className="mt-2 text-sm font-bold text-[#0f172a]">{previewEpisode.subtitleTranslation.status}</p>
+                    <p className="mt-1 text-xs text-[#64748b]">
+                      {previewEpisode.subtitleTranslation.completedCount}/{previewEpisode.subtitleTranslation.totalCount} · {previewEpisode.subtitleTranslation.progress}%
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

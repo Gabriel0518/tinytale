@@ -8,6 +8,7 @@ import type {
   CreatorDramaEpisodesResponse,
   CreatorDramaListResponse,
   CreatorEpisodeItem,
+  CreatorEpisodePreviewPayload,
   CreatorNotificationListResponse,
   CreatorOverviewAnalytics,
   CreatorRevenueAnalytics,
@@ -779,6 +780,8 @@ export const creatorApi = {
         readyToStream: boolean;
         playback: any;
         thumbnail?: string | null;
+        videoWidth?: number;
+        videoHeight?: number;
         errorReasonCode?: string | null;
         errorReasonText?: string | null;
       };
@@ -816,6 +819,8 @@ export const creatorApi = {
           readyToStream: boolean;
           duration: number;
           thumbnail: string | null;
+          videoWidth?: number;
+          videoHeight?: number;
           errorReasonCode?: string | null;
           errorReasonText?: string | null;
         }>;
@@ -862,6 +867,40 @@ export const creatorApi = {
     }
     return data as { success: boolean; data: { url: string; key: string; format: 'srt' | 'vtt' } };
   },
+
+  uploadEpisodeSubtitle: async (
+    token: string,
+    dramaId: string,
+    episodeId: string,
+    payload: {
+      file: File;
+      language: string;
+    }
+  ) => {
+    const form = new FormData();
+    form.append('file', payload.file);
+    form.append('language', payload.language);
+    const response = await fetch(`${API_URL}/api/creator/dramas/${dramaId}/episodes/${episodeId}/subtitle`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Subtitle upload failed');
+    }
+    return data as {
+      success: boolean;
+      data: {
+        episode: CreatorEpisodeItem;
+        subtitle: NonNullable<CreatorEpisodeItem['subtitleTracks']>[number];
+        translationTask: CreatorEpisodeItem['subtitleTranslation'];
+      };
+    };
+  },
+
+  getDramaEpisodePreview: (token: string, dramaId: string, episodeId: string) =>
+    api.get<{ success: boolean; data: CreatorEpisodePreviewPayload }>(`/api/creator/dramas/${dramaId}/episodes/${episodeId}/preview`, { token }),
 
   uploadTicketAttachment: async (token: string, file: File) => {
     const form = new FormData();
