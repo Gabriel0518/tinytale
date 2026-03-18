@@ -17,9 +17,10 @@ const LANGUAGE_OPTIONS: Array<{ code: SupportedLocale; name: string; flag: strin
 
 interface LanguageSwitcherProps {
   className?: string;
+  variant?: "dark" | "light";
 }
 
-export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
+export function LanguageSwitcher({ className, variant = "dark" }: LanguageSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
@@ -94,16 +95,28 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
         onClick={() => setIsOpen((prev) => !prev)}
         className={cn(
           "flex w-full min-w-[126px] items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
-          "border-gray-700/90 bg-[#161625]/95 text-gray-100 backdrop-blur-sm hover:border-gray-500 hover:bg-[#1a1a2e]",
-          isOpen ? "border-gray-500 shadow-[0_8px_20px_rgba(0,0,0,0.4)]" : ""
+          variant === "dark"
+            ? "border-gray-700/90 bg-[#161625]/95 text-gray-100 backdrop-blur-sm hover:border-gray-500 hover:bg-[#1a1a2e]"
+            : "border-[#dbe3ec] bg-white/90 text-[#0f172a] backdrop-blur-sm hover:border-[#cbd5e1] hover:bg-[#f8fafc]",
+          isOpen
+            ? variant === "dark"
+              ? "border-gray-500 shadow-[0_8px_20px_rgba(0,0,0,0.4)]"
+              : "border-[#bfdbfe] shadow-[0_8px_20px_rgba(15,23,42,0.08)]"
+            : ""
         )}
       >
         <span className="flex items-center gap-2">
-          <span className="text-[11px] tracking-wide text-gray-300">{currentLanguage.flag}</span>
+          <span className={cn("text-[11px] tracking-wide", variant === "dark" ? "text-gray-300" : "text-[#64748b]")}>
+            {currentLanguage.flag}
+          </span>
           <span className="truncate">{currentLanguage.name}</span>
         </span>
         <ChevronDown
-          className={cn("h-3.5 w-3.5 text-gray-400 transition-transform duration-150", isOpen ? "rotate-180" : "")}
+          className={cn(
+            "h-3.5 w-3.5 transition-transform duration-150",
+            variant === "dark" ? "text-gray-400" : "text-[#64748b]",
+            isOpen ? "rotate-180" : ""
+          )}
           aria-hidden="true"
         />
       </button>
@@ -113,8 +126,10 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
           role="listbox"
           aria-label="Language options"
           className={cn(
-            "absolute left-0 top-full z-50 mt-2 w-full min-w-[188px] overflow-hidden rounded-xl border border-gray-700/80",
-            "bg-[#111218]/95 shadow-[0_18px_45px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+            "absolute left-0 top-full z-50 mt-2 w-full min-w-[188px] overflow-hidden rounded-xl border backdrop-blur-xl",
+            variant === "dark"
+              ? "border-gray-700/80 bg-[#111218]/95 shadow-[0_18px_45px_rgba(0,0,0,0.55)]"
+              : "border-[#dbe3ec] bg-white/95 shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
           )}
         >
           {LANGUAGE_OPTIONS.map((language) => {
@@ -132,15 +147,26 @@ export function LanguageSwitcher({ className }: LanguageSwitcherProps) {
                 className={cn(
                   "flex w-full items-center justify-between px-3 py-2 text-left text-sm transition-colors",
                   selected
-                    ? "bg-white/10 text-white"
-                    : "text-gray-300 hover:bg-white/5 hover:text-white"
+                    ? variant === "dark"
+                      ? "bg-white/10 text-white"
+                      : "bg-[#eff6ff] text-[#0f172a]"
+                    : variant === "dark"
+                      ? "text-gray-300 hover:bg-white/5 hover:text-white"
+                      : "text-[#334155] hover:bg-[#f8fafc] hover:text-[#0f172a]"
                 )}
               >
                 <span className="flex items-center gap-2.5">
-                  <span className="w-6 text-xs tracking-wide text-gray-400">{language.flag}</span>
+                  <span className={cn("w-6 text-xs tracking-wide", variant === "dark" ? "text-gray-400" : "text-[#64748b]")}>
+                    {language.flag}
+                  </span>
                   <span>{language.name}</span>
                 </span>
-                {selected ? <Check className="h-3.5 w-3.5 text-red-400" aria-hidden="true" /> : null}
+                {selected ? (
+                  <Check
+                    className={cn("h-3.5 w-3.5", variant === "dark" ? "text-red-400" : "text-[#1876f2]")}
+                    aria-hidden="true"
+                  />
+                ) : null}
               </button>
             );
           })}

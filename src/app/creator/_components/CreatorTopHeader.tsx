@@ -7,6 +7,7 @@ import { Bell, Plus, Search } from "lucide-react";
 import { creatorApi } from "@/lib/api";
 import { localizePath, type SupportedLocale } from "@/lib/i18n";
 import { useAuth } from "@/lib/authContext";
+import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
 import { useCreatorI18n } from "../_lib/creator-i18n";
 
 interface CreatorTopHeaderProps {
@@ -58,6 +59,7 @@ export default function CreatorTopHeader({ locale }: CreatorTopHeaderProps) {
         />
       </div>
       <div className="ml-3 flex items-center gap-2.5 md:ml-5 md:gap-3">
+        <LanguageSwitcher variant="light" className="hidden sm:inline-block" />
         <Link
           href={localizePath("/creator/notifications", locale)}
           aria-label={t("Notifications")}
