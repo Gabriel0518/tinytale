@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Ref } from "react";
 import { useRouter } from "next/navigation";
 import {
   Check,
@@ -29,7 +29,7 @@ import { useCountryCatalog } from "@/hooks/useCountryCatalog";
 import { localizePath } from "@/lib/i18n";
 import { getQualityMenuOptions, resolveDefaultQuality } from "@/lib/playerQuality";
 import { useLocale } from "@/hooks/useLocale";
-import { CloudflarePlayer, PlayerRoot, usePlayerContext } from "@/components/player";
+import { CloudflarePlayer, PlayerRoot, usePlayerContext, type CloudflarePlayerHandle } from "@/components/player";
 import { ControlBar } from "@/components/player/Controls";
 import type { SubtitleTrack } from "@/types";
 import type { CreatorEpisodeItem } from "@/types/creator";
@@ -609,7 +609,7 @@ function CreatorPreviewPlayerInner({ episode }: { episode: PreviewEpisodeState }
   return (
     <>
       <CloudflarePlayer
-        ref={playerRef}
+        ref={playerRef as Ref<CloudflarePlayerHandle>}
         streamVideoId={episode.streamVideoId || undefined}
         videoUrl={episode.playbackUrl || episode.videoUrl || undefined}
         quality={state.quality}
