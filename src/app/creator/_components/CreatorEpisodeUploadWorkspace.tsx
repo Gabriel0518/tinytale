@@ -189,6 +189,15 @@ function getReadySubtitleTracks(episode: CreatorEpisodeItem) {
   return (episode.subtitleTracks || []).filter((track) => track.fileUrl && String(track.status || "").toLowerCase() === "ready");
 }
 
+function formatSubtitleTranslationLabel(status?: string) {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "completed") return "Translation completed";
+  if (normalized === "failed") return "Translation failed";
+  if (normalized === "processing") return "Translation in progress";
+  if (normalized === "pending") return "Translation queued";
+  return normalized || "Translation status";
+}
+
 function isEpisodeVideoProcessing(episode: CreatorEpisodeItem, statusUi?: EpisodeStatusUi): boolean {
   if (statusUi && String(statusUi.text || "").toLowerCase().includes("slicing")) return true;
   const normalized = String(episode.status || "").toLowerCase();
@@ -2321,6 +2330,8 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                     videoProcessing: isEpisodeVideoProcessing(episode, autoSliceStatusMap[episode._id]),
                   });
                   const readySubtitleTracks = getReadySubtitleTracks(episode);
+                  const translationTask = episode.subtitleTranslation;
+                  const translationProgress = Math.max(0, Math.min(100, Number(translationTask?.progress || 0)));
                   const state = uploadState[episode._id];
                   return (
                     <article
@@ -2450,7 +2461,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                             <span className="text-[11px] font-semibold text-[#64748b]">{readySubtitleTracks.length}</span>
                           </div>
                           <div className="mt-2 flex flex-wrap gap-2">
-                            {readySubtitleTracks.slice(0, 4).map((track) => (
+                            {readySubtitleTracks.slice(0, 3).map((track) => (
                               <a
                                 key={track.id}
                                 href={track.fileUrl}
@@ -2459,11 +2470,16 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                                 className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#1d4ed8] shadow-[0px_1px_2px_rgba(15,23,42,0.06)]"
                               >
                                 <span>{track.label}</span>
+                                {track.isDefault ? (
+                                  <span className="rounded-full bg-[#eff6ff] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-[#1d4ed8]">
+                                    {t("Default")}
+                                  </span>
+                                ) : null}
                                 <span className="text-[#94a3b8]">{String(track.format || "vtt").toUpperCase()}</span>
                                 <ExternalLink className="h-3 w-3" />
                               </a>
                             ))}
-                            {readySubtitleTracks.length > 4 ? (
+                            {readySubtitleTracks.length > 3 ? (
                               <button
                                 type="button"
                                 onClick={() => openEpisodePreview(episode)}
@@ -2478,6 +2494,37 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                         <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#f0fdf4] px-2 py-1 text-[11px] font-bold text-[#16a34a]">
                           <CheckCircle2 className="h-3 w-3" />
                           {t("Subtitle Ready")} · {String(episode.subtitleLanguage || selectedSubtitleLanguage).toUpperCase()}
+                        </div>
+                      ) : null}
+
+                      {translationTask ? (
+                        <div className="mt-3 rounded-[16px] border border-[#e2e8f0] bg-white p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Auto Translation")}</p>
+                              <p className="mt-1 text-[13px] font-semibold text-[#0f172a]">{t(formatSubtitleTranslationLabel(translationTask.status))}</p>
+                            </div>
+                            <span className="text-[11px] font-semibold text-[#64748b]">
+                              {translationTask.completedCount}/{translationTask.totalCount}
+                            </span>
+                          </div>
+                          <div className="mt-2 h-1.5 rounded-full bg-[#e2e8f0]">
+                            <div
+                              className={`h-1.5 rounded-full ${
+                                translationTask.status === "failed"
+                                  ? "bg-[#ef4444]"
+                                  : translationTask.status === "completed"
+                                    ? "bg-[#16a34a]"
+                                    : "bg-[#1876f2]"
+                              }`}
+                              style={{ width: `${translationTask.status === "completed" ? 100 : translationProgress}%` }}
+                            />
+                          </div>
+                          <p className="mt-2 text-[11px] text-[#64748b]">
+                            {translationTask.status === "failed"
+                              ? translationTask.errorMessage || t("Translation task failed")
+                              : `${translationTask.progress}% · ${translationTask.targetLanguages.length} target languages`}
+                          </p>
                         </div>
                       ) : null}
                     </article>
@@ -2820,6 +2867,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                             className="inline-flex items-center gap-1 rounded-full bg-[#f8fafc] px-2.5 py-1 text-[11px] font-semibold text-[#334155]"
                           >
                             <span>{track.label}</span>
+                            {track.isDefault ? (
+                              <span className="rounded-full bg-[#eff6ff] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.06em] text-[#1d4ed8]">
+                                {t("Default")}
+                              </span>
+                            ) : null}
                             <span className="text-[#94a3b8]">{String(track.format || "vtt").toUpperCase()}</span>
                             <ExternalLink className="h-3 w-3 text-[#64748b]" />
                           </a>
@@ -2831,9 +2883,26 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 {previewEpisode.subtitleTranslation ? (
                   <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Auto Translation")}</p>
-                    <p className="mt-2 text-sm font-bold text-[#0f172a]">{previewEpisode.subtitleTranslation.status}</p>
-                    <p className="mt-1 text-xs text-[#64748b]">
+                    <p className="mt-2 text-sm font-bold text-[#0f172a]">{t(formatSubtitleTranslationLabel(previewEpisode.subtitleTranslation.status))}</p>
+                    <div className="mt-3 h-2 rounded-full bg-[#e2e8f0]">
+                      <div
+                        className={`h-2 rounded-full ${
+                          previewEpisode.subtitleTranslation.status === "failed"
+                            ? "bg-[#ef4444]"
+                            : previewEpisode.subtitleTranslation.status === "completed"
+                              ? "bg-[#16a34a]"
+                              : "bg-[#1876f2]"
+                        }`}
+                        style={{ width: `${previewEpisode.subtitleTranslation.status === "completed" ? 100 : Math.max(0, Math.min(100, Number(previewEpisode.subtitleTranslation.progress || 0)))}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-[#64748b]">
                       {previewEpisode.subtitleTranslation.completedCount}/{previewEpisode.subtitleTranslation.totalCount} · {previewEpisode.subtitleTranslation.progress}%
+                    </p>
+                    <p className="mt-1 text-xs text-[#64748b]">
+                      {previewEpisode.subtitleTranslation.status === "failed"
+                        ? previewEpisode.subtitleTranslation.errorMessage || t("Translation task failed")
+                        : `${previewEpisode.subtitleTranslation.targetLanguages.length} target languages`}
                     </p>
                   </div>
                 ) : null}
