@@ -23,6 +23,7 @@ import { CREATOR_TICKET_CATEGORY_OPTIONS } from "@/lib/creator";
 import { localizePath } from "@/lib/i18n";
 import { useAuth } from "@/lib/authContext";
 import type { CreatorTicketCategory, CreatorTicketPriority } from "@/types/creator";
+import { useCreatorI18n } from "../../_lib/creator-i18n";
 
 const INPUT_CLASS_NAME =
   "h-[46px] w-full rounded-full border border-[#d9e2ef] bg-[#fbfdff] px-4 text-[14px] text-[#18233a] outline-none transition placeholder:text-[#9aa8bc] focus:border-[#2d7af0]";
@@ -67,6 +68,7 @@ async function uploadTicketAttachments(token: string, files: File[]): Promise<st
 
 export default function CreatorTicketCreatePage() {
   const locale = useLocale();
+  const { t } = useCreatorI18n();
   const router = useRouter();
   const { token } = useAuth();
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
@@ -86,15 +88,15 @@ export default function CreatorTicketCreatePage() {
     const cleanMessage = message.trim();
 
     if (!cleanSubject) {
-      setError("Subject is required");
+      setError(t("Subject is required"));
       return;
     }
     if (!cleanMessage) {
-      setError("Description is required");
+      setError(t("Description is required"));
       return;
     }
     if (!token) {
-      setError("Login required");
+      setError(t("Login required"));
       return;
     }
 
@@ -117,7 +119,7 @@ export default function CreatorTicketCreatePage() {
       }
       router.push(localizePath("/creator/tickets", locale));
     } catch (err: any) {
-      setError(err?.message || "Failed to create ticket");
+      setError(err?.message || t("Failed to create ticket"));
     } finally {
       setSubmitting(false);
     }
@@ -134,16 +136,16 @@ export default function CreatorTicketCreatePage() {
     <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-8">
       <nav className="flex items-center gap-2 text-[14px] text-[#7d8da4]">
         <Link href={localizePath("/creator/tickets", locale)} className="transition hover:text-[#2d7af0]">
-          Support
+          {t("Support Tickets")}
         </Link>
         <span>›</span>
-        <span className="font-medium text-[#4a5b75]">Submit New Ticket</span>
+        <span className="font-medium text-[#4a5b75]">{t("Submit New Ticket")}</span>
       </nav>
 
       <section>
-        <h1 className="text-[44px] font-black leading-[1.05] tracking-[-0.04em] text-[#18233a]">Submit New Ticket</h1>
+        <h1 className="text-[44px] font-black leading-[1.05] tracking-[-0.04em] text-[#18233a]">{t("Submit New Ticket")}</h1>
         <p className="mt-3 max-w-[680px] text-[15px] leading-7 text-[#70819c]">
-          Fill out the form below and our creator support team will get back to you within 24 hours. Please be as descriptive as possible to help us resolve your issue quickly.
+          {t("Fill out the form below and our creator support team will get back to you within 24 hours. Please be as descriptive as possible to help us resolve your issue quickly.")}
         </p>
       </section>
 
@@ -151,7 +153,7 @@ export default function CreatorTicketCreatePage() {
         <div className="space-y-6 px-6 py-8 md:px-8 md:py-8">
           <div className="grid gap-6 md:grid-cols-2">
             <label className="block">
-              <span className="mb-3 block text-[15px] font-semibold text-[#334155]">Category</span>
+              <span className="mb-3 block text-[15px] font-semibold text-[#334155]">{t("Category")}</span>
               <select
                 value={category}
                 onChange={(event) => setCategory(event.target.value as CreatorTicketCategory)}
@@ -159,14 +161,14 @@ export default function CreatorTicketCreatePage() {
               >
                 {CREATOR_TICKET_CATEGORY_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.label)}
                   </option>
                 ))}
               </select>
             </label>
 
             <label className="block">
-              <span className="mb-3 block text-[15px] font-semibold text-[#334155]">Priority Level</span>
+              <span className="mb-3 block text-[15px] font-semibold text-[#334155]">{t("Priority Level")}</span>
               <select
                 value={priority}
                 onChange={(event) => setPriority(event.target.value as CreatorTicketPriority)}
@@ -174,7 +176,7 @@ export default function CreatorTicketCreatePage() {
               >
                 {PRIORITY_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label}
+                    {t(option.label)}
                   </option>
                 ))}
               </select>
@@ -182,18 +184,18 @@ export default function CreatorTicketCreatePage() {
           </div>
 
           <label className="block">
-            <span className="mb-3 block text-[15px] font-semibold text-[#334155]">Subject</span>
+            <span className="mb-3 block text-[15px] font-semibold text-[#334155]">{t("Subject")}</span>
             <input
               value={subject}
               onChange={(event) => setSubject(event.target.value)}
               maxLength={160}
-              placeholder="Summary of the issue"
+              placeholder={t("Summary of the issue")}
               className={INPUT_CLASS_NAME}
             />
           </label>
 
           <label className="block">
-            <span className="mb-3 block text-[15px] font-semibold text-[#334155]">Description</span>
+            <span className="mb-3 block text-[15px] font-semibold text-[#334155]">{t("Description")}</span>
             <div className="overflow-hidden rounded-[24px] border border-[#d9e2ef] bg-[#fbfdff]">
               <div className="flex items-center gap-0.5 border-b border-[#e9eff6] px-3 py-2 text-[#5c6d88]">
                 {[Bold, Italic, List, Link2, ImagePlus, Code2].map((Icon, index) => (
@@ -211,14 +213,14 @@ export default function CreatorTicketCreatePage() {
                 onChange={(event) => setMessage(event.target.value)}
                 rows={7}
                 maxLength={2000}
-                placeholder="Describe your issue in detail..."
+                placeholder={t("Describe your issue in detail...")}
                 className="min-h-[122px] w-full resize-none bg-transparent px-4 py-4 text-[14px] leading-7 text-[#18233a] outline-none placeholder:text-[#9aa8bc]"
               />
             </div>
           </label>
 
           <div>
-            <span className="mb-3 block text-[15px] font-semibold text-[#334155]">Attachments (Screenshots or Logs)</span>
+            <span className="mb-3 block text-[15px] font-semibold text-[#334155]">{t("Attachments (Screenshots or Logs)")}</span>
             <input
               ref={attachmentInputRef}
               type="file"
@@ -235,8 +237,8 @@ export default function CreatorTicketCreatePage() {
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#eef5ff] text-[#2d7af0]">
                 <UploadCloud className="h-5 w-5" />
               </span>
-              <span className="mt-4 text-[18px] font-semibold text-[#18233a]">Click to upload or drag and drop</span>
-              <span className="mt-1 text-[13px] text-[#7b8aa0]">JPG, PNG, WebP, PDF, TXT, CSV, JSON or ZIP up to 10MB each</span>
+              <span className="mt-4 text-[18px] font-semibold text-[#18233a]">{t("Click to upload or drag and drop")}</span>
+              <span className="mt-1 text-[13px] text-[#7b8aa0]">{t("JPG, PNG, WebP, PDF, TXT, CSV, JSON or ZIP up to 10MB each")}</span>
             </button>
 
             {attachments.length > 0 ? (
@@ -267,14 +269,14 @@ export default function CreatorTicketCreatePage() {
             href={localizePath("/creator/tickets", locale)}
             className="inline-flex h-11 items-center justify-center rounded-[14px] px-5 text-[14px] font-semibold text-[#4a5b75] transition hover:bg-[#f8fbff]"
           >
-            Cancel
+            {t("Cancel")}
           </Link>
           <button
             type="submit"
             disabled={submitting}
             className="inline-flex h-11 items-center justify-center rounded-[14px] bg-[#2d7af0] px-6 text-[14px] font-semibold text-white shadow-[0_10px_24px_rgba(45,122,240,0.28)] transition hover:bg-[#1d6ee8] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "Submitting..." : "Submit Ticket"}
+            {submitting ? t("Submitting...") : t("Submit Ticket")}
           </button>
         </div>
       </form>
@@ -282,23 +284,23 @@ export default function CreatorTicketCreatePage() {
       <section className="grid gap-4 xl:grid-cols-3">
         <FooterHelpCard
           icon={<MessageSquareMore className="h-5 w-5" />}
-          title="Knowledge Base"
-          description="Search our library of creator guides, payout policies, and troubleshooting notes."
-          cta="Browse docs"
+          title={t("Knowledge Base")}
+          description={t("Search our library of creator guides, payout policies, and troubleshooting notes.")}
+          cta={t("Browse docs")}
           href={localizePath("/help", locale)}
         />
         <FooterHelpCard
           icon={<MessageSquareMore className="h-5 w-5" />}
-          title="Community Forum"
-          description="Get help from fellow creators while waiting for a support agent reply."
-          cta="Join discussion"
+          title={t("Community Forum")}
+          description={t("Get help from fellow creators while waiting for a support agent reply.")}
+          cta={t("Join discussion")}
           href={localizePath("/creator/tickets", locale)}
         />
         <FooterHelpCard
           icon={<PlaySquare className="h-5 w-5" />}
-          title="Video Tutorials"
-          description="Watch guided walkthroughs for common upload, subtitle, and review issues."
-          cta="Watch now"
+          title={t("Video Tutorials")}
+          description={t("Watch guided walkthroughs for common upload, subtitle, and review issues.")}
+          cta={t("Watch now")}
           href={localizePath("/creator/dashboard", locale)}
         />
       </section>
