@@ -189,6 +189,20 @@ interface VideoUploadHooks {
   onDone?: () => void;
 }
 
+const SUBTITLE_LANGUAGE_OPTIONS = [
+  { code: "en", label: "English" },
+  { code: "zh", label: "Chinese" },
+  { code: "ja", label: "Japanese" },
+  { code: "es", label: "Spanish" },
+  { code: "pt", label: "Portuguese" },
+  { code: "hi", label: "Hindi" },
+  { code: "id", label: "Indonesian" },
+  { code: "ko", label: "Korean" },
+  { code: "fr", label: "French" },
+] as const;
+
+type SubtitleLanguageCode = (typeof SUBTITLE_LANGUAGE_OPTIONS)[number]["code"];
+
 export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: CreatorEpisodeUploadWorkspaceProps) {
   const router = useRouter();
   const locale = useLocale();
@@ -215,6 +229,10 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     error: "",
   });
   const [sourceSubtitle, setSourceSubtitle] = useState<{ url: string; format: SourceSubtitleFormat; fileName: string } | null>(null);
+  const [selectedSubtitleLanguage, setSelectedSubtitleLanguage] = useState<SubtitleLanguageCode>(() => {
+    const matched = SUBTITLE_LANGUAGE_OPTIONS.find((item) => item.code === locale);
+    return matched?.code || "en";
+  });
   const [autoSliceDurationMinutes, setAutoSliceDurationMinutes] = useState(2);
   const [autoSliceRunning, setAutoSliceRunning] = useState(false);
 
@@ -622,7 +640,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         const uploaded = await creatorApi.uploadSubtitleFile(token, file);
         await patchEpisode(episode._id, {
           subtitleUrl: uploaded.data.url,
-          subtitleLanguage: "en",
+          subtitleLanguage: selectedSubtitleLanguage,
           subtitleFileName: file.name,
         });
         await refreshEpisodes();
@@ -630,7 +648,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       setError(err?.message || t("Failed to upload subtitle"));
       }
     },
-    [token, dramaId, patchEpisode, refreshEpisodes, t]
+    [token, dramaId, patchEpisode, refreshEpisodes, selectedSubtitleLanguage, t]
   );
 
   const uploadAutoSliceSourceVideo = useCallback(
@@ -783,7 +801,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           ? {
               sourceSubtitleUrl: sourceSubtitle.url,
               sourceSubtitleFormat: sourceSubtitle.format,
-              subtitleLanguage: "en",
+              subtitleLanguage: selectedSubtitleLanguage,
             }
           : {}),
       });
@@ -912,6 +930,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     sourceUpload.ready,
     autoSliceDurationMinutes,
     sourceSubtitle,
+    selectedSubtitleLanguage,
     ensureDraftDrama,
     loadEpisodes,
     patchEpisode,
@@ -1223,6 +1242,24 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                     />
                     <span className="text-sm text-[#475569]">{t("minutes / episode")}</span>
                   </div>
+
+                  <label htmlFor="auto-slice-subtitle-language" className="mt-4 block text-xs font-semibold uppercase tracking-[0.04em] text-[#64748b]">
+                    {t("Subtitle Language")}
+                  </label>
+                  <p className="mt-1 text-xs text-[#64748b]">{t("Applies to uploaded source and episode subtitle files")}</p>
+                  <select
+                    id="auto-slice-subtitle-language"
+                    value={selectedSubtitleLanguage}
+                    onChange={(event) => setSelectedSubtitleLanguage(event.target.value as SubtitleLanguageCode)}
+                    className="mt-2 h-9 w-full rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm font-semibold text-[#0f172a] outline-none"
+                    disabled={autoSliceRunning}
+                  >
+                    {SUBTITLE_LANGUAGE_OPTIONS.map((option) => (
+                      <option key={option.code} value={option.code}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1459,7 +1496,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   {episode.subtitleUrl ? (
                     <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#f0fdf4] px-2 py-1 text-[11px] font-bold text-[#16a34a]">
                       <CheckCircle2 className="h-3 w-3" />
-                      {t("Subtitle Ready")}
+                      {t("Subtitle Ready")} · {String(episode.subtitleLanguage || selectedSubtitleLanguage).toUpperCase()}
                     </div>
                   ) : null}
                 </article>

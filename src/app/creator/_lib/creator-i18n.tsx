@@ -465,6 +465,8 @@ const TRANSLATION_OVERRIDES: Partial<Record<SupportedLocale, Record<string, stri
     "Cloudflare Stream will transcode before slicing": "Cloudflare Stream 会先完成转码，再执行切片",
     "Episode Duration": "单集时长",
     "minutes / episode": "分钟 / 集",
+    "Subtitle Language": "字幕语言",
+    "Applies to uploaded source and episode subtitle files": "应用于上传的源字幕和单集字幕文件",
     "Subtitle: __ARG_0__": "字幕：__ARG_0__",
     "Upload Source Subtitle (Optional)": "上传源字幕（可选）",
     "Auto-Slicing...": "自动切片中...",
