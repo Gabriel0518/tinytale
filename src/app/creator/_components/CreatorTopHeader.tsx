@@ -59,7 +59,7 @@ export default function CreatorTopHeader({ locale }: CreatorTopHeaderProps) {
         />
       </div>
       <div className="ml-3 flex items-center gap-2.5 md:ml-5 md:gap-3">
-        <LanguageSwitcher variant="light" className="hidden sm:inline-block" />
+        <LanguageSwitcher variant="light" className="inline-block shrink-0 min-w-[92px] sm:min-w-[126px]" />
         <Link
           href={localizePath("/creator/notifications", locale)}
           aria-label={t("Notifications")}
