@@ -711,6 +711,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const [previewEpisode, setPreviewEpisode] = useState<PreviewEpisodeState | null>(null);
 
   const aliveRef = useRef(true);
+  const draftCreationPromiseRef = useRef<Promise<string> | null>(null);
   const activeTusUploadsRef = useRef<Record<string, tus.Upload>>({});
   const activeVideoUidRef = useRef<Record<string, string>>({});
   const pollingTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
@@ -827,18 +828,34 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const ensureDraftDrama = useCallback(async (): Promise<string> => {
     if (!token) throw new Error(t("Missing token"));
     if (dramaId) return dramaId;
+    if (draftCreationPromiseRef.current) {
+      return draftCreationPromiseRef.current;
+    }
 
-    const created = await creatorApi.createDrama(token, {
-      title: t("Untitled Story"),
-      description: "",
-      categories: [],
-    });
-    const createdId = String(created.data?._id || "");
-    if (!createdId) throw new Error(t("Failed to create drama draft"));
+    draftCreationPromiseRef.current = (async () => {
+      const created = await creatorApi.createDrama(token, {
+        title: dramaForm.title.trim() || t("Untitled Story"),
+        description: dramaForm.description.trim(),
+        cover: dramaForm.cover.trim() || "",
+        horizontalCover: dramaForm.horizontalCover.trim() || "",
+        categories: dramaForm.categories.slice(0, 1),
+        regions: dramaForm.regions,
+        language: dramaForm.language.trim() || "en",
+        country: dramaForm.regions.length === 1 ? dramaForm.regions[0] : "",
+      });
+      const createdId = String(created.data?._id || "");
+      if (!createdId) throw new Error(t("Failed to create drama draft"));
 
-    setDramaId(createdId);
-    return createdId;
-  }, [dramaId, t, token]);
+      setDramaId(createdId);
+      return createdId;
+    })();
+
+    try {
+      return await draftCreationPromiseRef.current;
+    } finally {
+      draftCreationPromiseRef.current = null;
+    }
+  }, [dramaForm, dramaId, t, token]);
 
   useEffect(() => {
     let cancelled = false;
@@ -868,9 +885,14 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     let cancelled = false;
     async function bootstrap() {
       try {
-        const targetDramaId = initialDramaId || (await ensureDraftDrama());
+        if (!initialDramaId) {
+          if (!cancelled) {
+            setLoading(false);
+          }
+          return;
+        }
         if (cancelled) return;
-        await Promise.all([loadDrama(targetDramaId), loadEpisodes(targetDramaId)]);
+        await Promise.all([loadDrama(initialDramaId), loadEpisodes(initialDramaId)]);
       } catch (err: any) {
         if (cancelled) return;
         setError(err?.message || t("Failed to initialize workspace"));
@@ -882,7 +904,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     return () => {
       cancelled = true;
     };
-  }, [token, initialDramaId, ensureDraftDrama, loadDrama, loadEpisodes, t]);
+  }, [token, initialDramaId, loadDrama, loadEpisodes, t]);
 
   useEffect(() => {
     const uploadRef = activeTusUploadsRef;
@@ -1122,16 +1144,18 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   );
 
   const patchEpisode = useCallback(
-    async (episodeId: string, payload: Record<string, any>) => {
-      if (!token || !dramaId) return;
-      await creatorApi.updateDramaEpisode(token, dramaId, episodeId, payload);
+    async (episodeId: string, payload: Record<string, any>, targetDramaId?: string) => {
+      const resolvedDramaId = targetDramaId || dramaId;
+      if (!token || !resolvedDramaId) return;
+      await creatorApi.updateDramaEpisode(token, resolvedDramaId, episodeId, payload);
     },
     [token, dramaId]
   );
 
   const pollVideoStatus = useCallback(
-    async (episode: CreatorEpisodeItem, uid: string): Promise<boolean> => {
-      if (!token || !dramaId) return false;
+    async (episode: CreatorEpisodeItem, uid: string, targetDramaId?: string): Promise<boolean> => {
+      const resolvedDramaId = targetDramaId || dramaId;
+      if (!token || !resolvedDramaId) return false;
 
       for (let attempt = 0; attempt < 25; attempt += 1) {
         if (!aliveRef.current) return false;
@@ -1145,25 +1169,29 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
             thumbnail: data.thumbnail || episode.thumbnail || "",
             videoWidth: Number(data.videoWidth || 0),
             videoHeight: Number(data.videoHeight || 0),
-          });
+          }, resolvedDramaId);
           updateEpisodeUploadState(episode._id, {
             videoProgress: 100,
             videoError: "",
             videoStatusText: t("Video ready"),
             uploading: false,
           });
-          await refreshEpisodes();
+          if (resolvedDramaId === dramaId) {
+            await refreshEpisodes();
+          }
           return true;
         }
 
         if (data?.errorReasonCode || data?.errorReasonText || attempt === 24) {
-          await patchEpisode(episode._id, { status: "Failed" });
+          await patchEpisode(episode._id, { status: "Failed" }, resolvedDramaId);
           updateEpisodeUploadState(episode._id, {
             videoError: data?.errorReasonText || t("Video processing failed"),
             videoStatusText: "",
             uploading: false,
           });
-          await refreshEpisodes();
+          if (resolvedDramaId === dramaId) {
+            await refreshEpisodes();
+          }
           return false;
         }
 
@@ -1176,8 +1204,9 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   );
 
   const startEpisodeVideoUpload = useCallback(
-    async (episode: CreatorEpisodeItem, file: File, hooks?: VideoUploadHooks): Promise<boolean> => {
-      if (!token || !dramaId) return false;
+    async (episode: CreatorEpisodeItem, file: File, hooks?: VideoUploadHooks, targetDramaId?: string): Promise<boolean> => {
+      const resolvedDramaId = targetDramaId || dramaId;
+      if (!token || !resolvedDramaId) return false;
 
       const currentUpload = activeTusUploadsRef.current[episode._id];
       if (currentUpload) {
@@ -1229,7 +1258,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 streamVideoId: maybeVideoUid,
                 videoFileName: file.name,
                 status: "Processing",
-              });
+              }, resolvedDramaId);
             },
             onProgress: (uploaded, total) => {
               const percent = Math.min(100, Math.round((uploaded / total) * 100));
@@ -1278,7 +1307,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           throw new Error(t("Video upload failed: no stream id returned"));
         }
 
-        const ready = await pollVideoStatus(episode, videoUid);
+        const ready = await pollVideoStatus(episode, videoUid, resolvedDramaId);
         if (ready) {
           hooks?.onDone?.();
         } else {
@@ -1801,21 +1830,19 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       let doneCount = 0;
       let failedCount = 0;
       const targetDramaId = await ensureDraftDrama();
-      const created = await creatorApi.bulkCreateDramaEpisodes(token, targetDramaId, {
-        episodes: queued.map((_item) => ({ title: "", description: "" })),
-      });
-
-      const createdEpisodes = [...(created.data?.episodes || [])].sort((a, b) => a.episodeNumber - b.episodeNumber);
-      if (createdEpisodes.length !== queued.length) {
-        throw new Error(t("Bulk upload initialization mismatch, please retry"));
+      if (targetDramaId !== dramaId) {
+        setDramaId(targetDramaId);
       }
 
       for (let index = 0; index < queued.length; index += 1) {
         if (bulkCancelRequestedRef.current) break;
 
         const queueItem = queued[index];
-        const episode = createdEpisodes[index];
-        if (!episode) continue;
+        const created = await creatorApi.createDramaEpisode(token, targetDramaId, { count: 1 });
+        const episode = created.data?.episodes?.[0];
+        if (!episode?._id) {
+          throw new Error(t("Failed to create episode"));
+        }
 
         updateBulkItem(queueItem.id, {
           episodeId: episode._id,
@@ -1844,13 +1871,19 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               error: message,
             });
           },
-        });
+        }, targetDramaId);
 
-        if (!uploaded && !bulkCancelRequestedRef.current) {
-          failedCount += 1;
+        if (!uploaded) {
+          if (!bulkCancelRequestedRef.current) {
+            failedCount += 1;
+            updateBulkItem(queueItem.id, {
+              status: "failed",
+              error: t("Upload or processing failed"),
+            });
+          }
+          await creatorApi.deleteDramaEpisode(token, targetDramaId, episode._id).catch(() => undefined);
           updateBulkItem(queueItem.id, {
-            status: "failed",
-            error: t("Upload or processing failed"),
+            episodeId: undefined,
           });
         }
       }
@@ -1865,7 +1898,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       setBulkRunning(false);
       bulkCancelRequestedRef.current = false;
     }
-  }, [token, bulkQueue, ensureDraftDrama, loadEpisodes, startEpisodeVideoUpload, t, updateBulkItem]);
+  }, [token, bulkQueue, dramaId, ensureDraftDrama, loadEpisodes, startEpisodeVideoUpload, t, updateBulkItem]);
 
   const saveDraft = useCallback(async () => {
     if (!token) return;
@@ -1918,7 +1951,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       const targetDramaId = await persistDramaForm();
       await persistEpisodePricing(targetDramaId);
       await creatorApi.submitDramaForReview(token, targetDramaId);
-      router.push(localizePath("/creator/dramas", locale));
+      router.replace(localizePath("/creator/dramas", locale));
     } catch (err: any) {
       setError(err?.message || t("Failed to submit drama for review"));
     } finally {
