@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Check,
   CheckCircle2,
+  ChevronsUpDown,
   Clapperboard,
   Clock3,
   FileVideo2,
@@ -15,6 +16,7 @@ import {
   PlayCircle,
   Plus,
   RefreshCw,
+  Search,
   Trash2,
   UploadCloud,
   XCircle,
@@ -261,18 +263,20 @@ type DramaFormState = {
   title: string;
   description: string;
   cover: string;
+  horizontalCover: string;
   categories: string[];
   language: string;
-  country: string;
+  regions: string[];
 };
 
 const EMPTY_DRAMA_FORM: DramaFormState = {
   title: "",
   description: "",
   cover: "",
+  horizontalCover: "",
   categories: [],
   language: "en",
-  country: "",
+  regions: [],
 };
 
 function isMeaningfulCover(url?: string): boolean {
@@ -282,13 +286,23 @@ function isMeaningfulCover(url?: string): boolean {
 }
 
 function normalizeDramaForm(raw: any, fallbackLanguage: string): DramaFormState {
+  const normalizedCategories = Array.isArray(raw?.categories)
+    ? raw.categories.map((item: unknown) => String(item || "").trim()).filter(Boolean)
+    : [];
+  const normalizedRegions = Array.isArray(raw?.regions)
+    ? raw.regions.map((item: unknown) => String(item || "").trim()).filter(Boolean)
+    : String(raw?.country || "").trim()
+      ? [String(raw.country).trim()]
+      : [];
+
   return {
     title: String(raw?.title || "").trim(),
     description: String(raw?.description || "").trim(),
     cover: isMeaningfulCover(raw?.cover) ? String(raw.cover) : "",
-    categories: Array.isArray(raw?.categories) ? raw.categories.map((item: unknown) => String(item || "").trim()).filter(Boolean) : [],
+    horizontalCover: isMeaningfulCover(raw?.horizontalCover) ? String(raw.horizontalCover) : "",
+    categories: normalizedCategories.slice(0, 1),
     language: String(raw?.language || fallbackLanguage || "en").trim().toLowerCase() || "en",
-    country: String(raw?.country || "").trim(),
+    regions: Array.from(new Set(normalizedRegions)),
   };
 }
 
@@ -311,6 +325,217 @@ function getWorkflowProgress(step: UploadStep): number {
   return 100;
 }
 
+type CoverField = "cover" | "horizontalCover";
+
+function CreatorCoverUploadCard({
+  title,
+  aspectLabel,
+  helperText,
+  value,
+  uploading,
+  aspectClassName,
+  alt,
+  onSelect,
+}: {
+  title: string;
+  aspectLabel: string;
+  helperText: string;
+  value: string;
+  uploading: boolean;
+  aspectClassName: string;
+  alt: string;
+  onSelect: (file: File) => void;
+}) {
+  return (
+    <label className="block cursor-pointer rounded-[22px] border border-[#e2e8f0] bg-[#f8fafc] p-3 transition hover:border-[#1876f2] hover:bg-white">
+      <input
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onSelect(file);
+          event.currentTarget.value = "";
+        }}
+        disabled={uploading}
+      />
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-[#0f172a]">{title}</p>
+          <p className="mt-1 text-xs text-[#64748b]">{helperText}</p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#1876f2] shadow-[0px_1px_2px_rgba(15,23,42,0.08)]">
+          {aspectLabel}
+        </span>
+      </div>
+
+      <div className={`mt-3 overflow-hidden rounded-[18px] border border-dashed border-[#cbd5e1] bg-white ${aspectClassName}`}>
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={value} alt={alt} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center px-4 text-center text-[#64748b]">
+            <ImagePlus className="h-8 w-8" />
+            <span className="mt-3 text-sm font-semibold">{uploading ? "Uploading cover..." : "Click to upload"}</span>
+            <span className="mt-1 text-xs">PNG, JPG, WEBP or GIF</span>
+          </div>
+        )}
+      </div>
+    </label>
+  );
+}
+
+function CreatorRegionPicker({
+  title,
+  description,
+  options,
+  value,
+  onChange,
+  globalLabel,
+  placeholder,
+}: {
+  title: string;
+  description: string;
+  options: Array<{ value: string; label: string }>;
+  value: string[];
+  onChange: (next: string[]) => void;
+  globalLabel: string;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const filteredOptions = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    if (!keyword) return options;
+    return options.filter((option) => option.label.toLowerCase().includes(keyword) || option.value.toLowerCase().includes(keyword));
+  }, [options, search]);
+
+  const toggleRegion = useCallback((region: string) => {
+    if (value.includes(region)) {
+      onChange(value.filter((item) => item !== region));
+      return;
+    }
+    onChange([...value, region]);
+  }, [onChange, value]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{title}</span>
+          <p className="mt-1 text-xs leading-5 text-[#64748b]">{description}</p>
+        </div>
+        {value.length === 0 ? (
+          <span className="rounded-full bg-[#eff6ff] px-3 py-1 text-[11px] font-bold text-[#1d4ed8]">{globalLabel}</span>
+        ) : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="mt-2 flex min-h-[52px] w-full items-center justify-between rounded-[16px] border border-[#cbd5e1] bg-white px-4 py-3 text-left text-sm text-[#0f172a] transition hover:border-[#94a3b8]"
+      >
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          {value.length === 0 ? (
+            <span className="text-sm text-[#94a3b8]">{placeholder}</span>
+          ) : (
+            value.map((region) => {
+              const matched = options.find((option) => option.value === region);
+              return (
+                <span
+                  key={region}
+                  className="inline-flex items-center gap-1 rounded-full bg-[#eff6ff] px-3 py-1 text-xs font-semibold text-[#1d4ed8]"
+                >
+                  {matched?.label || region}
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleRegion(region);
+                    }}
+                    className="text-[#1d4ed8]/70 transition hover:text-[#1d4ed8]"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                  </button>
+                </span>
+              );
+            })
+          )}
+        </div>
+        <ChevronsUpDown className="ml-3 h-4 w-4 shrink-0 text-[#94a3b8]" />
+      </button>
+
+      {open ? (
+        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-[18px] border border-[#dbe1ea] bg-white shadow-[0px_24px_48px_rgba(15,23,42,0.14)]">
+          <div className="border-b border-[#e2e8f0] p-3">
+            <div className="flex items-center gap-2 rounded-[14px] border border-[#dbe1ea] bg-[#f8fafc] px-3 py-2">
+              <Search className="h-4 w-4 text-[#94a3b8]" />
+              <input
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search regions"
+                className="w-full bg-transparent text-sm text-[#0f172a] outline-none placeholder:text-[#94a3b8]"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <div className="max-h-72 overflow-y-auto p-2">
+            <button
+              type="button"
+              onClick={() => {
+                onChange([]);
+                setOpen(false);
+              }}
+              className={`mb-2 flex w-full items-center justify-between rounded-[14px] px-3 py-2 text-sm ${
+                value.length === 0 ? "bg-[#eff6ff] font-semibold text-[#1d4ed8]" : "text-[#475569] hover:bg-[#f8fafc]"
+              }`}
+            >
+              <span>{globalLabel}</span>
+              {value.length === 0 ? <Check className="h-4 w-4" /> : null}
+            </button>
+
+            {filteredOptions.map((option) => {
+              const checked = value.includes(option.value);
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => toggleRegion(option.value)}
+                  className={`flex w-full items-center justify-between rounded-[14px] px-3 py-2 text-sm transition ${
+                    checked ? "bg-[#eff6ff] font-semibold text-[#1d4ed8]" : "text-[#334155] hover:bg-[#f8fafc]"
+                  }`}
+                >
+                  <span className="min-w-0 truncate">{option.label}</span>
+                  {checked ? <Check className="h-4 w-4 shrink-0" /> : null}
+                </button>
+              );
+            })}
+
+            {filteredOptions.length === 0 ? (
+              <div className="px-3 py-6 text-center text-sm text-[#94a3b8]">No matching regions</div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: CreatorEpisodeUploadWorkspaceProps) {
   const router = useRouter();
   const locale = useLocale();
@@ -325,9 +550,8 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     language: locale || "en",
   });
   const [categoryOptions, setCategoryOptions] = useState<string[]>([]);
-  const [categoryInput, setCategoryInput] = useState("");
   const [pricingTemplate, setPricingTemplate] = useState(30);
-  const [coverUploading, setCoverUploading] = useState(false);
+  const [coverUploadingField, setCoverUploadingField] = useState<CoverField | "">("");
   const [episodes, setEpisodes] = useState<CreatorEpisodeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -365,6 +589,25 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const individualGridRef = useRef<HTMLDivElement | null>(null);
 
   const progress = useMemo(() => computeProgress(episodes), [episodes]);
+  const coverUploading = coverUploadingField !== "";
+  const categorySelectOptions = useMemo(
+    () => Array.from(new Set([...categoryOptions, ...dramaForm.categories])).filter(Boolean),
+    [categoryOptions, dramaForm.categories]
+  );
+  const selectedCategory = dramaForm.categories[0] || "";
+  const releaseScopeLabel = dramaForm.regions.length === 0
+    ? t("Global release")
+    : dramaForm.regions.length <= 3
+      ? dramaForm.regions.join(", ")
+      : t("__ARG_0__ regions selected", dramaForm.regions.length);
+  const basicInfoCompleted = Boolean(
+    dramaForm.title.trim()
+    && dramaForm.description.trim()
+    && isMeaningfulCover(dramaForm.cover)
+    && isMeaningfulCover(dramaForm.horizontalCover)
+    && selectedCategory
+    && dramaForm.language.trim()
+  );
 
   const updateEpisodeUploadState = useCallback((episodeId: string, patch: Partial<UploadState>) => {
     setUploadState((prev) => ({
@@ -533,12 +776,12 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
   useEffect(() => {
     if (!initialDramaId) return;
-    if (!dramaForm.title.trim() || !dramaForm.description.trim() || !isMeaningfulCover(dramaForm.cover)) {
+    if (!basicInfoCompleted) {
       setCurrentStep(1);
       return;
     }
     setCurrentStep((prev) => (prev === 1 ? 2 : prev));
-  }, [dramaForm.cover, dramaForm.description, dramaForm.title, initialDramaId]);
+  }, [basicInfoCompleted, initialDramaId]);
 
   const updateDramaFormField = useCallback(<K extends keyof DramaFormState,>(field: K, value: DramaFormState[K]) => {
     setDramaForm((prev) => ({
@@ -547,29 +790,20 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     }));
   }, []);
 
-  const toggleDramaCategory = useCallback((value: string) => {
+  const selectDramaCategory = useCallback((value: string) => {
     const normalized = value.trim();
-    if (!normalized) return;
     setDramaForm((prev) => ({
       ...prev,
-      categories: prev.categories.includes(normalized)
-        ? prev.categories.filter((item) => item !== normalized)
-        : [...prev.categories, normalized].slice(0, 10),
+      categories: normalized ? [normalized] : [],
     }));
   }, []);
-
-  const addCustomCategory = useCallback(() => {
-    const normalized = categoryInput.trim();
-    if (!normalized) return;
-    toggleDramaCategory(normalized);
-    setCategoryInput("");
-  }, [categoryInput, toggleDramaCategory]);
 
   const validateBasicInfo = useCallback(() => {
     if (!dramaForm.title.trim()) return t("Title is required");
     if (!dramaForm.description.trim()) return t("Description is required");
-    if (!isMeaningfulCover(dramaForm.cover)) return t("Cover image is required");
-    if (dramaForm.categories.length === 0) return t("Select at least one category");
+    if (!isMeaningfulCover(dramaForm.cover)) return t("Vertical cover is required");
+    if (!isMeaningfulCover(dramaForm.horizontalCover)) return t("Horizontal cover is required");
+    if (dramaForm.categories.length === 0) return t("Select one category");
     if (!dramaForm.language.trim()) return t("Primary language is required");
     return "";
   }, [dramaForm, t]);
@@ -582,9 +816,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         title: dramaForm.title.trim() || t("Untitled Story"),
         description: dramaForm.description.trim(),
         cover: dramaForm.cover.trim() || "",
-        categories: dramaForm.categories,
+        horizontalCover: dramaForm.horizontalCover.trim() || "",
+        categories: dramaForm.categories.slice(0, 1),
         language: dramaForm.language.trim() || "en",
-        country: dramaForm.country.trim(),
+        country: dramaForm.regions.length === 1 ? dramaForm.regions[0] : "",
+        regions: dramaForm.regions,
       };
       await creatorApi.updateDrama(token, resolvedDramaId, payload);
       return resolvedDramaId;
@@ -593,20 +829,20 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   );
 
   const uploadDramaCover = useCallback(
-    async (file: File) => {
+    async (file: File, field: CoverField) => {
       if (!token) return;
-      setCoverUploading(true);
+      setCoverUploadingField(field);
       setError("");
       try {
         const uploaded = await creatorApi.uploadImageFile(token, file);
         setDramaForm((prev) => ({
           ...prev,
-          cover: uploaded.data.url,
+          [field]: uploaded.data.url,
         }));
       } catch (err: any) {
         setError(err?.message || t("Failed to upload cover"));
       } finally {
-        setCoverUploading(false);
+        setCoverUploadingField("");
       }
     },
     [t, token]
@@ -1548,8 +1784,6 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const freeEpisodesCount = episodes.filter((episode) => episode.isFree).length;
   const paidEpisodesCount = Math.max(0, episodes.length - freeEpisodesCount);
   const readyEpisodesCount = episodes.filter((episode) => (episode.streamVideoId || episode.videoUrl) && episode.subtitleUrl).length;
-  const availableCategoryOptions = categoryOptions.filter((option) => !dramaForm.categories.includes(option));
-  const topCategoryOptions = availableCategoryOptions.slice(0, 8);
 
   return (
     <div className="-mx-4 -mt-6 md:-mx-6 lg:-mx-8 lg:-mt-8">
@@ -1598,7 +1832,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
             </h1>
             <p className="mt-1 text-sm text-[#64748b]">
               {currentStep === 1
-                ? t("Complete the title, synopsis, cover, category, and language details before uploading episodes.")
+                ? t("Complete the title, synopsis, dual-cover setup, release regions, and category details before uploading episodes.")
                 : currentStep === 2
                   ? uploadMode === "bulk"
                     ? t("Upload one or more MP4 source files, then prepare episodes for creator review submission.")
@@ -1619,141 +1853,165 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         ) : null}
 
         {currentStep === 1 ? (
-          <section className="mt-5 grid gap-5 xl:grid-cols-[320px_minmax(0,1fr)]">
-            <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748b]">{t("Cover")}</p>
-              <label className="mt-4 flex cursor-pointer flex-col overflow-hidden rounded-[20px] border-2 border-dashed border-[#cbd5e1] bg-[#f8fafc]">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) uploadDramaCover(file);
-                    event.currentTarget.value = "";
-                  }}
-                  disabled={coverUploading}
-                />
-                {dramaForm.cover ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={dramaForm.cover} alt={dramaForm.title || t("Drama cover")} className="aspect-[2/3] w-full object-cover" />
-                ) : (
-                  <div className="flex aspect-[2/3] flex-col items-center justify-center px-6 text-center text-[#64748b]">
-                    <ImagePlus className="h-8 w-8" />
-                    <span className="mt-3 text-sm font-semibold">{coverUploading ? t("Uploading cover...") : t("Upload Cover")}</span>
-                    <span className="mt-1 text-xs">{t("PNG, JPG, WEBP or GIF")}</span>
+          <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="space-y-5">
+              <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748b]">{t("Basic Information")}</p>
+                    <h2 className="mt-2 text-xl font-black tracking-[-0.02em] text-[#0f172a]">{t("Story Metadata")}</h2>
+                    <p className="mt-1 max-w-2xl text-sm leading-6 text-[#64748b]">
+                      {t("Match the upload form to your release plan. Category is single-select, release regions are multi-select, and leaving regions empty keeps the drama available globally.")}
+                    </p>
                   </div>
-                )}
-              </label>
-              <p className="mt-3 text-xs leading-5 text-[#64748b]">
-                {t("This cover will be used in creator review and the drama listing after approval.")}
-              </p>
-            </div>
-
-            <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
-              <div className="grid gap-5 md:grid-cols-2">
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Title")}</span>
-                  <input
-                    type="text"
-                    value={dramaForm.title}
-                    onChange={(event) => updateDramaFormField("title", event.target.value)}
-                    placeholder={t("Enter drama title")}
-                    className="mt-2 h-12 w-full rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2]"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Primary Language")}</span>
-                  <select
-                    value={dramaForm.language}
-                    onChange={(event) => updateDramaFormField("language", event.target.value)}
-                    className="mt-2 h-12 w-full rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2]"
-                  >
-                    {DRAMA_LANGUAGE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Country / Region")}</span>
-                  <select
-                    value={dramaForm.country}
-                    onChange={(event) => updateDramaFormField("country", event.target.value)}
-                    className="mt-2 h-12 w-full rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2]"
-                  >
-                    <option value="">{t("Select country")}</option>
-                    {countryOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <div>
-                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Categories")}</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {topCategoryOptions.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => toggleDramaCategory(option)}
-                        className="rounded-full border border-[#cbd5e1] px-3 py-1.5 text-xs font-semibold text-[#475569] hover:border-[#1876f2] hover:text-[#1876f2]"
-                      >
-                        {option}
-                      </button>
-                    ))}
+                  <div className="rounded-[20px] border border-[#dbeafe] bg-[#eff6ff] px-4 py-3 text-right">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#1d4ed8]">{t("Release Scope")}</p>
+                    <p className="mt-1 text-sm font-semibold text-[#0f172a]">{releaseScopeLabel}</p>
                   </div>
-                  <div className="mt-3 flex gap-2">
+                </div>
+
+                <div className="mt-6 grid gap-5 md:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Title")}</span>
                     <input
                       type="text"
-                      value={categoryInput}
-                      onChange={(event) => setCategoryInput(event.target.value)}
-                      placeholder={t("Add custom category")}
-                      className="h-11 flex-1 rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2]"
+                      value={dramaForm.title}
+                      onChange={(event) => updateDramaFormField("title", event.target.value)}
+                      placeholder={t("Enter drama title")}
+                      className="mt-2 h-12 w-full rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2]"
                     />
-                    <button
-                      type="button"
-                      onClick={addCustomCategory}
-                      className="rounded-[16px] border border-[#cbd5e1] px-4 text-sm font-semibold text-[#475569] hover:bg-[#f8fafc]"
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Primary Language")}</span>
+                    <select
+                      value={dramaForm.language}
+                      onChange={(event) => updateDramaFormField("language", event.target.value)}
+                      className="mt-2 h-12 w-full rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2]"
                     >
-                      {t("Add")}
-                    </button>
-                  </div>
-                  {dramaForm.categories.length ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {dramaForm.categories.map((category) => (
-                        <button
-                          key={category}
-                          type="button"
-                          onClick={() => toggleDramaCategory(category)}
-                          className="inline-flex items-center gap-1 rounded-full bg-[#eff6ff] px-3 py-1.5 text-xs font-bold text-[#1d4ed8]"
-                        >
-                          <Check className="h-3 w-3" />
-                          {category}
-                        </button>
+                      {DRAMA_LANGUAGE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
                       ))}
-                    </div>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="mt-5 grid gap-5 md:grid-cols-2">
+                  <div>
+                    <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Category")}</span>
+                    <select
+                      value={selectedCategory}
+                      onChange={(event) => selectDramaCategory(event.target.value)}
+                      className="mt-2 h-12 w-full rounded-[16px] border border-[#cbd5e1] bg-white px-4 text-sm font-medium text-[#0f172a] outline-none transition focus:border-[#1876f2]"
+                    >
+                      <option value="">{t("Select one category")}</option>
+                      {categorySelectOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs leading-5 text-[#64748b]">
+                      {t("Category is single-select to keep storefront placement and review metadata consistent with the new design.")}
+                    </p>
+                  </div>
+
+                  <CreatorRegionPicker
+                    title={t("Release Regions")}
+                    description={t("Select one or more release regions. Leave empty to publish globally by default.")}
+                    options={countryOptions}
+                    value={dramaForm.regions}
+                    onChange={(next) => updateDramaFormField("regions", next)}
+                    globalLabel={t("Global release")}
+                    placeholder={t("Choose release regions")}
+                  />
+                </div>
+
+                <label className="mt-5 block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Synopsis")}</span>
+                  <textarea
+                    value={dramaForm.description}
+                    onChange={(event) => updateDramaFormField("description", event.target.value)}
+                    placeholder={t("Write a short summary for reviewers and viewers")}
+                    rows={7}
+                    className="mt-2 w-full rounded-[20px] border border-[#cbd5e1] bg-white px-4 py-3 text-sm leading-6 text-[#0f172a] outline-none transition focus:border-[#1876f2]"
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              <div className="rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_rgba(0,0,0,0.05)]">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748b]">{t("Cover Assets")}</p>
+                    <h2 className="mt-2 text-xl font-black tracking-[-0.02em] text-[#0f172a]">{t("Dual Cover Upload")}</h2>
+                    <p className="mt-1 text-sm leading-6 text-[#64748b]">
+                      {t("Upload both portrait and landscape covers so the drama can render correctly across vertical cards, hero banners, and episode shelves.")}
+                    </p>
+                  </div>
+                  {coverUploading ? (
+                    <span className="rounded-full bg-[#eff6ff] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#1d4ed8]">
+                      {t("Uploading")}
+                    </span>
                   ) : null}
+                </div>
+
+                <div className="mt-5 space-y-4">
+                  <CreatorCoverUploadCard
+                    title={t("Portrait Cover")}
+                    aspectLabel="2:3"
+                    helperText={t("Used in creator list cards and vertical storefront layouts.")}
+                    value={dramaForm.cover}
+                    uploading={coverUploadingField === "cover"}
+                    aspectClassName="aspect-[2/3]"
+                    alt={dramaForm.title || t("Drama portrait cover")}
+                    onSelect={(file) => uploadDramaCover(file, "cover")}
+                  />
+
+                  <CreatorCoverUploadCard
+                    title={t("Landscape Cover")}
+                    aspectLabel="16:9"
+                    helperText={t("Used in wide shelves, recommendation rows, and promotional modules.")}
+                    value={dramaForm.horizontalCover}
+                    uploading={coverUploadingField === "horizontalCover"}
+                    aspectClassName="aspect-[16/9]"
+                    alt={dramaForm.title || t("Drama landscape cover")}
+                    onSelect={(file) => uploadDramaCover(file, "horizontalCover")}
+                  />
                 </div>
               </div>
 
-              <label className="mt-5 block">
-                <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Synopsis")}</span>
-                <textarea
-                  value={dramaForm.description}
-                  onChange={(event) => updateDramaFormField("description", event.target.value)}
-                  placeholder={t("Write a short summary for reviewers and viewers")}
-                  rows={7}
-                  className="mt-2 w-full rounded-[20px] border border-[#cbd5e1] bg-white px-4 py-3 text-sm leading-6 text-[#0f172a] outline-none transition focus:border-[#1876f2]"
-                />
-              </label>
+              <div className="rounded-[24px] border border-[#e2e8f0] bg-[#0f172a] p-5 text-white shadow-[0px_18px_40px_rgba(15,23,42,0.12)]">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">{t("Submission Preview")}</p>
+                <h3 className="mt-2 text-xl font-black tracking-[-0.02em]">
+                  {dramaForm.title.trim() || t("Untitled Story")}
+                </h3>
+                <div className="mt-4 grid gap-3 text-sm">
+                  <div className="flex items-center justify-between gap-4 rounded-[18px] bg-white/5 px-4 py-3">
+                    <span className="text-white/60">{t("Category")}</span>
+                    <span className="font-semibold">{selectedCategory || t("Not selected")}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 rounded-[18px] bg-white/5 px-4 py-3">
+                    <span className="text-white/60">{t("Release")}</span>
+                    <span className="text-right font-semibold">{releaseScopeLabel}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 rounded-[18px] bg-white/5 px-4 py-3">
+                    <span className="text-white/60">{t("Assets Ready")}</span>
+                    <span className="font-semibold">
+                      {[dramaForm.cover, dramaForm.horizontalCover].filter((item) => isMeaningfulCover(item)).length}/2
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4 rounded-[18px] bg-white/5 px-4 py-3">
+                    <span className="text-white/60">{t("Language")}</span>
+                    <span className="font-semibold">
+                      {DRAMA_LANGUAGE_OPTIONS.find((option) => option.value === dramaForm.language)?.label || dramaForm.language || "—"}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         ) : null}

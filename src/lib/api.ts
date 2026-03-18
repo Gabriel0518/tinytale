@@ -708,7 +708,11 @@ export const creatorApi = {
       title?: string;
       description?: string;
       cover?: string;
+      horizontalCover?: string;
       categories?: string[];
+      regions?: string[];
+      language?: string;
+      country?: string;
     }
   ) => api.post<{ success: boolean; data: any }>('/api/creator/dramas', payload, { token }),
 
