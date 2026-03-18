@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -26,6 +27,7 @@ import { useAuth } from "@/lib/authContext";
 import { API_URL, categoriesApi, creatorApi } from "@/lib/api";
 import { useCountryCatalog } from "@/hooks/useCountryCatalog";
 import { localizePath } from "@/lib/i18n";
+import { getQualityMenuOptions, type QualityValue } from "@/lib/playerQuality";
 import { useLocale } from "@/hooks/useLocale";
 import CloudflarePlayer from "@/components/player/CloudflarePlayer";
 import type { SubtitleTrack } from "@/types";
@@ -567,6 +569,8 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const [autoSliceStatusMap, setAutoSliceStatusMap] = useState<Record<string, EpisodeStatusUi>>({});
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewEpisode, setPreviewEpisode] = useState<(CreatorEpisodePreviewPayload & { title: string; episodeNumber: number }) | null>(null);
+  const [previewSubtitleLanguage, setPreviewSubtitleLanguage] = useState<string | null>(null);
+  const [previewQuality, setPreviewQuality] = useState<QualityValue>("1080p");
 
   const aliveRef = useRef(true);
   const activeTusUploadsRef = useRef<Record<string, tus.Upload>>({});
@@ -780,6 +784,33 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     return () => {
       document.body.style.overflow = previousOverflow;
     };
+  }, [previewEpisode]);
+
+  useEffect(() => {
+    if (!previewEpisode) {
+      setPreviewSubtitleLanguage(null);
+      setPreviewQuality("1080p");
+      return;
+    }
+
+    const readyTracks = (previewEpisode.subtitleTracks || []).filter(
+      (track) => track.fileUrl && String(track.status || "").toLowerCase() === "ready"
+    );
+    const preferredTrack =
+      readyTracks.find((track) => track.isDefault) ||
+      readyTracks[0] ||
+      (previewEpisode.subtitles || [])[0] ||
+      null;
+    setPreviewSubtitleLanguage(preferredTrack?.language || null);
+
+    const width = Number(previewEpisode.videoWidth || 0);
+    if (width >= 2500) {
+      setPreviewQuality("2K");
+    } else if (width >= 1600) {
+      setPreviewQuality("1080p");
+    } else {
+      setPreviewQuality("720p");
+    }
   }, [previewEpisode]);
 
   const refreshEpisodes = useCallback(async () => {
@@ -1802,6 +1833,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const stepOneLabelClassName = "text-[13px] font-semibold text-[#0f172a]";
   const stepOneInputClassName = "h-12 w-full rounded-2xl border border-[#d7dde8] bg-[#f8fafc] px-4 text-[15px] text-[#0f172a] outline-none transition focus:border-[#1876f2] focus:bg-white";
   const stepOneTextareaClassName = "w-full rounded-2xl border border-[#d7dde8] bg-[#f8fafc] px-4 py-3 text-[15px] text-[#0f172a] outline-none transition focus:border-[#1876f2] focus:bg-white";
+  const previewQualityOptions = getQualityMenuOptions(true);
 
   return (
     <div className="-mx-4 -mt-6 md:-mx-6 lg:-mx-8 lg:-mt-8">
@@ -2362,14 +2394,22 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
                       <div className="mt-4 flex items-center justify-between">
                         <h3 className="text-[22px] font-black leading-none tracking-[-0.03em] text-[#1e293b] md:text-[24px]">{t("Episode __ARG_0__", episode.episodeNumber)}</h3>
-                        <button
-                          type="button"
-                          onClick={() => removeEpisode(episode._id)}
-                          className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569]"
-                          aria-label={t("Delete episode __ARG_0__", episode.episodeNumber)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <Link
+                            href={localizePath(`/creator/dramas/${dramaId}/episodes/${episode._id}`, locale)}
+                            className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#1876f2] hover:bg-[#eff6ff]"
+                          >
+                            {t("Edit Info")}
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => removeEpisode(episode._id)}
+                            className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569]"
+                            aria-label={t("Delete episode __ARG_0__", episode.episodeNumber)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-bold leading-4 ${statusUi.className}`}>{t(statusUi.text)}</div>
@@ -2807,8 +2847,8 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               </button>
             </div>
 
-            <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
-              <div className="flex items-center justify-center bg-[#0f172a] px-4 py-6">
+            <div className="grid max-h-[calc(92vh-88px)] gap-0 lg:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="flex min-h-0 items-center justify-center bg-[#0f172a] px-4 py-6">
                 <div
                   className={`w-full overflow-hidden rounded-[24px] bg-black shadow-[0px_24px_48px_rgba(15,23,42,0.3)] ${
                     (previewEpisode.videoWidth || 0) > (previewEpisode.videoHeight || 0) && (previewEpisode.videoHeight || 0) > 0
@@ -2819,8 +2859,9 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   <CloudflarePlayer
                     streamVideoId={previewEpisode.streamVideoId || undefined}
                     videoUrl={previewEpisode.videoUrl || undefined}
-                    quality="1080p"
+                    quality={previewQuality}
                     controls
+                    activeSubtitleLanguage={previewSubtitleLanguage}
                     poster={previewEpisode.thumbnailUrl || undefined}
                     autoplay
                     subtitles={(previewEpisode.subtitles || []) as SubtitleTrack[]}
@@ -2829,7 +2870,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 </div>
               </div>
 
-              <div className="space-y-4 border-t border-[#e2e8f0] bg-[#f8fafc] p-5 lg:border-l lg:border-t-0">
+              <div className="min-h-0 space-y-4 overflow-y-auto border-t border-[#e2e8f0] bg-[#f8fafc] p-5 lg:border-l lg:border-t-0">
                 <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Video Layout")}</p>
                   <p className="mt-2 text-sm font-bold text-[#0f172a]">
@@ -2845,13 +2886,47 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 </div>
 
                 <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Playback Quality")}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {previewQualityOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setPreviewQuality(option.value)}
+                        className={`rounded-full px-3 py-1.5 text-[11px] font-bold ${
+                          previewQuality === option.value ? "bg-[#1876f2] text-white" : "bg-[#eff6ff] text-[#1d4ed8]"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Subtitles")}</p>
                   <p className="mt-2 text-sm font-bold text-[#0f172a]">{t("__ARG_0__ tracks available", previewEpisode.subtitles?.length || 0)}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewSubtitleLanguage(null)}
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                        previewSubtitleLanguage === null ? "bg-[#1876f2] text-white" : "bg-[#eff6ff] text-[#1d4ed8]"
+                      }`}
+                    >
+                      {t("Off")}
+                    </button>
                     {(previewEpisode.subtitles || []).map((track) => (
-                      <span key={track.language} className="rounded-full bg-[#eff6ff] px-2.5 py-1 text-[11px] font-bold text-[#1d4ed8]">
+                      <button
+                        key={track.language}
+                        type="button"
+                        onClick={() => setPreviewSubtitleLanguage(track.language)}
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                          previewSubtitleLanguage === track.language ? "bg-[#1876f2] text-white" : "bg-[#eff6ff] text-[#1d4ed8]"
+                        }`}
+                      >
                         {track.label}
-                      </span>
+                      </button>
                     ))}
                   </div>
                   {previewEpisode.subtitleTracks?.length ? (
