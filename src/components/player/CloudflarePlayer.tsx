@@ -16,6 +16,7 @@ interface CloudflarePlayerProps {
   signedToken?: string;
   quality?: string;
   controls?: boolean;
+  showNativeBigPlayButton?: boolean;
   activeSubtitleLanguage?: string | null;
   poster?: string;
   autoplay?: boolean;
@@ -82,6 +83,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       signedToken,
       quality = 'auto',
       controls = false,
+      showNativeBigPlayButton = false,
       activeSubtitleLanguage = null,
       poster,
       autoplay = false,
@@ -165,15 +167,35 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         tracks.forEach((track) => {
           const language = normalizeLanguageCode(track.language);
           if (!track?.src || !language) return;
-          player.addRemoteTextTrack(
+          const remoteTrack = player.addRemoteTextTrack(
             {
               kind: 'subtitles',
               srclang: language,
               label: track.label || language.toUpperCase(),
               src: track.src,
+              default: language === normalizeLanguageCode(activeSubtitleRef.current),
             },
             false,
           );
+
+          const textTrack = (
+            remoteTrack as
+              | { track?: TextTrack | null }
+              | TextTrack
+              | null
+              | undefined
+          );
+
+          if (textTrack && 'track' in textTrack && textTrack.track) {
+            try {
+              textTrack.track.mode =
+                language === normalizeLanguageCode(activeSubtitleRef.current)
+                  ? 'showing'
+                  : 'disabled';
+            } catch {
+              // Ignore mode sync failures for not-yet-ready tracks.
+            }
+          }
         });
       } catch {
         // Ignore track sync errors to avoid breaking playback.
@@ -233,16 +255,28 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
 
         // Create a fresh video element inside the container div
         const videoElement = document.createElement('video-js');
-        videoElement.classList.add('video-js', 'vjs-big-play-centered');
+        videoElement.classList.add('video-js');
+        if (showNativeBigPlayButton) {
+          videoElement.classList.add('vjs-big-play-centered');
+        }
         videoRef.current.appendChild(videoElement);
 
         const player = videojs(videoElement, {
           controls,
+          bigPlayButton: showNativeBigPlayButton,
           fill: true,
           preload: 'auto',
           autoplay,
           crossorigin: 'anonymous',
           playsinline: true,
+          html5: {
+            nativeAudioTracks: false,
+            nativeTextTracks: false,
+            nativeVideoTracks: false,
+            vhs: {
+              overrideNative: true,
+            },
+          },
           poster: poster || undefined,
           sources: [source],
         });
@@ -269,6 +303,8 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         player.on('loadedmetadata', () => callbacksRef.current.onReady?.());
         player.on('loadedmetadata', syncSubtitleTracksOnReady);
         player.on('loadedmetadata', syncSubtitleSelection);
+        player.on('loadeddata', syncSubtitleTracksOnReady);
+        player.on('loadeddata', syncSubtitleSelection);
         player.on('play', () => callbacksRef.current.onPlay?.());
         player.on('pause', () => callbacksRef.current.onPause?.());
 
@@ -302,7 +338,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         }
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getBaseSource, autoplay, poster, subtitles, applySubtitleSelection, syncRemoteSubtitleTracks, controls]);
+    }, [getBaseSource, autoplay, poster, subtitles, applySubtitleSelection, syncRemoteSubtitleTracks, controls, showNativeBigPlayButton]);
 
     // Switch HLS quality without rebuilding the player instance.
     useEffect(() => {

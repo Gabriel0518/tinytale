@@ -530,7 +530,14 @@ type PreviewEpisodeState = CreatorEpisodePreviewPayload & {
   episodeNumber: number;
 };
 
-function resolvePreviewDefaultSubtitle(tracks: SubtitleTrack[]): string | null {
+function resolvePreviewDefaultSubtitle(
+  tracks: SubtitleTrack[],
+  rawTracks?: CreatorEpisodePreviewPayload["subtitleTracks"]
+): string | null {
+  const explicitDefault = rawTracks?.find((track) => track.isDefault && track.fileUrl && String(track.status || "").toLowerCase() === "ready");
+  if (explicitDefault?.language) {
+    return explicitDefault.language;
+  }
   if (tracks.length === 0) return null;
   return tracks[0]?.language || null;
 }
@@ -546,7 +553,7 @@ function CreatorPreviewPlayerInner({ episode }: { episode: PreviewEpisodeState }
     [episode.qualityOptions]
   );
   const [activeSubtitleLanguage, setActiveSubtitleLanguage] = useState<string | null>(() =>
-    resolvePreviewDefaultSubtitle(subtitleTracks)
+    resolvePreviewDefaultSubtitle(subtitleTracks, episode.subtitleTracks)
   );
 
   useEffect(() => {
@@ -558,14 +565,14 @@ function CreatorPreviewPlayerInner({ episode }: { episode: PreviewEpisodeState }
   }, [actions, episode.duration, episode.episodeId]);
 
   useEffect(() => {
-    const defaultSubtitle = resolvePreviewDefaultSubtitle(subtitleTracks);
+    const defaultSubtitle = resolvePreviewDefaultSubtitle(subtitleTracks, episode.subtitleTracks);
     setActiveSubtitleLanguage((prev) => {
       if (prev && subtitleTracks.some((track) => track.language === prev)) {
         return prev;
       }
       return defaultSubtitle;
     });
-  }, [subtitleTracks]);
+  }, [episode.subtitleTracks, subtitleTracks]);
 
   useEffect(() => {
     const defaultQuality = resolveDefaultQuality(qualityOptions);
@@ -613,6 +620,7 @@ function CreatorPreviewPlayerInner({ episode }: { episode: PreviewEpisodeState }
         streamVideoId={episode.streamVideoId || undefined}
         videoUrl={episode.playbackUrl || episode.videoUrl || undefined}
         quality={state.quality}
+        showNativeBigPlayButton={false}
         activeSubtitleLanguage={activeSubtitleLanguage}
         poster={episode.thumbnailUrl || undefined}
         autoplay
@@ -635,6 +643,7 @@ function CreatorPreviewPlayerInner({ episode }: { episode: PreviewEpisodeState }
         onToggleMute={handleToggleMute}
         onPlaybackRateChange={handlePlaybackRateChange}
         onQualityChange={actions.setQuality}
+        showCenterPlayButton={false}
         subtitleTracks={subtitleTracks}
         activeSubtitleLanguage={activeSubtitleLanguage}
         onSubtitleChange={setActiveSubtitleLanguage}
@@ -2930,35 +2939,23 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       ) : null}
 
       {previewEpisode ? (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="relative flex max-h-[92vh] w-full max-w-[min(96vw,1380px)] flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl">
-            <div className="flex items-center justify-between gap-4 border-b border-[#e2e8f0] px-5 py-4">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1876f2]">{t("Episode Preview")}</p>
-                <h3 className="truncate text-base font-bold text-[#0f172a]">
-                  {t("Episode __ARG_0__", previewEpisode.episodeNumber)} · {previewEpisode.title}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPreviewEpisode(null)}
-                className="rounded-[12px] border border-[#cbd5e1] px-3 py-2 text-xs font-bold text-[#475569] hover:bg-[#f8fafc]"
-              >
-                {t("Close")}
-              </button>
-            </div>
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/72 p-4 backdrop-blur-[2px]">
+          <button
+            type="button"
+            onClick={() => setPreviewEpisode(null)}
+            className="absolute right-6 top-6 z-[95] rounded-full border border-white/20 bg-black/55 px-4 py-2 text-sm font-semibold text-white shadow-[0px_18px_40px_rgba(15,23,42,0.35)] transition hover:bg-black/70"
+          >
+            {t("Close")}
+          </button>
 
-            <div className="flex max-h-[calc(92vh-88px)] min-h-0 items-center justify-center bg-[#0f172a] px-4 py-6 md:px-6">
-              <div
-                className={`w-full overflow-hidden rounded-[24px] bg-black shadow-[0px_24px_48px_rgba(15,23,42,0.3)] ${
-                  (previewEpisode.videoWidth || 0) > (previewEpisode.videoHeight || 0) && (previewEpisode.videoHeight || 0) > 0
-                    ? "max-w-6xl aspect-video"
-                    : "max-w-[430px] aspect-[9/16]"
-                }`}
-              >
-                <CreatorPreviewPlayer episode={previewEpisode} />
-              </div>
-            </div>
+          <div
+            className={`relative w-full overflow-hidden rounded-[24px] bg-black shadow-[0px_24px_60px_rgba(15,23,42,0.55)] ${
+              (previewEpisode.videoWidth || 0) > (previewEpisode.videoHeight || 0) && (previewEpisode.videoHeight || 0) > 0
+                ? "max-w-6xl aspect-video"
+                : "max-w-[430px] aspect-[9/16]"
+            }`}
+          >
+            <CreatorPreviewPlayer episode={previewEpisode} />
           </div>
         </div>
       ) : null}

@@ -4,6 +4,7 @@ interface PlayControlsProps {
   isPlaying: boolean;
   isLoading: boolean;
   visible: boolean;
+  showCenterPlayButton?: boolean;
   onPlayPause: () => void;
   onUserActivity?: () => void;
   onPrevious?: () => void;
@@ -16,6 +17,7 @@ export default function PlayControls({
   isPlaying,
   isLoading,
   visible,
+  showCenterPlayButton = true,
   onPlayPause,
   onUserActivity,
   onPrevious,
@@ -65,36 +67,38 @@ export default function PlayControls({
       )}
 
       {/* Center play/pause / loading */}
-      <button
-        className={`flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white transition-all hover:scale-110 active:scale-95 ${buttonVisibilityClass}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          onPlayPause();
-          onUserActivity?.();
-        }}
-        aria-label={isLoading ? 'Loading' : isPlaying ? 'Pause' : 'Play'}
-      >
-        {isLoading ? (
-          <svg
-            className="h-8 w-8 animate-spin"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-            <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
-          </svg>
-        ) : isPlaying ? (
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-          </svg>
-        ) : (
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7L8 5z" />
-          </svg>
-        )}
-      </button>
+      {showCenterPlayButton ? (
+        <button
+          className={`flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white transition-all hover:scale-110 active:scale-95 ${buttonVisibilityClass}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPlayPause();
+            onUserActivity?.();
+          }}
+          aria-label={isLoading ? 'Loading' : isPlaying ? 'Pause' : 'Play'}
+        >
+          {isLoading ? (
+            <svg
+              className="h-8 w-8 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+              <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
+            </svg>
+          ) : isPlaying ? (
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+            </svg>
+          ) : (
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7L8 5z" />
+            </svg>
+          )}
+        </button>
+      ) : null}
 
       {/* Next episode button */}
       {hasNext && onNext && (

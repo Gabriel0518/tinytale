@@ -27,6 +27,36 @@ body {
   object-fit: contain !important;
 }
 
+.video-js .vjs-big-play-button {
+  display: none !important;
+}
+
+.video-js .vjs-text-track-display {
+  bottom: 5rem !important;
+  pointer-events: none;
+}
+
+.video-js .vjs-text-track-cue {
+  font-family: inherit !important;
+}
+
+.video-js .vjs-text-track-cue div {
+  background: rgba(15, 23, 42, 0.78) !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  line-height: 1.45 !important;
+  padding: 0.2em 0.55em !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+
+.video-js video::cue {
+  background: rgba(15, 23, 42, 0.78);
+  color: #ffffff;
+  font-family: inherit;
+  line-height: 1.45;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55);
+}
+
 /* Glassmorphism utilities */
 .glass-card {
   background: rgba(255, 255, 255, 0.05);

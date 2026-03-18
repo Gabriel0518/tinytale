@@ -18,6 +18,7 @@ interface ControlBarProps {
   onToggleMute: () => void;
   onPlaybackRateChange: (rate: number) => void;
   onQualityChange: (quality: string) => void;
+  showCenterPlayButton?: boolean;
   subtitleTracks?: SubtitleTrack[];
   activeSubtitleLanguage?: string | null;
   onSubtitleChange?: (language: string | null) => void;
@@ -39,6 +40,7 @@ export default function ControlBar({
   onToggleMute,
   onPlaybackRateChange,
   onQualityChange,
+  showCenterPlayButton = true,
   subtitleTracks = [],
   activeSubtitleLanguage = null,
   onSubtitleChange,
@@ -139,6 +141,7 @@ export default function ControlBar({
         isPlaying={playerState.isPlaying}
         isLoading={playerState.isLoading}
         visible={shouldShowControls}
+        showCenterPlayButton={showCenterPlayButton}
         onPlayPause={onPlayPause}
         onUserActivity={showControls}
         onPrevious={onPrevious}
