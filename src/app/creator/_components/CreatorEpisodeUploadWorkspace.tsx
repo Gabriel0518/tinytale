@@ -446,7 +446,7 @@ function CreatorRegionPicker({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="mt-2 flex min-h-[52px] w-full items-center justify-between rounded-[16px] border border-[#cbd5e1] bg-white px-4 py-3 text-left text-sm text-[#0f172a] transition hover:border-[#94a3b8]"
+        className="mt-3 flex min-h-[56px] w-full items-center justify-between rounded-[20px] border border-[#cbd5e1] bg-white px-5 py-3.5 text-left text-sm text-[#0f172a] transition hover:border-[#94a3b8]"
       >
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
           {value.length === 0 ? (
@@ -481,7 +481,7 @@ function CreatorRegionPicker({
       {open ? (
         <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-[18px] border border-[#dbe1ea] bg-white shadow-[0px_24px_48px_rgba(15,23,42,0.14)]">
           <div className="border-b border-[#e2e8f0] p-3">
-            <div className="flex items-center gap-2 rounded-[14px] border border-[#dbe1ea] bg-[#f8fafc] px-3 py-2">
+            <div className="flex items-center gap-2 rounded-[16px] border border-[#dbe1ea] bg-[#f8fafc] px-3 py-2.5">
               <Search className="h-4 w-4 text-[#94a3b8]" />
               <input
                 type="text"
@@ -1884,7 +1884,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         ) : null}
 
         {currentStep === 1 ? (
-          <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_430px]">
             <div className="space-y-5">
               <div className="rounded-[28px] border border-[#e2e8f0] bg-white px-6 py-5 shadow-[0px_1px_2px_rgba(15,23,42,0.05),0px_18px_38px_rgba(15,23,42,0.04)] md:px-7 md:py-6">
                 <div className="space-y-5">
@@ -2044,35 +2044,6 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   <span className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#0f172a] shadow-[0px_2px_10px_rgba(15,23,42,0.08)]">
                     {coverCompletionCount}/2
                   </span>
-                </div>
-              </div>
-
-              <div className="rounded-[24px] border border-[#e2e8f0] bg-[#0f172a] p-5 text-white shadow-[0px_18px_40px_rgba(15,23,42,0.12)]">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/60">{t("Submission Preview")}</p>
-                <h3 className="mt-2 text-xl font-black tracking-[-0.02em]">
-                  {dramaForm.title.trim() || t("Untitled Story")}
-                </h3>
-                <div className="mt-4 grid gap-3 text-sm">
-                  <div className="flex items-center justify-between gap-4 rounded-[18px] bg-white/5 px-4 py-3">
-                    <span className="text-white/60">{t("Category")}</span>
-                    <span className="font-semibold">{selectedCategory || t("Not selected")}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 rounded-[18px] bg-white/5 px-4 py-3">
-                    <span className="text-white/60">{t("Release")}</span>
-                    <span className="text-right font-semibold">{releaseScopeLabel}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 rounded-[18px] bg-white/5 px-4 py-3">
-                    <span className="text-white/60">{t("Assets Ready")}</span>
-                    <span className="font-semibold">
-                      {[dramaForm.cover, dramaForm.horizontalCover].filter((item) => isMeaningfulCover(item)).length}/2
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 rounded-[18px] bg-white/5 px-4 py-3">
-                    <span className="text-white/60">{t("Language")}</span>
-                    <span className="font-semibold">
-                      {DRAMA_LANGUAGE_OPTIONS.find((option) => option.value === dramaForm.language)?.label || dramaForm.language || "—"}
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>
@@ -2653,7 +2624,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               <button
                 type="button"
                 onClick={goToEpisodeUploadStep}
-                disabled={busy || coverUploading}
+                disabled={busy || coverUploading || coverCompletionCount < 2}
                 className="rounded-[16px] bg-[#1876f2] px-8 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {t("Next Step: Episode Upload")}
