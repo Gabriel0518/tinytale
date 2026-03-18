@@ -22,6 +22,7 @@ import { useCountryCatalog } from "@/hooks/useCountryCatalog";
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import type { CreatorSettlementOverview, CreatorSettlementStatement } from "@/types/creator";
+import { useCreatorI18n } from "../_lib/creator-i18n";
 
 const cardClassName =
   "rounded-[24px] border border-[#e2e8f0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]";
@@ -29,22 +30,6 @@ const inputClassName =
   "h-[50px] w-full rounded-2xl border border-[#dbe3ec] bg-white px-4 text-[15px] text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#1876f2] focus:ring-4 focus:ring-[rgba(24,118,242,0.12)]";
 
 type StatementFilter = "all" | "paid" | "pending" | "disputed";
-
-function formatUsd(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(Number.isFinite(value) ? value : 0);
-}
-
-function formatDate(value: string | null | undefined, opts?: Intl.DateTimeFormatOptions) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("en-US", opts || { month: "short", day: "numeric", year: "numeric" }).format(date);
-}
 
 function statusBadgeClass(status: CreatorSettlementStatement["status"] | CreatorSettlementOverview["summary"]["bankStatus"]) {
   switch (status) {
@@ -78,6 +63,7 @@ function FieldLabel({ children }: { children: ReactNode }) {
 
 export default function CreatorSettlementsPage() {
   const locale = useLocale();
+  const { t, formatCurrency, formatDate } = useCreatorI18n();
   const { options: countryOptions } = useCountryCatalog(locale);
   const { token } = useAuth();
   const { toast } = useToast();
@@ -126,7 +112,7 @@ export default function CreatorSettlementsPage() {
           currency: nextOverview.bankAccount.currency || "USD",
         });
       } catch (error) {
-        if (!cancelled) toast(error instanceof Error ? error.message : "Failed to load settlements.", "error");
+        if (!cancelled) toast(error instanceof Error ? error.message : t("Failed to load settlements."), "error");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -136,7 +122,7 @@ export default function CreatorSettlementsPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, toast]);
+  }, [t, toast, token]);
 
   const filteredStatements = useMemo(() => {
     const statements = overview?.statements || [];
@@ -152,7 +138,7 @@ export default function CreatorSettlementsPage() {
 
   const handleExportData = () => {
     if (!overview?.statements.length) {
-      toast("No statement data available to export.", "info");
+      toast(t("No statement data available to export."), "info");
       return;
     }
 
@@ -178,7 +164,7 @@ export default function CreatorSettlementsPage() {
     event.preventDefault();
     if (!token) return;
     if (!form.accountHolderName.trim() || !form.bankName.trim() || !form.accountNumber.trim() || !form.country.trim()) {
-      toast("Account holder, bank name, account number, and country are required.", "error");
+      toast(t("Account holder, bank name, account number, and country are required."), "error");
       return;
     }
 
@@ -203,14 +189,14 @@ export default function CreatorSettlementsPage() {
               ...current.summary,
               bankStatus: response.data.verificationStatus,
               bankStatusLabel: response.data.verificationLabel,
-              payoutMethodLabel: response.data.bankName ? "Bank Transfer" : current.summary.payoutMethodLabel,
+              payoutMethodLabel: response.data.bankName ? t("Bank Transfer") : current.summary.payoutMethodLabel,
             },
           }
         : current);
       setShowBankEditor(false);
-      toast("Payout method updated.", "success");
+      toast(t("Payout method updated."), "success");
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Failed to update payout method.", "error");
+      toast(error instanceof Error ? error.message : t("Failed to update payout method."), "error");
     } finally {
       setSaving(false);
     }
@@ -228,7 +214,7 @@ export default function CreatorSettlementsPage() {
       anchor.click();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Failed to download statement PDF.", "error");
+      toast(error instanceof Error ? error.message : t("Failed to download statement PDF."), "error");
     } finally {
       setDownloadingId(null);
     }
@@ -239,7 +225,7 @@ export default function CreatorSettlementsPage() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex items-center gap-3 rounded-2xl border border-[#e2e8f0] bg-white px-5 py-4 text-sm font-semibold text-[#475569] shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
           <Loader2 className="h-4 w-4 animate-spin text-[#1876f2]" />
-          Loading settlements...
+          {t("Loading settlements...")}
         </div>
       </div>
     );
@@ -249,9 +235,9 @@ export default function CreatorSettlementsPage() {
     <div className="space-y-6 xl:space-y-7">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[34px] font-black tracking-[-0.04em] text-[#0f172a] md:text-[40px]">Settlement Center</h1>
+          <h1 className="text-[34px] font-black tracking-[-0.04em] text-[#0f172a] md:text-[40px]">{t("Settlement Center")}</h1>
           <p className="mt-2 max-w-[760px] text-[16px] leading-7 text-[#64748b] md:text-[18px]">
-            Manage your story earnings, view reports, and configure payouts.
+            {t("Manage your story earnings, view reports, and configure payouts.")}
           </p>
         </div>
         <button
@@ -269,7 +255,7 @@ export default function CreatorSettlementsPage() {
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-[14px] font-semibold uppercase tracking-[0.08em] text-[#64748b]">Current Balance</p>
-            <p className="mt-2 text-[46px] font-black tracking-[-0.05em] text-[#0f172a]">{formatUsd(overview?.summary.availableBalanceUsd || 0)}</p>
+            <p className="mt-2 text-[46px] font-black tracking-[-0.05em] text-[#0f172a]">{formatCurrency(overview?.summary.availableBalanceUsd || 0)}</p>
             <div className="mt-5 flex flex-wrap items-center gap-6 text-[15px] text-[#64748b]">
               <div>
                 <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Next Payout</p>
@@ -278,7 +264,7 @@ export default function CreatorSettlementsPage() {
               <div className="h-10 w-px bg-[#e2e8f0]" />
               <div>
                 <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Estimated</p>
-                <p className="mt-1 text-[18px] font-bold text-[#0f172a]">{formatUsd(estimatedPayout)}</p>
+                <p className="mt-1 text-[18px] font-bold text-[#0f172a]">{formatCurrency(estimatedPayout)}</p>
               </div>
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
@@ -448,11 +434,11 @@ export default function CreatorSettlementsPage() {
               {filteredStatements.map((statement) => (
                 <tr key={statement.id} className="border-t border-[#edf2f7] text-[15px] text-[#0f172a]">
                   <td className="px-6 py-5 md:px-7">
-                    <p className="text-[18px] font-bold tracking-[-0.02em] text-[#0f172a]">{new Date(statement.periodStart).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
+                    <p className="text-[18px] font-bold tracking-[-0.02em] text-[#0f172a]">{formatDate(statement.periodStart, { month: "long", year: "numeric" })}</p>
                     <p className="mt-1 text-[14px] text-[#64748b]">{formatDate(statement.periodStart, { month: "short", day: "numeric" })} - {formatDate(statement.periodEnd, { month: "short", day: "numeric" })}</p>
                   </td>
                   <td className="px-6 py-5 text-[16px] text-[#334155]">#{statement.statementNo}</td>
-                  <td className="px-6 py-5 text-[18px] font-bold text-[#0f172a]">{formatUsd(statement.creatorShareUsd)}</td>
+                  <td className="px-6 py-5 text-[18px] font-bold text-[#0f172a]">{formatCurrency(statement.creatorShareUsd)}</td>
                   <td className="px-6 py-5">
                     <span className={`rounded-full px-3 py-1 text-[13px] font-semibold ${statusBadgeClass(statement.status)}`}>
                       {statement.statusLabel}

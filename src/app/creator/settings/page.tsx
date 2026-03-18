@@ -230,11 +230,11 @@ function SaveButton({
   );
 }
 
-function formatSessionTime(value: string) {
+function formatSessionTime(value: string, locale: ReturnType<typeof useLocale>) {
   if (!value) return "Unknown";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : locale, {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -926,7 +926,7 @@ export default function CreatorSettingsPage() {
                   <p className="text-[15px] font-semibold text-[#0f172a]">Current Session</p>
                   <p className="mt-1 text-[13px] leading-6 text-[#64748b]">
                     {currentSession
-                      ? `${currentSession.device} · ${currentSession.ip} · ${formatSessionTime(currentSession.lastActive)}`
+                      ? `${currentSession.device} · ${currentSession.ip} · ${formatSessionTime(currentSession.lastActive, locale)}`
                       : "Session details are not available yet."}
                   </p>
                 </div>

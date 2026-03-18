@@ -38,6 +38,7 @@ import { resolveLocaleCopy } from "@/lib/locale-copy";
 import { useLocale } from "@/hooks/useLocale";
 import type { CountryOption } from "@/lib/countries";
 import type { CreatorApplicationDraft, CreatorProfileType, CreatorVerificationType } from "@/types/creator";
+import { useCreatorI18n } from "../_lib/creator-i18n";
 
 const STEP_CONFIG = [
   { step: 1, title: "Basic Info", route: "/creator/apply" },
@@ -504,18 +505,18 @@ function createDefaultDraft() {
   return createEmptyCreatorApplicationDraft();
 }
 
-function formatRelativeUpdate(value: string): string {
-  if (!value) return "Not saved yet";
+function formatRelativeUpdate(value: string, t: ReturnType<typeof useCreatorI18n>["t"]): string {
+  if (!value) return t("Not saved yet");
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not saved yet";
+  if (Number.isNaN(date.getTime())) return t("Not saved yet");
   const diff = Date.now() - date.getTime();
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "Saved just now";
-  if (minutes < 60) return `Saved ${minutes}m ago`;
+  if (minutes < 1) return t("Saved just now");
+  if (minutes < 60) return t("Saved __ARG_0__m ago", minutes);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `Saved ${hours}h ago`;
+  if (hours < 24) return t("Saved __ARG_0__h ago", hours);
   const days = Math.floor(hours / 24);
-  return `Saved ${days}d ago`;
+  return t("Saved __ARG_0__d ago", days);
 }
 
 function compactLinks(values: string[]): string[] {
@@ -530,18 +531,27 @@ function isPositiveInteger(value: string): boolean {
   return /^[1-9]\d*$/.test(value.trim());
 }
 
-function getIdentityPrimaryUploadLabel(draft: CreatorApplicationDraft): string {
-  if (draft.basicInformation.creatorType === "company") return "Registration Document";
-  return draft.identityVerification.verificationType === "passport" ? "Passport Copy" : "ID Card Front";
+function getIdentityPrimaryUploadLabel(
+  draft: CreatorApplicationDraft,
+  t: ReturnType<typeof useCreatorI18n>["t"]
+): string {
+  if (draft.basicInformation.creatorType === "company") return t("Registration Document");
+  return draft.identityVerification.verificationType === "passport" ? t("Passport Copy") : t("ID Card Front");
 }
 
-function getIdentitySecondaryUploadLabel(_draft: CreatorApplicationDraft): string {
-  return "ID Card Back";
+function getIdentitySecondaryUploadLabel(
+  _draft: CreatorApplicationDraft,
+  t: ReturnType<typeof useCreatorI18n>["t"]
+): string {
+  return t("ID Card Back");
 }
 
-function getIdentityVerificationTitle(draft: CreatorApplicationDraft): string {
-  if (draft.basicInformation.creatorType === "company") return "Business Registration";
-  return draft.identityVerification.verificationType === "passport" ? "Passport" : "Government ID";
+function getIdentityVerificationTitle(
+  draft: CreatorApplicationDraft,
+  t: ReturnType<typeof useCreatorI18n>["t"]
+): string {
+  if (draft.basicInformation.creatorType === "company") return t("Business Registration");
+  return draft.identityVerification.verificationType === "passport" ? t("Passport") : t("Government ID");
 }
 
 function isImageDocument(fileName: string, fileUrl?: string): boolean {
@@ -554,67 +564,67 @@ function isPdfDocument(fileName: string, fileUrl?: string): boolean {
   return /\.pdf(\?|$)/i.test(source);
 }
 
-function validateStep(step: number, draft: CreatorApplicationDraft): string[] {
+function validateStep(step: number, draft: CreatorApplicationDraft, t: ReturnType<typeof useCreatorI18n>["t"]): string[] {
   const errors: string[] = [];
 
   if (step === 1) {
     if (draft.basicInformation.creatorType === "company") {
-      if (!draft.basicInformation.companyName.trim()) errors.push("Company name is required.");
-      if (!draft.basicInformation.businessType.trim()) errors.push("Business type is required.");
-      if (!draft.basicInformation.registrationId.trim()) errors.push("Registration ID is required.");
-      if (!draft.basicInformation.companyAddress.trim()) errors.push("Company address is required.");
-      if (!draft.basicInformation.region.trim()) errors.push("Region is required.");
+      if (!draft.basicInformation.companyName.trim()) errors.push(t("Company name is required."));
+      if (!draft.basicInformation.businessType.trim()) errors.push(t("Business type is required."));
+      if (!draft.basicInformation.registrationId.trim()) errors.push(t("Registration ID is required."));
+      if (!draft.basicInformation.companyAddress.trim()) errors.push(t("Company address is required."));
+      if (!draft.basicInformation.region.trim()) errors.push(t("Region is required."));
     } else {
-      if (!draft.basicInformation.legalName.trim()) errors.push("Full name is required.");
+      if (!draft.basicInformation.legalName.trim()) errors.push(t("Full name is required."));
       if (!draft.basicInformation.age.trim()) {
-        errors.push("Age is required.");
+        errors.push(t("Age is required."));
       } else if (!isPositiveInteger(draft.basicInformation.age)) {
-        errors.push("Age must be a valid whole number.");
+        errors.push(t("Age must be a valid whole number."));
       }
-      if (!draft.basicInformation.idNumber.trim()) errors.push("ID number is required.");
+      if (!draft.basicInformation.idNumber.trim()) errors.push(t("ID number is required."));
     }
 
-    if (!draft.basicInformation.email.trim()) errors.push("Email is required.");
-    if (!draft.basicInformation.phone.trim()) errors.push("Phone number is required.");
-    if (!draft.basicInformation.country.trim()) errors.push("Country or region is required.");
+    if (!draft.basicInformation.email.trim()) errors.push(t("Email is required."));
+    if (!draft.basicInformation.phone.trim()) errors.push(t("Phone number is required."));
+    if (!draft.basicInformation.country.trim()) errors.push(t("Country or region is required."));
   }
 
   if (step === 2) {
-    if (draft.creativeInformation.genres.length === 0) errors.push("Select at least one creative genre.");
-    if (!draft.creativeInformation.primaryLanguage.trim()) errors.push("Primary language is required.");
+    if (draft.creativeInformation.genres.length === 0) errors.push(t("Select at least one creative genre."));
+    if (!draft.creativeInformation.primaryLanguage.trim()) errors.push(t("Primary language is required."));
     if (!draft.creativeInformation.portfolioLinks.some((value) => value.trim())) {
-      errors.push("Add at least one portfolio or social link.");
+      errors.push(t("Add at least one portfolio or social link."));
     }
-    if (!draft.creativeInformation.bio.trim()) errors.push("Creator bio or studio introduction is required.");
+    if (!draft.creativeInformation.bio.trim()) errors.push(t("Creator bio or studio introduction is required."));
   }
 
   if (step === 3) {
     if (!draft.identityVerification.frontDocumentFileName.trim()) {
       errors.push(
         draft.basicInformation.creatorType === "company"
-          ? "Upload the registration document."
+          ? t("Upload the registration document.")
           : draft.identityVerification.verificationType === "passport"
-            ? "Upload the passport copy."
-            : "Upload the ID card front."
+            ? t("Upload the passport copy.")
+            : t("Upload the ID card front.")
       );
     }
     if (draft.basicInformation.creatorType === "individual" && draft.identityVerification.verificationType === "government_id" && !draft.identityVerification.backDocumentFileName.trim()) {
-      errors.push("Upload the ID card back.");
+      errors.push(t("Upload the ID card back."));
     }
   }
 
   if (step === 4) {
     if (!draft.agreement.hasReviewedFullAgreement) {
-      errors.push("Please review the creator agreement through the end before continuing.");
+      errors.push(t("Please review the creator agreement through the end before continuing."));
     }
     if (!draft.agreement.acceptedTerms) {
-      errors.push("You must accept the TinyTale Creator Agreement.");
+      errors.push(t("You must accept the TinyTale Creator Agreement."));
     }
     if (!draft.agreement.acceptedAuthenticity) {
-      errors.push("You must confirm content authenticity and rights ownership.");
+      errors.push(t("You must confirm content authenticity and rights ownership."));
     }
     if (!draft.agreement.signatureName.trim()) {
-      errors.push("Signature name is required.");
+      errors.push(t("Signature name is required."));
     }
   }
 
@@ -630,6 +640,7 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
   const locale = useLocale();
   const { options: countryOptions } = useCountryCatalog(locale);
   const { token, user } = useAuth();
+  const { t } = useCreatorI18n();
   const { toast } = useToast();
   const [draft, setDraft] = useState<CreatorApplicationDraft>(createDefaultDraft());
   const [ready, setReady] = useState(false);
@@ -726,10 +737,10 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
       const next = { ...draft, updatedAt: new Date().toISOString() };
       persistLocal(next);
       await persistRemote(next);
-      toast("Draft Saved", "success");
+      toast(t("Draft Saved"), "success");
       router.push(localizePath("/creator", locale));
     } catch (error: any) {
-      const message = error?.message || "Failed to save draft.";
+      const message = error?.message || t("Failed to save draft.");
       setSubmitError(message);
       toast(message, "error");
     } finally {
@@ -738,7 +749,7 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
   }
 
   async function handleNext() {
-    const stepErrors = validateStep(step, draft);
+    const stepErrors = validateStep(step, draft, t);
     setErrors(stepErrors);
     if (stepErrors.length > 0) return;
 
@@ -752,7 +763,7 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
     try {
       await persistRemote(next);
     } catch (error: any) {
-      setSubmitError(error?.message || "Failed to save progress.");
+      setSubmitError(error?.message || t("Failed to save progress."));
       return;
     }
 
@@ -760,7 +771,7 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
   }
 
   async function handleSubmit() {
-    const finalErrors = [1, 2, 3, 4].flatMap((index) => validateStep(index, draft));
+    const finalErrors = [1, 2, 3, 4].flatMap((index) => validateStep(index, draft, t));
     setErrors(finalErrors);
     if (finalErrors.length > 0) return;
     if (!token) {
@@ -784,7 +795,7 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
       }
       router.push(localizePath("/creator/pending", locale));
     } catch (error: any) {
-      setSubmitError(error?.message || "Failed to submit your application.");
+      setSubmitError(error?.message || t("Failed to submit your application."));
       router.push(`${localizePath("/creator/apply/status", locale)}?result=failed`);
     } finally {
       setSubmitting(false);
@@ -805,16 +816,16 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
         <div className="mb-5 rounded-[24px] border border-[#e2e8f0] bg-white px-5 py-5 shadow-[0_10px_30px_rgba(15,23,42,0.05)] md:px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1876f2]">Creator Onboarding</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1876f2]">{t("Creator Onboarding")}</p>
               <h1 className="mt-2 text-[26px] font-black tracking-[-0.03em] text-[#0f172a] md:text-[30px]">
-                Step {step} of {STEP_CONFIG.length}: {currentTitle}
+                {t("Step __ARG_0__ of __ARG_1__: __ARG_2__", step, STEP_CONFIG.length, t(currentTitle))}
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748b]">
-                Complete your TinyTale creator application. We will review profile quality, identity documents, and rights confirmation before creator access is granted.
+                {t("Complete your TinyTale creator application. We will review profile quality, identity documents, and rights confirmation before creator access is granted.")}
               </p>
             </div>
             <div className="rounded-full bg-[#eff6ff] px-3.5 py-1.5 text-[13px] font-semibold text-[#1d4ed8]">
-              {progressPercent}% complete
+              {t("__ARG_0__% complete", progressPercent)}
             </div>
           </div>
 
@@ -840,21 +851,21 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
                         : "cursor-not-allowed text-[#cbd5e1]"
                   }`}
                 >
-                  {item.title}
+                  {t(item.title)}
                 </button>
               );
             })}
           </div>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs text-[#94a3b8]">
-            <p>{formatRelativeUpdate(draft.updatedAt)}</p>
-            <p>All creator agreements are displayed in-page and require explicit acceptance before submission.</p>
+            <p>{formatRelativeUpdate(draft.updatedAt, t)}</p>
+            <p>{t("All creator agreements are displayed in-page and require explicit acceptance before submission.")}</p>
           </div>
         </div>
 
         {errors.length > 0 ? (
           <div className="mb-6 rounded-2xl border border-[#fecaca] bg-[#fff1f2] px-5 py-4 text-sm text-[#b91c1c]">
-            <p className="mb-2 font-semibold">Please resolve the following before continuing:</p>
+            <p className="mb-2 font-semibold">{t("Please resolve the following before continuing:")}</p>
             <ul className="list-disc space-y-1 pl-5">
               {errors.map((item) => (
                 <li key={item}>{item}</li>
@@ -887,7 +898,7 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
                 className="inline-flex items-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-4 py-2 text-[13px] font-semibold text-[#334155] hover:bg-[#f8fafc]"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Previous Step
+                {t("Previous Step")}
               </button>
             ) : null}
             <button
@@ -897,7 +908,7 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
               className="inline-flex items-center gap-2 rounded-xl border border-[#dbe2ea] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {savingDraft ? "Saving Draft..." : "Save Draft"}
+              {savingDraft ? t("Saving Draft...") : t("Save Draft")}
             </button>
           </div>
 
@@ -907,7 +918,7 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
               onClick={handleNext}
               className="inline-flex items-center gap-2 rounded-full bg-[#1876f2] px-6 py-2 text-[13px] font-semibold text-white shadow-[0_10px_20px_rgba(24,118,242,0.22)] hover:bg-[#1669da]"
             >
-              Continue
+              {t("Continue")}
               <ArrowRight className="h-4 w-4" />
             </button>
           ) : null}
@@ -924,10 +935,11 @@ export default function CreatorApplicationForm({ step }: CreatorApplicationFormP
 }
 
 function FieldLabel({ children, optional }: { children: React.ReactNode; optional?: boolean }) {
+  const { t } = useCreatorI18n();
   return (
     <label className="mb-2 block text-sm font-semibold text-[#334155]">
       {children}
-      {optional ? <span className="ml-1 font-normal text-[#94a3b8]">(optional)</span> : null}
+      {optional ? <span className="ml-1 font-normal text-[#94a3b8]">{t("(optional)")}</span> : null}
     </label>
   );
 }
@@ -979,8 +991,9 @@ function SelectField({
   onChange: (value: string) => void;
   placeholder?: string;
 }) {
+  const { t } = useCreatorI18n();
   const normalizedOptions = options.map((option) =>
-    typeof option === "string" ? { value: option, label: option } : option
+    typeof option === "string" ? { value: option, label: t(option) } : option
   );
 
   return (
@@ -991,7 +1004,7 @@ function SelectField({
         onChange={(event) => onChange(event.target.value)}
         className="h-11 w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] px-4 text-sm text-[#0f172a] outline-none focus:border-[#1876f2] focus:bg-white"
       >
-        <option value="">{placeholder}</option>
+        <option value="">{t(placeholder)}</option>
         {normalizedOptions.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -1021,13 +1034,14 @@ function StepBasic({
   onChange: (updater: (current: CreatorApplicationDraft) => CreatorApplicationDraft) => void;
   countryOptions: CountryOption[];
 }) {
+  const { t } = useCreatorI18n();
   return (
     <SectionCard
-      title="Basic creator information"
-      description="Collect the legal identity and contact information needed for application review and creator account setup."
+      title={t("Basic creator information")}
+      description={t("Collect the legal identity and contact information needed for application review and creator account setup.")}
     >
       <div>
-        <FieldLabel>Applicant Type</FieldLabel>
+        <FieldLabel>{t("Applicant Type")}</FieldLabel>
         <div className="inline-flex rounded-2xl bg-[#f1f5f9] p-1">
           {(["individual", "company"] as CreatorProfileType[]).map((option) => {
             const active = draft.basicInformation.creatorType === option;
@@ -1057,7 +1071,7 @@ function StepBasic({
                   active ? "bg-white text-[#0f172a] shadow-sm" : "text-[#64748b]"
                 }`}
               >
-                {option === "individual" ? "Individual Creator" : "Company / Studio"}
+                {option === "individual" ? t("Individual Creator") : t("Company / Studio")}
               </button>
             );
           })}
@@ -1066,7 +1080,7 @@ function StepBasic({
 
       <div className="grid gap-5 md:grid-cols-2">
         <InputField
-          label={draft.basicInformation.creatorType === "company" ? "Company Name" : "Full Name"}
+          label={draft.basicInformation.creatorType === "company" ? t("Company Name") : t("Full Name")}
           value={draft.basicInformation.creatorType === "company" ? draft.basicInformation.companyName : draft.basicInformation.legalName}
           onChange={(value) =>
             onChange((current) => ({
@@ -1077,13 +1091,13 @@ function StepBasic({
               },
             }))
           }
-          placeholder={draft.basicInformation.creatorType === "company" ? "TinyTale Studio LLC" : "Alex Morgan"}
+          placeholder={draft.basicInformation.creatorType === "company" ? t("TinyTale Studio LLC") : "Alex Morgan"}
           icon={draft.basicInformation.creatorType === "company" ? <Building2 className="h-4 w-4" /> : <User className="h-4 w-4" />}
         />
 
         {draft.basicInformation.creatorType === "company" ? (
           <InputField
-            label="Business Type"
+            label={t("Business Type")}
             value={draft.basicInformation.businessType}
             onChange={(value) =>
               onChange((current) => ({
@@ -1091,12 +1105,12 @@ function StepBasic({
                 basicInformation: { ...current.basicInformation, businessType: value },
               }))
             }
-            placeholder="Short drama studio / MCN / Talent agency"
+            placeholder={t("Short drama studio / MCN / Talent agency")}
             icon={<BriefcaseBusiness className="h-4 w-4" />}
           />
         ) : (
           <InputField
-            label="Age"
+            label={t("Age")}
             type="number"
             value={draft.basicInformation.age}
             onChange={(value) =>
@@ -1114,7 +1128,7 @@ function StepBasic({
       <div className="grid gap-5 md:grid-cols-2">
         {draft.basicInformation.creatorType === "company" ? (
           <InputField
-            label="Registration ID"
+            label={t("Registration ID")}
             value={draft.basicInformation.registrationId}
             onChange={(value) =>
               onChange((current) => ({
@@ -1127,7 +1141,7 @@ function StepBasic({
           />
         ) : (
           <InputField
-            label="ID Number"
+            label={t("ID Number")}
             value={draft.basicInformation.idNumber}
             onChange={(value) =>
               onChange((current) => ({
@@ -1140,7 +1154,7 @@ function StepBasic({
           />
         )}
         <InputField
-          label={draft.basicInformation.creatorType === "company" ? "Company Address" : "Email"}
+          label={draft.basicInformation.creatorType === "company" ? t("Company Address") : t("Email")}
           type={draft.basicInformation.creatorType === "company" ? "text" : "email"}
           value={draft.basicInformation.creatorType === "company" ? draft.basicInformation.companyAddress : draft.basicInformation.email}
           onChange={(value) =>
@@ -1160,7 +1174,7 @@ function StepBasic({
       {draft.basicInformation.creatorType === "company" ? (
         <div className="grid gap-5 md:grid-cols-2">
           <InputField
-            label="Email"
+            label={t("Email")}
             type="email"
             value={draft.basicInformation.email}
             onChange={(value) =>
@@ -1173,7 +1187,7 @@ function StepBasic({
             icon={<Mail className="h-4 w-4" />}
           />
           <InputField
-            label="Phone Number"
+            label={t("Phone Number")}
             value={draft.basicInformation.phone}
             onChange={(value) =>
               onChange((current) => ({
@@ -1188,7 +1202,7 @@ function StepBasic({
       ) : (
         <div className="grid gap-5 md:grid-cols-2">
           <InputField
-            label="Phone Number"
+            label={t("Phone Number")}
             value={draft.basicInformation.phone}
             onChange={(value) =>
               onChange((current) => ({
@@ -1206,7 +1220,7 @@ function StepBasic({
       {draft.basicInformation.creatorType === "company" ? (
         <div className="grid gap-5 md:grid-cols-2">
           <InputField
-            label="Region"
+            label={t("Region")}
             value={draft.basicInformation.region}
             onChange={(value) =>
               onChange((current) => ({
@@ -1222,7 +1236,7 @@ function StepBasic({
       ) : null}
 
       <SelectField
-        label="Country / Region"
+        label={t("Country / Region")}
         value={draft.basicInformation.country}
         options={countryOptions}
         onChange={(value) =>
@@ -1231,13 +1245,13 @@ function StepBasic({
             basicInformation: { ...current.basicInformation, country: value },
           }))
         }
-        placeholder="Select country or region"
+        placeholder={t("Select country or region")}
       />
 
       <div className="rounded-2xl border border-[#dbeafe] bg-[#eff6ff] px-4 py-3 text-sm text-[#1d4ed8]">
         {draft.basicInformation.creatorType === "company"
-          ? "Company applications require the legal entity record, business type, registration identifier, mailing address, and operating region."
-          : "Individual applications require the creator's legal profile, age, ID number, and direct contact information."}
+          ? t("Company applications require the legal entity record, business type, registration identifier, mailing address, and operating region.")
+          : t("Individual applications require the creator's legal profile, age, ID number, and direct contact information.")}
       </div>
     </SectionCard>
   );
@@ -1250,13 +1264,14 @@ function StepCreative({
   draft: CreatorApplicationDraft;
   onChange: (updater: (current: CreatorApplicationDraft) => CreatorApplicationDraft) => void;
 }) {
+  const { t } = useCreatorI18n();
   return (
     <SectionCard
-      title="Creative profile"
-      description="Describe your storytelling focus, language, and proof of prior work. These signals drive onboarding review and creator quality scoring."
+      title={t("Creative profile")}
+      description={t("Describe your storytelling focus, language, and proof of prior work. These signals drive onboarding review and creator quality scoring.")}
     >
       <div>
-        <FieldLabel>Genres</FieldLabel>
+        <FieldLabel>{t("Genres")}</FieldLabel>
         <div className="flex flex-wrap gap-2">
           {CREATOR_GENRE_OPTIONS.map((genre) => {
             const selected = draft.creativeInformation.genres.includes(genre);
@@ -1280,7 +1295,7 @@ function StepCreative({
                 }`}
               >
                 {selected ? <Check className="mr-1 inline h-3.5 w-3.5" /> : null}
-                {genre}
+                {t(genre)}
               </button>
             );
           })}
@@ -1288,7 +1303,7 @@ function StepCreative({
       </div>
 
       <SelectField
-        label="Primary Language"
+        label={t("Primary Language")}
         value={draft.creativeInformation.primaryLanguage}
         options={CREATOR_LANGUAGE_OPTIONS}
         onChange={(value) =>
@@ -1300,13 +1315,13 @@ function StepCreative({
       />
 
       <div>
-        <FieldLabel>Portfolio Links</FieldLabel>
+        <FieldLabel>{t("Portfolio Links")}</FieldLabel>
         <div className="space-y-3">
           {draft.creativeInformation.portfolioLinks.map((link, index) => (
             <div key={index} className="flex gap-3">
               <div className="flex-1">
                 <InputField
-                  label={`Portfolio Link ${index + 1}`}
+                  label={t("Portfolio Link __ARG_0__", index + 1)}
                   value={link}
                   onChange={(value) =>
                     onChange((current) => {
@@ -1321,7 +1336,7 @@ function StepCreative({
                       };
                     })
                   }
-                  placeholder="https://youtube.com/@creator or https://tiktok.com/@creator"
+                  placeholder={t("https://youtube.com/@creator or https://tiktok.com/@creator")}
                   icon={<LinkIcon className="h-4 w-4" />}
                   optional={index > 0}
                 />
@@ -1340,7 +1355,7 @@ function StepCreative({
                   }
                   className="mt-7 rounded-xl border border-[#e2e8f0] px-3 py-2 text-[13px] font-semibold text-[#475569] hover:bg-[#f8fafc]"
                 >
-                  Remove
+                  {t("Remove")}
                 </button>
               ) : null}
             </div>
@@ -1360,13 +1375,13 @@ function StepCreative({
             }
             className="mt-3 text-sm font-semibold text-[#1876f2] hover:text-[#1669da]"
           >
-            + Add another link
+            {t("+ Add another link")}
           </button>
         ) : null}
       </div>
 
       <div>
-        <FieldLabel>Creator Bio / Studio Introduction</FieldLabel>
+        <FieldLabel>{t("Creator Bio / Studio Introduction")}</FieldLabel>
         <textarea
           rows={6}
           maxLength={1000}
@@ -1377,7 +1392,7 @@ function StepCreative({
               creativeInformation: { ...current.creativeInformation, bio: event.target.value },
             }))
           }
-          placeholder="Introduce your creative background, target audience, and notable work."
+          placeholder={t("Introduce your creative background, target audience, and notable work.")}
           className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 text-sm text-[#0f172a] outline-none placeholder:text-[#94a3b8] focus:border-[#1876f2] focus:bg-white"
         />
         <p className="mt-2 text-right text-xs text-[#94a3b8]">{draft.creativeInformation.bio.length} / 1000</p>
@@ -1395,6 +1410,7 @@ function StepIdentity({
   onChange: (updater: (current: CreatorApplicationDraft) => CreatorApplicationDraft) => void;
   token?: string | null;
 }) {
+  const { t } = useCreatorI18n();
   const frontInputRef = useRef<HTMLInputElement>(null);
   const secondaryInputRef = useRef<HTMLInputElement>(null);
   const verificationOptions =
@@ -1420,7 +1436,7 @@ function StepIdentity({
 
   async function handleDocumentSelect(target: "front" | "back", file: File) {
     if (!token) {
-      throw new Error("Please sign in again before uploading files.");
+      throw new Error(t("Please sign in again before uploading files."));
     }
 
     const uploaded = await creatorApi.uploadApplicationDocument(token, file);
@@ -1467,15 +1483,15 @@ function StepIdentity({
 
   return (
     <SectionCard
-      title="Identity verification"
+      title={t("Identity verification")}
       description={
         draft.basicInformation.creatorType === "company"
-          ? "Upload the company registration document used to verify the legal entity before creator access is activated."
-          : "Upload the identity document that matches your creator profile. TinyTale uses this to verify the applicant before uploads and payouts are enabled."
+          ? t("Upload the company registration document used to verify the legal entity before creator access is activated.")
+          : t("Upload the identity document that matches your creator profile. TinyTale uses this to verify the applicant before uploads and payouts are enabled.")
       }
     >
       <div>
-        <FieldLabel>Verification Document</FieldLabel>
+        <FieldLabel>{t("Verification Document")}</FieldLabel>
         <div className={`grid gap-3 ${verificationOptions.length > 1 ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
           {verificationOptions.map((option) => {
             const active =
@@ -1499,8 +1515,8 @@ function StepIdentity({
                   active ? "border-[#1876f2] bg-[#eff6ff]" : "border-[#e2e8f0] bg-white hover:border-[#cbd5e1]"
                 }`}
               >
-                <p className={`text-sm font-bold ${active ? "text-[#1d4ed8]" : "text-[#0f172a]"}`}>{option.title}</p>
-                <p className="mt-1 text-xs leading-5 text-[#64748b]">{option.description}</p>
+                <p className={`text-sm font-bold ${active ? "text-[#1d4ed8]" : "text-[#0f172a]"}`}>{t(option.title)}</p>
+                <p className="mt-1 text-xs leading-5 text-[#64748b]">{t(option.description)}</p>
               </button>
             );
           })}
@@ -1508,8 +1524,8 @@ function StepIdentity({
       </div>
 
       <div className={`grid gap-4 ${showSecondaryUpload ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
-        <UploadCard
-          label={getIdentityPrimaryUploadLabel(draft)}
+          <UploadCard
+            label={getIdentityPrimaryUploadLabel(draft, t)}
           fileName={draft.identityVerification.frontDocumentFileName}
           fileUrl={draft.identityVerification.frontDocumentFileUrl}
           inputRef={frontInputRef}
@@ -1518,7 +1534,7 @@ function StepIdentity({
         />
         {showSecondaryUpload ? (
           <UploadCard
-            label={getIdentitySecondaryUploadLabel(draft)}
+            label={getIdentitySecondaryUploadLabel(draft, t)}
             fileName={draft.identityVerification.backDocumentFileName}
             fileUrl={draft.identityVerification.backDocumentFileUrl}
             inputRef={secondaryInputRef}
@@ -1530,10 +1546,10 @@ function StepIdentity({
 
       <div className="rounded-2xl border border-[#dbeafe] bg-[#f8fbff] px-4 py-3 text-sm leading-6 text-[#1e3a8a]">
         {draft.basicInformation.creatorType === "company"
-          ? "Company accounts submit one registration file in this step. Registration ID, address, country, and region stay linked to the first step and are preserved when you move backward."
+          ? t("Company accounts submit one registration file in this step. Registration ID, address, country, and region stay linked to the first step and are preserved when you move backward.")
           : draft.identityVerification.verificationType === "passport"
-            ? "Passport verification requires one passport image or PDF. Your Step 1 identity details stay intact if you go back to edit them."
-            : "Government ID verification requires both the front and back of the ID card. Your Step 1 profile details stay intact if you go back to edit them."}
+            ? t("Passport verification requires one passport image or PDF. Your Step 1 identity details stay intact if you go back to edit them.")
+            : t("Government ID verification requires both the front and back of the ID card. Your Step 1 profile details stay intact if you go back to edit them.")}
       </div>
     </SectionCard>
   );
@@ -1556,6 +1572,7 @@ function UploadCard({
   onRemove?: () => Promise<void> | void;
   optional?: boolean;
 }) {
+  const { t } = useCreatorI18n();
   const [busy, setBusy] = useState<"uploading" | "removing" | null>(null);
   const [error, setError] = useState("");
   const hasFile = Boolean(fileName || fileUrl);
@@ -1568,7 +1585,7 @@ function UploadCard({
     try {
       await onSelect(file);
     } catch (selectError: any) {
-      setError(selectError?.message || "Upload failed. Please try again.");
+      setError(selectError?.message || t("Upload failed. Please try again."));
     } finally {
       setBusy(null);
     }
@@ -1581,7 +1598,7 @@ function UploadCard({
     try {
       await onRemove();
     } catch (removeError: any) {
-      setError(removeError?.message || "Failed to remove file. Please try again.");
+      setError(removeError?.message || t("Failed to remove file. Please try again."));
     } finally {
       setBusy(null);
     }
@@ -1597,8 +1614,8 @@ function UploadCard({
         onClick={() => inputRef.current?.click()}
       >
         {busy === "uploading" ? <Loader2 className="h-6 w-6 animate-spin text-[#1876f2]" /> : <Upload className="h-6 w-6 text-[#94a3b8]" />}
-        <p className="mt-2 text-sm font-semibold text-[#334155]">{busy === "uploading" ? "Uploading..." : fileName || `Select ${label}`}</p>
-        <p className="mt-1 text-xs text-[#94a3b8]">JPG, PNG, or PDF up to 10MB</p>
+        <p className="mt-2 text-sm font-semibold text-[#334155]">{busy === "uploading" ? t("Uploading...") : fileName || t("Select __ARG_0__", label)}</p>
+        <p className="mt-1 text-xs text-[#94a3b8]">{t("JPG, PNG, or PDF up to 10MB")}</p>
       </button>
       <input
         ref={inputRef}
@@ -1620,7 +1637,7 @@ function UploadCard({
             {previewIsImage && fileUrl ? (
               <img
                 src={fileUrl}
-                alt="Uploaded file"
+                alt={t("Uploaded file")}
                 className="h-16 w-16 rounded-xl border border-[#e2e8f0] object-cover"
               />
             ) : (
@@ -1630,9 +1647,9 @@ function UploadCard({
             )}
 
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#94a3b8]">Uploaded file</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#94a3b8]">{t("Uploaded file")}</p>
               <p className="mt-1 truncate text-sm font-semibold text-[#0f172a]">{fileName || label}</p>
-              <p className="mt-1 text-xs text-[#64748b]">{previewIsPdf ? "PDF" : previewIsImage ? "Image" : "Document"}</p>
+              <p className="mt-1 text-xs text-[#64748b]">{previewIsPdf ? "PDF" : previewIsImage ? t("Image") : t("Document")}</p>
               {fileUrl ? (
                 <a
                   href={fileUrl}
@@ -1640,7 +1657,7 @@ function UploadCard({
                   rel="noreferrer"
                   className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#1876f2] hover:text-[#1669da]"
                 >
-                  Open file
+                  {t("Open file")}
                   <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               ) : null}
@@ -1652,8 +1669,8 @@ function UploadCard({
                 disabled={busy !== null}
                 onClick={handleRemove}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#fecaca] bg-[#fff1f2] text-[#dc2626] transition hover:bg-[#ffe4e6] disabled:cursor-not-allowed disabled:opacity-70"
-                aria-label="Remove file"
-                title="Remove file"
+                aria-label={t("Remove file")}
+                title={t("Remove file")}
               >
                 {busy === "removing" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               </button>
@@ -1673,6 +1690,7 @@ function StepAgreement({
   onChange: (updater: (current: CreatorApplicationDraft) => CreatorApplicationDraft) => void;
 }) {
   const locale = useLocale();
+  const { t } = useCreatorI18n();
   const agreementCopy = resolveLocaleCopy(CREATOR_AGREEMENT_COPY, locale);
   const agreementRef = useRef<HTMLDivElement>(null);
 
@@ -1686,17 +1704,17 @@ function StepAgreement({
 
   return (
     <SectionCard
-      title="Creator agreement"
-      description="The creator agreement must be reviewed in-page. TinyTale records the acceptance timestamp once you submit the application."
+      title={t("Creator agreement")}
+      description={t("The creator agreement must be reviewed in-page. TinyTale records the acceptance timestamp once you submit the application.")}
     >
       <div className="rounded-[24px] border border-[#e2e8f0] bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-[#e2e8f0] px-4 py-3.5">
           <div className="flex items-center gap-2 text-sm font-semibold text-[#0f172a]">
             <FileText className="h-4 w-4 text-[#64748b]" />
-            TinyTale Creator Cooperation Agreement
+            {t("TinyTale Creator Cooperation Agreement")}
           </div>
           <span className={`rounded-full px-3 py-1 text-xs font-semibold ${draft.agreement.hasReviewedFullAgreement ? "bg-[#ecfdf5] text-[#047857]" : "bg-[#eff6ff] text-[#1d4ed8]"}`}>
-            {draft.agreement.hasReviewedFullAgreement ? "Reviewed" : "Scroll to review"}
+            {draft.agreement.hasReviewedFullAgreement ? t("Reviewed") : t("Scroll to review")}
           </span>
         </div>
         <div
@@ -1743,8 +1761,8 @@ function StepAgreement({
             className="mt-1 h-4 w-4 rounded border-[#cbd5e1] text-[#1876f2]"
           />
           <div>
-            <p className="text-sm font-semibold text-[#0f172a]">I have read and agree to the TinyTale Creator Cooperation Agreement.</p>
-            <p className="mt-1 text-sm text-[#64748b]">You must review the agreement above before this checkbox is considered valid.</p>
+            <p className="text-sm font-semibold text-[#0f172a]">{t("I have read and agree to the TinyTale Creator Cooperation Agreement.")}</p>
+            <p className="mt-1 text-sm text-[#64748b]">{t("You must review the agreement above before this checkbox is considered valid.")}</p>
           </div>
         </label>
 
@@ -1761,13 +1779,13 @@ function StepAgreement({
             className="mt-1 h-4 w-4 rounded border-[#cbd5e1] text-[#1876f2]"
           />
           <div>
-            <p className="text-sm font-semibold text-[#0f172a]">I confirm the submitted content and materials are authentic and rights-cleared.</p>
-            <p className="mt-1 text-sm text-[#64748b]">This includes portfolio links, uploaded identity files, and future drama uploads.</p>
+            <p className="text-sm font-semibold text-[#0f172a]">{t("I confirm the submitted content and materials are authentic and rights-cleared.")}</p>
+            <p className="mt-1 text-sm text-[#64748b]">{t("This includes portfolio links, uploaded identity files, and future drama uploads.")}</p>
           </div>
         </label>
 
         <InputField
-          label="Signature Name"
+          label={t("Signature Name")}
           value={draft.agreement.signatureName}
           onChange={(value) =>
             onChange((current) => ({
@@ -1775,7 +1793,7 @@ function StepAgreement({
               agreement: { ...current.agreement, signatureName: value },
             }))
           }
-          placeholder="Type your full legal or representative name"
+          placeholder={t("Type your full legal or representative name")}
           icon={<BadgeCheck className="h-4 w-4" />}
         />
       </div>
@@ -1807,63 +1825,64 @@ function StepReview({
   submitting: boolean;
   savingDraft: boolean;
 }) {
+  const { t } = useCreatorI18n();
   const primaryName = draft.basicInformation.creatorType === "company" ? draft.basicInformation.companyName || "-" : draft.basicInformation.legalName || "-";
 
   return (
     <div className="space-y-5">
-      <ReviewCard title="Basic Information" icon={<User className="h-5 w-5 text-[#1876f2]" />} onEdit={() => onEdit(1)}>
+      <ReviewCard title={t("Basic Information")} icon={<User className="h-5 w-5 text-[#1876f2]" />} onEdit={() => onEdit(1)}>
         <div className="grid gap-4 md:grid-cols-2">
-          <ReviewField label="Applicant Type" value={draft.basicInformation.creatorType === "company" ? "Company / Studio" : "Individual Creator"} />
-          <ReviewField label={draft.basicInformation.creatorType === "company" ? "Company Name" : "Full Name"} value={primaryName} />
+          <ReviewField label={t("Applicant Type")} value={draft.basicInformation.creatorType === "company" ? t("Company / Studio") : t("Individual Creator")} />
+          <ReviewField label={draft.basicInformation.creatorType === "company" ? t("Company Name") : t("Full Name")} value={primaryName} />
           {draft.basicInformation.creatorType === "company" ? (
             <>
-              <ReviewField label="Business Type" value={draft.basicInformation.businessType || "-"} />
-              <ReviewField label="Registration ID" value={draft.basicInformation.registrationId || "-"} />
-              <ReviewField label="Company Address" value={draft.basicInformation.companyAddress || "-"} />
-              <ReviewField label="Region" value={draft.basicInformation.region || "-"} />
+              <ReviewField label={t("Business Type")} value={draft.basicInformation.businessType || "-"} />
+              <ReviewField label={t("Registration ID")} value={draft.basicInformation.registrationId || "-"} />
+              <ReviewField label={t("Company Address")} value={draft.basicInformation.companyAddress || "-"} />
+              <ReviewField label={t("Region")} value={draft.basicInformation.region || "-"} />
             </>
           ) : (
             <>
-              <ReviewField label="Age" value={draft.basicInformation.age || "-"} />
-              <ReviewField label="ID Number" value={draft.basicInformation.idNumber || "-"} />
+              <ReviewField label={t("Age")} value={draft.basicInformation.age || "-"} />
+              <ReviewField label={t("ID Number")} value={draft.basicInformation.idNumber || "-"} />
             </>
           )}
-          <ReviewField label="Email" value={draft.basicInformation.email || "-"} />
-          <ReviewField label="Phone Number" value={draft.basicInformation.phone || "-"} />
-          <ReviewField label="Country / Region" value={draft.basicInformation.country || "-"} />
+          <ReviewField label={t("Email")} value={draft.basicInformation.email || "-"} />
+          <ReviewField label={t("Phone Number")} value={draft.basicInformation.phone || "-"} />
+          <ReviewField label={t("Country / Region")} value={draft.basicInformation.country || "-"} />
         </div>
       </ReviewCard>
 
-      <ReviewCard title="Creative Profile" icon={<Globe2 className="h-5 w-5 text-[#1876f2]" />} onEdit={() => onEdit(2)}>
-        <ReviewField label="Genres" value={draft.creativeInformation.genres.join(", ") || "-"} />
-        <ReviewField label="Primary Language" value={draft.creativeInformation.primaryLanguage || "-"} />
-        <ReviewField label="Portfolio Links" value={draft.creativeInformation.portfolioLinks.filter((value) => value.trim()).join("\n") || "-"} preserveLineBreaks />
-        <ReviewField label="Bio" value={draft.creativeInformation.bio || "-"} preserveLineBreaks />
+      <ReviewCard title={t("Creative Profile")} icon={<Globe2 className="h-5 w-5 text-[#1876f2]" />} onEdit={() => onEdit(2)}>
+        <ReviewField label={t("Genres")} value={draft.creativeInformation.genres.map((genre) => t(genre)).join(", ") || "-"} />
+        <ReviewField label={t("Primary Language")} value={draft.creativeInformation.primaryLanguage ? t(draft.creativeInformation.primaryLanguage) : "-"} />
+        <ReviewField label={t("Portfolio Links")} value={draft.creativeInformation.portfolioLinks.filter((value) => value.trim()).join("\n") || "-"} preserveLineBreaks />
+        <ReviewField label={t("Creator Bio / Studio Introduction")} value={draft.creativeInformation.bio || "-"} preserveLineBreaks />
       </ReviewCard>
 
-      <ReviewCard title="Identity Verification" icon={<ShieldCheck className="h-5 w-5 text-[#1876f2]" />} onEdit={() => onEdit(3)}>
+      <ReviewCard title={t("Identity Verification")} icon={<ShieldCheck className="h-5 w-5 text-[#1876f2]" />} onEdit={() => onEdit(3)}>
         <div className="grid gap-4 md:grid-cols-2">
-          <ReviewField label="Verification Type" value={getIdentityVerificationTitle(draft)} />
-          <ReviewField label={getIdentityPrimaryUploadLabel(draft)} value={draft.identityVerification.frontDocumentFileName || "-"} />
+          <ReviewField label={t("Verification Document")} value={getIdentityVerificationTitle(draft, t)} />
+          <ReviewField label={getIdentityPrimaryUploadLabel(draft, t)} value={draft.identityVerification.frontDocumentFileName || "-"} />
           {draft.basicInformation.creatorType === "individual" && draft.identityVerification.verificationType === "government_id" ? (
-            <ReviewField label={getIdentitySecondaryUploadLabel(draft)} value={draft.identityVerification.backDocumentFileName || "-"} />
+            <ReviewField label={getIdentitySecondaryUploadLabel(draft, t)} value={draft.identityVerification.backDocumentFileName || "-"} />
           ) : null}
         </div>
       </ReviewCard>
 
-      <ReviewCard title="Agreement Confirmation" icon={<FileText className="h-5 w-5 text-[#1876f2]" />} onEdit={() => onEdit(4)}>
+      <ReviewCard title={t("Agreement Confirmation")} icon={<FileText className="h-5 w-5 text-[#1876f2]" />} onEdit={() => onEdit(4)}>
         <div className="grid gap-4 md:grid-cols-2">
-          <ReviewField label="Agreement Reviewed" value={draft.agreement.hasReviewedFullAgreement ? "Yes" : "No"} />
-          <ReviewField label="Rights Confirmed" value={draft.agreement.acceptedAuthenticity ? "Yes" : "No"} />
-          <ReviewField label="Agreement Accepted" value={draft.agreement.acceptedTerms ? "Yes" : "No"} />
-          <ReviewField label="Signature Name" value={draft.agreement.signatureName || "-"} />
+          <ReviewField label={t("Agreement Reviewed")} value={draft.agreement.hasReviewedFullAgreement ? t("Yes") : t("No")} />
+          <ReviewField label={t("Rights Confirmed")} value={draft.agreement.acceptedAuthenticity ? t("Yes") : t("No")} />
+          <ReviewField label={t("Agreement Accepted")} value={draft.agreement.acceptedTerms ? t("Yes") : t("No")} />
+          <ReviewField label={t("Signature Name")} value={draft.agreement.signatureName || "-"} />
         </div>
       </ReviewCard>
 
       <div className="rounded-[24px] bg-[#0f172a] px-5 py-6 text-white shadow-[0_20px_40px_rgba(15,23,42,0.22)] md:px-6">
-        <h3 className="text-lg font-bold">Submit for manual review</h3>
+        <h3 className="text-lg font-bold">{t("Submit for manual review")}</h3>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-[#cbd5e1]">
-          TinyTale will manually review the application, creator profile, identity materials, and agreement confirmation before enabling the creator dashboard. Review SLA target is within 48 hours.
+          {t("TinyTale will manually review the application, creator profile, identity materials, and agreement confirmation before enabling the creator dashboard. Review SLA target is within 48 hours.")}
         </p>
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <button
@@ -1873,7 +1892,7 @@ function StepReview({
             className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-4 py-2 text-[13px] font-semibold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {savingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {savingDraft ? "Saving Draft..." : "Save Draft"}
+            {savingDraft ? t("Saving Draft...") : t("Save Draft")}
           </button>
           <button
             type="button"
@@ -1881,7 +1900,7 @@ function StepReview({
             disabled={submitting}
             className="rounded-full bg-white px-4 py-2 text-[13px] font-semibold text-[#0f172a] hover:bg-[#e2e8f0] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? "Submitting..." : "Submit Application"}
+            {submitting ? `${t("Submitting")}...` : t("Submit Application")}
           </button>
         </div>
       </div>
@@ -1900,6 +1919,7 @@ function ReviewCard({
   onEdit: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useCreatorI18n();
   return (
     <div className="rounded-[24px] border border-[#e2e8f0] bg-white shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
       <div className="flex items-center justify-between border-b border-[#e2e8f0] px-5 py-3.5">
@@ -1908,7 +1928,7 @@ function ReviewCard({
           {title}
         </div>
         <button type="button" onClick={onEdit} className="text-sm font-semibold text-[#1876f2] hover:text-[#1669da]">
-          Edit
+          {t("Edit")}
         </button>
       </div>
       <div className="px-5 py-4">{children}</div>

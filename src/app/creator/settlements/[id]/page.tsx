@@ -21,12 +21,13 @@ import { useToast } from "@/components/ui/Toast";
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import type { CreatorSettlementDetail } from "@/types/creator";
+import { useCreatorI18n } from "../../_lib/creator-i18n";
 
 const cardClassName =
   "rounded-[24px] border border-[#e2e8f0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]";
 
-function formatUsd(value: number) {
-  return new Intl.NumberFormat("en-US", {
+function formatUsd(value: number, locale: ReturnType<typeof useLocale>) {
+  return new Intl.NumberFormat(locale === "en" ? "en-US" : locale, {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
@@ -34,11 +35,11 @@ function formatUsd(value: number) {
   }).format(Number.isFinite(value) ? value : 0);
 }
 
-function formatDate(value: string | null | undefined, opts?: Intl.DateTimeFormatOptions) {
+function formatDate(value: string | null | undefined, locale: ReturnType<typeof useLocale>, opts?: Intl.DateTimeFormatOptions) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return new Intl.DateTimeFormat("en-US", opts || { month: "short", day: "numeric", year: "numeric" }).format(date);
+  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : locale, opts || { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
 function statusBadgeClass(status: CreatorSettlementDetail["statement"]["status"]) {
@@ -93,6 +94,7 @@ function PlaceholderThumb({ src, alt }: { src: string; alt: string }) {
 export default function CreatorSettlementDetailPage() {
   const params = useParams<{ id: string }>();
   const locale = useLocale();
+  const { t } = useCreatorI18n();
   const { token } = useAuth();
   const { toast } = useToast();
   const statementId = Array.isArray(params?.id) ? params.id[0] : params?.id || "";
@@ -229,7 +231,7 @@ export default function CreatorSettlementDetailPage() {
         </div>
         <div className="min-w-[280px] rounded-[28px] border border-[#dbe7f6] bg-white px-6 py-5 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
           <p className="text-[14px] font-semibold uppercase tracking-[0.08em] text-[#64748b]">Net Payout Amount</p>
-          <p className="mt-2 text-[46px] font-black tracking-[-0.05em] text-[#1876f2]">{formatUsd(detail.statement.netPayoutUsd)}</p>
+          <p className="mt-2 text-[46px] font-black tracking-[-0.05em] text-[#1876f2]">{formatUsd(detail.statement.netPayoutUsd, locale)}</p>
         </div>
       </section>
 
@@ -238,13 +240,13 @@ export default function CreatorSettlementDetailPage() {
           <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">Financial Breakdown</h2>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-5 px-6 py-10 md:px-10">
-          <BreakdownCard title="Gross Revenue" amount={formatUsd(detail.financialBreakdown.grossRevenueUsd)} helper="Total ads & subs" />
+          <BreakdownCard title="Gross Revenue" amount={formatUsd(detail.financialBreakdown.grossRevenueUsd, locale)} helper="Total ads & subs" />
           <div className="text-[32px] font-black text-[#cbd5e1]">-</div>
-          <BreakdownCard title="Platform Fees" amount={`-${formatUsd(detail.financialBreakdown.platformFeesUsd)}`} helper={`${Math.round(detail.financialBreakdown.platformFeeRate * 100)}% standard rate`} tone="negative" />
+          <BreakdownCard title="Platform Fees" amount={`-${formatUsd(detail.financialBreakdown.platformFeesUsd, locale)}`} helper={`${Math.round(detail.financialBreakdown.platformFeeRate * 100)}% standard rate`} tone="negative" />
           <div className="text-[32px] font-black text-[#cbd5e1]">-</div>
-          <BreakdownCard title="Withholding Tax" amount={`-${formatUsd(detail.financialBreakdown.withholdingTaxUsd)}`} helper={`${Math.round(detail.financialBreakdown.withholdingTaxRate * 100)}% local withholding`} tone="negative" />
+          <BreakdownCard title="Withholding Tax" amount={`-${formatUsd(detail.financialBreakdown.withholdingTaxUsd, locale)}`} helper={`${Math.round(detail.financialBreakdown.withholdingTaxRate * 100)}% local withholding`} tone="negative" />
           <Equal className="h-7 w-7 text-[#cbd5e1]" />
-          <BreakdownCard title="Net Payout" amount={formatUsd(detail.financialBreakdown.netPayoutUsd)} helper="Final amount" tone="positive" />
+          <BreakdownCard title="Net Payout" amount={formatUsd(detail.financialBreakdown.netPayoutUsd, locale)} helper="Final amount" tone="positive" />
         </div>
       </section>
 
@@ -276,10 +278,10 @@ export default function CreatorSettlementDetailPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-5 text-[16px] text-[#334155]">{row.views.toLocaleString("en-US")}</td>
-                  <td className="px-6 py-5 text-[16px] text-[#334155]">{formatUsd(row.grossRevenueUsd)}</td>
-                  <td className="px-6 py-5 text-[16px] text-[#dc2626]">-{formatUsd(row.feesUsd)}</td>
-                  <td className="px-6 py-5 text-right text-[18px] font-bold text-[#0f172a]">{formatUsd(row.netEarningUsd)}</td>
+                  <td className="px-6 py-5 text-[16px] text-[#334155]">{row.views.toLocaleString(locale === "en" ? "en-US" : locale)}</td>
+                  <td className="px-6 py-5 text-[16px] text-[#334155]">{formatUsd(row.grossRevenueUsd, locale)}</td>
+                  <td className="px-6 py-5 text-[16px] text-[#dc2626]">-{formatUsd(row.feesUsd, locale)}</td>
+                  <td className="px-6 py-5 text-right text-[18px] font-bold text-[#0f172a]">{formatUsd(row.netEarningUsd, locale)}</td>
                 </tr>
               ))}
             </tbody>
@@ -295,7 +297,7 @@ export default function CreatorSettlementDetailPage() {
               Please review your financial breakdown. By confirming, you agree to the calculation and payment will be scheduled for the next payout cycle.
             </p>
             {detail.confirmation.confirmedAt ? (
-              <p className="mt-3 text-[13px] font-medium text-[#1d4ed8]">Confirmed on {formatDate(detail.confirmation.confirmedAt)}</p>
+              <p className="mt-3 text-[13px] font-medium text-[#1d4ed8]">{t("Confirmed on")} {formatDate(detail.confirmation.confirmedAt, locale)}</p>
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-3">

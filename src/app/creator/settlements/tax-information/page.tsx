@@ -12,6 +12,7 @@ import { useCountryCatalog } from "@/hooks/useCountryCatalog";
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import type { CreatorSettlementTaxInfo } from "@/types/creator";
+import { useCreatorI18n } from "../../_lib/creator-i18n";
 
 const cardClassName =
   "rounded-[24px] border border-[#e2e8f0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]";
@@ -50,15 +51,16 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   return <label className="mb-2 block text-[14px] font-semibold text-[#0f172a]">{children}</label>;
 }
 
-function formatDate(value: string | null) {
-  if (!value) return "Not submitted";
+function formatDate(value: string | null, locale: ReturnType<typeof useLocale>, t: ReturnType<typeof useCreatorI18n>["t"]) {
+  if (!value) return t("Not submitted");
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Not submitted";
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
+  if (Number.isNaN(date.getTime())) return t("Not submitted");
+  return new Intl.DateTimeFormat(locale === "en" ? "en-US" : locale, { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
 
 export default function CreatorSettlementTaxInformationPage() {
   const locale = useLocale();
+  const { t } = useCreatorI18n();
   const { options: countryOptions } = useCountryCatalog(locale);
   const { token } = useAuth();
   const { toast } = useToast();
@@ -84,7 +86,7 @@ export default function CreatorSettlementTaxInformationPage() {
         setForm(response.data);
       } catch (error) {
         if (!cancelled) {
-          toast(error instanceof Error ? error.message : "Failed to load tax information.", "error");
+          toast(error instanceof Error ? error.message : t("Failed to load tax information."), "error");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -95,7 +97,7 @@ export default function CreatorSettlementTaxInformationPage() {
     return () => {
       cancelled = true;
     };
-  }, [token, toast]);
+  }, [t, toast, token]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -173,7 +175,7 @@ export default function CreatorSettlementTaxInformationPage() {
               </div>
             </div>
             <div className="rounded-[18px] bg-[#f8fafc] px-4 py-3 text-[14px] text-[#64748b]">
-              Last updated: <span className="font-semibold text-[#0f172a]">{formatDate(form.updatedAt)}</span>
+              Last updated: <span className="font-semibold text-[#0f172a]">{formatDate(form.updatedAt, locale, t)}</span>
             </div>
           </div>
         </div>

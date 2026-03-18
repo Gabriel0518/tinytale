@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { localizePath, type SupportedLocale } from "@/lib/i18n";
 import type { User } from "@/types";
+import { translateCreatorText } from "../_lib/creator-i18n";
 
 interface CreatorSidebarProps {
   locale: SupportedLocale;
@@ -105,7 +106,9 @@ export default function CreatorSidebar({ locale, normalizedPath, user }: Creator
           </div>
           <div>
             <p className="text-[18px] font-black leading-5 tracking-[-0.5px] text-[#0f172a]">TinyTale</p>
-            <p className="mt-1 text-xs font-medium uppercase tracking-[0.06em] text-[#64748b]">Creator Center</p>
+            <p className="mt-1 text-xs font-medium uppercase tracking-[0.06em] text-[#64748b]">
+              {translateCreatorText("Creator Center", locale)}
+            </p>
           </div>
         </div>
 
@@ -121,7 +124,9 @@ export default function CreatorSidebar({ locale, normalizedPath, user }: Creator
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                <span className={`text-[14px] leading-6 ${active ? "font-semibold" : "font-medium"}`}>{label}</span>
+                <span className={`text-[14px] leading-6 ${active ? "font-semibold" : "font-medium"}`}>
+                  {translateCreatorText(label, locale)}
+                </span>
               </Link>
             );
           })}
@@ -144,7 +149,7 @@ export default function CreatorSidebar({ locale, normalizedPath, user }: Creator
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold leading-5 text-[#0f172a]">{displayName}</p>
-            <p className="text-xs leading-4 text-[#64748b]">Creator Account</p>
+            <p className="text-xs leading-4 text-[#64748b]">{translateCreatorText("Creator Account", locale)}</p>
           </div>
           <MoreVertical className="h-4 w-4 text-[#94a3b8]" />
         </Link>

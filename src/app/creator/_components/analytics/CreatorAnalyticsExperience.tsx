@@ -52,6 +52,7 @@ import {
   type AnalyticsSegmentRow,
   type AnalyticsStoryRow,
 } from './creatorAnalyticsData';
+import { formatCreatorCurrency, formatCreatorDate, translateCreatorText } from '../../_lib/creator-i18n';
 
 type AnalyticsPageMode = 'overview' | 'revenue' | 'audience' | 'drama' | 'contract';
 
@@ -820,11 +821,12 @@ function HighlightsCard({ items }: { items: Array<{ label: string; value: string
 }
 
 function ContractSummaryCard({ contract }: { contract: CreatorContractOverview }) {
+  const locale = useLocale();
   const rows = [
     { label: 'Agreement Version', value: contract.agreement.version, helper: contract.agreement.title },
     { label: 'Current Status', value: contract.agreement.statusLabel, helper: `Signature: ${contract.agreement.signatureName || 'Pending'}` },
-    { label: 'Signed At', value: contract.agreement.signedAt ? new Date(contract.agreement.signedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Awaiting signature', helper: `Effective: ${contract.agreement.effectiveAt ? new Date(contract.agreement.effectiveAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Pending'}` },
-    { label: 'Renewal', value: contract.agreement.nextRenewalAt ? new Date(contract.agreement.nextRenewalAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'No renewal scheduled', helper: `Policy ${contract.policy.version}` },
+    { label: 'Signed At', value: contract.agreement.signedAt ? formatCreatorDate(contract.agreement.signedAt, locale) : 'Awaiting signature', helper: `Effective: ${contract.agreement.effectiveAt ? formatCreatorDate(contract.agreement.effectiveAt, locale) : 'Pending'}` },
+    { label: 'Renewal', value: contract.agreement.nextRenewalAt ? formatCreatorDate(contract.agreement.nextRenewalAt, locale) : 'No renewal scheduled', helper: `Policy ${contract.policy.version}` },
   ];
 
   return (
@@ -844,13 +846,14 @@ function ContractSummaryCard({ contract }: { contract: CreatorContractOverview }
 }
 
 function ContractCommercialTerms({ contract }: { contract: CreatorContractOverview }) {
+  const locale = useLocale();
   const rows = [
     { label: 'Settlement Currency', value: contract.agreement.settlementCurrency, helper: 'All creator revenue is normalized and paid out in USD.' },
     { label: 'Creator Share', value: `${Math.round(contract.agreement.creatorShareRate * 100)}%`, helper: 'Applied to eligible unlock revenue after platform policy checks.' },
     { label: 'Platform Fee', value: `${Math.round(contract.agreement.platformFeeRate * 100)}%`, helper: 'Covers platform processing, distribution, and support operations.' },
     { label: 'Refund Reserve', value: `${Math.round(contract.agreement.refundReserveRate * 100)}%`, helper: 'Held temporarily against chargebacks and refund exposure.' },
     { label: 'Hold Window', value: `${contract.agreement.holdDays} days`, helper: 'Revenue clears after the rolling verification hold expires.' },
-    { label: 'Minimum Payout', value: `$${contract.agreement.minimumPayoutUsd.toFixed(2)}`, helper: `Statements are scheduled on day ${contract.agreement.payoutScheduleDay} each month.` },
+    { label: 'Minimum Payout', value: formatCreatorCurrency(contract.agreement.minimumPayoutUsd, locale), helper: `Statements are scheduled on day ${contract.agreement.payoutScheduleDay} each month.` },
   ];
 
   return (
@@ -918,6 +921,7 @@ function ContractTimelineCard({ items }: { items: CreatorContractOverview['timel
 }
 
 function PolicyNotesCard({ contract }: { contract: CreatorContractOverview }) {
+  const locale = useLocale();
   return (
     <AnalyticsCard className="p-6">
       <h2 className="text-[18px] font-bold leading-7 text-[#0f172a]">Policy Notes</h2>
@@ -929,7 +933,7 @@ function PolicyNotesCard({ contract }: { contract: CreatorContractOverview }) {
         ))}
       </div>
       <p className="mt-4 text-xs text-[#94a3b8]">
-        Last updated {contract.policy.lastUpdatedAt ? new Date(contract.policy.lastUpdatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'not recorded'}.
+        {translateCreatorText('Last updated', locale)} {contract.policy.lastUpdatedAt ? formatCreatorDate(contract.policy.lastUpdatedAt, locale) : translateCreatorText('not recorded', locale)}.
       </p>
     </AnalyticsCard>
   );

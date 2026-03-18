@@ -23,6 +23,7 @@ import { creatorApi } from "@/lib/api";
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import type { CreatorEpisodeItem } from "@/types/creator";
+import { useCreatorI18n } from "../_lib/creator-i18n";
 
 interface CreatorEpisodeUploadWorkspaceProps {
   initialDramaId?: string;
@@ -110,16 +111,18 @@ function computeProgress(episodes: CreatorEpisodeItem[]): number {
   return Math.round((doneTasks / totalTasks) * 100);
 }
 
-function formatSourceCleanupSummary(sourceCleanup?: {
+function formatSourceCleanupSummary(
+  t: ReturnType<typeof useCreatorI18n>["t"],
+  sourceCleanup?: {
   total: number;
   pending: number;
   deleted: number;
   failed: number;
 }): string {
   if (!sourceCleanup || sourceCleanup.total <= 0) return "";
-  if (sourceCleanup.deleted >= sourceCleanup.total) return "Source cleanup completed";
-  if (sourceCleanup.failed > 0) return `Source cleanup failed: ${sourceCleanup.failed}`;
-  if (sourceCleanup.pending > 0) return `Source cleanup pending: ${sourceCleanup.pending}`;
+  if (sourceCleanup.deleted >= sourceCleanup.total) return t("Source cleanup completed");
+  if (sourceCleanup.failed > 0) return t("Source cleanup failed: __ARG_0__", sourceCleanup.failed);
+  if (sourceCleanup.pending > 0) return t("Source cleanup pending: __ARG_0__", sourceCleanup.pending);
   return "";
 }
 
@@ -137,6 +140,7 @@ interface VideoUploadHooks {
 export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: CreatorEpisodeUploadWorkspaceProps) {
   const router = useRouter();
   const locale = useLocale();
+  const { t } = useCreatorI18n();
   const { token } = useAuth();
 
   const [dramaId, setDramaId] = useState(initialDramaId || "");
@@ -211,29 +215,29 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         const response = await creatorApi.getDramaEpisodes(token, targetDramaId);
         setEpisodes(response.data?.episodes || []);
       } catch (err: any) {
-        setError(err?.message || "Failed to load episodes");
+        setError(err?.message || t("Failed to load episodes"));
       } finally {
         setLoading(false);
       }
     },
-    [token]
+    [t, token]
   );
 
   const ensureDraftDrama = useCallback(async (): Promise<string> => {
-    if (!token) throw new Error("Missing token");
+    if (!token) throw new Error(t("Missing token"));
     if (dramaId) return dramaId;
 
     const created = await creatorApi.createDrama(token, {
-      title: "Untitled Story",
+      title: t("Untitled Story"),
       description: "",
       categories: [],
     });
     const createdId = String(created.data?._id || "");
-    if (!createdId) throw new Error("Failed to create drama draft");
+    if (!createdId) throw new Error(t("Failed to create drama draft"));
 
     setDramaId(createdId);
     return createdId;
-  }, [token, dramaId]);
+  }, [dramaId, t, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -246,7 +250,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         await loadEpisodes(targetDramaId);
       } catch (err: any) {
         if (cancelled) return;
-        setError(err?.message || "Failed to initialize workspace");
+        setError(err?.message || t("Failed to initialize workspace"));
         setLoading(false);
       }
     }
@@ -255,7 +259,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     return () => {
       cancelled = true;
     };
-  }, [token, initialDramaId, ensureDraftDrama, loadEpisodes]);
+  }, [token, initialDramaId, ensureDraftDrama, loadEpisodes, t]);
 
   useEffect(() => {
     const uploadRef = activeTusUploadsRef;
@@ -291,11 +295,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       await creatorApi.createDramaEpisode(token, targetDramaId, { count: 1 });
       await loadEpisodes(targetDramaId);
     } catch (err: any) {
-      setError(err?.message || "Failed to create episode");
+      setError(err?.message || t("Failed to create episode"));
     } finally {
       setBusy(false);
     }
-  }, [token, ensureDraftDrama, loadEpisodes]);
+  }, [token, ensureDraftDrama, loadEpisodes, t]);
 
   const removeEpisode = useCallback(
     async (episodeId: string) => {
@@ -306,12 +310,12 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         await creatorApi.deleteDramaEpisode(token, dramaId, episodeId);
         await refreshEpisodes();
       } catch (err: any) {
-        setError(err?.message || "Failed to delete episode");
+        setError(err?.message || t("Failed to delete episode"));
       } finally {
         setBusy(false);
       }
     },
-    [token, dramaId, refreshEpisodes]
+    [token, dramaId, refreshEpisodes, t]
   );
 
   const patchEpisode = useCallback(
@@ -340,7 +344,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           updateEpisodeUploadState(episode._id, {
             videoProgress: 100,
             videoError: "",
-            videoStatusText: "Video ready",
+            videoStatusText: t("Video ready"),
             uploading: false,
           });
           await refreshEpisodes();
@@ -350,7 +354,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         if (data?.errorReasonCode || data?.errorReasonText || attempt === 24) {
           await patchEpisode(episode._id, { status: "Failed" });
           updateEpisodeUploadState(episode._id, {
-            videoError: data?.errorReasonText || "Video processing failed",
+            videoError: data?.errorReasonText || t("Video processing failed"),
             videoStatusText: "",
             uploading: false,
           });
@@ -363,7 +367,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
       return false;
     },
-    [token, dramaId, patchEpisode, refreshEpisodes, updateEpisodeUploadState, waitPollingDelay]
+    [token, dramaId, patchEpisode, refreshEpisodes, t, updateEpisodeUploadState, waitPollingDelay]
   );
 
   const startEpisodeVideoUpload = useCallback(
@@ -385,7 +389,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       updateEpisodeUploadState(episode._id, {
         videoProgress: 0,
         videoError: "",
-        videoStatusText: "Preparing upload...",
+        videoStatusText: t("Preparing upload..."),
         uploading: true,
       });
 
@@ -418,7 +422,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
             },
             onProgress: (uploaded, total) => {
               const percent = Math.min(100, Math.round((uploaded / total) * 100));
-              const text = percent >= 100 ? "Processing in cloud..." : `Uploading ${percent}%`;
+              const text = percent >= 100 ? t("Processing in cloud...") : t("Uploading __ARG_0__%", percent);
               updateEpisodeUploadState(episode._id, {
                 videoProgress: percent,
                 videoError: "",
@@ -430,7 +434,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
             onError: (err) => {
               creatorApi.deleteUploadedVideo(token, video_uid).catch(() => undefined);
               patchEpisode(episode._id, { status: "Failed" }).catch(() => undefined);
-              const message = err?.message || "Upload failed";
+              const message = err?.message || t("Upload failed");
               updateEpisodeUploadState(episode._id, {
                 videoError: message,
                 videoStatusText: "",
@@ -443,7 +447,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               updateEpisodeUploadState(episode._id, {
                 videoProgress: 100,
                 videoError: "",
-                videoStatusText: "Processing in cloud...",
+                videoStatusText: t("Processing in cloud..."),
                 uploading: false,
               });
               hooks?.onProcessing?.();
@@ -461,24 +465,24 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         if (ready) {
           hooks?.onDone?.();
         } else {
-          hooks?.onFailed?.("Video processing failed");
+          hooks?.onFailed?.(t("Video processing failed"));
         }
 
         delete activeVideoUidRef.current[episode._id];
         return ready;
       } catch (err: any) {
         updateEpisodeUploadState(episode._id, {
-          videoError: err?.message || "Video upload failed",
+          videoError: err?.message || t("Video upload failed"),
           videoStatusText: "",
           uploading: false,
         });
-        hooks?.onFailed?.(err?.message || "Video upload failed");
+        hooks?.onFailed?.(err?.message || t("Video upload failed"));
         return false;
       } finally {
         delete activeTusUploadsRef.current[episode._id];
       }
     },
-    [token, dramaId, patchEpisode, pollVideoStatus, updateEpisodeUploadState]
+    [token, dramaId, patchEpisode, pollVideoStatus, t, updateEpisodeUploadState]
   );
 
   const cancelEpisodeUpload = useCallback(
@@ -499,27 +503,27 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       }
 
       updateEpisodeUploadState(episodeId, {
-        videoStatusText: "Upload cancelled",
+        videoStatusText: t("Upload cancelled"),
         videoError: "",
         uploading: false,
       });
     },
-    [token, clearPollingTimer, updateEpisodeUploadState]
+    [token, clearPollingTimer, t, updateEpisodeUploadState]
   );
 
   const retryVideoStatusCheck = useCallback(
     async (episode: CreatorEpisodeItem) => {
       if (!episode.streamVideoId) {
-        setError("No uploaded video found to retry status check");
+        setError(t("No uploaded video found to retry status check"));
         return;
       }
       updateEpisodeUploadState(episode._id, {
-        videoStatusText: "Retrying cloud status check...",
+        videoStatusText: t("Retrying cloud status check..."),
         videoError: "",
       });
       await pollVideoStatus(episode, episode.streamVideoId);
     },
-    [pollVideoStatus, updateEpisodeUploadState]
+    [pollVideoStatus, t, updateEpisodeUploadState]
   );
 
   const uploadVideo = useCallback(
@@ -540,10 +544,10 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         });
         await refreshEpisodes();
       } catch (err: any) {
-        setError(err?.message || "Failed to upload cover");
+      setError(err?.message || t("Failed to upload cover"));
       }
     },
-    [token, dramaId, patchEpisode, refreshEpisodes]
+    [token, dramaId, patchEpisode, refreshEpisodes, t]
   );
 
   const uploadSubtitle = useCallback(
@@ -558,10 +562,10 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         });
         await refreshEpisodes();
       } catch (err: any) {
-        setError(err?.message || "Failed to upload subtitle");
+      setError(err?.message || t("Failed to upload subtitle"));
       }
     },
-    [token, dramaId, patchEpisode, refreshEpisodes]
+    [token, dramaId, patchEpisode, refreshEpisodes, t]
   );
 
   const uploadAutoSliceSourceVideo = useCallback(
@@ -578,7 +582,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         progress: 0,
         ready: false,
         uploading: true,
-        statusText: "Preparing source upload...",
+        statusText: t("Preparing source upload..."),
         error: "",
       });
 
@@ -607,12 +611,12 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 ...prev,
                 videoUid: video_uid,
                 progress: percent,
-                statusText: percent >= 100 ? "Processing source video..." : `Uploading source ${percent}%`,
+                statusText: percent >= 100 ? t("Processing source video...") : t("Uploading source __ARG_0__%", percent),
                 error: "",
               }));
             },
             onError: (err) => {
-              reject(err || new Error("Source upload failed"));
+              reject(err || new Error(t("Source upload failed")));
             },
             onSuccess: () => resolve(),
           });
@@ -625,7 +629,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           const errorReasonCode = String(status.data?.errorReasonCode || "");
           const errorReasonText = String(status.data?.errorReasonText || "");
           if (errorReasonCode || errorReasonText) {
-            throw new Error(errorReasonText || errorReasonCode || "Source video processing failed");
+            throw new Error(errorReasonText || errorReasonCode || t("Source video processing failed"));
           }
           if (status.data?.readyToStream && Number(status.data?.duration || 0) > 0) {
             ready = true;
@@ -635,7 +639,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         }
 
         if (!ready) {
-          throw new Error("Source video is still processing. Please retry in a moment.");
+          throw new Error(t("Source video is still processing. Please retry in a moment."));
         }
 
         setSourceUpload((prev) => ({
@@ -644,7 +648,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           progress: 100,
           ready: true,
           uploading: false,
-          statusText: "Source video ready for auto-slice",
+          statusText: t("Source video ready for auto-slice"),
           error: "",
         }));
       } catch (err: any) {
@@ -653,11 +657,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           uploading: false,
           ready: false,
           statusText: "",
-          error: err?.message || "Source upload failed",
+          error: err?.message || t("Source upload failed"),
         }));
       }
     },
-    [token, sourceUpload.videoUid]
+    [sourceUpload.videoUid, t, token]
   );
 
   const uploadAutoSliceSubtitle = useCallback(
@@ -671,16 +675,16 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           fileName: file.name,
         });
       } catch (err: any) {
-        setError(err?.message || "Failed to upload source subtitle");
+        setError(err?.message || t("Failed to upload source subtitle"));
       }
     },
-    [token]
+    [t, token]
   );
 
   const runAutoSlice = useCallback(async () => {
     if (!token) return;
     if (!sourceUpload.videoUid || !sourceUpload.ready) {
-      setError("Please upload a source video and wait until it is ready");
+      setError(t("Please upload a source video and wait until it is ready"));
       return;
     }
 
@@ -715,7 +719,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       const uids = Array.from(uidToEpisodeId.keys());
 
       if (!uids.length) {
-        setBulkSummary("Auto-slice completed, but no clip uid was returned");
+        setBulkSummary(t("Auto-slice completed, but no clip uid was returned"));
         return;
       }
 
@@ -726,7 +730,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         const clipStatus = await creatorApi.getClipStatus(token, uids);
         const clips = clipStatus.data?.clips || [];
         const failedClips = clips.filter((clip) => !clip.readyToStream && (clip.status === "error" || clip.errorReasonCode || clip.errorReasonText));
-        const sourceCleanupText = formatSourceCleanupSummary(clipStatus.data?.sourceCleanup);
+        const sourceCleanupText = formatSourceCleanupSummary(t, clipStatus.data?.sourceCleanup);
 
         for (const clip of clips) {
           const episodeId = uidToEpisodeId.get(clip.uid);
@@ -747,11 +751,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
         if (clipStatus.data?.allReady) {
           await refreshEpisodes();
-          setBulkSummary(`Auto-slice completed: ${handledReady.size} episodes ready${sourceCleanupText ? ` | ${sourceCleanupText}` : initialCleanupReason}`);
+          setBulkSummary(`${t("Auto-slice completed: __ARG_0__ episodes ready", handledReady.size)}${sourceCleanupText ? ` | ${sourceCleanupText}` : initialCleanupReason}`);
           if (failedClips.length > 0) {
-            const reason = failedClips[0]?.errorReasonText || failedClips[0]?.errorReasonCode || "Unknown processing error";
+            const reason = failedClips[0]?.errorReasonText || failedClips[0]?.errorReasonCode || t("Unknown processing error");
             setBulkSummary(
-              `Auto-slice partial success: ${handledReady.size} ready, ${failedClips.length} failed (${reason})${
+              `${t("Auto-slice partial success: __ARG_0__ ready, __ARG_1__ failed (__ARG_2__)", handledReady.size, failedClips.length, reason)}${
                 sourceCleanupText ? ` | ${sourceCleanupText}` : initialCleanupReason
               }`
             );
@@ -761,9 +765,9 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
         if (failedClips.length > 0 && handledReady.size + failedClips.length >= uids.length) {
           await refreshEpisodes();
-          const reason = failedClips[0]?.errorReasonText || failedClips[0]?.errorReasonCode || "Unknown processing error";
+          const reason = failedClips[0]?.errorReasonText || failedClips[0]?.errorReasonCode || t("Unknown processing error");
           setBulkSummary(
-            `Auto-slice partial success: ${handledReady.size} ready, ${failedClips.length} failed (${reason})${
+            `${t("Auto-slice partial success: __ARG_0__ ready, __ARG_1__ failed (__ARG_2__)", handledReady.size, failedClips.length, reason)}${
               sourceCleanupText ? ` | ${sourceCleanupText}` : initialCleanupReason
             }`
           );
@@ -772,7 +776,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
         if (attempt === 35) {
           setBulkSummary(
-            `Auto-slice started. ${handledReady.size}/${uids.length} clips ready, others still processing.${
+            `${t("Auto-slice started. __ARG_0__/__ARG_1__ clips ready, others still processing.", handledReady.size, uids.length)}${
               sourceCleanupText ? ` ${sourceCleanupText}` : initialCleanupReason
             }`
           );
@@ -781,7 +785,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         }
       }
     } catch (err: any) {
-      setError(err?.message || "Auto-slice failed");
+      setError(err?.message || t("Auto-slice failed"));
     } finally {
       setAutoSliceRunning(false);
     }
@@ -795,6 +799,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     loadEpisodes,
     patchEpisode,
     refreshEpisodes,
+    t,
   ]);
 
   const updateBulkItem = useCallback((itemId: string, patch: Partial<BulkQueueItem>) => {
@@ -809,7 +814,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     });
 
     if (!accepted.length) {
-      setError("Please select MP4 files only");
+      setError(t("Please select MP4 files only"));
       return;
     }
 
@@ -822,7 +827,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     }));
 
     setBulkQueue((prev) => [...prev, ...mapped]);
-  }, []);
+  }, [t]);
 
   const removeBulkItem = useCallback((itemId: string) => {
     if (bulkRunning) return;
@@ -837,25 +842,25 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
   const cancelBulkUpload = useCallback(async () => {
     bulkCancelRequestedRef.current = true;
-    setBulkSummary("Bulk upload cancelled");
+    setBulkSummary(t("Bulk upload cancelled"));
     const activeItems = bulkQueue.filter((item) => item.status === "uploading" || item.status === "processing");
     await Promise.all(activeItems.map((item) => (item.episodeId ? cancelEpisodeUpload(item.episodeId) : Promise.resolve())));
     setBulkQueue((prev) =>
       prev.map((item) =>
         item.status === "queued" || item.status === "uploading" || item.status === "processing"
-          ? { ...item, status: "cancelled", error: "Cancelled by user" }
+          ? { ...item, status: "cancelled", error: t("Cancelled by user") }
           : item
       )
     );
     setBulkRunning(false);
-  }, [bulkQueue, cancelEpisodeUpload]);
+  }, [bulkQueue, cancelEpisodeUpload, t]);
 
   const startBulkUpload = useCallback(async () => {
     if (!token) return;
 
     const queued = bulkQueue.filter((item) => item.status === "queued" || item.status === "failed" || item.status === "cancelled");
     if (!queued.length) {
-      setError("No queued files to upload");
+      setError(t("No queued files to upload"));
       return;
     }
 
@@ -874,7 +879,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
       const createdEpisodes = [...(created.data?.episodes || [])].sort((a, b) => a.episodeNumber - b.episodeNumber);
       if (createdEpisodes.length !== queued.length) {
-        throw new Error("Bulk upload initialization mismatch, please retry");
+        throw new Error(t("Bulk upload initialization mismatch, please retry"));
       }
 
       for (let index = 0; index < queued.length; index += 1) {
@@ -917,22 +922,22 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           failedCount += 1;
           updateBulkItem(queueItem.id, {
             status: "failed",
-            error: "Upload or processing failed",
+            error: t("Upload or processing failed"),
           });
         }
       }
 
       await loadEpisodes(targetDramaId);
       if (!bulkCancelRequestedRef.current) {
-        setBulkSummary(`Bulk upload completed: ${doneCount} done, ${failedCount} failed`);
+        setBulkSummary(t("Bulk upload completed: __ARG_0__ done, __ARG_1__ failed", doneCount, failedCount));
       }
     } catch (err: any) {
-      setError(err?.message || "Bulk upload failed");
+      setError(err?.message || t("Bulk upload failed"));
     } finally {
       setBulkRunning(false);
       bulkCancelRequestedRef.current = false;
     }
-  }, [token, bulkQueue, ensureDraftDrama, loadEpisodes, startEpisodeVideoUpload, updateBulkItem]);
+  }, [token, bulkQueue, ensureDraftDrama, loadEpisodes, startEpisodeVideoUpload, t, updateBulkItem]);
 
   const saveDraft = useCallback(async () => {
     if (!token) return;
@@ -943,11 +948,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       await creatorApi.updateDrama(token, targetDramaId, { updatedAt: new Date().toISOString() });
       await refreshEpisodes();
     } catch (err: any) {
-      setError(err?.message || "Failed to save draft");
+      setError(err?.message || t("Failed to save draft"));
     } finally {
       setBusy(false);
     }
-  }, [token, ensureDraftDrama, refreshEpisodes]);
+  }, [token, ensureDraftDrama, refreshEpisodes, t]);
 
   const nextStep = useCallback(async () => {
     if (!token) return;
@@ -958,11 +963,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       await creatorApi.submitDramaForReview(token, targetDramaId);
       router.push(localizePath("/creator/dramas", locale));
     } catch (err: any) {
-      setError(err?.message || "Failed to move to next step");
+      setError(err?.message || t("Failed to move to next step"));
     } finally {
       setBusy(false);
     }
-  }, [token, ensureDraftDrama, router, locale]);
+  }, [token, ensureDraftDrama, router, locale, t]);
 
   if (loading) {
     return (
@@ -980,17 +985,17 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         <div className="flex items-center gap-2 text-sm">
           <div className="flex items-center gap-2 text-[#64748b]">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e2e8f0] text-xs font-bold text-[#475569]">1</span>
-            <span className="font-medium">Basic Info</span>
+            <span className="font-medium">{t("Basic Info")}</span>
           </div>
           <div className="h-px flex-1 bg-[#e2e8f0]" />
           <div className="flex items-center gap-2 text-[#0f172a]">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1876f2] text-xs font-bold text-white">2</span>
-            <span className="font-bold">Episode Upload</span>
+            <span className="font-bold">{t("Episode Upload")}</span>
           </div>
           <div className="h-px flex-1 bg-[#e2e8f0]" />
           <div className="flex items-center gap-2 text-[#64748b]">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#e2e8f0] text-xs font-bold text-[#475569]">3</span>
-            <span className="font-medium">Review & Monetization</span>
+            <span className="font-medium">{t("Review & Monetization")}</span>
           </div>
         </div>
       </div>
@@ -1005,7 +1010,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 uploadMode === "bulk" ? "border-[#1876f2] font-bold text-[#1876f2]" : "border-transparent font-medium text-[#64748b]"
               }`}
             >
-              Bulk Upload (Auto-Slice)
+              {t("Bulk Upload (Auto-Slice)")}
             </button>
             <button
               type="button"
@@ -1016,22 +1021,22 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   : "border-transparent font-medium text-[#64748b]"
               }`}
             >
-              Individual Upload
+              {t("Individual Upload")}
             </button>
           </div>
         </div>
 
         <div className="mt-6 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-[30px] font-black leading-[1.08] tracking-[-0.03em] text-[#0f172a] md:text-[34px]">Upload Episodes</h1>
+            <h1 className="text-[30px] font-black leading-[1.08] tracking-[-0.03em] text-[#0f172a] md:text-[34px]">{t("Upload Episodes")}</h1>
             <p className="mt-1 text-sm text-[#64748b]">
               {uploadMode === "bulk"
-                ? "Upload one or more MP4 source files, then prepare episodes for creator review submission."
-                : "Upload episodes individually with custom covers and subtitles before submitting the drama for review."}
+                ? t("Upload one or more MP4 source files, then prepare episodes for creator review submission.")
+                : t("Upload episodes individually with custom covers and subtitles before submitting the drama for review.")}
             </p>
           </div>
           <div className="w-[180px]">
-            <p className="text-right text-[13px] font-medium text-[#0f172a]">Progress: {progress}%</p>
+            <p className="text-right text-[13px] font-medium text-[#0f172a]">{t("Progress: __ARG_0__%", progress)}</p>
             <div className="mt-1 h-2 rounded-full bg-[#e2e8f0]">
               <div className="h-2 rounded-full bg-[#1876f2]" style={{ width: `${progress}%` }} />
             </div>
@@ -1047,14 +1052,14 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
             <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-[15px] font-bold text-[#0f172a]">Auto-Slice From One Source Video</p>
+                  <p className="text-[15px] font-bold text-[#0f172a]">{t("Auto-Slice From One Source Video")}</p>
                   <p className="mt-1 text-xs text-[#64748b]">
-                    Upload one long MP4, set duration per episode, then split to episodes automatically.
+                    {t("Upload one long MP4, set duration per episode, then split to episodes automatically.")}
                   </p>
                 </div>
                 <div className="inline-flex items-center gap-2 rounded-full bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#1d4ed8]">
                   <Clapperboard className="h-3.5 w-3.5" />
-                  Creator Auto-Slice
+                  {t("Creator Auto-Slice")}
                 </div>
               </div>
 
@@ -1073,10 +1078,10 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-[#0f172a]">
-                      {sourceUpload.fileName || "Upload Source Video (MP4)"}
+                      {sourceUpload.fileName || t("Upload Source Video (MP4)")}
                     </p>
                     <p className="text-xs text-[#64748b]">
-                      {sourceUpload.statusText || "Cloudflare Stream will transcode before slicing"}
+                      {sourceUpload.statusText || t("Cloudflare Stream will transcode before slicing")}
                     </p>
                     {sourceUpload.error ? <p className="mt-1 text-xs text-[#b91c1c]">{sourceUpload.error}</p> : null}
                   </div>
@@ -1085,7 +1090,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
                 <div className="rounded-[16px] border border-[#cbd5e1] bg-[#f8fafc] px-4 py-2.5">
                   <label htmlFor="auto-slice-duration" className="text-xs font-semibold uppercase tracking-[0.04em] text-[#64748b]">
-                    Episode Duration
+                    {t("Episode Duration")}
                   </label>
                   <div className="mt-2 flex items-center gap-2">
                     <Clock3 className="h-4 w-4 text-[#64748b]" />
@@ -1099,7 +1104,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       onChange={(event) => setAutoSliceDurationMinutes(Math.max(1, Math.min(60, Number(event.target.value) || 1)))}
                       className="h-8 w-20 rounded-xl border border-[#cbd5e1] bg-white px-3 text-sm font-semibold text-[#0f172a] outline-none"
                     />
-                    <span className="text-sm text-[#475569]">minutes / episode</span>
+                    <span className="text-sm text-[#475569]">{t("minutes / episode")}</span>
                   </div>
                 </div>
               </div>
@@ -1126,7 +1131,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                     disabled={autoSliceRunning}
                   />
                   <GripVertical className="h-3.5 w-3.5" />
-                  <span>{sourceSubtitle ? `Subtitle: ${sourceSubtitle.fileName}` : "Upload Source Subtitle (Optional)"}</span>
+                  <span>{sourceSubtitle ? t("Subtitle: __ARG_0__", sourceSubtitle.fileName) : t("Upload Source Subtitle (Optional)")}</span>
                 </label>
 
                 <button
@@ -1136,7 +1141,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   className="inline-flex items-center gap-2 rounded-[16px] bg-[#1876f2] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Clapperboard className="h-4 w-4" />
-                  {autoSliceRunning ? "Auto-Slicing..." : "Start Auto-Slice"}
+                  {autoSliceRunning ? t("Auto-Slicing...") : t("Start Auto-Slice")}
                 </button>
               </div>
             </div>
@@ -1155,17 +1160,17 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#eff6ff] text-[#1876f2]">
                 <UploadCloud className="h-7 w-7" />
               </span>
-              <p className="text-[15px] font-bold text-[#0f172a]">Select MP4 files for bulk upload</p>
-              <p className="mt-1 text-xs text-[#64748b]">Files will be mapped to new episodes in filename order.</p>
+              <p className="text-[15px] font-bold text-[#0f172a]">{t("Select MP4 files for bulk upload")}</p>
+              <p className="mt-1 text-xs text-[#64748b]">{t("Files will be mapped to new episodes in filename order.")}</p>
             </label>
 
             {bulkQueue.length ? (
               <div className="overflow-hidden rounded-[20px] border border-[#e2e8f0] bg-white">
                 <div className="grid grid-cols-[1.6fr_120px_120px_130px_48px] items-center border-b border-[#f1f5f9] px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.05em] text-[#94a3b8]">
-                  <span>File</span>
-                  <span>Size</span>
-                  <span>Progress</span>
-                  <span>Status</span>
+                  <span>{t("File")}</span>
+                  <span>{t("Size")}</span>
+                  <span>{t("Progress")}</span>
+                  <span>{t("Status")}</span>
                   <span />
                 </div>
                 <div className="max-h-[320px] overflow-y-auto">
@@ -1179,7 +1184,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                         </div>
                         <span className="text-xs text-[#64748b]">{formatBytes(item.file.size)}</span>
                         <span className="text-xs font-semibold text-[#334155]">{item.progress}%</span>
-                        <span className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-bold ${statusUi.className}`}>{statusUi.label}</span>
+                        <span className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-bold ${statusUi.className}`}>{t(statusUi.label)}</span>
                         <button
                           type="button"
                           onClick={() => removeBulkItem(item.id)}
@@ -1204,7 +1209,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 className="inline-flex items-center gap-2 rounded-[16px] bg-[#1876f2] px-4 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <UploadCloud className="h-4 w-4" />
-                Start Bulk Upload
+                {t("Start Bulk Upload")}
               </button>
               <button
                 type="button"
@@ -1213,7 +1218,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 className="inline-flex items-center gap-2 rounded-[16px] border border-[#cbd5e1] px-4 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <XCircle className="h-4 w-4" />
-                Stop
+                {t("Stop")}
               </button>
               <button
                 type="button"
@@ -1222,7 +1227,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 className="inline-flex items-center gap-2 rounded-[16px] border border-[#cbd5e1] px-4 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Trash2 className="h-4 w-4" />
-                Clear Queue
+                {t("Clear Queue")}
               </button>
               {bulkSummary ? <p className="text-sm font-medium text-[#334155]">{bulkSummary}</p> : null}
             </div>
@@ -1256,24 +1261,24 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                     ) : (
                       <div className="flex h-[220px] flex-col items-center justify-center text-[#64748b]">
                         <ImagePlus className="h-6 w-6" />
-                        <span className="mt-2 text-xs font-medium">Upload Cover</span>
+                        <span className="mt-2 text-xs font-medium">{t("Upload Cover")}</span>
                       </div>
                     )}
                   </label>
 
                   <div className="mt-4 flex items-center justify-between">
-                    <h3 className="text-[22px] font-black leading-none tracking-[-0.03em] text-[#1e293b] md:text-[24px]">Episode {episode.episodeNumber}</h3>
+                    <h3 className="text-[22px] font-black leading-none tracking-[-0.03em] text-[#1e293b] md:text-[24px]">{t("Episode __ARG_0__", episode.episodeNumber)}</h3>
                     <button
                       type="button"
                       onClick={() => removeEpisode(episode._id)}
                       className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569]"
-                      aria-label={`Delete episode ${episode.episodeNumber}`}
+                      aria-label={t("Delete episode __ARG_0__", episode.episodeNumber)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
 
-                  <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-bold leading-4 ${statusUi.className}`}>{statusUi.text}</div>
+                  <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-bold leading-4 ${statusUi.className}`}>{t(statusUi.text)}</div>
 
                   <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-[16px] bg-[#f1f5f9] px-3 py-2 text-[11px] font-bold text-[#334155]">
                     <input
@@ -1287,7 +1292,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       }}
                     />
                     <FileVideo2 className="h-3.5 w-3.5" />
-                    <span>Upload Video</span>
+                    <span>{t("Upload Video")}</span>
                   </label>
 
                   {state?.videoStatusText ? <p className="mt-2 text-[11px] text-[#64748b]">{state.videoStatusText}</p> : null}
@@ -1306,7 +1311,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-[#475569] hover:bg-[#f1f5f9] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <PauseCircle className="h-3.5 w-3.5" />
-                      Cancel
+                      {t("Cancel")}
                     </button>
                     <button
                       type="button"
@@ -1315,7 +1320,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-[#2563eb] hover:bg-[#eff6ff] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <RefreshCw className="h-3.5 w-3.5" />
-                      Retry status
+                      {t("Retry status")}
                     </button>
                   </div>
 
@@ -1331,13 +1336,13 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       }}
                     />
                     <GripVertical className="h-3.5 w-3.5" />
-                    <span>Upload Subtitle</span>
+                    <span>{t("Upload Subtitle")}</span>
                   </label>
 
                   {episode.subtitleUrl ? (
                     <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#f0fdf4] px-2 py-1 text-[11px] font-bold text-[#16a34a]">
                       <CheckCircle2 className="h-3 w-3" />
-                      Subtitle Ready
+                      {t("Subtitle Ready")}
                     </div>
                   ) : null}
                 </article>
@@ -1353,7 +1358,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#f1f5f9]">
                 <Plus className="h-6 w-6" />
               </span>
-              <span className="text-[13px] font-bold">Click to add new episode</span>
+              <span className="text-[13px] font-bold">{t("Click to add new episode")}</span>
             </button>
           </div>
         )}
@@ -1365,7 +1370,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
             disabled={busy}
             className="rounded-[16px] border border-[#cbd5e1] px-5 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Save Draft
+            {t("Save Draft")}
           </button>
 
           <div className="flex items-center gap-4">
@@ -1373,7 +1378,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               href={localizePath("/creator/dramas", locale)}
               className="rounded-[16px] border border-[#cbd5e1] px-5 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc]"
             >
-              Previous Step
+              {t("Previous Step")}
             </Link>
             <button
               type="button"
@@ -1381,7 +1386,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
               disabled={busy || episodes.length === 0}
               className="rounded-[16px] bg-[#1876f2] px-8 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Submit for Review
+              {t("Submit for Review")}
             </button>
           </div>
         </div>

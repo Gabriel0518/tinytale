@@ -28,6 +28,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
 import { useEffect, useMemo, useState } from "react";
 import type { CreatorApplicationStatus } from "@/types/creator";
+import { useCreatorI18n } from "./_lib/creator-i18n";
 
 const whyTinyTale = [
   {
@@ -231,6 +232,7 @@ function SectionIntro({ eyebrow, title, description }: { eyebrow: string; title:
 export default function CreatorLandingPage() {
   const { token, user } = useAuth();
   const locale = useLocale();
+  const { t } = useCreatorI18n();
   const [applicationStatus, setApplicationStatus] = useState<CreatorApplicationStatus>("draft");
   const displayName = user?.nickname?.trim() || user?.email?.split("@")[0] || "Creator";
   const initials =
@@ -291,9 +293,9 @@ export default function CreatorLandingPage() {
     return localizePath("/creator/apply", locale);
   }, [applicationStatus, locale]);
 
-  const primaryCtaLabel = applicationStatus === "approved" ? "Open Creator Center" : "Apply to Create";
-  const secondaryCtaLabel = applicationStatus === "approved" ? "Open Creator Center" : "Apply Now - It's Free";
-  const accountStatusLabel = applicationStatus === "approved" ? "Creator Account" : "Creator Applicant";
+  const primaryCtaLabel = t(applicationStatus === "approved" ? "Open Creator Center" : "Apply to Create");
+  const secondaryCtaLabel = t(applicationStatus === "approved" ? "Open Creator Center" : "Apply Now - It's Free");
+  const accountStatusLabel = t(applicationStatus === "approved" ? "Creator Account" : "Creator Applicant");
 
   return (
     <div className="min-h-screen bg-[#f5f7f8] text-[#0f172a]">
@@ -307,9 +309,9 @@ export default function CreatorLandingPage() {
             <label className="hidden min-w-[280px] items-center gap-2 rounded-lg bg-[#f1f5f9] px-3 py-2 text-sm text-[#64748b] lg:flex">
               <Search className="size-4" />
               <input
-                aria-label="Search creator docs and onboarding"
+                aria-label={t("Search creator docs and onboarding")}
                 className="w-full bg-transparent outline-none placeholder:text-[#94a3b8]"
-                placeholder="Search creator guides, payout rules, review standards..."
+                placeholder={t("Search creator guides, payout rules, review standards...")}
                 type="text"
               />
             </label>
@@ -318,7 +320,7 @@ export default function CreatorLandingPage() {
           <div className="flex items-center gap-5">
             <LanguageSwitcher />
             <button
-              aria-label="Notifications"
+              aria-label={t("Notifications")}
               className="rounded-md p-1 text-[#334155] transition hover:bg-[#f1f5f9]"
               type="button"
             >
@@ -348,10 +350,10 @@ export default function CreatorLandingPage() {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.26),_transparent_42%),radial-gradient(circle_at_80%_20%,_rgba(236,72,153,0.18),_transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(148,163,184,0.18),_transparent_38%)]" />
           <div className="relative max-w-[760px]">
             <h1 className="text-[38px] font-black leading-[0.96] tracking-[-0.05em] sm:text-[46px] md:text-[54px] lg:text-[58px] xl:text-[64px]">
-              Your stories deserve an audience and a paycheck.
+              {t("Your stories deserve an audience and a paycheck.")}
             </h1>
             <p className="mt-5 max-w-[680px] text-[15px] leading-7 text-[#cbd5e1] md:text-[17px]">
-              Publish premium short dramas on TinyTale and turn strong storytelling into real revenue with a platform built for vertical series.
+              {t("Publish premium short dramas on TinyTale and turn strong storytelling into real revenue with a platform built for vertical series.")}
             </p>
             <div className="mt-8">
               <Link
@@ -367,9 +369,9 @@ export default function CreatorLandingPage() {
 
         <section className="rounded-[28px] border border-[#e2e8f0] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] md:px-7 md:py-7">
           <SectionIntro
-            eyebrow="Why TinyTale"
-            title="Built for creators who take storytelling seriously."
-            description="We're not another social media app. TinyTale is a dedicated short drama streaming platform built for episodic vertical series and creators who want both audience attention and real revenue."
+            eyebrow={t("Why TinyTale")}
+            title={t("Built for creators who take storytelling seriously.")}
+            description={t("We're not another social media app. TinyTale is a dedicated short drama streaming platform built for episodic vertical series and creators who want both audience attention and real revenue.")}
           />
           <div className="mt-6 grid items-stretch gap-4 md:grid-cols-3">
             {whyTinyTale.map(({ title, description, icon: Icon }) => (
@@ -380,8 +382,8 @@ export default function CreatorLandingPage() {
                 <div className="flex size-11 items-center justify-center rounded-2xl bg-[#e0efff] text-[#1877F2]">
                   <Icon className="size-5" />
                 </div>
-                <h3 className="mt-4 text-[18px] font-bold tracking-[-0.02em] text-[#0f172a]">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#64748b]">{description}</p>
+                <h3 className="mt-4 text-[18px] font-bold tracking-[-0.02em] text-[#0f172a]">{t(title)}</h3>
+                <p className="mt-2 text-sm leading-6 text-[#64748b]">{t(description)}</p>
               </article>
             ))}
           </div>
@@ -389,43 +391,43 @@ export default function CreatorLandingPage() {
 
         <section className="rounded-[28px] border border-[#e2e8f0] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] md:px-7 md:py-7">
           <SectionIntro
-            eyebrow="Earning Potential"
-            title="How much can you really earn?"
-            description="Your revenue depends on content quality, episode count, and audience engagement. These scenarios reflect the current tier model and typical unlock behavior across short drama catalogs."
+            eyebrow={t("Earning Potential")}
+            title={t("How much can you really earn?")}
+            description={t("Your revenue depends on content quality, episode count, and audience engagement. These scenarios reflect the current tier model and typical unlock behavior across short drama catalogs.")}
           />
           <div className="mt-6 grid items-stretch gap-4 lg:grid-cols-3">
             {earningPotential.map((item) => (
               <article key={item.tier} className="flex h-full flex-col rounded-[24px] border border-[#dbe2ea] bg-[linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1877F2]">{item.tier}</p>
-                    <p className="mt-2 text-[18px] font-bold text-[#0f172a]">{item.share}</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1877F2]">{t(item.tier)}</p>
+                    <p className="mt-2 text-[18px] font-bold text-[#0f172a]">{t(item.share)}</p>
                   </div>
-                  <span className="rounded-full bg-[#e0efff] px-3 py-1 text-xs font-semibold text-[#1d4ed8]">{item.label}</span>
+                  <span className="rounded-full bg-[#e0efff] px-3 py-1 text-xs font-semibold text-[#1d4ed8]">{t(item.label)}</span>
                 </div>
-                <p className="mt-4 text-sm font-semibold text-[#0f172a]">{item.scenario}</p>
+                <p className="mt-4 text-sm font-semibold text-[#0f172a]">{t(item.scenario)}</p>
                 <p className="mt-auto pt-5 text-[34px] font-black tracking-[-0.04em] text-[#0f172a]">{item.estimate}</p>
               </article>
             ))}
           </div>
           <p className="mt-4 text-xs leading-6 text-[#64748b]">
-            Estimates are based on average coin-to-USD conversion and typical viewer purchasing behavior. Actual earnings vary by content performance, retention, and regional pricing.
+            {t("Estimates are based on average coin-to-USD conversion and typical viewer purchasing behavior. Actual earnings vary by content performance, retention, and regional pricing.")}
           </p>
         </section>
 
         <section id="how-it-works" className="rounded-[28px] border border-[#e2e8f0] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] md:px-7 md:py-7">
-          <SectionIntro eyebrow="How It Works" title="From idea to income in 4 steps." />
+          <SectionIntro eyebrow={t("How It Works")} title={t("From idea to income in 4 steps.")} />
           <div className="mt-6 grid items-stretch gap-4 lg:grid-cols-4">
             {workflowSteps.map(({ step, title, description, icon: Icon }) => (
               <article key={step} className="flex h-full flex-col rounded-[24px] border border-[#e2e8f0] bg-[#f8fafc] p-5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1877F2]">{`Step ${step}`}</span>
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1877F2]">{t("Step __ARG_0__", step)}</span>
                   <div className="flex size-10 items-center justify-center rounded-2xl bg-white text-[#1877F2] shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
                     <Icon className="size-5" />
                   </div>
                 </div>
-                <h3 className="mt-4 text-[18px] font-bold tracking-[-0.02em] text-[#0f172a]">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#64748b]">{description}</p>
+                <h3 className="mt-4 text-[18px] font-bold tracking-[-0.02em] text-[#0f172a]">{t(title)}</h3>
+                <p className="mt-2 text-sm leading-6 text-[#64748b]">{t(description)}</p>
               </article>
             ))}
           </div>
@@ -433,9 +435,9 @@ export default function CreatorLandingPage() {
 
         <section className="rounded-[28px] border border-[#e2e8f0] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] md:px-7 md:py-7">
           <SectionIntro
-            eyebrow="Platform Features"
-            title="Everything you need to build and grow."
-            description="The creator center now covers content operations, analytics, settlements, multilingual delivery, and support workflows without pushing you into external tools."
+            eyebrow={t("Platform Features")}
+            title={t("Everything you need to build and grow.")}
+            description={t("The creator center now covers content operations, analytics, settlements, multilingual delivery, and support workflows without pushing you into external tools.")}
           />
           <div className="mt-6 grid items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
             {platformFeatures.map(({ title, description, icon: Icon }) => (
@@ -443,8 +445,8 @@ export default function CreatorLandingPage() {
                 <div className="flex size-11 items-center justify-center rounded-2xl bg-[#eff6ff] text-[#1877F2]">
                   <Icon className="size-5" />
                 </div>
-                <h3 className="mt-4 text-[18px] font-bold tracking-[-0.02em] text-[#0f172a]">{title}</h3>
-                <p className="mt-2 text-sm leading-6 text-[#64748b]">{description}</p>
+                <h3 className="mt-4 text-[18px] font-bold tracking-[-0.02em] text-[#0f172a]">{t(title)}</h3>
+                <p className="mt-2 text-sm leading-6 text-[#64748b]">{t(description)}</p>
               </article>
             ))}
           </div>
@@ -452,9 +454,9 @@ export default function CreatorLandingPage() {
 
         <section className="rounded-[28px] border border-[#e2e8f0] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] md:px-7 md:py-7">
           <SectionIntro
-            eyebrow="Creator Tiers"
-            title="The more you create, the more you earn."
-            description="Revenue share grows with your catalog and audience performance. Every creator starts at Bronze and levels up based on published work and business results."
+            eyebrow={t("Creator Tiers")}
+            title={t("The more you create, the more you earn.")}
+            description={t("Revenue share grows with your catalog and audience performance. Every creator starts at Bronze and levels up based on published work and business results.")}
           />
           <div className="mt-6 grid items-stretch gap-4 lg:grid-cols-3">
             {creatorTiers.map((tier, index) => (
@@ -464,8 +466,8 @@ export default function CreatorLandingPage() {
               >
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-[20px] font-black tracking-[-0.03em] text-[#0f172a]">{tier.name}</p>
-                    <p className="mt-1 text-sm text-[#64748b]">Revenue share</p>
+                    <p className="text-[20px] font-black tracking-[-0.03em] text-[#0f172a]">{t(tier.name)}</p>
+                    <p className="mt-1 text-sm text-[#64748b]">{t("Revenue share")}</p>
                   </div>
                   <div className="rounded-2xl bg-white px-4 py-2 text-right shadow-[0_8px_18px_rgba(15,23,42,0.06)]">
                     <p className="text-[24px] font-black leading-none text-[#1877F2]">{tier.share}</p>
@@ -473,12 +475,12 @@ export default function CreatorLandingPage() {
                 </div>
                 <div className="mt-5 space-y-4 text-sm leading-6 text-[#475569]">
                   <div>
-                    <p className="font-semibold text-[#0f172a]">Requirements</p>
-                    <p className="mt-1">{tier.requirements}</p>
+                    <p className="font-semibold text-[#0f172a]">{t("Requirements")}</p>
+                    <p className="mt-1">{t(tier.requirements)}</p>
                   </div>
                   <div>
-                    <p className="font-semibold text-[#0f172a]">Perks</p>
-                    <p className="mt-1">{tier.perks}</p>
+                    <p className="font-semibold text-[#0f172a]">{t("Perks")}</p>
+                    <p className="mt-1">{t(tier.perks)}</p>
                   </div>
                 </div>
               </article>
@@ -489,18 +491,18 @@ export default function CreatorLandingPage() {
         <section className="rounded-[28px] border border-[#e2e8f0] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] md:px-7 md:py-7">
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <SectionIntro
-              eyebrow="Launch Readiness"
-              title="What to prepare before you go live."
-              description="Every card below reflects a real requirement already enforced by the creator application, content review, or settlement workflow."
+              eyebrow={t("Launch Readiness")}
+              title={t("What to prepare before you go live.")}
+              description={t("Every card below reflects a real requirement already enforced by the creator application, content review, or settlement workflow.")}
             />
           </div>
           <div className="mt-6 grid gap-4 lg:grid-cols-3">
             {launchReadiness.map((item) => (
               <article key={item.title} className="rounded-[24px] border border-[#e2e8f0] bg-[#f8fafc] p-5">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1877F2]">{item.title}</p>
-                <p className="mt-3 text-sm leading-7 text-[#334155]">{item.description}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1877F2]">{t(item.title)}</p>
+                <p className="mt-3 text-sm leading-7 text-[#334155]">{t(item.description)}</p>
                 <div className="mt-5 border-t border-[#e2e8f0] pt-4 text-xs leading-6 text-[#64748b]">
-                  Mapped to creator center requirements and real backend fields.
+                  {t("Mapped to creator center requirements and real backend fields.")}
                 </div>
               </article>
             ))}
@@ -508,17 +510,17 @@ export default function CreatorLandingPage() {
         </section>
 
         <section className="rounded-[28px] border border-[#e2e8f0] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] md:px-7 md:py-7">
-          <SectionIntro eyebrow="FAQ" title="Answers before you apply." />
+          <SectionIntro eyebrow="FAQ" title={t("Answers before you apply.")} />
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             {faqs.map((item) => (
               <details key={item.question} className="group rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-5 open:bg-white">
                 <summary className="cursor-pointer list-none text-[16px] font-bold text-[#0f172a]">
                   <span className="inline-flex items-start gap-3">
                     <span className="mt-1 size-2 rounded-full bg-[#1877F2]" />
-                    <span>{item.question}</span>
+                    <span>{t(item.question)}</span>
                   </span>
                 </summary>
-                <p className="mt-3 pl-5 text-sm leading-6 text-[#64748b]">{item.answer}</p>
+                <p className="mt-3 pl-5 text-sm leading-6 text-[#64748b]">{t(item.answer)}</p>
               </details>
             ))}
           </div>
@@ -527,12 +529,12 @@ export default function CreatorLandingPage() {
         <section className="overflow-hidden rounded-[32px] border border-[#dbe2ea] bg-[linear-gradient(135deg,#0f172a_0%,#16233b_55%,#1d4ed8_140%)] px-5 py-8 text-white shadow-[0_20px_50px_rgba(15,23,42,0.18)] md:px-8 md:py-9">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-3xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#93c5fd]">Final CTA</p>
-              <h2 className="mt-3 text-[30px] font-black tracking-[-0.04em] text-white md:text-[38px]">We&apos;re actively recruiting creators.</h2>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#93c5fd]">{t("Final CTA")}</p>
+              <h2 className="mt-3 text-[30px] font-black tracking-[-0.04em] text-white md:text-[38px]">{t("We're actively recruiting creators.")}</h2>
               <p className="mt-3 text-[15px] leading-7 text-[#dbeafe] md:text-[16px]">
-                Spots in the creator program are reviewed on a rolling basis. The sooner you apply, the sooner your stories reach a growing audience of drama fans.
+                {t("Spots in the creator program are reviewed on a rolling basis. The sooner you apply, the sooner your stories reach a growing audience of drama fans.")}
               </p>
-              <p className="mt-4 text-xs text-[#bfdbfe]">No credit card required. 48-hour review. Cancel anytime.</p>
+              <p className="mt-4 text-xs text-[#bfdbfe]">{t("No credit card required. 48-hour review. Cancel anytime.")}</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col xl:flex-row">
               <Link
@@ -546,7 +548,7 @@ export default function CreatorLandingPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-6 py-3 text-[14px] font-bold text-white transition hover:bg-white/15"
                 href={localizePath("/creator/dashboard", locale)}
               >
-                Open Creator Center
+                {t("Open Creator Center")}
               </Link>
             </div>
           </div>

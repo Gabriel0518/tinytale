@@ -7,6 +7,7 @@ import { Bell, Plus, Search } from "lucide-react";
 import { creatorApi } from "@/lib/api";
 import { localizePath, type SupportedLocale } from "@/lib/i18n";
 import { useAuth } from "@/lib/authContext";
+import { useCreatorI18n } from "../_lib/creator-i18n";
 
 interface CreatorTopHeaderProps {
   locale: SupportedLocale;
@@ -15,6 +16,7 @@ interface CreatorTopHeaderProps {
 export default function CreatorTopHeader({ locale }: CreatorTopHeaderProps) {
   const pathname = usePathname();
   const { token } = useAuth();
+  const { t } = useCreatorI18n();
   const [unreadCount, setUnreadCount] = useState(0);
 
   const loadUnreadCount = useCallback(async () => {
@@ -51,14 +53,14 @@ export default function CreatorTopHeader({ locale }: CreatorTopHeaderProps) {
         <input
           type="text"
           readOnly
-          placeholder="Search dramas, submissions, tickets, or settlements..."
+          placeholder={t("Search dramas, submissions, tickets, or settlements...")}
           className="h-[34px] w-full rounded-2xl bg-[#f1f5f9] pl-10 pr-4 text-[13px] text-[#6b7280] outline-none"
         />
       </div>
       <div className="ml-3 flex items-center gap-2.5 md:ml-5 md:gap-3">
         <Link
           href={localizePath("/creator/notifications", locale)}
-          aria-label="Notifications"
+          aria-label={t("Notifications")}
           className="relative rounded-2xl p-1.5 text-[#475569] transition-colors hover:bg-[#f8fafc]"
         >
           <Bell className="h-5 w-5" />
@@ -76,7 +78,7 @@ export default function CreatorTopHeader({ locale }: CreatorTopHeaderProps) {
           className="inline-flex items-center gap-2 rounded-2xl bg-[#1876f2] px-3 py-1.5 text-[13px] font-bold text-white transition-colors hover:bg-[#1669da] md:px-3.5"
         >
           <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">New Drama</span>
+          <span className="hidden sm:inline">{t("New Drama")}</span>
         </Link>
       </div>
     </header>

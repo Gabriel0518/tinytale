@@ -11,33 +11,12 @@ import { useToast } from "@/components/ui/Toast";
 import { useLocale } from "@/hooks/useLocale";
 import { localizePath } from "@/lib/i18n";
 import type { CreatorNotification, CreatorNotificationCategory } from "@/types/creator";
+import { translateCreatorText, useCreatorI18n } from "../_lib/creator-i18n";
 
 type FilterKey = "all" | "unread" | CreatorNotificationCategory;
 
 const panelClassName =
   "rounded-[28px] border border-[#dbe4ef] bg-white shadow-[0_18px_48px_rgba(15,23,42,0.05)]";
-
-function formatRelativeTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days}d ago`;
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function getNotificationVisual(icon: CreatorNotification["icon"]) {
   switch (icon) {
@@ -71,6 +50,7 @@ function getNotificationVisual(icon: CreatorNotification["icon"]) {
 
 export default function CreatorNotificationsPage() {
   const locale = useLocale();
+  const { t, formatRelativeTime } = useCreatorI18n();
   const router = useRouter();
   const { token } = useAuth();
   const { toast } = useToast();
@@ -100,11 +80,11 @@ export default function CreatorNotificationsPage() {
       setSummary(response.data.summary || { total: 0, system: 0, performance: 0 });
       broadcastNotificationChange();
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Failed to load notifications.", "error");
+      toast(error instanceof Error ? error.message : t("Failed to load notifications."), "error");
     } finally {
       setLoading(false);
     }
-  }, [broadcastNotificationChange, toast, token]);
+  }, [broadcastNotificationChange, t, toast, token]);
 
   useEffect(() => {
     loadNotifications();
@@ -151,12 +131,12 @@ export default function CreatorNotificationsPage() {
         markReadLocally(id);
         broadcastNotificationChange();
       } catch (error) {
-        toast(error instanceof Error ? error.message : "Failed to update notification.", "error");
+        toast(error instanceof Error ? error.message : t("Failed to update notification."), "error");
       } finally {
         setMarkingId(null);
       }
     },
-    [broadcastNotificationChange, markReadLocally, notifications, toast, token]
+    [broadcastNotificationChange, markReadLocally, notifications, t, toast, token]
   );
 
   async function handleMarkAllRead() {
@@ -167,9 +147,9 @@ export default function CreatorNotificationsPage() {
       await creatorApi.markAllNotificationsRead(token);
       setNotifications((current) => current.map((item) => ({ ...item, read: true })));
       broadcastNotificationChange();
-      toast("All notifications marked as read.", "success");
+      toast(t("All notifications marked as read."), "success");
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Failed to update notifications.", "error");
+      toast(error instanceof Error ? error.message : t("Failed to update notifications."), "error");
     } finally {
       setMarkingAll(false);
     }
@@ -179,9 +159,9 @@ export default function CreatorNotificationsPage() {
     <div className="mx-auto flex w-full max-w-[1080px] flex-col gap-6">
       <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-[42px] font-black leading-[1.02] tracking-[-0.04em] text-[#18233a]">Notifications</h1>
+          <h1 className="text-[42px] font-black leading-[1.02] tracking-[-0.04em] text-[#18233a]">{t("Notifications")}</h1>
           <p className="mt-2 text-[15px] leading-7 text-[#70819c]">
-            Stay on top of creator workflow changes across support, settlement, agreement, and performance updates.
+            {t("Stay on top of creator workflow changes across support, settlement, agreement, and performance updates.")}
           </p>
         </div>
 
@@ -191,7 +171,7 @@ export default function CreatorNotificationsPage() {
           disabled={markingAll || unreadCount <= 0}
           className="inline-flex h-11 items-center justify-center rounded-[16px] border border-[#d9e2ef] bg-white px-5 text-[14px] font-semibold text-[#1e293b] transition hover:border-[#c9d5e4] hover:bg-[#f8fbff] disabled:cursor-not-allowed disabled:opacity-55"
         >
-          {markingAll ? "Updating..." : "Mark all as read"}
+          {markingAll ? t("Updating...") : t("Mark all as read")}
         </button>
       </section>
 
@@ -203,7 +183,7 @@ export default function CreatorNotificationsPage() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search notifications..."
+                placeholder={t("Search notifications...")}
                 className="h-[44px] w-full rounded-full border border-[#d9e2ef] bg-[#fbfdff] pl-11 pr-4 text-[14px] text-[#18233a] outline-none transition placeholder:text-[#9aa8bc] focus:border-[#2d7af0]"
               />
             </div>
@@ -222,7 +202,7 @@ export default function CreatorNotificationsPage() {
                         : "border-[#dde5f0] bg-white text-[#52637e] hover:border-[#cbd8e6] hover:bg-[#f8fbff]"
                     }`}
                   >
-                    {item.label}
+                    {t(item.label)}
                     <span className={`ml-1.5 ${active ? "text-[#1d4ed8]" : "text-[#8fa0b6]"}`}>{item.count}</span>
                   </button>
                 );
@@ -235,7 +215,7 @@ export default function CreatorNotificationsPage() {
           <div className="flex min-h-[360px] items-center justify-center">
             <div className="flex items-center gap-3 rounded-2xl border border-[#e2e8f0] bg-white px-5 py-4 text-sm font-semibold text-[#475569] shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
               <Loader2 className="h-4 w-4 animate-spin text-[#1876f2]" />
-              Loading notifications...
+              {t("Loading notifications...")}
             </div>
           </div>
         ) : filteredNotifications.length ? (
@@ -279,7 +259,7 @@ export default function CreatorNotificationsPage() {
                         <p className="mt-1 text-[14px] leading-6 text-[#70819c]">{item.message}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
-                        <span className="text-[12px] font-medium text-[#94a3b8]">{formatRelativeTime(item.createdAt)}</span>
+                        <span className="text-[12px] font-medium text-[#94a3b8]">{formatRelativeTime(item.createdAt, "short")}</span>
                         {!item.read ? <span className="h-2.5 w-2.5 rounded-full bg-[#1876f2]" /> : null}
                       </div>
                     </div>
@@ -289,7 +269,7 @@ export default function CreatorNotificationsPage() {
                           item.category === "performance" ? "bg-[#eef2ff] text-[#4f46e5]" : "bg-[#eff6ff] text-[#2563eb]"
                         }`}
                       >
-                        {item.category}
+                        {translateCreatorText(item.category, locale)}
                       </span>
                       {!item.read ? (
                         <button
@@ -302,7 +282,7 @@ export default function CreatorNotificationsPage() {
                           disabled={markingId === item.id}
                           className="text-[12px] font-semibold text-[#1876f2] transition hover:text-[#165fcc] disabled:opacity-50"
                         >
-                          {markingId === item.id ? "Updating..." : "Mark read"}
+                          {markingId === item.id ? t("Updating...") : t("Mark read")}
                         </button>
                       ) : null}
                     </div>
@@ -316,9 +296,9 @@ export default function CreatorNotificationsPage() {
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eff6ff] text-[#2563eb]">
               <Bell className="h-6 w-6" />
             </div>
-            <h2 className="mt-5 text-[20px] font-bold text-[#18233a]">No notifications found</h2>
+            <h2 className="mt-5 text-[20px] font-bold text-[#18233a]">{t("No notifications found")}</h2>
             <p className="mt-2 max-w-[420px] text-[14px] leading-6 text-[#70819c]">
-              There are no matching updates for the current filter. Try another category or clear the search keyword.
+              {t("There are no matching updates for the current filter. Try another category or clear the search keyword.")}
             </p>
             <button
               type="button"
@@ -328,7 +308,7 @@ export default function CreatorNotificationsPage() {
               }}
               className="mt-5 inline-flex h-11 items-center justify-center rounded-[16px] border border-[#d9e2ef] bg-white px-5 text-[14px] font-semibold text-[#1e293b] transition hover:border-[#c9d5e4] hover:bg-[#f8fbff]"
             >
-              Reset filters
+              {t("Reset filters")}
             </button>
           </div>
         )}

@@ -16,22 +16,12 @@ import {
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import type { CreatorApplicationStatus } from "@/types/creator";
-
-function formatRelativeTime(value?: string): string {
-  if (!value) return "just now";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "just now";
-  const diffMs = Date.now() - date.getTime();
-  const hours = Math.floor(diffMs / 3600000);
-  if (hours < 1) return "just now";
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
+import { useCreatorI18n } from "../_lib/creator-i18n";
 
 export default function CreatorPendingPage() {
   const { token } = useAuth();
   const locale = useLocale();
+  const { t, formatRelativeTime } = useCreatorI18n();
   const [status, setStatus] = useState<CreatorApplicationStatus>("under_review");
   const [applicationId, setApplicationId] = useState("TT-00000");
   const [updatedAt, setUpdatedAt] = useState("");
@@ -73,9 +63,9 @@ export default function CreatorPendingPage() {
       <section className="relative mx-auto w-full max-w-[760px] rounded-[24px] border border-[#dbe2ea] bg-white p-5 shadow-[0_30px_70px_-32px_rgba(15,23,42,0.5)] md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1876f2]">Creator Application</p>
-            <h1 className="mt-2 text-[30px] font-black tracking-[-0.03em] text-[#0f172a] md:text-[34px]">Application Status</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748b]">Track your creator onboarding review. Approval unlocks the creator dashboard, drama uploads, analytics, and settlement views.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1876f2]">{t("Creator Application")}</p>
+            <h1 className="mt-2 text-[30px] font-black tracking-[-0.03em] text-[#0f172a] md:text-[34px]">{t("Application Status")}</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#64748b]">{t("Track your creator onboarding review. Approval unlocks the creator dashboard, drama uploads, analytics, and settlement views.")}</p>
           </div>
           <div className="rounded-full bg-[#eff6ff] px-3.5 py-1.5 text-[13px] font-semibold text-[#1d4ed8]">{applicationId}</div>
         </div>
@@ -86,7 +76,7 @@ export default function CreatorPendingPage() {
             <div>
               <p className="text-[15px] font-bold">{meta.title}</p>
               <p className="mt-1 text-sm leading-6">{meta.description}</p>
-              {rejectionReason ? <p className="mt-2 text-sm font-medium">Review note: {rejectionReason}</p> : null}
+              {rejectionReason ? <p className="mt-2 text-sm font-medium">{t("Review note:")} {rejectionReason}</p> : null}
             </div>
           </div>
         </div>
@@ -112,29 +102,29 @@ export default function CreatorPendingPage() {
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <div className="rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Review Checklist</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Review Checklist")}</p>
             <ul className="mt-3 space-y-2 text-sm leading-6 text-[#475569]">
-              <li>Identity and contact information</li>
-              <li>Creative genres and portfolio proof</li>
-              <li>Document verification upload</li>
-              <li>In-page creator agreement acceptance</li>
+              <li>{t("Identity and contact information")}</li>
+              <li>{t("Creative genres and portfolio proof")}</li>
+              <li>{t("Document verification upload")}</li>
+              <li>{t("In-page creator agreement acceptance")}</li>
             </ul>
           </div>
           <div className="rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Last Update</p>
-            <p className="mt-3 text-[18px] font-bold text-[#0f172a]">{formatRelativeTime(updatedAt)}</p>
-            <p className="mt-2 text-sm leading-6 text-[#64748b]">Standard target is within 48 hours, though revisions or additional checks may extend review.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Last Update")}</p>
+            <p className="mt-3 text-[18px] font-bold text-[#0f172a]">{formatRelativeTime(updatedAt, "short")}</p>
+            <p className="mt-2 text-sm leading-6 text-[#64748b]">{t("Standard target is within 48 hours, though revisions or additional checks may extend review.")}</p>
           </div>
         </div>
 
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#e2e8f0] pt-5">
           <Link href={localizePath("/creator", locale)} className="inline-flex items-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-4 py-2 text-[13px] font-semibold text-[#334155] hover:bg-[#f8fafc]">
             <ArrowLeft className="h-4 w-4" />
-            Back to Creator Home
+            {t("Back to Creator Home")}
           </Link>
           {status === "need_more_info" || status === "rejected" ? (
             <Link href={localizePath("/creator/apply/review", locale)} className="rounded-full bg-[#1876f2] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#1669da]">
-              Update Application
+              {t("Update Application")}
             </Link>
           ) : null}
         </div>

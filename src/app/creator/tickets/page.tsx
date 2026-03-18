@@ -27,6 +27,7 @@ import {
 } from "@/lib/creator";
 import { localizePath } from "@/lib/i18n";
 import { useAuth } from "@/lib/authContext";
+import { useCreatorI18n } from "../_lib/creator-i18n";
 
 interface TicketListItem {
   _id: string;
@@ -43,32 +44,6 @@ interface TicketListItem {
 
 const PAGE_SIZE = 4;
 const TABLE_GRID = "grid grid-cols-[108px_minmax(0,1.8fr)_minmax(120px,0.95fr)_110px_124px_120px_102px]";
-
-function formatRelativeTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-
-  const diff = date.getTime() - Date.now();
-  const absMinutes = Math.round(Math.abs(diff) / 60000);
-
-  if (absMinutes < 60) {
-    return absMinutes <= 1 ? "Just now" : `${absMinutes} min ago`;
-  }
-
-  const absHours = Math.round(absMinutes / 60);
-  if (absHours < 24) {
-    return `${absHours} hour${absHours === 1 ? "" : "s"} ago`;
-  }
-
-  const absDays = Math.round(absHours / 24);
-  if (absDays === 1) return "Yesterday";
-  if (absDays < 7) return `${absDays} days ago`;
-
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function MetricCard({
   icon,
@@ -118,6 +93,7 @@ function MetricCard({
 
 export default function CreatorTicketsPage() {
   const locale = useLocale();
+  const { t, formatRelativeTime } = useCreatorI18n();
   const { token } = useAuth();
   const [keywordInput, setKeywordInput] = useState("");
   const [keyword, setKeyword] = useState("");
@@ -159,11 +135,11 @@ export default function CreatorTicketsPage() {
       setTotalPages(Math.max(1, Number(res?.data?.totalPages || 1)));
       setStatusCounts(res?.data?.statusCounts || {});
     } catch (err: any) {
-      setError(err?.message || "Failed to load tickets");
+      setError(err?.message || t("Failed to load tickets"));
     } finally {
       setLoading(false);
     }
-  }, [keyword, page, status, token]);
+  }, [keyword, page, status, t, token]);
 
   useEffect(() => {
     loadTickets();
@@ -205,19 +181,19 @@ export default function CreatorTicketsPage() {
       setActionTicketId(null);
       await loadTickets();
     } catch (err: any) {
-      setError(err?.message || "Failed to close ticket");
-    } finally {
-      setClosingTicketId(null);
-    }
+        setError(err?.message || t("Failed to close ticket"));
+      } finally {
+        setClosingTicketId(null);
+      }
   }
 
   return (
     <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-8">
       <section className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-[44px] font-black leading-[1.05] tracking-[-0.04em] text-[#18233a]">Support Tickets</h1>
+          <h1 className="text-[44px] font-black leading-[1.05] tracking-[-0.04em] text-[#18233a]">{t("Support Tickets")}</h1>
           <p className="mt-2 max-w-[620px] text-[15px] leading-7 text-[#70819c]">
-            Manage and track your creator support tickets across monetization, content review, platform issues, and account operations.
+            {t("Manage and track your creator support tickets across monetization, content review, platform issues, and account operations.")}
           </p>
         </div>
 
@@ -226,7 +202,7 @@ export default function CreatorTicketsPage() {
           className="inline-flex h-12 items-center justify-center gap-2 rounded-[16px] bg-[#2d7af0] px-6 text-[15px] font-semibold text-white shadow-[0_10px_24px_rgba(45,122,240,0.28)] transition hover:bg-[#1d6ee8]"
         >
           <Plus className="h-4 w-4" />
-          Create New Ticket
+          {t("Create New Ticket")}
         </Link>
       </section>
 
@@ -238,7 +214,7 @@ export default function CreatorTicketsPage() {
               <input
                 value={keywordInput}
                 onChange={(event) => setKeywordInput(event.target.value)}
-                placeholder="Search by ticket ID or subject..."
+                placeholder={t("Search by ticket ID or subject...")}
                 className="h-[44px] w-full rounded-full border border-[#d9e2ef] bg-[#fbfdff] pl-11 pr-4 text-[14px] text-[#18233a] outline-none transition placeholder:text-[#9aa8bc] focus:border-[#2d7af0]"
               />
             </div>
@@ -260,7 +236,7 @@ export default function CreatorTicketsPage() {
                         : "border-[#dde5f0] bg-white text-[#52637e] hover:border-[#cbd8e6] hover:bg-[#f8fbff]"
                     }`}
                   >
-                    {filter.label}
+                    {t(filter.label)}
                     {filter.count > 0 ? <span className="ml-1 text-[#8fa0b6]">{filter.count}</span> : null}
                   </button>
                 );
@@ -276,32 +252,32 @@ export default function CreatorTicketsPage() {
         <div className="overflow-x-auto">
           <div className="min-w-[926px]">
             <div className={`${TABLE_GRID} border-b border-[#edf2f7] bg-[#fbfcfe] px-6 text-[11px] font-bold uppercase tracking-[0.08em] text-[#7f90a8]`}>
-              <div className="py-5">Ticket ID</div>
-              <div className="py-5">Subject</div>
-              <div className="py-5">Category</div>
-              <div className="py-5">Priority</div>
-              <div className="py-5 leading-4">Last Update</div>
-              <div className="py-5">Status</div>
-              <div className="py-5 text-center">Actions</div>
+              <div className="py-5">{t("Ticket ID")}</div>
+              <div className="py-5">{t("Subject")}</div>
+              <div className="py-5">{t("Category")}</div>
+              <div className="py-5">{t("Priority")}</div>
+              <div className="py-5 leading-4">{t("Last Update")}</div>
+              <div className="py-5">{t("Status")}</div>
+              <div className="py-5 text-center">{t("Actions")}</div>
             </div>
 
             {loading ? (
-              <div className="px-6 py-16 text-center text-[14px] text-[#64748b]">Loading tickets...</div>
+              <div className="px-6 py-16 text-center text-[14px] text-[#64748b]">{t("Loading tickets...")}</div>
             ) : tickets.length === 0 ? (
               <div className="px-6 py-16">
                 <div className="flex flex-col items-center rounded-[24px] border border-dashed border-[#d7e1ec] bg-[#fbfdff] px-6 py-12 text-center">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eff6ff] text-[#2d7af0]">
                     <LifeBuoy className="h-6 w-6" />
                   </div>
-                  <p className="mt-4 text-[18px] font-bold text-[#18233a]">No tickets yet</p>
+                  <p className="mt-4 text-[18px] font-bold text-[#18233a]">{t("No tickets yet")}</p>
                   <p className="mt-2 max-w-[420px] text-[14px] leading-6 text-[#70819c]">
-                    Create a new ticket when you need help with payouts, review feedback, upload blockers, or creator account support.
+                    {t("Create a new ticket when you need help with payouts, review feedback, upload blockers, or creator account support.")}
                   </p>
                   <Link
                     href={localizePath("/creator/tickets/new", locale)}
                     className="mt-5 inline-flex h-11 items-center justify-center rounded-[14px] bg-[#2d7af0] px-5 text-[14px] font-semibold text-white transition hover:bg-[#1d6ee8]"
                   >
-                    Submit New Ticket
+                    {t("Submit New Ticket")}
                   </Link>
                 </div>
               </div>
@@ -313,18 +289,18 @@ export default function CreatorTicketsPage() {
                     <Link href={localizePath(`/creator/tickets/${ticket._id}`, locale)} className="line-clamp-2 text-[15px] font-semibold leading-5 text-[#1e293b] transition hover:text-[#2d7af0]">
                       {ticket.subject}
                     </Link>
-                    <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-[#98a7ba]">{ticket.latestMessage || "No recent message preview."}</p>
+                    <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-[#98a7ba]">{ticket.latestMessage || t("No recent message preview.")}</p>
                   </div>
-                  <div className="py-5 text-[14px] text-[#61728e]">{getCreatorTicketCategoryShortLabel(ticket.category as any)}</div>
+                  <div className="py-5 text-[14px] text-[#61728e]">{t(getCreatorTicketCategoryShortLabel(ticket.category as any))}</div>
                   <div className="py-5">
                     <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.04em] ${getCreatorTicketPriorityBadgeClassName(ticket.priority)}`}>
-                      {getCreatorTicketPriorityLabel(ticket.priority)}
+                      {t(getCreatorTicketPriorityLabel(ticket.priority))}
                     </span>
                   </div>
-                  <div className="py-5 pr-4 text-[14px] leading-5 text-[#71819b]">{formatRelativeTime(ticket.updatedAt || ticket.lastMessageAt)}</div>
+                  <div className="py-5 pr-4 text-[14px] leading-5 text-[#71819b]">{formatRelativeTime(ticket.updatedAt || ticket.lastMessageAt, "short")}</div>
                   <div className={`flex items-center gap-2 py-5 text-[14px] font-semibold ${getCreatorTicketStatusTextClassName(ticket.status)}`}>
                     <span className={`h-2 w-2 rounded-full ${getCreatorTicketStatusDotClassName(ticket.status)}`} />
-                    <span>{getCreatorTicketStatusLabel(ticket.status)}</span>
+                    <span>{t(getCreatorTicketStatusLabel(ticket.status))}</span>
                   </div>
                   <div className="relative flex justify-center py-5">
                     <button
@@ -347,7 +323,7 @@ export default function CreatorTicketsPage() {
                           href={localizePath(`/creator/tickets/${ticket._id}`, locale)}
                           className="flex rounded-xl px-3 py-2 text-[13px] font-medium text-[#334155] transition hover:bg-[#f8fbff] hover:text-[#2d7af0]"
                         >
-                          View details
+                          {t("View details")}
                         </Link>
                         {ticket.status !== "closed" ? (
                           <button
@@ -356,7 +332,7 @@ export default function CreatorTicketsPage() {
                             onClick={() => handleCloseTicket(ticket._id)}
                             className="flex w-full rounded-xl px-3 py-2 text-left text-[13px] font-medium text-[#c2410c] transition hover:bg-[#fff7ed] disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {closingTicketId === ticket._id ? "Closing..." : "Close ticket"}
+                            {closingTicketId === ticket._id ? t("Closing...") : t("Close ticket")}
                           </button>
                         ) : null}
                       </div>
@@ -370,7 +346,7 @@ export default function CreatorTicketsPage() {
 
         <div className="flex items-center justify-between px-6 py-5 text-[13px] text-[#70819c]">
           <p>
-            Showing {tickets.length} of {total || tickets.length} tickets
+            {t("Showing __ARG_0__ of __ARG_1__ tickets", tickets.length, total || tickets.length)}
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -396,24 +372,24 @@ export default function CreatorTicketsPage() {
       <section className="grid gap-4 xl:grid-cols-3">
         <MetricCard
           icon={<MessageSquareDashed className="h-5 w-5" />}
-          title="Average Response Time"
+          title={t("Average Response Time")}
           value="24h"
-          helper="Typical first-response SLA for creator support tickets."
+          helper={t("Typical first-response SLA for creator support tickets.")}
           tone="blue"
         />
         <MetricCard
           icon={<CircleHelp className="h-5 w-5" />}
-          title="Resolved Tickets"
+          title={t("Resolved Tickets")}
           value={String(Number(statusCounts.resolved || 0) + Number(statusCounts.closed || 0))}
-          helper="Resolved and closed tickets across your current support history."
+          helper={t("Resolved and closed tickets across your current support history.")}
           tone="green"
         />
         <MetricCard
           icon={<Bot className="h-5 w-5" />}
-          title="AI Help Center"
-          helper="Try the guided help flow before opening a new ticket for routine technical checks."
+          title={t("AI Help Center")}
+          helper={t("Try the guided help flow before opening a new ticket for routine technical checks.")}
           tone="slate"
-          cta="Create guided ticket"
+          cta={t("Create guided ticket")}
           href={localizePath("/creator/tickets/new", locale)}
         />
       </section>

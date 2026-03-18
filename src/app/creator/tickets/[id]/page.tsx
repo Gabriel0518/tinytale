@@ -27,11 +27,12 @@ import {
 import { localizePath } from "@/lib/i18n";
 import { useAuth } from "@/lib/authContext";
 import type { CreatorTicket, CreatorTicketMessage } from "@/types/creator";
+import { useCreatorI18n } from "../../_lib/creator-i18n";
 
-function formatFullDate(value: string): string {
+function formatFullDate(value: string, locale: ReturnType<typeof useLocale>): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString("en-US", {
+  return date.toLocaleString(locale === "en" ? "en-US" : locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -40,31 +41,34 @@ function formatFullDate(value: string): string {
   });
 }
 
-function formatTime(value: string): string {
+function formatTime(value: string, locale: ReturnType<typeof useLocale>): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleTimeString("en-US", {
+  return date.toLocaleTimeString(locale === "en" ? "en-US" : locale, {
     hour: "numeric",
     minute: "2-digit",
   });
 }
 
-function formatConversationMarker(value: string): string {
+function formatConversationMarker(value: string, locale: ReturnType<typeof useLocale>, t: ReturnType<typeof useCreatorI18n>["t"]): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "LATEST UPDATE";
+  if (Number.isNaN(date.getTime())) return t("LATEST UPDATE");
 
   const today = new Date();
   const isToday = date.toDateString() === today.toDateString();
-  return `${isToday ? "TODAY" : date.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase()}, ${date.toLocaleTimeString("en-US", {
+  return `${isToday ? t("TODAY") : date.toLocaleDateString(locale === "en" ? "en-US" : locale, { month: "short", day: "numeric" }).toUpperCase()}, ${date.toLocaleTimeString(locale === "en" ? "en-US" : locale, {
     hour: "numeric",
     minute: "2-digit",
   }).toUpperCase()}`;
 }
 
-function getSupportLabel(message: CreatorTicketMessage): string {
-  if (message.senderType === "creator") return "You";
-  if (message.senderType === "system") return "TinyTale System";
-  return "TinyTale Support";
+function getSupportLabel(
+  message: CreatorTicketMessage,
+  t: ReturnType<typeof useCreatorI18n>["t"]
+): string {
+  if (message.senderType === "creator") return t("You");
+  if (message.senderType === "system") return t("TinyTale System");
+  return t("TinyTale Support");
 }
 
 function ThreadAvatar({ message }: { message: CreatorTicketMessage }) {
@@ -133,6 +137,7 @@ async function uploadTicketAttachments(token: string, files: File[]): Promise<st
 export default function CreatorTicketDetailPage() {
   const params = useParams<{ id: string }>();
   const locale = useLocale();
+  const { t } = useCreatorI18n();
   const { token } = useAuth();
   const attachmentInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -159,7 +164,7 @@ export default function CreatorTicketDetailPage() {
         if (!cancelled) setTicket(res?.data || null);
       })
       .catch((err: any) => {
-        if (!cancelled) setError(err?.message || "Failed to load ticket detail");
+        if (!cancelled) setError(err?.message || t("Failed to load ticket detail"));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -168,7 +173,7 @@ export default function CreatorTicketDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [ticketId, token]);
+  }, [t, ticketId, token]);
 
   async function handleReply(event: React.FormEvent) {
     event.preventDefault();
@@ -185,7 +190,7 @@ export default function CreatorTicketDetailPage() {
       setReply("");
       setReplyAttachments([]);
     } catch (err: any) {
-      setError(err?.message || "Failed to send ticket reply");
+      setError(err?.message || t("Failed to send ticket reply"));
     } finally {
       setReplying(false);
     }
@@ -207,7 +212,7 @@ export default function CreatorTicketDetailPage() {
       const res: any = await creatorApi.closeTicket(token, ticket._id);
       setTicket(res?.data || ticket);
     } catch (err: any) {
-      setError(err?.message || "Failed to close ticket");
+      setError(err?.message || t("Failed to close ticket"));
     } finally {
       setClosing(false);
     }
@@ -224,31 +229,31 @@ export default function CreatorTicketDetailPage() {
     const currentStatus = getCreatorTicketStatusLabel(ticket.status);
     const items: Array<{ title: string; time: string; tone: "blue" | "slate" | "amber" | "green" }> = [
       {
-        title: "Ticket Created",
-        time: formatFullDate(ticket.createdAt),
+        title: t("Ticket Created"),
+        time: formatFullDate(ticket.createdAt, locale),
         tone: "blue" as const,
       },
     ];
 
     if (supportMessages.length > 0) {
       items.push({
-        title: "Support Replied",
-        time: formatFullDate(supportMessages[0].createdAt),
+        title: t("Support Replied"),
+        time: formatFullDate(supportMessages[0].createdAt, locale),
         tone: "slate" as const,
       });
     }
 
     items.push({
-      title: `Status: ${currentStatus}`,
-      time: formatFullDate(ticket.closedAt || ticket.resolvedAt || ticket.updatedAt),
+      title: t("Status: __ARG_0__", t(currentStatus)),
+      time: formatFullDate(ticket.closedAt || ticket.resolvedAt || ticket.updatedAt, locale),
       tone: ticket.status === "resolved" || ticket.status === "closed" ? ("green" as const) : ("amber" as const),
     });
 
     return items;
-  }, [supportMessages, ticket]);
+  }, [locale, supportMessages, t, ticket]);
 
   if (loading) {
-    return <div className="mx-auto w-full max-w-[1040px] text-[14px] text-[#64748b]">Loading ticket...</div>;
+    return <div className="mx-auto w-full max-w-[1040px] text-[14px] text-[#64748b]">{t("Loading ticket...")}</div>;
   }
 
   if (error && !ticket) {
@@ -256,7 +261,7 @@ export default function CreatorTicketDetailPage() {
   }
 
   if (!ticket) {
-    return <div className="mx-auto w-full max-w-[1040px] text-[14px] text-[#64748b]">Ticket not found.</div>;
+    return <div className="mx-auto w-full max-w-[1040px] text-[14px] text-[#64748b]">{t("Ticket not found.")}</div>;
   }
 
   return (
@@ -265,20 +270,20 @@ export default function CreatorTicketDetailPage() {
         <div>
           <nav className="flex items-center gap-2 text-[14px] text-[#7d8da4]">
             <Link href={localizePath("/creator/tickets", locale)} className="transition hover:text-[#2d7af0]">
-              Support
+              {t("Support")}
             </Link>
             <span>›</span>
             <Link href={localizePath("/creator/tickets", locale)} className="transition hover:text-[#2d7af0]">
-              My Tickets
+              {t("My Tickets")}
             </Link>
             <span>›</span>
-            <span className="font-medium text-[#4a5b75]">Ticket #{ticket.ticketNo}</span>
+            <span className="font-medium text-[#4a5b75]">{t("Ticket #__ARG_0__", ticket.ticketNo)}</span>
           </nav>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <h1 className="text-[42px] font-black leading-[1.05] tracking-[-0.04em] text-[#18233a]">{ticket.subject}</h1>
             <span className={`inline-flex rounded-full px-4 py-1.5 text-[13px] font-bold uppercase tracking-[0.06em] ${getCreatorTicketStatusClassName(ticket.status)}`}>
-              {getCreatorTicketStatusLabel(ticket.status)}
+              {t(getCreatorTicketStatusLabel(ticket.status))}
             </span>
           </div>
         </div>
@@ -291,7 +296,7 @@ export default function CreatorTicketDetailPage() {
             className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-[#d9e2ef] bg-white px-5 text-[14px] font-semibold text-[#18233a] transition hover:bg-[#f8fbff] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <X className="h-4 w-4" />
-            {closing ? "Closing..." : "Close Ticket"}
+            {closing ? t("Closing...") : t("Close Ticket")}
           </button>
         ) : null}
       </section>
@@ -303,7 +308,7 @@ export default function CreatorTicketDetailPage() {
           <article className="overflow-hidden rounded-[28px] border border-[#dbe4ef] bg-white shadow-[0_20px_48px_rgba(15,23,42,0.05)]">
             <div className="px-6 pt-6">
               <div className="mx-auto inline-flex rounded-full bg-[#eef3f8] px-4 py-1.5 text-[12px] font-semibold uppercase tracking-[0.04em] text-[#7d8da4]">
-                {formatConversationMarker(ticket.updatedAt)}
+                {formatConversationMarker(ticket.updatedAt, locale, t)}
               </div>
             </div>
 
@@ -315,9 +320,9 @@ export default function CreatorTicketDetailPage() {
                 if (isSystem) {
                   return (
                     <div key={`${message.createdAt}-${index}`} className="rounded-2xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 text-[13px] leading-6 text-[#475569]">
-                      <p className="font-semibold text-[#334155]">System Update</p>
+                      <p className="font-semibold text-[#334155]">{t("System Update")}</p>
                       <p className="mt-1">{message.message}</p>
-                      <p className="mt-2 text-[12px] text-[#94a3b8]">{formatTime(message.createdAt)}</p>
+                      <p className="mt-2 text-[12px] text-[#94a3b8]">{formatTime(message.createdAt, locale)}</p>
                     </div>
                   );
                 }
@@ -327,7 +332,7 @@ export default function CreatorTicketDetailPage() {
                     <div className={`flex max-w-[446px] gap-3 ${isCreator ? "flex-row-reverse" : "flex-row"}`}>
                       {!isCreator ? <ThreadAvatar message={message} /> : null}
                       <div className={isCreator ? "items-end" : "items-start"}>
-                        {!isCreator ? <p className="mb-2 text-[14px] font-semibold text-[#5b6a7d]">{getSupportLabel(message)}</p> : null}
+                        {!isCreator ? <p className="mb-2 text-[14px] font-semibold text-[#5b6a7d]">{getSupportLabel(message, t)}</p> : null}
                         <div
                           className={`rounded-[18px] px-4 py-3 text-[14px] leading-8 shadow-[0_8px_20px_rgba(15,23,42,0.04)] ${
                             isCreator ? "bg-[#2d7af0] text-white" : "bg-[#eef3f9] text-[#334155]"
@@ -346,13 +351,13 @@ export default function CreatorTicketDetailPage() {
                                     isCreator ? "border-white/30 bg-white/10 text-white" : "border-[#d9e2ef] bg-white text-[#4a5b75]"
                                   }`}
                                 >
-                                  {attachment.split("/").pop() || "Attachment"}
+                                  {attachment.split("/").pop() || t("Attachment")}
                                 </a>
                               ))}
                             </div>
                           ) : null}
                         </div>
-                        <p className={`mt-2 text-[12px] text-[#9aa8bc] ${isCreator ? "text-right" : "text-left"}`}>{formatTime(message.createdAt)}</p>
+                        <p className={`mt-2 text-[12px] text-[#9aa8bc] ${isCreator ? "text-right" : "text-left"}`}>{formatTime(message.createdAt, locale)}</p>
                       </div>
                     </div>
                   </div>
@@ -377,7 +382,7 @@ export default function CreatorTicketDetailPage() {
                   onChange={(event) => setReply(event.target.value)}
                   rows={5}
                   maxLength={2000}
-                  placeholder={ticket.status === "closed" ? "This ticket has been closed." : "Type your reply here..."}
+                  placeholder={ticket.status === "closed" ? t("This ticket has been closed.") : t("Type your reply here...")}
                   disabled={ticket.status === "closed"}
                   className="min-h-[116px] w-full resize-none bg-transparent px-5 py-4 text-[15px] leading-7 text-[#18233a] outline-none placeholder:text-[#9aa8bc] disabled:cursor-not-allowed disabled:bg-[#f8fafc]"
                 />
@@ -409,7 +414,7 @@ export default function CreatorTicketDetailPage() {
                     disabled={replying || ticket.status === "closed" || !reply.trim()}
                     className="inline-flex h-9 items-center justify-center gap-2 rounded-full bg-[#2d7af0] px-5 text-[14px] font-semibold text-white transition hover:bg-[#1d6ee8] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {replying ? "Sending..." : "Send Reply"}
+                    {replying ? t("Sending") + "..." : t("Send Reply")}
                     <SendHorizontal className="h-4 w-4" />
                   </button>
                 </div>
@@ -440,42 +445,42 @@ export default function CreatorTicketDetailPage() {
         <aside className="space-y-6">
           <article className="overflow-hidden rounded-[28px] border border-[#dbe4ef] bg-white shadow-[0_20px_48px_rgba(15,23,42,0.05)]">
             <div className="border-b border-[#eef2f7] px-5 py-5">
-              <h2 className="text-[18px] font-bold text-[#18233a]">Ticket Details</h2>
+              <h2 className="text-[18px] font-bold text-[#18233a]">{t("Ticket Details")}</h2>
             </div>
             <div className="space-y-8 px-5 py-5">
               <div>
-                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#8ea0b6]">Ticket ID</p>
+                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#8ea0b6]">{t("Ticket ID")}</p>
                 <p className="mt-2 text-[17px] font-semibold text-[#18233a]">#{ticket.ticketNo}</p>
               </div>
               <div>
-                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#8ea0b6]">Status</p>
+                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#8ea0b6]">{t("Status")}</p>
                 <div className="mt-2 flex items-center gap-2 text-[15px] font-semibold text-[#18233a]">
                   <span className={`h-2.5 w-2.5 rounded-full ${getCreatorTicketStatusDotClassName(ticket.status)}`} />
-                  <span>{getCreatorTicketStatusLabel(ticket.status)}</span>
+                  <span>{t(getCreatorTicketStatusLabel(ticket.status))}</span>
                 </div>
               </div>
               <div>
-                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#8ea0b6]">Priority</p>
+                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#8ea0b6]">{t("Priority")}</p>
                 <div className="mt-2">
                   <span className={`inline-flex items-center rounded-full px-3 py-1 text-[12px] font-bold uppercase tracking-[0.05em] ${getCreatorTicketPriorityBadgeClassName(ticket.priority)}`}>
-                    {getCreatorTicketPriorityLabel(ticket.priority)}
+                    {t(getCreatorTicketPriorityLabel(ticket.priority))}
                   </span>
                 </div>
               </div>
               <div>
-                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#8ea0b6]">Category</p>
-                <p className="mt-2 text-[17px] font-medium text-[#18233a]">{getCreatorTicketCategoryLabel(ticket.category)}</p>
+                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#8ea0b6]">{t("Category")}</p>
+                <p className="mt-2 text-[17px] font-medium text-[#18233a]">{t(getCreatorTicketCategoryLabel(ticket.category))}</p>
               </div>
               <div>
-                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#8ea0b6]">Created On</p>
-                <p className="mt-2 text-[17px] font-medium text-[#18233a]">{formatFullDate(ticket.createdAt)}</p>
+                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#8ea0b6]">{t("Created On")}</p>
+                <p className="mt-2 text-[17px] font-medium text-[#18233a]">{formatFullDate(ticket.createdAt, locale)}</p>
               </div>
             </div>
           </article>
 
           <article className="overflow-hidden rounded-[28px] border border-[#dbe4ef] bg-white shadow-[0_20px_48px_rgba(15,23,42,0.05)]">
             <div className="flex items-center justify-between border-b border-[#eef2f7] px-5 py-5">
-              <h2 className="text-[18px] font-bold text-[#18233a]">Timeline</h2>
+              <h2 className="text-[18px] font-bold text-[#18233a]">{t("Timeline")}</h2>
               <AlertCircle className="h-4 w-4 text-[#9db0c6]" />
             </div>
             <div className="relative px-5 py-6">

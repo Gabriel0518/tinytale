@@ -17,23 +17,13 @@ import {
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import type { CreatorApplicationStatus } from "@/types/creator";
-
-function formatRelativeTime(value?: string): string {
-  if (!value) return "just now";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "just now";
-  const diffMs = Date.now() - date.getTime();
-  const hours = Math.floor(diffMs / 3600000);
-  if (hours < 1) return "just now";
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
+import { useCreatorI18n } from "../../_lib/creator-i18n";
 
 export default function CreatorApplyStatusPage() {
   const searchParams = useSearchParams();
   const { token } = useAuth();
   const locale = useLocale();
+  const { t, formatRelativeTime } = useCreatorI18n();
   const [status, setStatus] = useState<CreatorApplicationStatus>(searchParams.get("result") === "failed" ? "rejected" : "under_review");
   const [updatedAt, setUpdatedAt] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
@@ -66,11 +56,11 @@ export default function CreatorApplyStatusPage() {
       <div className="relative z-10 w-full max-w-[700px] overflow-hidden rounded-[24px] border border-[#dbe2ea] bg-white p-5 shadow-[0_30px_70px_-32px_rgba(15,23,42,0.45)] md:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1876f2]">Creator Application</p>
-            <h1 className="mt-2 text-[30px] font-black tracking-[-0.03em] text-[#0f172a] md:text-[34px]">Application Status</h1>
-            <p className="mt-2 text-sm leading-6 text-[#64748b]">This page reflects the latest creator onboarding state available in the current frontend build.</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1876f2]">{t("Creator Application")}</p>
+            <h1 className="mt-2 text-[30px] font-black tracking-[-0.03em] text-[#0f172a] md:text-[34px]">{t("Application Status")}</h1>
+            <p className="mt-2 text-sm leading-6 text-[#64748b]">{t("This page reflects the latest creator onboarding state available in the current frontend build.")}</p>
           </div>
-          <div className="rounded-full bg-[#eff6ff] px-3.5 py-1.5 text-[13px] font-semibold text-[#1d4ed8]">Status Sync</div>
+          <div className="rounded-full bg-[#eff6ff] px-3.5 py-1.5 text-[13px] font-semibold text-[#1d4ed8]">{t("Status Sync")}</div>
         </div>
 
         <div className={`mt-5 rounded-[20px] border px-4 py-3.5 ${bannerTone}`}>
@@ -79,7 +69,7 @@ export default function CreatorApplyStatusPage() {
             <div>
               <p className="text-[15px] font-bold">{meta.title}</p>
               <p className="mt-1 text-sm leading-6">{meta.description}</p>
-              {rejectionReason ? <p className="mt-2 text-sm font-medium">Review note: {rejectionReason}</p> : null}
+              {rejectionReason ? <p className="mt-2 text-sm font-medium">{t("Review note:")} {rejectionReason}</p> : null}
             </div>
           </div>
         </div>
@@ -105,18 +95,18 @@ export default function CreatorApplyStatusPage() {
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#e2e8f0] pt-5">
           <p className="flex items-center gap-2 text-[13px] text-[#64748b]">
             <Clock3 className="h-4 w-4" />
-            Last updated {formatRelativeTime(updatedAt)}
+            {t("Last updated")} {formatRelativeTime(updatedAt, "short")}
           </p>
           <div className="flex flex-wrap items-center gap-3">
             {allowResubmit ? (
               <Link href={localizePath("/creator/apply/review", locale)} className="inline-flex items-center gap-2 rounded-full bg-[#1876f2] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#1669da]">
                 <RefreshCcw className="h-4 w-4" />
-                Revise Application
+                {t("Revise Application")}
               </Link>
             ) : null}
             <Link href={localizePath("/creator", locale)} className="inline-flex items-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-4 py-2 text-[13px] font-semibold text-[#334155] hover:bg-[#f8fafc]">
               <ArrowLeft className="h-4 w-4" />
-              Back to Creator Home
+              {t("Back to Creator Home")}
             </Link>
           </div>
         </div>

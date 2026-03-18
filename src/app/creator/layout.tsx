@@ -10,6 +10,7 @@ import { creatorApi } from "@/lib/api";
 import { normalizeCreatorApplicationStatus } from "@/lib/creator";
 import { localizePath, removeLocalePrefix } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
+import { translateCreatorText } from "./_lib/creator-i18n";
 import CreatorSidebar from "./_components/CreatorSidebar";
 import CreatorTopHeader from "./_components/CreatorTopHeader";
 import CreatorI18nProvider from "./_components/CreatorI18nProvider";
@@ -176,7 +177,7 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
                       active ? "bg-[#dbeafe] text-[#1d4ed8]" : "bg-[#f8fafc] text-[#475569]"
                     }`}
                   >
-                    {item.label}
+                    {translateCreatorText(item.label, locale)}
                   </Link>
                 );
               })}
