@@ -888,21 +888,42 @@ export interface CreatorAdminContentChecklistItem {
 
 export interface CreatorAdminContentReviewDetail extends CreatorAdminContentReviewListItem {
   description: string;
+  horizontalCover?: string;
   language: string;
   country: string;
   creatorLevel: string;
   creatorStatus: CreatorAdminLifecycleStatus;
   rejectionHistoryCount: number;
   activeDmcaStrikes: number;
+  pricingSummary: {
+    perEpisode: number;
+    freeEpisodes: number;
+    paidEpisodes: number;
+    fullCurrentPrice: number;
+    fullUnlockPrice: number;
+    permanentUnlockPrice: number;
+    currency: string;
+  };
   checklist: CreatorAdminContentChecklistItem[];
   episodesPreview: Array<{
     id: string;
     episodeNumber: number;
     title: string;
+    description?: string;
     durationSeconds: number;
     status: string;
+    unlockPrice?: number;
+    isFree?: boolean;
     videoUrl?: string;
+    playbackUrl?: string;
+    streamVideoId?: string;
     thumbnail?: string;
+    videoWidth?: number;
+    videoHeight?: number;
+    qualityOptions?: string[];
+    isNew?: boolean;
+    createdAt?: string | null;
+    updatedAt?: string | null;
   }>;
   reviewHistory: Array<{
     id: string;
