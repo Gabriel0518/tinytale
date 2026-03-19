@@ -298,7 +298,7 @@ jobs:
 
           live_build_passed=0
           for attempt in 1 2 3 4 5; do
-            live_html="$(curl -fsSL --max-time 10 "$HEALTH_URL" || true)"
+            live_html="$(curl -fsSL --compressed --max-time 10 "$HEALTH_URL" || true)"
             live_build_id="$(printf '%s' "$live_html" | grep -o '"buildId":"[^"]*"' | head -n 1 | cut -d '"' -f 4 || true)"
 
             if [ "$live_build_id" = "$BUILD_ID" ]; then
