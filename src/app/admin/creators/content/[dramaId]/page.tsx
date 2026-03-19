@@ -835,7 +835,7 @@ export default function CreatorContentReviewDetailPage() {
               </div>
             </div>
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {previewEpisodes.length ? (
                 previewEpisodes.map((episode) => {
                   const reviewState = episodeReviewState[episode.id] || {
@@ -846,123 +846,126 @@ export default function CreatorContentReviewDetailPage() {
                   return (
                     <div
                       key={episode.id}
-                      className="rounded-2xl border border-gray-700/50 bg-[#0f0f17] p-4"
+                      className="flex h-full flex-col rounded-[24px] border border-gray-700/50 bg-[#10131d] p-4 shadow-[0px_18px_36px_rgba(2,8,23,0.18)]"
                     >
-                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                        <div className="flex min-w-0 gap-4">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenPreview(episode)}
-                            className="relative h-[96px] w-[72px] flex-shrink-0 overflow-hidden rounded-[14px] border border-gray-700/60 bg-[#13131d]"
-                          >
-                            {episode.thumbnail ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={episode.thumbnail}
-                                alt={episode.title}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-gray-500">
-                                <PlayCircle className="h-5 w-5" />
-                              </div>
-                            )}
-                          </button>
-
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="text-base font-semibold text-white">
-                                Episode {episode.episodeNumber}: {episode.title}
-                              </p>
-                              <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-300">
-                                New episode
-                              </span>
-                              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-gray-200">
-                                {formatEpisodeRuntime(episode.durationSeconds)}
-                              </span>
-                              <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
-                                {formatEpisodePrice(episode)}
-                              </span>
-                              <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-300">
-                                {formatEpisodeSubtitleCount(episode)}
-                              </span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPreview(episode)}
+                        className="group relative overflow-hidden rounded-[20px] border border-gray-700/60 bg-[#151927]"
+                      >
+                        <div className="aspect-[3/4]">
+                          {episode.thumbnail ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={episode.thumbnail}
+                              alt={episode.title}
+                              className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-gray-500">
+                              <PlayCircle className="h-8 w-8" />
                             </div>
-                            <p className="mt-2 text-sm leading-6 text-gray-400">
-                              {episode.description || "No episode synopsis provided for this submission."}
-                            </p>
-                            <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
-                              <span>{episode.status}</span>
-                              {episode.createdAt ? (
-                                <span>Added {formatAdminDate(episode.createdAt, true)}</span>
-                              ) : null}
-                              <span>Drama {data.title}</span>
-                            </div>
-                            {reviewState.decision === "rejected" && reviewState.note ? (
-                              <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm leading-6 text-rose-200">
-                                {reviewState.note}
-                              </div>
-                            ) : null}
+                          )}
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                              Episode {episode.episodeNumber}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-semibold text-white">
+                              <PlayCircle className="h-3 w-3" />
+                              Preview
+                            </span>
                           </div>
                         </div>
+                      </button>
 
-                        <div className="flex flex-col gap-3 xl:items-end">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenPreview(episode)}
-                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold ${
-                              canPreviewEpisode(episode)
-                                ? "border-gray-600 text-gray-100 hover:border-indigo-400 hover:text-white"
-                                : "border-gray-800 text-gray-500"
-                            }`}
-                          >
-                            <PlayCircle className="h-3.5 w-3.5" />
-                            {canPreviewEpisode(episode) ? "Preview video" : "Video pending"}
-                          </button>
-
-                          <span
-                            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                              reviewState.decision === "approved"
-                                ? "bg-emerald-500/15 text-emerald-300"
-                                : reviewState.decision === "rejected"
-                                  ? "bg-rose-500/15 text-rose-300"
-                                  : "bg-amber-500/15 text-amber-300"
-                            }`}
-                          >
-                            {reviewState.decision === "approved"
-                              ? "Ready to publish"
-                              : reviewState.decision === "rejected"
-                                ? "Send back for changes"
-                                : "Decision required"}
+                      <div className="mt-4 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-[18px] font-semibold text-white">
+                            {episode.title}
+                          </p>
+                          <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-300">
+                            New
                           </span>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-gray-200">
+                            {formatEpisodeRuntime(episode.durationSeconds)}
+                          </span>
+                          <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+                            {formatEpisodePrice(episode)}
+                          </span>
+                          <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-300">
+                            {formatEpisodeSubtitleCount(episode)}
+                          </span>
+                        </div>
+                        <p className="mt-3 line-clamp-3 text-sm leading-6 text-gray-400">
+                          {episode.description || "No episode synopsis provided for this submission."}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+                          <span>{episode.status}</span>
+                          {episode.createdAt ? (
+                            <span>Added {formatAdminDate(episode.createdAt, true)}</span>
+                          ) : null}
                         </div>
                       </div>
 
-                      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,260px)_minmax(0,260px)_minmax(0,1fr)]">
-                        <button
-                          type="button"
-                          onClick={() => updateEpisodeDecision(episode.id, "approved")}
-                          className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition ${
-                            reviewState.decision === "approved"
-                              ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.18)]"
-                              : "border-gray-700 bg-[#131a2a] text-gray-300 hover:border-emerald-500/40 hover:text-white"
-                          }`}
-                        >
-                          Approve this episode
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateEpisodeDecision(episode.id, "rejected")}
-                          className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition ${
-                            reviewState.decision === "rejected"
-                              ? "border-rose-500/50 bg-rose-500/15 text-rose-300 shadow-[inset_0_0_0_1px_rgba(244,63,94,0.18)]"
-                              : "border-gray-700 bg-[#131a2a] text-gray-300 hover:border-rose-500/40 hover:text-white"
-                          }`}
-                        >
-                          Reject and request changes
-                        </button>
-                        <div className="rounded-xl border border-gray-700/50 bg-[#111827] px-4 py-3 text-sm text-gray-400">
-                          Approved episodes go live in the drama episode list. Rejected episodes stay in the creator workspace with your feedback.
+                      <div className="mt-4">
+                        <div className="inline-flex w-full rounded-[16px] bg-[#151927] p-1 shadow-[inset_0_0_0_1px_rgba(55,65,81,0.9)]">
+                          <button
+                            type="button"
+                            onClick={() => updateEpisodeDecision(episode.id, "approved")}
+                            className={`flex-1 rounded-[12px] px-3 py-2 text-xs font-semibold transition ${
+                              reviewState.decision === "approved"
+                                ? "bg-emerald-500/15 text-emerald-300"
+                                : "text-gray-300 hover:bg-white/5 hover:text-white"
+                            }`}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateEpisodeDecision(episode.id, "rejected")}
+                            className={`flex-1 rounded-[12px] px-3 py-2 text-xs font-semibold transition ${
+                              reviewState.decision === "rejected"
+                                ? "bg-rose-500/15 text-rose-300"
+                                : "text-gray-300 hover:bg-white/5 hover:text-white"
+                            }`}
+                          >
+                            Reject
+                          </button>
                         </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <span
+                          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                            reviewState.decision === "approved"
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : reviewState.decision === "rejected"
+                                ? "bg-rose-500/15 text-rose-300"
+                                : "bg-amber-500/15 text-amber-300"
+                          }`}
+                        >
+                          {reviewState.decision === "approved"
+                            ? "Ready to publish"
+                            : reviewState.decision === "rejected"
+                              ? "Send back for changes"
+                              : "Decision required"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPreview(episode)}
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                            canPreviewEpisode(episode)
+                              ? "border-gray-600 text-gray-100 hover:border-indigo-400 hover:text-white"
+                              : "border-gray-800 text-gray-500"
+                          }`}
+                        >
+                          <PlayCircle className="h-3.5 w-3.5" />
+                          {canPreviewEpisode(episode) ? "Preview" : "Pending"}
+                        </button>
                       </div>
 
                       {reviewState.decision === "rejected" ? (
@@ -974,15 +977,19 @@ export default function CreatorContentReviewDetailPage() {
                             value={reviewState.note}
                             onChange={(event) => updateEpisodeDecisionNote(episode.id, event.target.value)}
                             placeholder="Tell the creator exactly what needs to be fixed before this episode can be approved."
-                            className="min-h-[112px] w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+                            className="min-h-[96px] w-full rounded-[16px] border border-gray-700/50 bg-[#13131d] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
                           />
                         </div>
-                      ) : null}
+                      ) : (
+                        <div className="mt-4 rounded-[16px] border border-gray-700/40 bg-[#13131d] px-4 py-3 text-xs leading-6 text-gray-500">
+                          Approved episodes will be published into the drama episode list after submission.
+                        </div>
+                      )}
                     </div>
                   );
                 })
               ) : (
-                <div className="rounded-xl border border-dashed border-gray-700 bg-[#0f0f17] p-6 text-sm text-gray-400">
+                <div className="rounded-xl border border-dashed border-gray-700 bg-[#0f0f17] p-6 text-sm text-gray-400 md:col-span-2 xl:col-span-3">
                   No newly added episodes were detected in this review batch yet.
                 </div>
               )}
@@ -992,7 +999,7 @@ export default function CreatorContentReviewDetailPage() {
       </section>
 
       <section className={panelClassName}>
-        <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-white">Submit Review Decisions</h2>
             <p className="mt-1 text-sm text-gray-400">
@@ -1011,13 +1018,18 @@ export default function CreatorContentReviewDetailPage() {
             </span>
           </div>
         </div>
-        <button
-          onClick={handleSubmitReview}
-          disabled={submitting || !previewEpisodes.length}
-          className="mt-5 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {submitting ? "Submitting..." : "Submit review decisions"}
-        </button>
+        <div className="mt-5 flex flex-col gap-3 border-t border-gray-800 pt-5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-gray-500">
+            Rejected episodes require feedback. Episodes without a decision cannot be submitted.
+          </p>
+          <button
+            onClick={handleSubmitReview}
+            disabled={submitting || !previewEpisodes.length}
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting ? "Submitting..." : "Submit review decisions"}
+          </button>
+        </div>
       </section>
 
       {typeof window !== "undefined" && loadingOverlay ? createPortal(loadingOverlay, document.body) : null}
