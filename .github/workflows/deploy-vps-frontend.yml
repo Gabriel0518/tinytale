@@ -228,10 +228,11 @@ jobs:
             rm -rf node_modules
           fi
 
-          if [ -d "$SHARED_NODE_MODULES_DIR" ]; then
+          if [ -d "$SHARED_NODE_MODULES_DIR" ] && [ -x "$SHARED_NODE_MODULES_DIR/.bin/next" ]; then
             echo "Reusing cached dependencies for lockfile $LOCKFILE_HASH"
           else
             echo "Installing dependencies for lockfile $LOCKFILE_HASH"
+            rm -rf "$SHARED_DEPENDENCY_DIR"
             mkdir -p "$SHARED_DEPENDENCY_DIR"
             npm_config_cache="$SHARED_NPM_CACHE_DIR" npm ci --no-audit --no-fund
             mv node_modules "$SHARED_NODE_MODULES_DIR"

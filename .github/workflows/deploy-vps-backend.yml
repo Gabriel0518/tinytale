@@ -1,0 +1,177 @@
+name: Deploy Backend to VPS (Production)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to deploy from tinytale-api (commit SHA, tag, or branch)"
+        required: false
+        default: "main"
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: vps-backend-production
+      cancel-in-progress: false
+
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+      VPS_SSH_USER: ${{ secrets.VPS_SSH_USER }}
+      VPS_SSH_PRIVATE_KEY_PRESENT: ${{ secrets.VPS_SSH_PRIVATE_KEY != '' }}
+      VPS_BACKEND_PATH: ${{ secrets.VPS_BACKEND_PATH }}
+      VPS_PM2_ECOSYSTEM: ${{ secrets.VPS_PM2_ECOSYSTEM }}
+
+    steps:
+      - name: Validate required secrets
+        run: |
+          set -euo pipefail
+          missing=()
+
+          for key in VPS_HOST VPS_SSH_USER VPS_BACKEND_PATH; do
+            if [ -z "${!key:-}" ]; then
+              missing+=("$key")
+            fi
+          done
+
+          if [ "${VPS_SSH_PRIVATE_KEY_PRESENT}" != "true" ]; then
+            missing+=("VPS_SSH_PRIVATE_KEY")
+          fi
+
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Missing required repository secrets: ${missing[*]}"
+            exit 1
+          fi
+
+          echo "SSH_PORT=${VPS_SSH_PORT:-22}"
+          echo "PM2_APP=tinytale-api"
+          echo "HEALTH_URL=http://127.0.0.1:7002/api/health"
+
+      - name: Setup SSH agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+
+      - name: Add VPS to known_hosts
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          touch ~/.ssh/known_hosts
+
+          scanned=0
+          for attempt in 1 2 3 4 5; do
+            if ssh-keyscan -T 15 -p "${VPS_SSH_PORT:-22}" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+              scanned=1
+              echo "Known hosts entry added on attempt $attempt"
+              break
+            fi
+
+            echo "ssh-keyscan attempt $attempt failed, retrying..."
+            sleep 5
+          done
+
+          if [ "$scanned" -ne 1 ]; then
+            echo "ssh-keyscan failed; deploy step will fallback to relaxed host checking"
+          fi
+
+      - name: Deploy backend to VPS
+        env:
+          DEPLOY_REF: ${{ github.event.inputs.ref || 'main' }}
+        run: |
+          set -euo pipefail
+
+          SSH_PORT="${VPS_SSH_PORT:-22}"
+          PM2_APP="tinytale-api"
+          HEALTH_URL="http://127.0.0.1:7002/api/health"
+          SSH_ARGS=(-p "$SSH_PORT" -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4)
+
+          if ! ssh-keygen -F "$VPS_HOST" >/dev/null 2>&1; then
+            echo "No known_hosts entry found for $VPS_HOST; falling back to relaxed host checking"
+            SSH_ARGS+=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
+          fi
+
+          ssh "${SSH_ARGS[@]}" "$VPS_SSH_USER@$VPS_HOST" \
+            "VPS_BACKEND_PATH='$VPS_BACKEND_PATH' VPS_PM2_ECOSYSTEM='$VPS_PM2_ECOSYSTEM' PM2_APP='$PM2_APP' HEALTH_URL='$HEALTH_URL' DEPLOY_REF='$DEPLOY_REF' bash -s" <<'EOF'
+          set -Eeuo pipefail
+
+          BACKEND_PATH="$VPS_BACKEND_PATH"
+          PM2_APP="${PM2_APP:-tinytale-api}"
+          HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:7002/api/health}"
+
+          if [ ! -d "$BACKEND_PATH/.git" ]; then
+            echo "Backend path is not a git repository: $BACKEND_PATH"
+            exit 1
+          fi
+
+          cd "$BACKEND_PATH"
+          PREV_SHA="$(git rev-parse HEAD)"
+          echo "Current backend SHA: $(git rev-parse --short "$PREV_SHA")"
+
+          rollback() {
+            local line="${1:-unknown}"
+            trap - ERR
+
+            echo "Deployment failed at line $line. Rolling back to $(git rev-parse --short "$PREV_SHA")"
+            git reset --hard "$PREV_SHA" || true
+            npm ci --no-audit --no-fund || true
+            npm run build || true
+
+            if [ -n "${VPS_PM2_ECOSYSTEM:-}" ] && [ -f "${VPS_PM2_ECOSYSTEM}" ]; then
+              pm2 startOrReload "${VPS_PM2_ECOSYSTEM}" --only "$PM2_APP" --update-env || true
+            else
+              pm2 reload "$PM2_APP" --update-env || pm2 restart "$PM2_APP" --update-env || true
+            fi
+
+            exit 1
+          }
+
+          trap 'rollback $LINENO' ERR
+
+          git fetch --prune origin
+
+          if git show-ref --verify --quiet "refs/remotes/origin/${DEPLOY_REF}"; then
+            DEPLOY_REF="origin/${DEPLOY_REF}"
+          elif ! git cat-file -e "${DEPLOY_REF}^{commit}" 2>/dev/null; then
+            echo "DEPLOY_REF ${DEPLOY_REF} not found; fallback to origin/main"
+            DEPLOY_REF="origin/main"
+          fi
+
+          TARGET_SHA="$(git rev-parse "$DEPLOY_REF")"
+          echo "Deploying backend SHA: $(git rev-parse --short "$TARGET_SHA")"
+
+          git reset --hard "$TARGET_SHA"
+          git clean -fd
+          npm ci --no-audit --no-fund
+          npm run build
+
+          if [ -n "${VPS_PM2_ECOSYSTEM:-}" ] && [ -f "${VPS_PM2_ECOSYSTEM}" ]; then
+            pm2 startOrReload "${VPS_PM2_ECOSYSTEM}" --only "$PM2_APP" --update-env
+          else
+            pm2 reload "$PM2_APP" --update-env || pm2 restart "$PM2_APP" --update-env
+          fi
+
+          passed=0
+          for attempt in 1 2 3 4 5; do
+            status="$(curl -o /dev/null -s -w '%{http_code}' --max-time 10 "$HEALTH_URL" || true)"
+            if [ "$status" = "200" ]; then
+              passed=1
+              echo "Health check passed (HTTP $status)"
+              break
+            fi
+
+            echo "Health check attempt $attempt failed (HTTP $status), retrying..."
+            sleep 5
+          done
+
+          if [ "$passed" -ne 1 ]; then
+            echo "Health check failed after backend deployment"
+            exit 1
+          fi
+
+          trap - ERR
+          echo "Backend deploy finished: $(git rev-parse --short "$TARGET_SHA")"
+          EOF
