@@ -6,10 +6,8 @@ import { type Ref, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowLeft,
-  FileCheck2,
   Film,
   PlayCircle,
-  ShieldAlert,
   X,
 } from "lucide-react";
 import {
@@ -36,11 +34,10 @@ import {
 
 const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";
 
-type Decision = "approved" | "request_changes" | "rejected";
 type CoverVariant = "portrait" | "landscape";
 type ReviewEpisode = CreatorAdminContentReviewDetail["episodesCatalog"][number];
 type ActivePreviewEpisode = ReviewEpisode & CreatorEpisodePreviewPayload;
-type EpisodeDecision = "approved" | "rejected";
+type EpisodeDecision = "pending" | "approved" | "rejected";
 
 function canPreviewEpisode(episode: ReviewEpisode | ActivePreviewEpisode | null | undefined) {
   return Boolean(
@@ -69,6 +66,15 @@ function formatEpisodeSubtitleCount(episode: ReviewEpisode | ActivePreviewEpisod
   const subtitleCount = Math.max(0, episode.subtitleTracks?.length || previewSubtitles || 0);
   if (!subtitleCount) return "No subtitles";
   return `${subtitleCount} subtitle track${subtitleCount === 1 ? "" : "s"}`;
+}
+
+function resolveInitialEpisodeDecision(
+  episode: Pick<ReviewEpisode, "reviewStatus">,
+): EpisodeDecision {
+  if (episode.reviewStatus === "approved" || episode.reviewStatus === "rejected") {
+    return episode.reviewStatus;
+  }
+  return "pending";
 }
 
 function resolvePreviewDefaultSubtitle(
@@ -216,8 +222,6 @@ export default function CreatorContentReviewDetailPage() {
     getMockContentReview(dramaId),
   );
   const [loading, setLoading] = useState(true);
-  const [decision, setDecision] = useState<Decision>("approved");
-  const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [activePreview, setActivePreview] = useState<ActivePreviewEpisode | null>(null);
@@ -275,10 +279,19 @@ export default function CreatorContentReviewDetailPage() {
   const activeEpisodeReviewState = useMemo(() => {
     if (!activePreview) return null;
     return episodeReviewState[activePreview.id] || {
-      decision: activePreview.reviewStatus === "rejected" ? "rejected" : "approved",
+      decision: resolveInitialEpisodeDecision(activePreview),
       note: activePreview.rejectionReason || activePreview.reviewNote || "",
     };
   }, [activePreview, episodeReviewState]);
+  const episodeDecisionSummary = useMemo(() => {
+    return previewEpisodes.reduce((summary, episode) => {
+      const currentDecision = episodeReviewState[episode.id]?.decision || "pending";
+      if (currentDecision === "approved") summary.approved += 1;
+      if (currentDecision === "rejected") summary.rejected += 1;
+      if (currentDecision === "pending") summary.pending += 1;
+      return summary;
+    }, { approved: 0, rejected: 0, pending: 0 });
+  }, [episodeReviewState, previewEpisodes]);
 
   useEffect(() => {
     if (!previewEpisodes.length) {
@@ -290,7 +303,7 @@ export default function CreatorContentReviewDetailPage() {
       const next: Record<string, { decision: EpisodeDecision; note: string }> = {};
       previewEpisodes.forEach((episode) => {
         next[episode.id] = current[episode.id] || {
-          decision: episode.reviewStatus === "rejected" ? "rejected" : "approved",
+          decision: resolveInitialEpisodeDecision(episode),
           note: episode.rejectionReason || episode.reviewNote || "",
         };
       });
@@ -413,24 +426,11 @@ export default function CreatorContentReviewDetailPage() {
     setEpisodeReviewState((current) => ({
       ...current,
       [episodeId]: {
-        decision: current[episodeId]?.decision || "approved",
+        decision: current[episodeId]?.decision || "pending",
         note: nextNote,
       },
     }));
   }, []);
-
-  const applyDecisionToAll = useCallback(() => {
-    setEpisodeReviewState((current) => {
-      const next = { ...current };
-      previewEpisodes.forEach((episode) => {
-        next[episode.id] = {
-          decision: decision === "approved" ? "approved" : "rejected",
-          note: current[episode.id]?.note || "",
-        };
-      });
-      return next;
-    });
-  }, [decision, previewEpisodes]);
 
   async function handleSubmitReview() {
     if (!data) return;
@@ -439,9 +439,18 @@ export default function CreatorContentReviewDetailPage() {
       return;
     }
 
+    const unresolvedEpisodes = previewEpisodes
+      .filter((episode) => (episodeReviewState[episode.id]?.decision || "pending") === "pending")
+      .map((episode) => episode.episodeNumber);
+
+    if (unresolvedEpisodes.length > 0) {
+      toast(`Review decisions are still required for episodes: ${unresolvedEpisodes.join(", ")}`, "info");
+      return;
+    }
+
     const rejectedWithoutNotes = previewEpisodes
       .filter((episode) => episodeReviewState[episode.id]?.decision === "rejected")
-      .filter((episode) => !(episodeReviewState[episode.id]?.note || note).trim())
+      .filter((episode) => !(episodeReviewState[episode.id]?.note || "").trim())
       .map((episode) => episode.episodeNumber);
 
     if (rejectedWithoutNotes.length > 0) {
@@ -451,13 +460,28 @@ export default function CreatorContentReviewDetailPage() {
 
     const episodeDecisions = previewEpisodes.map((episode) => ({
       episodeId: episode.id,
-      decision: episodeReviewState[episode.id]?.decision || "approved",
-      note: episodeReviewState[episode.id]?.note || "",
+      decision: episodeReviewState[episode.id]?.decision === "rejected" ? "rejected" : "approved",
+      note: (episodeReviewState[episode.id]?.note || "").trim(),
     }));
+
+    const approvedCount = episodeDecisions.filter((episode) => episode.decision === "approved").length;
+    const rejectedCount = episodeDecisions.length - approvedCount;
+    const batchDecision = rejectedCount === 0
+      ? "approved"
+      : approvedCount === 0
+        ? "rejected"
+        : "request_changes";
+    const summaryNote = rejectedCount === 0
+      ? `${approvedCount} episode${approvedCount === 1 ? "" : "s"} approved in this batch.`
+      : `${approvedCount} episode${approvedCount === 1 ? "" : "s"} approved, ${rejectedCount} episode${rejectedCount === 1 ? "" : "s"} sent back for changes.`;
 
     setSubmitting(true);
     try {
-      await adminApi.reviewCreatorContent(data.dramaId, { decision, note, episodeDecisions });
+      await adminApi.reviewCreatorContent(data.dramaId, {
+        decision: batchDecision,
+        note: summaryNote,
+        episodeDecisions,
+      });
       const refreshedResponse: any = await adminApi.getCreatorContentReview(data.dramaId);
       const refreshedReview = refreshedResponse?.data?.review || refreshedResponse?.data || refreshedResponse;
       if (refreshedReview?.dramaId) {
@@ -471,7 +495,6 @@ export default function CreatorContentReviewDetailPage() {
     }
 
     toast("Content review decision recorded.", "success");
-    setNote("");
     setActivePreview(null);
   }
 
@@ -782,312 +805,218 @@ export default function CreatorContentReviewDetailPage() {
           </article>
 
           <article className={panelClassName}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-300">
-                <FileCheck2 className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-white">
-                  Five-item review checklist
-                </h2>
-                <p className="text-sm text-gray-400">
-                  Use these checks to keep creator content decisions consistent.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 space-y-3">
-              {data.checklist.map((item) => (
-                <div
-                  key={item.key}
-                  className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="font-medium text-white">{item.label}</p>
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${item.passed ? "bg-green-500/10 text-green-300" : "bg-amber-500/10 text-amber-300"}`}
-                    >
-                      {item.passed ? "Passed" : "Attention"}
-                    </span>
-                  </div>
-                  <p className="mt-2 text-sm leading-6 text-gray-400">
-                    {item.note}
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
+                  <Film className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">
+                    Episode Review
+                  </h2>
+                  <p className="text-sm text-gray-400">
+                    Review every newly uploaded episode here. Approve episodes that can go live, and send rejected ones back to the creator with a required feedback note.
                   </p>
                 </div>
-              ))}
-            </div>
-          </article>
-
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
-            <article className={panelClassName}>
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-300">
-                    <Film className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-semibold text-white">
-                      Episode preview
-                    </h2>
-                    <p className="text-sm text-gray-400">
-                      Only newly added episodes are listed here so reviewers can focus on the latest submission delta.
-                    </p>
-                  </div>
-                </div>
-                <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-300">
-                  {previewEpisodes.length} new
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-gray-200">
+                  {previewEpisodes.length} pending
+                </span>
+                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+                  {episodeDecisionSummary.approved} approved
+                </span>
+                <span className="rounded-full bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-300">
+                  {episodeDecisionSummary.rejected} rejected
+                </span>
+                <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
+                  {episodeDecisionSummary.pending} decision required
                 </span>
               </div>
+            </div>
 
-              <div className="mt-5 space-y-3">
-                {previewEpisodes.length ? (
-                  previewEpisodes.map((episode) => (
+            <div className="mt-5 space-y-4">
+              {previewEpisodes.length ? (
+                previewEpisodes.map((episode) => {
+                  const reviewState = episodeReviewState[episode.id] || {
+                    decision: resolveInitialEpisodeDecision(episode),
+                    note: episode.rejectionReason || episode.reviewNote || "",
+                  };
+
+                  return (
                     <div
                       key={episode.id}
-                      className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4"
+                      className="rounded-2xl border border-gray-700/50 bg-[#0f0f17] p-4"
                     >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium text-white">
-                              Episode {episode.episodeNumber}: {episode.title}
-                            </p>
-                            {episode.isNew ? (
+                      <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div className="flex min-w-0 gap-4">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPreview(episode)}
+                            className="relative h-[96px] w-[72px] flex-shrink-0 overflow-hidden rounded-[14px] border border-gray-700/60 bg-[#13131d]"
+                          >
+                            {episode.thumbnail ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={episode.thumbnail}
+                                alt={episode.title}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-gray-500">
+                                <PlayCircle className="h-5 w-5" />
+                              </div>
+                            )}
+                          </button>
+
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-base font-semibold text-white">
+                                Episode {episode.episodeNumber}: {episode.title}
+                              </p>
                               <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-300">
                                 New episode
                               </span>
-                            ) : null}
-                            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
-                              {formatEpisodePrice(episode)}
-                            </span>
-                            {episode.subtitleTracks?.length ? (
-                              <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-300">
-                                {episode.subtitleTracks.length} subtitle track{episode.subtitleTracks.length === 1 ? "" : "s"}
+                              <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-gray-200">
+                                {formatEpisodeRuntime(episode.durationSeconds)}
                               </span>
-                            ) : null}
-                          </div>
-                          <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-400">
-                            {episode.description || "No episode synopsis provided for this submission."}
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
-                            <span>{formatEpisodeRuntime(episode.durationSeconds)}</span>
-                            <span>{episode.status}</span>
-                            {episode.createdAt ? (
-                              <span>Added {formatAdminDate(episode.createdAt, true)}</span>
+                              <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+                                {formatEpisodePrice(episode)}
+                              </span>
+                              <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-300">
+                                {formatEpisodeSubtitleCount(episode)}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm leading-6 text-gray-400">
+                              {episode.description || "No episode synopsis provided for this submission."}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+                              <span>{episode.status}</span>
+                              {episode.createdAt ? (
+                                <span>Added {formatAdminDate(episode.createdAt, true)}</span>
+                              ) : null}
+                              <span>Drama {data.title}</span>
+                            </div>
+                            {reviewState.decision === "rejected" && reviewState.note ? (
+                              <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm leading-6 text-rose-200">
+                                {reviewState.note}
+                              </div>
                             ) : null}
                           </div>
                         </div>
 
-                        <div className="flex flex-col items-end gap-3">
+                        <div className="flex flex-col gap-3 xl:items-end">
                           <button
                             type="button"
                             onClick={() => handleOpenPreview(episode)}
-                            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold ${
                               canPreviewEpisode(episode)
-                                ? "border-gray-600 text-gray-200 hover:border-indigo-400 hover:text-white"
+                                ? "border-gray-600 text-gray-100 hover:border-indigo-400 hover:text-white"
                                 : "border-gray-800 text-gray-500"
                             }`}
                           >
                             <PlayCircle className="h-3.5 w-3.5" />
-                            {canPreviewEpisode(episode) ? "Watch" : "Video pending"}
+                            {canPreviewEpisode(episode) ? "Preview video" : "Video pending"}
                           </button>
-                          <span className="text-xs text-gray-500">
-                            #{episode.episodeNumber.toString().padStart(2, "0")}
+
+                          <span
+                            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                              reviewState.decision === "approved"
+                                ? "bg-emerald-500/15 text-emerald-300"
+                                : reviewState.decision === "rejected"
+                                  ? "bg-rose-500/15 text-rose-300"
+                                  : "bg-amber-500/15 text-amber-300"
+                            }`}
+                          >
+                            {reviewState.decision === "approved"
+                              ? "Ready to publish"
+                              : reviewState.decision === "rejected"
+                                ? "Send back for changes"
+                                : "Decision required"}
                           </span>
                         </div>
                       </div>
 
-                      <div className="mt-4 flex flex-wrap items-center gap-2">
-                        <span
-                          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                            episodeReviewState[episode.id]?.decision === "rejected"
-                              ? "bg-rose-500/15 text-rose-300"
-                              : "bg-emerald-500/15 text-emerald-300"
-                          }`}
-                        >
-                          {episodeReviewState[episode.id]?.decision === "rejected"
-                            ? "Marked for rejection"
-                            : "Marked for approval"}
-                        </span>
-                        {episodeReviewState[episode.id]?.note ? (
-                          <span className="rounded-full bg-sky-500/10 px-3 py-1.5 text-xs font-semibold text-sky-300">
-                            Feedback added
-                          </span>
-                        ) : null}
+                      <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,260px)_minmax(0,260px)_minmax(0,1fr)]">
                         <button
                           type="button"
-                          onClick={() => handleOpenPreview(episode)}
-                          className="rounded-full border border-gray-700 px-3 py-1.5 text-xs font-semibold text-gray-200 hover:border-indigo-400 hover:text-white"
+                          onClick={() => updateEpisodeDecision(episode.id, "approved")}
+                          className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                            reviewState.decision === "approved"
+                              ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.18)]"
+                              : "border-gray-700 bg-[#131a2a] text-gray-300 hover:border-emerald-500/40 hover:text-white"
+                          }`}
                         >
-                          Review this episode
+                          Approve this episode
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => updateEpisodeDecision(episode.id, "rejected")}
+                          className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition ${
+                            reviewState.decision === "rejected"
+                              ? "border-rose-500/50 bg-rose-500/15 text-rose-300 shadow-[inset_0_0_0_1px_rgba(244,63,94,0.18)]"
+                              : "border-gray-700 bg-[#131a2a] text-gray-300 hover:border-rose-500/40 hover:text-white"
+                          }`}
+                        >
+                          Reject and request changes
+                        </button>
+                        <div className="rounded-xl border border-gray-700/50 bg-[#111827] px-4 py-3 text-sm text-gray-400">
+                          Approved episodes go live in the drama episode list. Rejected episodes stay in the creator workspace with your feedback.
+                        </div>
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="rounded-xl border border-dashed border-gray-700 bg-[#0f0f17] p-6 text-sm text-gray-400">
-                    No newly added episodes were detected in this review batch yet. Reviewers can still use the metadata, checklist, and history panels before deciding.
-                  </div>
-                )}
-              </div>
-            </article>
 
-            <article className={panelClassName}>
-              <h2 className="text-lg font-semibold text-white">
-                Review history
-              </h2>
-              <div className="mt-5 space-y-3">
-                {data.reviewHistory.map((item) => (
-                  <div
-                    key={item.id}
-                    className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <p className="font-medium text-white">{item.action}</p>
-                      <span className="text-xs text-gray-500">
-                        {formatAdminDate(item.at, true)}
-                      </span>
+                      {reviewState.decision === "rejected" ? (
+                        <div className="mt-4">
+                          <label className="mb-2 block text-sm font-medium text-gray-300">
+                            Rejection feedback
+                          </label>
+                          <textarea
+                            value={reviewState.note}
+                            onChange={(event) => updateEpisodeDecisionNote(episode.id, event.target.value)}
+                            placeholder="Tell the creator exactly what needs to be fixed before this episode can be approved."
+                            className="min-h-[112px] w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+                          />
+                        </div>
+                      ) : null}
                     </div>
-                    <p className="mt-2 text-sm text-gray-400">{item.actor}</p>
-                    <p className="mt-2 text-sm leading-6 text-gray-300">
-                      {item.note}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </article>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <article className={panelClassName}>
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10 text-rose-300">
-                <ShieldAlert className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-white">
-                  Risk summary
-                </h2>
-                <p className="text-sm text-gray-400">
-                  Escalate to compliance when copyright evidence exists.
-                </p>
-              </div>
-            </div>
-            <div className="mt-5 space-y-3 text-sm text-gray-300">
-              <div className="rounded-xl bg-[#0f0f17] p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">
-                  Creator status
-                </p>
-                <p className="mt-2">{creatorStatusMeta.label}</p>
-              </div>
-              <div className="rounded-xl bg-[#0f0f17] p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">
-                  Active DMCA strikes
-                </p>
-                <p className="mt-2">{data.activeDmcaStrikes}</p>
-              </div>
-              <div className="rounded-xl bg-[#0f0f17] p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">
-                  Prior rejection count
-                </p>
-                <p className="mt-2">{data.rejectionHistoryCount}</p>
-              </div>
-              {(data.rejectionReason || data.reviewNote) && (
-                <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                  <p className="text-xs uppercase tracking-[0.12em] text-gray-500">
-                    Latest reviewer note
-                  </p>
-                  <p className="mt-2 leading-6 text-gray-300">
-                    {data.rejectionReason || data.reviewNote}
-                  </p>
+                  );
+                })
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-700 bg-[#0f0f17] p-6 text-sm text-gray-400">
+                  No newly added episodes were detected in this review batch yet.
                 </div>
               )}
-            </div>
-          </article>
-
-          <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">
-              Submission facts
-            </h2>
-            <div className="mt-5 space-y-3 text-sm text-gray-300">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Drama ID</span>
-                <span>{data.dramaId}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Language</span>
-                <span>{data.language}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Categories</span>
-                <span>{data.categories.join(", ")}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Landscape cover</span>
-                <span>{data.horizontalCover ? "Uploaded" : "Missing"}</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Review batch</span>
-                <span>{previewEpisodes.length} new episodes</span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-gray-500">Reviewed at</span>
-                <span>
-                  {data.reviewedAt
-                    ? formatAdminDate(data.reviewedAt, true)
-                    : "Not reviewed"}
-                </span>
-              </div>
             </div>
           </article>
         </div>
       </section>
 
       <section className={panelClassName}>
-        <h2 className="text-lg font-semibold text-white">Review batch submission</h2>
-        <p className="mt-1 text-sm text-gray-400">
-          Use the modal to set each episode decision, then optionally bulk-apply defaults here and save the full review batch.
-        </p>
-        <div className="mt-5 grid gap-4 xl:grid-cols-[240px_minmax(0,1fr)]">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">
-              Batch action
-            </label>
-            <select
-              value={decision}
-              onChange={(event) => setDecision(event.target.value as Decision)}
-              className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500"
-            >
-              <option value="approved">Approve all new episodes</option>
-              <option value="request_changes">Request changes for all</option>
-              <option value="rejected">Reject all for rights/policy issues</option>
-            </select>
-            <button
-              type="button"
-              onClick={applyDecisionToAll}
-              className="mt-3 w-full rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-200 hover:border-indigo-400 hover:text-white"
-            >
-              Apply batch action to all pending episodes
-            </button>
+            <h2 className="text-lg font-semibold text-white">Submit Review Decisions</h2>
+            <p className="mt-1 text-sm text-gray-400">
+              Every newly uploaded episode must be approved or rejected before you submit this batch.
+            </p>
           </div>
-          <div>
-            <label className="mb-2 block text-sm font-medium text-gray-300">
-              Global review summary
-            </label>
-            <textarea
-              value={note}
-              onChange={(event) => setNote(event.target.value)}
-              placeholder="Optional summary for the creator or the internal audit trail. Rejected episodes still need per-episode notes."
-              className="min-h-[160px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
-            />
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
+              {episodeDecisionSummary.approved} approved
+            </span>
+            <span className="rounded-full bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-300">
+              {episodeDecisionSummary.rejected} rejected
+            </span>
+            <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300">
+              {episodeDecisionSummary.pending} pending
+            </span>
           </div>
         </div>
         <button
           onClick={handleSubmitReview}
-          disabled={submitting}
+          disabled={submitting || !previewEpisodes.length}
           className="mt-5 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {submitting ? "Saving..." : "Save episode review"}
+          {submitting ? "Submitting..." : "Submit review decisions"}
         </button>
       </section>
 
@@ -1148,91 +1077,63 @@ export default function CreatorContentReviewDetailPage() {
                 </button>
               </div>
 
-              <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
-                <div className="flex min-h-0 flex-col border-b border-gray-800 bg-[#05070d] lg:border-b-0 lg:border-r">
-                  <div className="flex min-h-0 flex-1 items-center justify-center p-4 lg:p-5">
+              <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
+                <div className="flex min-h-0 items-center justify-center border-b border-gray-800 bg-[#05070d] p-5 lg:border-b-0 lg:border-r">
+                  <div className="flex h-full w-full items-center justify-center overflow-auto">
                     <div
-                      className={`mx-auto w-full overflow-hidden rounded-2xl bg-black shadow-[0px_24px_60px_rgba(15,23,42,0.55)] ${
+                      className={`relative w-full overflow-hidden rounded-2xl border border-gray-800 bg-black shadow-[0px_24px_60px_rgba(15,23,42,0.55)] ${
                         isLandscapePreview ? "aspect-video max-w-5xl" : "aspect-[9/16] max-w-[430px]"
                       }`}
                     >
                       <AdminEpisodePreviewPlayer episode={activePreview} />
                     </div>
                   </div>
-
-                  <div className="shrink-0 border-t border-gray-800 bg-[#0b1020] p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">
-                          Review controls
-                        </p>
-                        <p className="mt-1 text-sm text-gray-400">
-                          Decide whether Episode {activePreview.episodeNumber} should pass review.
-                        </p>
-                      </div>
-                      <span
-                        className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                          activeEpisodeReviewState?.decision === "rejected"
-                            ? "bg-rose-500/15 text-rose-300"
-                            : "bg-emerald-500/15 text-emerald-300"
-                        }`}
-                      >
-                        {activeEpisodeReviewState?.decision === "rejected" ? "Rejected" : "Approved"}
-                      </span>
-                    </div>
-
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={() => updateEpisodeDecision(activePreview.id, "approved")}
-                        className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition ${
-                          activeEpisodeReviewState?.decision !== "rejected"
-                            ? "border-emerald-500/50 bg-emerald-500/15 text-emerald-300 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.18)]"
-                            : "border-gray-700 bg-[#131a2a] text-gray-300 hover:border-emerald-500/40 hover:text-white"
-                        }`}
-                      >
-                        Approve this episode
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => updateEpisodeDecision(activePreview.id, "rejected")}
-                        className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-3 text-sm font-semibold transition ${
-                          activeEpisodeReviewState?.decision === "rejected"
-                            ? "border-rose-500/50 bg-rose-500/15 text-rose-300 shadow-[inset_0_0_0_1px_rgba(244,63,94,0.18)]"
-                            : "border-gray-700 bg-[#131a2a] text-gray-300 hover:border-rose-500/40 hover:text-white"
-                        }`}
-                      >
-                        Reject this episode
-                      </button>
-                    </div>
-
-                    {activeEpisodeReviewState?.decision === "rejected" ? (
-                      <div className="mt-4">
-                        <label className="mb-2 block text-sm font-medium text-gray-300">
-                          Rejection feedback
-                        </label>
-                        <textarea
-                          value={activeEpisodeReviewState?.note || ""}
-                          onChange={(event) => updateEpisodeDecisionNote(activePreview.id, event.target.value)}
-                          placeholder="Tell the creator why this episode did not pass review."
-                          className="min-h-[104px] w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
-                        />
-                      </div>
-                    ) : null}
-
-                    <p className="mt-4 text-xs leading-6 text-gray-500">
-                      The current episode decision is staged immediately. Use “Save episode review” on the page to submit the full review batch.
-                    </p>
-                  </div>
                 </div>
 
-                <div className="flex min-h-0 flex-col border-t border-gray-800 p-5 lg:border-l lg:border-t-0">
+                <div className="flex min-h-0 flex-col border-t border-gray-800 bg-[#11131d] p-5 lg:border-l lg:border-t-0">
                   <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-4">
+                    <p className="text-xs uppercase tracking-[0.12em] text-gray-500">
+                      Current preview
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-white">
+                      Episode {activePreview.episodeNumber}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-300">
+                      {activePreview.title}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                          activeEpisodeReviewState?.decision === "approved"
+                            ? "bg-emerald-500/15 text-emerald-300"
+                            : activeEpisodeReviewState?.decision === "rejected"
+                              ? "bg-rose-500/15 text-rose-300"
+                              : "bg-amber-500/15 text-amber-300"
+                        }`}
+                      >
+                        {activeEpisodeReviewState?.decision === "approved"
+                          ? "Approved on page"
+                          : activeEpisodeReviewState?.decision === "rejected"
+                            ? "Rejected on page"
+                            : "Decision pending"}
+                      </span>
+                      <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-gray-200">
+                        {formatEpisodeSubtitleCount(activePreview)}
+                      </span>
+                    </div>
+                    {activeEpisodeReviewState?.decision === "rejected" && activeEpisodeReviewState.note ? (
+                      <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm leading-6 text-rose-200">
+                        {activeEpisodeReviewState.note}
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-gray-700/50 bg-[#13131d] p-4">
                     <p className="text-xs uppercase tracking-[0.12em] text-gray-500">
                       New episode navigator
                     </p>
                     <p className="mt-2 text-sm leading-6 text-gray-300">
-                      Only newly added episodes appear here. Click a thumbnail to switch videos and hover to see the full title.
+                      Click a thumbnail to switch videos. Review decisions stay on the main page below the cover section.
                     </p>
                   </div>
 
@@ -1270,12 +1171,12 @@ export default function CreatorContentReviewDetailPage() {
                                 <p className="text-sm font-medium text-white">
                                   EP {episode.episodeNumber}
                                 </p>
-                                {episode.isNew ? (
-                                  <span className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-indigo-300">
-                                    New
+                                {episodeReviewState[episode.id]?.decision === "approved" ? (
+                                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-300">
+                                    Approved
                                   </span>
                                 ) : null}
-                                {episode.reviewStatus === "rejected" ? (
+                                {episodeReviewState[episode.id]?.decision === "rejected" ? (
                                   <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-300">
                                     Rejected
                                   </span>
