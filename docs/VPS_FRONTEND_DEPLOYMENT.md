@@ -4,6 +4,24 @@ GitHub Actions production deployment has been disabled.
 
 From now on, all production releases must be completed by logging into the VPS over SSH and pulling the latest code on the server directly.
 
+## Recommended Command
+
+The VPS should use the installed helper command:
+
+```bash
+deploy-tinytale frontend
+deploy-tinytale api
+deploy-tinytale all
+```
+
+What it does:
+- pulls the latest `main`
+- only runs `npm ci` when `package-lock.json` changed
+- reuses the shared npm cache under `/var/www/tinytale/shared/npm-cache`
+- rebuilds the target service
+- restarts the matching PM2 process
+- runs a health check after restart
+
 ## Frontend and Admin
 
 Assumption:
@@ -15,15 +33,7 @@ Typical manual deployment flow:
 
 ```bash
 ssh <user>@<vps-host>
-cd /var/www/tinytale/frontend
-git fetch origin
-git checkout main
-git pull --ff-only origin main
-npm ci --no-audit --no-fund
-npm run build
-pm2 restart tinytale-web --update-env
-curl -I http://127.0.0.1:7001/zh
-curl -I http://127.0.0.1:7001/admin/login
+deploy-tinytale frontend
 ```
 
 ## Backend
@@ -32,14 +42,14 @@ If the API is deployed from the separate `tinytale-api` repository, deploy it di
 
 ```bash
 ssh <user>@<vps-host>
-cd /var/www/tinytale-api
-git fetch origin
-git checkout main
-git pull --ff-only origin main
-npm ci --no-audit --no-fund
-npm run build
-pm2 restart tinytale-api --update-env
-curl -I http://127.0.0.1:7002/api/health
+deploy-tinytale api
+```
+
+Deploy both services together:
+
+```bash
+ssh <user>@<vps-host>
+deploy-tinytale all
 ```
 
 ## Release Rules
@@ -49,3 +59,4 @@ curl -I http://127.0.0.1:7002/api/health
 3. Verify both `7001` and `/admin` after each frontend release.
 4. Verify `7002/api/health` after each backend release.
 5. If a release fails, fix it directly on the VPS or roll back with git on the server.
+6. Prefer the helper command over raw manual steps so lockfile-based dependency skipping stays consistent.
