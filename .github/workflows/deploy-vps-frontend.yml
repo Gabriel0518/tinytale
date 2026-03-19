@@ -300,7 +300,7 @@ jobs:
           for attempt in 1 2 3 4 5; do
             admin_status="$(curl -o /dev/null -s -w '%{http_code}' --max-time 10 http://127.0.0.1:7001/admin/login || true)"
             admin_html="$(curl -fsS --max-time 10 http://127.0.0.1:7001/admin/login || true)"
-            admin_build_id="$(printf '%s' "$admin_html" | grep -o '"buildId":"[^"]*"' | head -n 1 | cut -d '"' -f 4)"
+            admin_build_id="$(printf '%s' "$admin_html" | grep -o '"buildId":"[^"]*"' | head -n 1 | cut -d '"' -f 4 || true)"
 
             if [ "$admin_status" = "200" ] && [ "$admin_build_id" = "$BUILD_ID" ]; then
               admin_passed=1
