@@ -17,6 +17,9 @@ interface CreatorEpisodeDetailPageProps {
     id: string;
     episodeId: string;
   };
+  searchParams?: {
+    mode?: string;
+  };
 }
 
 function StatCard({ label, value, helper, icon: Icon }: { label: string; value: string; helper: string; icon: typeof Eye }) {
@@ -32,10 +35,14 @@ function StatCard({ label, value, helper, icon: Icon }: { label: string; value: 
   );
 }
 
-export default function CreatorEpisodeDetailPage({ params }: CreatorEpisodeDetailPageProps) {
+export default function CreatorEpisodeDetailPage({ params, searchParams }: CreatorEpisodeDetailPageProps) {
   const locale = useLocale();
   const { t } = useCreatorI18n();
   const { token } = useAuth();
+  const backHref = localizePath(
+    `/creator/dramas/${params.id}/episodes${String(searchParams?.mode || "").toLowerCase() === "revision" ? "?mode=revision" : ""}`,
+    locale
+  );
   const [episode, setEpisode] = useState<CreatorEpisodeItem | null>(null);
   const [dramaTitle, setDramaTitle] = useState('');
   const [analytics, setAnalytics] = useState<CreatorDramaAnalytics | null>(null);
@@ -138,7 +145,7 @@ export default function CreatorEpisodeDetailPage({ params }: CreatorEpisodeDetai
         <p className="text-[18px] font-bold text-[#0f172a]">{t('Unable to load episode detail')}</p>
         <p className="mt-2 text-sm leading-6 text-[#64748b]">{error || t('Episode data is unavailable.')}</p>
         <Link
-          href={localizePath(`/creator/dramas/${params.id}`, locale)}
+          href={backHref}
           className="mt-5 inline-flex items-center gap-2 rounded-[14px] bg-[#1876f2] px-4 py-2 text-sm font-semibold text-white"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -154,7 +161,7 @@ export default function CreatorEpisodeDetailPage({ params }: CreatorEpisodeDetai
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <Link
-              href={localizePath(`/creator/dramas/${params.id}`, locale)}
+              href={backHref}
               className="inline-flex items-center gap-2 text-sm font-semibold text-[#1876f2]"
             >
               <ArrowLeft className="h-4 w-4" />

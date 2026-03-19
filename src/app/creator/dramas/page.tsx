@@ -230,6 +230,7 @@ export default function CreatorDramasPage() {
                 list.map((item, index) => {
                   const statusUi = getCreatorDramaStatusMeta(item);
                   const normalizedStatus = normalizeCreatorDramaStatus(item);
+                  const hasEpisodeRevision = Boolean(item.needsEpisodeRevision && Number(item.rejectedEpisodeCount || 0) > 0);
                   return (
                     <tr key={item._id} className="border-t border-[#f8fafc] text-[13px] text-[#0f172a]">
                       <td className="px-5 py-4.5">
@@ -259,7 +260,17 @@ export default function CreatorDramasPage() {
                             {t("Edit")}
                           </Link>
 
-                          {normalizedStatus === "draft" || normalizedStatus === "rejected" ? (
+                          {hasEpisodeRevision ? (
+                            <Link
+                              href={localizePath(`/creator/dramas/${item._id}/episodes?mode=revision`, locale)}
+                              className="inline-flex items-center gap-1 rounded-xl px-2.5 py-2 text-xs font-semibold text-[#be123c] hover:bg-[#fff1f2]"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                              {t("Modify")}
+                            </Link>
+                          ) : null}
+
+                          {(normalizedStatus === "draft" || (normalizedStatus === "rejected" && !hasEpisodeRevision)) ? (
                             <button
                               type="button"
                               disabled={actionLoadingId === item._id}

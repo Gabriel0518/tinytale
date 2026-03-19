@@ -40,6 +40,7 @@ import { useCreatorI18n } from "../_lib/creator-i18n";
 
 interface CreatorEpisodeUploadWorkspaceProps {
   initialDramaId?: string;
+  revisionOnly?: boolean;
 }
 
 type UploadMode = "bulk" | "individual";
@@ -674,7 +675,7 @@ function CreatorPreviewPlayer({ episode }: { episode: PreviewEpisodeState }) {
   );
 }
 
-export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: CreatorEpisodeUploadWorkspaceProps) {
+export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revisionOnly = false }: CreatorEpisodeUploadWorkspaceProps) {
   const router = useRouter();
   const locale = useLocale();
   const { t } = useCreatorI18n();
@@ -682,7 +683,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const { options: countryOptions } = useCountryCatalog(locale);
 
   const [dramaId, setDramaId] = useState(initialDramaId || "");
-  const [currentStep, setCurrentStep] = useState<UploadStep>(initialDramaId ? 2 : 1);
+  const [currentStep, setCurrentStep] = useState<UploadStep>(initialDramaId || revisionOnly ? 2 : 1);
   const [dramaForm, setDramaForm] = useState<DramaFormState>({
     ...EMPTY_DRAMA_FORM,
     language: locale || "en",
@@ -730,6 +731,14 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const individualGridRef = useRef<HTMLDivElement | null>(null);
 
   const progress = useMemo(() => computeProgress(episodes), [episodes]);
+  const revisionEpisodes = useMemo(
+    () => sortEpisodesByNumber(episodes.filter((episode) => episode.reviewStatus === "rejected")),
+    [episodes]
+  );
+  const visibleEpisodes = revisionOnly ? revisionEpisodes : episodes;
+  const visibleReadyEpisodesCount = visibleEpisodes.filter((episode) => (episode.streamVideoId || episode.videoUrl) && episode.subtitleUrl).length;
+  const visibleFreeEpisodesCount = visibleEpisodes.filter((episode) => episode.isFree).length;
+  const visiblePaidEpisodesCount = Math.max(0, visibleEpisodes.length - visibleFreeEpisodesCount);
   const coverUploading = coverUploadingField !== "";
   const categorySelectOptions = useMemo(
     () => Array.from(new Set([...categoryOptions, ...dramaForm.categories])).filter(Boolean),
@@ -964,12 +973,21 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
   useEffect(() => {
     if (!initialDramaId) return;
+    if (revisionOnly) {
+      setCurrentStep(2);
+      return;
+    }
     if (!basicInfoCompleted) {
       setCurrentStep(1);
       return;
     }
     setCurrentStep((prev) => (prev === 1 ? 2 : prev));
-  }, [basicInfoCompleted, initialDramaId]);
+  }, [basicInfoCompleted, initialDramaId, revisionOnly]);
+
+  useEffect(() => {
+    if (!revisionOnly) return;
+    setUploadMode("individual");
+  }, [revisionOnly]);
 
   const updateDramaFormField = useCallback(<K extends keyof DramaFormState,>(field: K, value: DramaFormState[K]) => {
     setDramaForm((prev) => ({
@@ -1961,8 +1979,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     setBusy(true);
     setError("");
     try {
-      const targetDramaId = await persistDramaForm();
-      if (currentStep === 3) {
+      const targetDramaId = revisionOnly ? (dramaId || initialDramaId || "") : await persistDramaForm();
+      if (!targetDramaId) {
+        throw new Error(t("Drama draft not found"));
+      }
+      if (!revisionOnly && currentStep === 3) {
         await persistEpisodePricing(targetDramaId);
       }
       await creatorApi.updateDrama(token, targetDramaId, { updatedAt: new Date().toISOString() });
@@ -1973,30 +1994,35 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     } finally {
       setBusy(false);
     }
-  }, [currentStep, loadDrama, loadEpisodes, persistDramaForm, persistEpisodePricing, t, token]);
+  }, [currentStep, dramaId, initialDramaId, loadDrama, loadEpisodes, persistDramaForm, persistEpisodePricing, revisionOnly, t, token]);
 
   const nextStep = useCallback(async () => {
     if (!token) return;
+    const submissionEpisodes = revisionOnly ? revisionEpisodes : episodes;
+    if (revisionOnly && submissionEpisodes.length === 0) {
+      setError(t("There are no rejected episodes waiting for changes."));
+      return;
+    }
     const basicInfoError = validateBasicInfo();
-    if (basicInfoError) {
+    if (!revisionOnly && basicInfoError) {
       setCurrentStep(1);
       setError(basicInfoError);
       return;
     }
-    if (episodes.some((episode) => !episode.streamVideoId && !episode.videoUrl)) {
+    if (submissionEpisodes.some((episode) => !episode.streamVideoId && !episode.videoUrl)) {
       setCurrentStep(2);
       setError(t("Upload a video for every episode before submitting for review"));
       individualGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    if (episodes.some((episode) => !episode.subtitleUrl)) {
+    if (submissionEpisodes.some((episode) => !episode.subtitleUrl)) {
       setCurrentStep(2);
       setUploadMode("individual");
       setError(t("Upload subtitles for every episode before submitting for review"));
       individualGridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
-    if (episodes.some((episode) => !episode.isFree && (!Number.isFinite(Number(episode.unlockPrice)) || Number(episode.unlockPrice) <= 0))) {
+    if (!revisionOnly && submissionEpisodes.some((episode) => !episode.isFree && (!Number.isFinite(Number(episode.unlockPrice)) || Number(episode.unlockPrice) <= 0))) {
       setCurrentStep(3);
       setError(t("Set a valid unlock price for every paid episode"));
       return;
@@ -2004,16 +2030,25 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
     setBusy(true);
     setError("");
     try {
-      const targetDramaId = await persistDramaForm();
-      await persistEpisodePricing(targetDramaId);
-      await creatorApi.submitDramaForReview(token, targetDramaId);
+      const targetDramaId = revisionOnly ? (dramaId || initialDramaId || "") : await persistDramaForm();
+      if (!targetDramaId) {
+        throw new Error(t("Drama draft not found"));
+      }
+      if (!revisionOnly) {
+        await persistEpisodePricing(targetDramaId);
+      }
+      await creatorApi.submitDramaForReview(
+        token,
+        targetDramaId,
+        revisionOnly ? { episodeIds: submissionEpisodes.map((episode) => episode._id) } : undefined
+      );
       router.replace(localizePath("/creator/dramas", locale));
     } catch (err: any) {
       setError(err?.message || t("Failed to submit drama for review"));
     } finally {
       setBusy(false);
     }
-  }, [episodes, locale, persistDramaForm, persistEpisodePricing, router, t, token, validateBasicInfo]);
+  }, [dramaId, episodes, initialDramaId, locale, persistDramaForm, persistEpisodePricing, revisionEpisodes, revisionOnly, router, t, token, validateBasicInfo]);
 
   if (loading) {
     return (
@@ -2025,9 +2060,6 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
   const canRunBulk = bulkQueue.some((item) => item.status === "queued" || item.status === "failed" || item.status === "cancelled");
   const workflowProgress = getWorkflowProgress(currentStep);
-  const freeEpisodesCount = episodes.filter((episode) => episode.isFree).length;
-  const paidEpisodesCount = Math.max(0, episodes.length - freeEpisodesCount);
-  const readyEpisodesCount = episodes.filter((episode) => (episode.streamVideoId || episode.videoUrl) && episode.subtitleUrl).length;
   const stepOnePanelClassName = "rounded-[24px] border border-[#e2e8f0] bg-white p-5 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] md:p-6";
   const stepOneTitleClassName = "text-[22px] font-black tracking-[-0.03em] text-[#0f172a] md:text-[24px]";
   const stepOneLabelClassName = "text-[13px] font-semibold text-[#0f172a]";
@@ -2036,51 +2068,75 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
   return (
     <div className="-mx-4 -mt-6 md:-mx-6 lg:-mx-8 lg:-mt-8">
-      <div className="border-b border-[#e2e8f0] bg-white px-4 py-3.5 md:px-7">
-        <div className="flex items-center gap-3 text-sm">
-          <div className={`flex items-center gap-3 ${currentStep === 1 ? "text-[#0f172a]" : "text-[#64748b]"}`}>
-            <span
-              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
-                currentStep === 1 ? "bg-[#1876f2] text-white" : "bg-[#e2e8f0] text-[#64748b]"
-              }`}
-            >
-              1
-            </span>
+      {revisionOnly ? (
+        <div className="border-b border-[#e2e8f0] bg-white px-4 py-4 md:px-7">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className={currentStep === 1 ? "font-bold text-[#1876f2]" : "font-semibold text-[#64748b]"}>{t("Basic Info")}</p>
-              <p className="text-xs text-[#94a3b8]">{t("Series details")}</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#be123c]">{t("Episode Changes Requested")}</p>
+              <h1 className="mt-1 text-[22px] font-black tracking-[-0.03em] text-[#0f172a] md:text-[26px]">
+                {t("Update the rejected episodes and resubmit only those items")}
+              </h1>
+              <p className="mt-2 text-sm leading-6 text-[#64748b]">
+                {revisionEpisodes.length > 0
+                  ? t("__ARG_0__ rejected episodes are waiting for updated assets or metadata.", revisionEpisodes.length)
+                  : t("There are no rejected episodes waiting for changes in this drama.")}
+              </p>
             </div>
-          </div>
-          <div className="h-px flex-1 bg-[#e2e8f0]" />
-          <div className={`flex items-center gap-3 ${currentStep === 2 ? "text-[#0f172a]" : "text-[#64748b]"}`}>
-            <span
-              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
-                currentStep === 2 ? "bg-[#1876f2] text-white" : "bg-[#e2e8f0] text-[#64748b]"
-              }`}
+            <Link
+              href={localizePath("/creator/dramas", locale)}
+              className="inline-flex items-center gap-2 rounded-[16px] border border-[#d7dde8] px-4 py-2 text-sm font-semibold text-[#334155] hover:bg-[#f8fafc]"
             >
-              2
-            </span>
-            <div>
-              <p className={currentStep === 2 ? "font-bold text-[#1876f2]" : "font-semibold text-[#64748b]"}>{t("Episode Upload")}</p>
-              <p className="text-xs text-[#94a3b8]">{t("Video assets")}</p>
+              {t("Back to Drama Management")}
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <div className="border-b border-[#e2e8f0] bg-white px-4 py-3.5 md:px-7">
+          <div className="flex items-center gap-3 text-sm">
+            <div className={`flex items-center gap-3 ${currentStep === 1 ? "text-[#0f172a]" : "text-[#64748b]"}`}>
+              <span
+                className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
+                  currentStep === 1 ? "bg-[#1876f2] text-white" : "bg-[#e2e8f0] text-[#64748b]"
+                }`}
+              >
+                1
+              </span>
+              <div>
+                <p className={currentStep === 1 ? "font-bold text-[#1876f2]" : "font-semibold text-[#64748b]"}>{t("Basic Info")}</p>
+                <p className="text-xs text-[#94a3b8]">{t("Series details")}</p>
+              </div>
             </div>
-          </div>
-          <div className="h-px flex-1 bg-[#e2e8f0]" />
-          <div className={`flex items-center gap-3 ${currentStep === 3 ? "text-[#0f172a]" : "text-[#64748b]"}`}>
-            <span
-              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
-                currentStep === 3 ? "bg-[#1876f2] text-white" : "bg-[#e2e8f0] text-[#64748b]"
-              }`}
-            >
-              3
-            </span>
-            <div>
-              <p className={currentStep === 3 ? "font-bold text-[#1876f2]" : "font-semibold text-[#64748b]"}>{t("Payment Settings")}</p>
-              <p className="text-xs text-[#94a3b8]">{t("Monetization")}</p>
+            <div className="h-px flex-1 bg-[#e2e8f0]" />
+            <div className={`flex items-center gap-3 ${currentStep === 2 ? "text-[#0f172a]" : "text-[#64748b]"}`}>
+              <span
+                className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
+                  currentStep === 2 ? "bg-[#1876f2] text-white" : "bg-[#e2e8f0] text-[#64748b]"
+                }`}
+              >
+                2
+              </span>
+              <div>
+                <p className={currentStep === 2 ? "font-bold text-[#1876f2]" : "font-semibold text-[#64748b]"}>{t("Episode Upload")}</p>
+                <p className="text-xs text-[#94a3b8]">{t("Video assets")}</p>
+              </div>
+            </div>
+            <div className="h-px flex-1 bg-[#e2e8f0]" />
+            <div className={`flex items-center gap-3 ${currentStep === 3 ? "text-[#0f172a]" : "text-[#64748b]"}`}>
+              <span
+                className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
+                  currentStep === 3 ? "bg-[#1876f2] text-white" : "bg-[#e2e8f0] text-[#64748b]"
+                }`}
+              >
+                3
+              </span>
+              <div>
+                <p className={currentStep === 3 ? "font-bold text-[#1876f2]" : "font-semibold text-[#64748b]"}>{t("Payment Settings")}</p>
+                <p className="text-xs text-[#94a3b8]">{t("Monetization")}</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       <div className="px-4 pb-7 pt-6 md:px-7">
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -2366,32 +2422,34 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
 
         {currentStep === 2 ? (
           <>
-            <div className="mt-5 border-b border-[#e2e8f0]">
-              <div className="flex items-end gap-1 text-sm">
-                <button
-                  type="button"
-                  onClick={() => setUploadMode("bulk")}
-                  className={`border-b-2 px-5 py-2.5 ${
-                    uploadMode === "bulk" ? "border-[#1876f2] font-bold text-[#1876f2]" : "border-transparent font-medium text-[#64748b]"
-                  }`}
-                >
-                  {t("Bulk Upload (Auto-Slice)")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUploadMode("individual")}
-                  className={`border-b-2 px-5 py-2.5 ${
-                    uploadMode === "individual"
-                      ? "border-[#1876f2] font-bold text-[#1876f2]"
-                      : "border-transparent font-medium text-[#64748b]"
-                  }`}
-                >
-                  {t("Individual Upload")}
-                </button>
+            {revisionOnly ? null : (
+              <div className="mt-5 border-b border-[#e2e8f0]">
+                <div className="flex items-end gap-1 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => setUploadMode("bulk")}
+                    className={`border-b-2 px-5 py-2.5 ${
+                      uploadMode === "bulk" ? "border-[#1876f2] font-bold text-[#1876f2]" : "border-transparent font-medium text-[#64748b]"
+                    }`}
+                  >
+                    {t("Bulk Upload (Auto-Slice)")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUploadMode("individual")}
+                    className={`border-b-2 px-5 py-2.5 ${
+                      uploadMode === "individual"
+                        ? "border-[#1876f2] font-bold text-[#1876f2]"
+                        : "border-transparent font-medium text-[#64748b]"
+                    }`}
+                  >
+                    {t("Individual Upload")}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {uploadMode === "bulk" ? (
+            {!revisionOnly && uploadMode === "bulk" ? (
               <section className="mt-5 space-y-4">
                 <div className="rounded-[20px] border border-[#e2e8f0] bg-white p-4">
                   <div className="flex flex-wrap items-start justify-between gap-4">
@@ -2595,8 +2653,21 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 </div>
               </section>
             ) : (
-              <div ref={individualGridRef} className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                {episodes.map((episode) => {
+              <div ref={individualGridRef} className="mt-5">
+                {visibleEpisodes.length === 0 ? (
+                  <div className="rounded-[20px] border border-dashed border-[#cbd5e1] bg-white px-6 py-10 text-center">
+                    <p className="text-[16px] font-bold text-[#0f172a]">
+                      {revisionOnly ? t("No rejected episodes need changes right now") : t("No episodes yet")}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-[#64748b]">
+                      {revisionOnly
+                        ? t("Once admin sends an episode back with feedback, it will appear here for a targeted update and resubmission.")
+                        : t("Add and upload your first episode to continue.")}
+                    </p>
+                  </div>
+                ) : (
+                <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                {visibleEpisodes.map((episode) => {
                   const statusUi = autoSliceStatusMap[episode._id] || mapEpisodeStatus(episode.status);
                   const subtitleUi = mapEpisodeSubtitleUi(episode, {
                     videoProcessing: isEpisodeVideoProcessing(episode, autoSliceStatusMap[episode._id]),
@@ -2638,7 +2709,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                           <button
                             type="button"
                             onClick={() => moveEpisodePosition(episode._id, "up")}
-                            disabled={busy || episode.episodeNumber <= 1}
+                            disabled={revisionOnly || busy || episode.episodeNumber <= 1}
                             className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569] disabled:cursor-not-allowed disabled:opacity-40"
                             aria-label={t("Move episode up")}
                           >
@@ -2647,14 +2718,14 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                           <button
                             type="button"
                             onClick={() => moveEpisodePosition(episode._id, "down")}
-                            disabled={busy || episode.episodeNumber >= episodes.length}
+                            disabled={revisionOnly || busy || episode.episodeNumber >= episodes.length}
                             className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569] disabled:cursor-not-allowed disabled:opacity-40"
                             aria-label={t("Move episode down")}
                           >
                             <ArrowDown className="h-4 w-4" />
                           </button>
                           <Link
-                            href={localizePath(`/creator/dramas/${dramaId}/episodes/${episode._id}`, locale)}
+                            href={localizePath(`/creator/dramas/${dramaId}/episodes/${episode._id}${revisionOnly ? "?mode=revision" : ""}`, locale)}
                             className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#1876f2] hover:bg-[#eff6ff]"
                           >
                             {t("Edit Info")}
@@ -2840,17 +2911,21 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   );
                 })}
 
-                <button
-                  type="button"
-                  onClick={addEpisode}
-                  disabled={busy}
-                  className="flex min-h-[264px] flex-col items-center justify-center rounded-[20px] border-2 border-dashed border-[#cbd5e1] px-6 text-[#64748b] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#f1f5f9]">
-                    <Plus className="h-6 w-6" />
-                  </span>
-                  <span className="text-[13px] font-bold">{t("Click to add new episode")}</span>
-                </button>
+                {!revisionOnly ? (
+                  <button
+                    type="button"
+                    onClick={addEpisode}
+                    disabled={busy}
+                    className="flex min-h-[264px] flex-col items-center justify-center rounded-[20px] border-2 border-dashed border-[#cbd5e1] px-6 text-[#64748b] hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-[#f1f5f9]">
+                      <Plus className="h-6 w-6" />
+                    </span>
+                    <span className="text-[13px] font-bold">{t("Click to add new episode")}</span>
+                  </button>
+                ) : null}
+                </div>
+                )}
               </div>
             )}
           </>
@@ -2868,15 +2943,15 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                   </div>
                   <div className="flex items-center justify-between rounded-[16px] bg-[#f8fafc] px-4 py-3">
                     <span className="text-[#64748b]">{t("Ready for review")}</span>
-                    <span className="font-bold text-[#0f172a]">{readyEpisodesCount}</span>
+                    <span className="font-bold text-[#0f172a]">{visibleReadyEpisodesCount}</span>
                   </div>
                   <div className="flex items-center justify-between rounded-[16px] bg-[#f8fafc] px-4 py-3">
                     <span className="text-[#64748b]">{t("Free episodes")}</span>
-                    <span className="font-bold text-[#16a34a]">{freeEpisodesCount}</span>
+                    <span className="font-bold text-[#16a34a]">{visibleFreeEpisodesCount}</span>
                   </div>
                   <div className="flex items-center justify-between rounded-[16px] bg-[#f8fafc] px-4 py-3">
                     <span className="text-[#64748b]">{t("Paid episodes")}</span>
-                    <span className="font-bold text-[#1876f2]">{paidEpisodesCount}</span>
+                    <span className="font-bold text-[#1876f2]">{visiblePaidEpisodesCount}</span>
                   </div>
                 </div>
               </div>
@@ -3054,7 +3129,29 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
           </section>
         ) : null}
 
-        {currentStep === 1 ? (
+        {revisionOnly ? (
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[#e2e8f0] pt-6">
+            <p className="max-w-2xl text-sm leading-6 text-[#64748b]">
+              {t("Only the episodes that were rejected by review are included in this resubmission. Pricing and approved episodes stay unchanged.")}
+            </p>
+            <div className="flex items-center gap-3">
+              <Link
+                href={localizePath("/creator/dramas", locale)}
+                className="rounded-[16px] border border-[#cbd5e1] px-5 py-2 text-[13px] font-bold text-[#475569] hover:bg-[#f8fafc]"
+              >
+                {t("Cancel")}
+              </Link>
+              <button
+                type="button"
+                onClick={nextStep}
+                disabled={busy || revisionEpisodes.length === 0}
+                className="rounded-[16px] bg-[#1876f2] px-8 py-2 text-[13px] font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {t("Submit Episode Changes")}
+              </button>
+            </div>
+          </div>
+        ) : currentStep === 1 ? (
           <div className="mt-8 flex items-center justify-center gap-4">
             <button
               type="button"

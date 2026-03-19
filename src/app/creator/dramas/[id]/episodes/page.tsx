@@ -6,8 +6,16 @@ interface CreatorDramaEpisodesPageProps {
   params: {
     id: string;
   };
+  searchParams?: {
+    mode?: string;
+  };
 }
 
-export default function CreatorDramaEpisodesPage({ params }: CreatorDramaEpisodesPageProps) {
-  return <CreatorEpisodeUploadWorkspace initialDramaId={params.id} />;
+export default function CreatorDramaEpisodesPage({ params, searchParams }: CreatorDramaEpisodesPageProps) {
+  return (
+    <CreatorEpisodeUploadWorkspace
+      initialDramaId={params.id}
+      revisionOnly={String(searchParams?.mode || "").toLowerCase() === "revision"}
+    />
+  );
 }

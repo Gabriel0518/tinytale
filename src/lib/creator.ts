@@ -337,8 +337,20 @@ export function normalizeCreatorDramaStatus(item: Pick<CreatorDramaListItem, "st
   return status;
 }
 
-export function getCreatorDramaStatusMeta(item: Pick<CreatorDramaListItem, "status" | "reviewMeta">) {
+export function getCreatorDramaStatusMeta(
+  item: Pick<CreatorDramaListItem, "status" | "reviewMeta" | "needsEpisodeRevision" | "rejectedEpisodeCount" | "latestEpisodeReviewNote">
+) {
   const status = normalizeCreatorDramaStatus(item);
+  if (item.needsEpisodeRevision) {
+    const rejectedCount = Math.max(1, Number(item.rejectedEpisodeCount || 0));
+    return {
+      label: "Changes Required",
+      helper:
+        item.latestEpisodeReviewNote
+        || (rejectedCount === 1 ? "1 episode needs changes before re-review" : `${rejectedCount} episodes need changes before re-review`),
+      className: "bg-[#fff1f2] text-[#be123c]",
+    };
+  }
   switch (status) {
     case "published":
       return { label: "Published", helper: "Visible on TinyTale", className: "bg-[#dcfce7] text-[#15803d]" };

@@ -9,16 +9,14 @@ import {
   formatAdminDate,
   getCreatorContentReviewStatusMeta,
   getCreatorSlaStatusMeta,
-  mockContentReviews,
 } from "../_lib/mockData";
 
 const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";
 
 export default function CreatorContentReviewPage() {
-  const [items, setItems] = useState<CreatorAdminContentReviewListItem[]>(mockContentReviews);
+  const [items, setItems] = useState<CreatorAdminContentReviewListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
   const [slaStatus, setSlaStatus] = useState("all");
 
   useEffect(() => {
@@ -28,11 +26,11 @@ export default function CreatorContentReviewPage() {
       try {
         const response: any = await adminApi.getCreatorContentReviews();
         const next = response?.data?.items || response?.data?.reviews || response?.data || [];
-        if (!cancelled && Array.isArray(next) && next.length > 0) {
+        if (!cancelled && Array.isArray(next)) {
           setItems(next);
         }
       } catch {
-        if (!cancelled) setItems(mockContentReviews);
+        if (!cancelled) setItems([]);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -50,16 +48,15 @@ export default function CreatorContentReviewPage() {
       const haystack = [item.dramaId, item.title, item.creatorName, item.creatorEmail, item.categories.join(" ")].join(" ").toLowerCase();
       if (!haystack.includes(query)) return false;
     }
-    if (status !== "all" && item.status !== status) return false;
     if (slaStatus !== "all" && item.slaStatus !== slaStatus) return false;
     return true;
-  }), [items, search, status, slaStatus]);
+  }), [items, search, slaStatus]);
 
   const stats = useMemo(() => ({
     pending: items.filter((item) => item.status === "pending_review").length,
     dueSoon: items.filter((item) => item.slaStatus === "due_soon").length,
     breached: items.filter((item) => item.slaStatus === "breach").length,
-    rejected: items.filter((item) => item.status === "rejected").length,
+    onTrack: items.filter((item) => item.slaStatus === "on_track").length,
   }), [items]);
 
   return (
@@ -86,10 +83,10 @@ export default function CreatorContentReviewPage() {
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <article className={panelClassName}>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Pending review</p>
-          <p className="mt-3 text-3xl font-bold text-white">{stats.pending}</p>
-          <p className="mt-2 text-sm text-gray-400">Titles currently waiting for admin review.</p>
-        </article>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Pending review</p>
+            <p className="mt-3 text-3xl font-bold text-white">{stats.pending}</p>
+            <p className="mt-2 text-sm text-gray-400">Titles currently waiting for admin review.</p>
+          </article>
         <article className={panelClassName}>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Due soon</p>
           <p className="mt-3 text-3xl font-bold text-amber-300">{stats.dueSoon}</p>
@@ -101,14 +98,14 @@ export default function CreatorContentReviewPage() {
           <p className="mt-2 text-sm text-gray-400">Submissions that already missed the 48-hour review target.</p>
         </article>
         <article className={panelClassName}>
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">Changes requested</p>
-          <p className="mt-3 text-3xl font-bold text-white">{stats.rejected}</p>
-          <p className="mt-2 text-sm text-gray-400">Titles blocked pending creator revisions and resubmission.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">On track</p>
+          <p className="mt-3 text-3xl font-bold text-emerald-300">{stats.onTrack}</p>
+          <p className="mt-2 text-sm text-gray-400">Queue items still safely inside the review SLA.</p>
         </article>
       </section>
 
       <section className={panelClassName}>
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px_220px]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
           <label className="relative block">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <input
@@ -118,14 +115,6 @@ export default function CreatorContentReviewPage() {
               className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] pl-11 pr-4 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
             />
           </label>
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-11 rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
-            <option value="all">All review states</option>
-            <option value="pending_review">Pending review</option>
-            <option value="published">Published</option>
-            <option value="rejected">Changes requested</option>
-            <option value="archived">Archived</option>
-            <option value="draft">Draft</option>
-          </select>
           <select value={slaStatus} onChange={(event) => setSlaStatus(event.target.value)} className="h-11 rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500">
             <option value="all">All SLA states</option>
             <option value="breach">Breached</option>
@@ -141,7 +130,7 @@ export default function CreatorContentReviewPage() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-white">Queue</h2>
-              <p className="mt-1 text-sm text-gray-400">Direct entry to the drama review detail and decision workflow.</p>
+              <p className="mt-1 text-sm text-gray-400">Only submissions that are still waiting for admin review appear in this queue.</p>
             </div>
           </div>
           <div className="mt-5 overflow-x-auto">

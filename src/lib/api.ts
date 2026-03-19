@@ -722,8 +722,13 @@ export const creatorApi = {
   deleteDrama: (token: string, id: string) =>
     api.delete<{ success: boolean; data: { deletedId: string; deletedEpisodes: number } }>(`/api/creator/dramas/${id}`, { token }),
 
-  submitDramaForReview: (token: string, id: string) =>
-    api.post<{ success: boolean; data: any }>(`/api/creator/dramas/${id}/submit-review`, {}, { token }),
+  submitDramaForReview: (
+    token: string,
+    id: string,
+    payload?: {
+      episodeIds?: string[];
+    }
+  ) => api.post<{ success: boolean; data: any }>(`/api/creator/dramas/${id}/submit-review`, payload || {}, { token }),
 
   publishDrama: (token: string, id: string) =>
     api.post<{ success: boolean; data: any }>(`/api/creator/dramas/${id}/publish`, {}, { token }),

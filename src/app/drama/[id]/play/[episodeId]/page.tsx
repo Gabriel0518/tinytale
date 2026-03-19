@@ -16,6 +16,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { resolvePlaybackSource } from "@/lib/playback";
 import { getQualityMenuOptions, resolveDefaultQuality } from "@/lib/playerQuality";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { formatDuration } from "@/lib/utils";
 
 const PLAY_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
@@ -342,7 +343,7 @@ export default function PlayEpisodePage() {
             {currentEpisode.title}
           </h1>
           <p className="text-gray-400">
-            {t.episode} {currentEpisode.episodeNumber} • {Math.floor(currentEpisode.duration / 60)}:{String(currentEpisode.duration % 60).padStart(2, '0')}
+            {t.episode} {currentEpisode.episodeNumber} • {formatDuration(currentEpisode.duration)}
           </p>
           {qualityOptions.length > 0 && (
             <div className="mt-3 inline-flex items-center gap-2 rounded-md border border-gray-700 bg-[#13131d] px-3 py-1.5">

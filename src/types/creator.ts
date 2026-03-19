@@ -198,6 +198,10 @@ export interface CreatorDramaListItem {
     rejectionReason?: string;
     reviewNote?: string;
   } | null;
+  needsEpisodeRevision?: boolean;
+  rejectedEpisodeCount?: number;
+  pendingEpisodeReviewCount?: number;
+  latestEpisodeReviewNote?: string;
   archivedAt?: string | null;
 }
 

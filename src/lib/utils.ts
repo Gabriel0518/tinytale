@@ -21,8 +21,9 @@ export function resolveDramaMode(drama: Pick<Drama, 'dramaMode' | 'isCompleted'>
 }
 
 export function formatDuration(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
+  const normalizedSeconds = Math.max(0, Math.floor(Number(seconds) || 0));
+  const m = Math.floor(normalizedSeconds / 60);
+  const s = normalizedSeconds % 60;
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
