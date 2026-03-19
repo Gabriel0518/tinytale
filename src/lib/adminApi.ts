@@ -614,6 +614,9 @@ export const adminApi = {
   getCreatorContentReview: (dramaId: string, token = getAdminToken()) =>
     api.get(`/api/admin/content-reviews/${dramaId}`, { token }),
 
+  getCreatorContentReviewEpisodePreview: (dramaId: string, episodeId: string, token = getAdminToken()) =>
+    api.get(`/api/admin/content-reviews/${dramaId}/episodes/${episodeId}/preview`, { token }),
+
   reviewCreatorContent: (dramaId: string, data: any, token = getAdminToken()) =>
     api.post(`/api/admin/content-reviews/${dramaId}/review`, data, { token }),
 

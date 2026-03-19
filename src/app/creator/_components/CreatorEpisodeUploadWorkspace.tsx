@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type Ref } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
   CheckCircle2,
   ChevronsUpDown,
@@ -526,9 +528,17 @@ function CreatorRegionPicker({
 }
 
 type PreviewEpisodeState = CreatorEpisodePreviewPayload & {
+  id: string;
   title: string;
   episodeNumber: number;
+  reviewStatus?: CreatorEpisodeItem["reviewStatus"];
+  reviewNote?: string;
+  rejectionReason?: string;
 };
+
+function sortEpisodesByNumber(list: CreatorEpisodeItem[]): CreatorEpisodeItem[] {
+  return [...list].sort((left, right) => Number(left.episodeNumber || 0) - Number(right.episodeNumber || 0));
+}
 
 function resolvePreviewDefaultSubtitle(
   tracks: SubtitleTrack[],
@@ -681,6 +691,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   const [pricingTemplate, setPricingTemplate] = useState(30);
   const [coverUploadingField, setCoverUploadingField] = useState<CoverField | "">("");
   const [activeCoverField, setActiveCoverField] = useState<CoverField>("cover");
+  const [coverPreviewOpen, setCoverPreviewOpen] = useState(false);
   const [episodes, setEpisodes] = useState<CreatorEpisodeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -755,7 +766,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   };
   const activeCoverConfig = coverFieldConfig[activeCoverField];
   const activeCoverRecommendedSize = activeCoverField === "cover" ? "1080×1920" : "1920×1080";
-  const previewCover = dramaForm.cover || dramaForm.horizontalCover;
+  const previewCover = activeCoverConfig.value || dramaForm.cover || dramaForm.horizontalCover;
   const basicInfoCompleted = Boolean(
     dramaForm.title.trim()
     && dramaForm.description.trim()
@@ -804,7 +815,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       setError("");
       try {
         const response = await creatorApi.getDramaEpisodes(token, targetDramaId);
-        setEpisodes(response.data?.episodes || []);
+        setEpisodes(sortEpisodesByNumber(response.data?.episodes || []));
       } catch (err: any) {
         setError(err?.message || t("Failed to load episodes"));
       } finally {
@@ -938,13 +949,13 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
   }, [episodes]);
 
   useEffect(() => {
-    if (!previewEpisode) return;
+    if (!previewEpisode && !coverPreviewOpen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [previewEpisode]);
+  }, [coverPreviewOpen, previewEpisode]);
 
   const refreshEpisodes = useCallback(async () => {
     if (!dramaId) return;
@@ -1072,6 +1083,47 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       })
     );
   }, []);
+
+  const moveEpisodePosition = useCallback(async (episodeId: string, direction: "up" | "down") => {
+    if (!token || !dramaId) return;
+
+    const ordered = sortEpisodesByNumber(episodes);
+    const currentIndex = ordered.findIndex((episode) => episode._id === episodeId);
+    if (currentIndex < 0) return;
+
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= ordered.length) return;
+
+    const nextOrdered = [...ordered];
+    const [movedEpisode] = nextOrdered.splice(currentIndex, 1);
+    nextOrdered.splice(targetIndex, 0, movedEpisode);
+    const normalized = nextOrdered.map((episode, index) => ({
+      ...episode,
+      episodeNumber: index + 1,
+    }));
+
+    const previousEpisodes = episodes;
+    setEpisodes(normalized);
+    setBusy(true);
+    setError("");
+
+    try {
+      const response = await creatorApi.reorderDramaEpisodes(
+        token,
+        dramaId,
+        normalized.map((episode) => ({
+          episodeId: episode._id,
+          episodeNumber: episode.episodeNumber,
+        })),
+      );
+      setEpisodes(sortEpisodesByNumber(response.data?.episodes || normalized));
+    } catch (err: any) {
+      setEpisodes(previousEpisodes);
+      setError(err?.message || t("Failed to reorder episodes"));
+    } finally {
+      setBusy(false);
+    }
+  }, [dramaId, episodes, t, token]);
 
   const goToEpisodeUploadStep = useCallback(async () => {
     const validationError = validateBasicInfo();
@@ -1784,9 +1836,13 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
       try {
         const response = await creatorApi.getDramaEpisodePreview(token, dramaId, episode._id);
         setPreviewEpisode({
+          id: episode._id,
           ...response.data,
           title: episode.title,
           episodeNumber: episode.episodeNumber,
+          reviewStatus: episode.reviewStatus,
+          reviewNote: episode.reviewNote,
+          rejectionReason: episode.rejectionReason,
         });
       } catch (err: any) {
         setError(err?.message || t("Failed to load episode preview"));
@@ -2208,32 +2264,73 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#94a3b8]">{t("Live Preview")}</p>
-                    <h3 className="mt-1 text-[18px] font-bold text-[#0f172a]">{t("Mobile storefront card")}</h3>
+                    <h3 className="mt-1 text-[18px] font-bold text-[#0f172a]">
+                      {activeCoverField === "cover" ? t("Mobile storefront card") : t("Landscape storefront hero")}
+                    </h3>
                   </div>
-                  <span className="rounded-full bg-[#eff6ff] px-3 py-1 text-[11px] font-bold text-[#1d4ed8]">{selectedCategory || t("Drama")}</span>
+                  <button
+                    type="button"
+                    onClick={() => setCoverPreviewOpen(true)}
+                    className="rounded-full bg-[#eff6ff] px-3 py-1 text-[11px] font-bold text-[#1d4ed8] hover:bg-[#dbeafe]"
+                  >
+                    {t("Preview cover")}
+                  </button>
                 </div>
-                <div className="mx-auto mt-4 w-[224px] rounded-[30px] border-[7px] border-[#0f172a] bg-[#020617] p-2">
-                  <div className="relative overflow-hidden rounded-[24px] bg-[#0b1220]">
-                    <div className="aspect-[9/16]">
+                {activeCoverField === "cover" ? (
+                  <div className="mx-auto mt-4 w-[224px] rounded-[30px] border-[7px] border-[#0f172a] bg-[#020617] p-2">
+                    <button
+                      type="button"
+                      onClick={() => setCoverPreviewOpen(true)}
+                      className="relative block w-full overflow-hidden rounded-[24px] bg-[#0b1220] text-left"
+                    >
+                      <div className="aspect-[9/16]">
+                        {previewCover ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={previewCover} alt={t("Cover preview")} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="h-full w-full bg-[radial-gradient(circle_at_top,#1e3a8a_0%,#0b1220_55%,#020617_100%)]" />
+                        )}
+                      </div>
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-3 pb-3 pt-10 text-white">
+                        <div className="mb-2 inline-flex rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold">{selectedCategory || t("Drama")}</div>
+                        <p className="line-clamp-1 text-base font-bold">{dramaForm.title || t("Your Drama Title Here")}</p>
+                        <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-white/80">
+                          {dramaForm.description || t("Your description will appear here as the viewer explores the app...")}
+                        </p>
+                        <div className="mt-3 w-full rounded-full bg-white px-3 py-2 text-center text-[11px] font-bold text-[#0f172a]">
+                          {t("Watch Now")}
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setCoverPreviewOpen(true)}
+                    className="mt-4 block w-full overflow-hidden rounded-[24px] border border-[#dbe4f0] bg-[#0b1220] text-left shadow-[0px_18px_40px_rgba(15,23,42,0.08)]"
+                  >
+                    <div className="relative aspect-[16/9]">
                       {previewCover ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={previewCover} alt={t("Cover preview")} className="h-full w-full object-cover" />
                       ) : (
-                        <div className="h-full w-full bg-[radial-gradient(circle_at_top,#1e3a8a_0%,#0b1220_55%,#020617_100%)]" />
+                        <div className="h-full w-full bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_100%)]" />
                       )}
+                      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/35 to-transparent" />
+                      <div className="absolute inset-y-0 left-0 flex max-w-[70%] flex-col justify-end px-5 pb-5 text-white">
+                        <div className="mb-2 inline-flex w-fit rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold">
+                          {selectedCategory || t("Drama")}
+                        </div>
+                        <p className="line-clamp-2 text-[22px] font-black leading-tight tracking-[-0.03em]">
+                          {dramaForm.title || t("Your Drama Title Here")}
+                        </p>
+                        <p className="mt-2 line-clamp-2 text-[12px] leading-5 text-white/80">
+                          {dramaForm.description || t("Your description will appear here as the viewer explores the app...")}
+                        </p>
+                      </div>
                     </div>
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-3 pb-3 pt-10 text-white">
-                      <div className="mb-2 inline-flex rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-semibold">{selectedCategory || t("Drama")}</div>
-                      <p className="line-clamp-1 text-base font-bold">{dramaForm.title || t("Your Drama Title Here")}</p>
-                      <p className="mt-1 line-clamp-2 text-[11px] leading-5 text-white/80">
-                        {dramaForm.description || t("Your description will appear here as the viewer explores the app...")}
-                      </p>
-                      <button type="button" className="mt-3 w-full rounded-full bg-white px-3 py-2 text-[11px] font-bold text-[#0f172a]">
-                        {t("Watch Now")}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  </button>
+                )}
                 <p className="mt-3 text-center text-[12px] leading-5 text-[#64748b]">{t("This preview mirrors the mobile storefront ratio used across the creator and consumer surfaces.")}</p>
               </div>
 
@@ -2538,6 +2635,24 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       <div className="mt-4 flex items-center justify-between">
                         <h3 className="text-[22px] font-black leading-none tracking-[-0.03em] text-[#1e293b] md:text-[24px]">{t("Episode __ARG_0__", episode.episodeNumber)}</h3>
                         <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveEpisodePosition(episode._id, "up")}
+                            disabled={busy || episode.episodeNumber <= 1}
+                            className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569] disabled:cursor-not-allowed disabled:opacity-40"
+                            aria-label={t("Move episode up")}
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveEpisodePosition(episode._id, "down")}
+                            disabled={busy || episode.episodeNumber >= episodes.length}
+                            className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569] disabled:cursor-not-allowed disabled:opacity-40"
+                            aria-label={t("Move episode down")}
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </button>
                           <Link
                             href={localizePath(`/creator/dramas/${dramaId}/episodes/${episode._id}`, locale)}
                             className="rounded-lg px-2 py-1 text-[11px] font-semibold text-[#1876f2] hover:bg-[#eff6ff]"
@@ -2560,6 +2675,17 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                       {subtitleUi ? (
                         <div className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold leading-4 ${subtitleUi.className}`}>
                           {subtitleUi.text}
+                        </div>
+                      ) : null}
+
+                      {episode.reviewStatus === "rejected" && (episode.rejectionReason || episode.reviewNote) ? (
+                        <div className="mt-3 rounded-[16px] border border-[#fecdd3] bg-[#fff1f2] p-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#be123c]">
+                            {t("Review note")}
+                          </p>
+                          <p className="mt-1 text-[12px] leading-5 text-[#9f1239]">
+                            {episode.rejectionReason || episode.reviewNote}
+                          </p>
                         </div>
                       ) : null}
 
@@ -2835,7 +2961,27 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                           )}
                         </button>
                         <div className="min-w-0">
-                          <p className="text-[16px] font-bold text-[#0f172a]">{t("Episode __ARG_0__", episode.episodeNumber)}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-[16px] font-bold text-[#0f172a]">{t("Episode __ARG_0__", episode.episodeNumber)}</p>
+                            <button
+                              type="button"
+                              onClick={() => moveEpisodePosition(episode._id, "up")}
+                              disabled={busy || episode.episodeNumber <= 1}
+                              className="rounded-lg p-1 text-[#94a3b8] hover:bg-white hover:text-[#475569] disabled:cursor-not-allowed disabled:opacity-40"
+                              aria-label={t("Move episode up")}
+                            >
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => moveEpisodePosition(episode._id, "down")}
+                              disabled={busy || episode.episodeNumber >= episodes.length}
+                              className="rounded-lg p-1 text-[#94a3b8] hover:bg-white hover:text-[#475569] disabled:cursor-not-allowed disabled:opacity-40"
+                              aria-label={t("Move episode down")}
+                            >
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                           <div className="mt-2 flex flex-wrap gap-2">
                             <span className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ${mapEpisodeStatus(episode.status).className}`}>
                               {t(mapEpisodeStatus(episode.status).text)}
@@ -2849,7 +2995,17 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
                                 {t("Subtitle Missing")}
                               </span>
                             )}
+                            {episode.reviewStatus === "rejected" ? (
+                              <span className="inline-flex rounded-full bg-[#fff1f2] px-2.5 py-1 text-[11px] font-bold text-[#be123c]">
+                                {t("Changes Requested")}
+                              </span>
+                            ) : null}
                           </div>
+                          {episode.reviewStatus === "rejected" && (episode.rejectionReason || episode.reviewNote) ? (
+                            <p className="mt-2 text-[12px] leading-5 text-[#be123c]">
+                              {episode.rejectionReason || episode.reviewNote}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
 
@@ -2971,6 +3127,40 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
         </div>
       ) : null}
 
+      {coverPreviewOpen ? (
+        <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-5xl overflow-hidden rounded-[28px] bg-white shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setCoverPreviewOpen(false)}
+              className="absolute right-5 top-5 z-10 rounded-full border border-[#dbe4f0] bg-white px-4 py-2 text-sm font-semibold text-[#0f172a] shadow-sm hover:bg-[#f8fafc]"
+            >
+              {t("Close")}
+            </button>
+            <div className="border-b border-[#e2e8f0] px-6 py-5">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#94a3b8]">{t("Cover Preview")}</p>
+              <h3 className="mt-1 text-[24px] font-black tracking-[-0.03em] text-[#0f172a]">
+                {activeCoverField === "cover" ? t("Portrait cover") : t("Landscape cover")}
+              </h3>
+            </div>
+            <div className="bg-[#f8fafc] p-6">
+              <div className={`mx-auto overflow-hidden rounded-[24px] border border-[#dbe4f0] bg-[#0b1220] ${
+                activeCoverField === "cover" ? "max-w-[420px]" : "max-w-5xl"
+              }`}>
+                <div className={activeCoverConfig.aspectClassName}>
+                  {previewCover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={previewCover} alt={activeCoverConfig.alt} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full bg-[linear-gradient(135deg,#0f172a_0%,#1d4ed8_100%)]" />
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {previewEpisode ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/72 p-4 backdrop-blur-[2px]">
           <button
@@ -2981,14 +3171,73 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId }: Creato
             {t("Close")}
           </button>
 
-          <div
-            className={`relative w-full overflow-hidden rounded-[24px] bg-black shadow-[0px_24px_60px_rgba(15,23,42,0.55)] ${
-              (previewEpisode.videoWidth || 0) > (previewEpisode.videoHeight || 0) && (previewEpisode.videoHeight || 0) > 0
-                ? "max-w-6xl aspect-video"
-                : "max-w-[430px] aspect-[9/16]"
-            }`}
-          >
-            <CreatorPreviewPlayer episode={previewEpisode} />
+          <div className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[24px] bg-black shadow-[0px_24px_60px_rgba(15,23,42,0.55)]">
+            <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="bg-[#05070d] p-4 lg:p-5">
+                <div
+                  className={`mx-auto overflow-hidden rounded-[24px] bg-black ${
+                    (previewEpisode.videoWidth || 0) > (previewEpisode.videoHeight || 0) && (previewEpisode.videoHeight || 0) > 0
+                      ? "aspect-video max-w-6xl"
+                      : "aspect-[9/16] max-w-[430px]"
+                  }`}
+                >
+                  <CreatorPreviewPlayer episode={previewEpisode} />
+                </div>
+              </div>
+
+              <div className="space-y-4 border-t border-white/10 bg-white p-5 lg:border-l lg:border-t-0">
+                <div className="rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Current preview")}</p>
+                  <p className="mt-2 text-lg font-bold text-[#0f172a]">{previewEpisode.title}</p>
+                  <p className="mt-1 text-sm text-[#64748b]">
+                    {t("Episode __ARG_0__", previewEpisode.episodeNumber)} · {Math.max(0, previewEpisode.subtitleTracks?.length || 0)} {t("subtitle tracks")}
+                  </p>
+                  {previewEpisode.reviewStatus === "rejected" && (previewEpisode.rejectionReason || previewEpisode.reviewNote) ? (
+                    <div className="mt-3 rounded-[16px] border border-[#fecdd3] bg-[#fff1f2] p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#be123c]">{t("Review note")}</p>
+                      <p className="mt-1 text-[12px] leading-5 text-[#9f1239]">
+                        {previewEpisode.rejectionReason || previewEpisode.reviewNote}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-2 overflow-y-auto">
+                  {sortEpisodesByNumber(episodes).map((episode) => (
+                    <button
+                      key={episode._id}
+                      type="button"
+                      onClick={() => openEpisodePreview(episode)}
+                      className={`flex w-full items-start gap-3 rounded-[18px] border px-3 py-3 text-left transition ${
+                        previewEpisode.id === episode._id
+                          ? "border-[#1876f2] bg-[#eff6ff]"
+                          : "border-[#e2e8f0] bg-white hover:border-[#94a3b8]"
+                      }`}
+                    >
+                      <div className="h-[72px] w-[54px] flex-shrink-0 overflow-hidden rounded-[12px] border border-[#dbe4f0] bg-[#f8fafc]">
+                        {episode.thumbnail ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={episode.thumbnail} alt={episode.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[#94a3b8]">
+                            <PlayCircle className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-[#0f172a]">{t("Episode __ARG_0__", episode.episodeNumber)}</p>
+                          {episode.reviewStatus === "rejected" ? (
+                            <span className="rounded-full bg-[#fff1f2] px-2 py-0.5 text-[10px] font-bold text-[#be123c]">{t("Changes Requested")}</span>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 truncate text-xs text-[#64748b]">{episode.title}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}

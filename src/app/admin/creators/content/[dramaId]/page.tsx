@@ -21,7 +21,10 @@ import ControlBar from "@/components/player/Controls/ControlBar";
 import { useToast } from "@/components/ui/Toast";
 import { adminApi } from "@/lib/adminApi";
 import { getQualityMenuOptions, resolveDefaultQuality } from "@/lib/playerQuality";
-import type { CreatorAdminContentReviewDetail } from "@/types/creator";
+import type {
+  CreatorAdminContentReviewDetail,
+  CreatorEpisodePreviewPayload,
+} from "@/types/creator";
 import {
   formatAdminDate,
   getCreatorContentReviewStatusMeta,
@@ -34,11 +37,12 @@ const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";
 
 type Decision = "approved" | "request_changes" | "rejected";
 type CoverVariant = "portrait" | "landscape";
-type PreviewEpisode =
-  CreatorAdminContentReviewDetail["episodesPreview"][number];
+type ReviewEpisode = CreatorAdminContentReviewDetail["episodesCatalog"][number];
+type ActivePreviewEpisode = ReviewEpisode & CreatorEpisodePreviewPayload;
+type EpisodeDecision = "approved" | "rejected";
 
-function canPreviewEpisode(episode: PreviewEpisode | null | undefined) {
-  return Boolean(episode && (episode.playbackUrl || episode.videoUrl || episode.streamVideoId));
+function canPreviewEpisode(episode: ReviewEpisode | ActivePreviewEpisode | null | undefined) {
+  return Boolean(episode && (episode.hasVideo || episode.streamVideoId));
 }
 
 function formatEpisodeRuntime(seconds: number) {
@@ -52,16 +56,35 @@ function formatEpisodeRuntime(seconds: number) {
   return `${minutes}m ${remainingSeconds}s runtime`;
 }
 
-function formatEpisodePrice(episode: PreviewEpisode) {
+function formatEpisodePrice(episode: ReviewEpisode | ActivePreviewEpisode) {
   if (episode.isFree || !episode.unlockPrice) return "Free";
   return `${Math.round(episode.unlockPrice)} coins`;
 }
 
-function AdminEpisodePreviewPlayerInner({ episode }: { episode: PreviewEpisode }) {
+function resolvePreviewDefaultSubtitle(
+  episode: ActivePreviewEpisode,
+): string | null {
+  const explicitDefault = episode.subtitleTracks?.find(
+    (track) => track.isDefault && track.fileUrl && String(track.status || "").toLowerCase() === "ready",
+  );
+  if (explicitDefault?.language) {
+    return explicitDefault.language;
+  }
+  return episode.subtitles?.[0]?.language || null;
+}
+
+function AdminEpisodePreviewPlayerInner({ episode }: { episode: ActivePreviewEpisode }) {
   const { state, actions, playerRef, isFullscreen, toggleFullscreen } = usePlayerContext();
+  const subtitleTracks = useMemo(
+    () => (episode.subtitles || []),
+    [episode.subtitles],
+  );
   const qualityOptions = useMemo(
     () => getQualityMenuOptions(true, episode.qualityOptions?.length ? episode.qualityOptions : ["auto"]),
     [episode.qualityOptions],
+  );
+  const [activeSubtitleLanguage, setActiveSubtitleLanguage] = useState<string | null>(() =>
+    resolvePreviewDefaultSubtitle(episode),
   );
 
   useEffect(() => {
@@ -71,6 +94,16 @@ function AdminEpisodePreviewPlayerInner({ episode }: { episode: PreviewEpisode }
     actions.setPlaying(false);
     actions.setError(null);
   }, [actions, episode.durationSeconds, episode.id]);
+
+  useEffect(() => {
+    const defaultSubtitle = resolvePreviewDefaultSubtitle(episode);
+    setActiveSubtitleLanguage((current) => {
+      if (current && subtitleTracks.some((track) => track.language === current)) {
+        return current;
+      }
+      return defaultSubtitle;
+    });
+  }, [episode, subtitleTracks]);
 
   useEffect(() => {
     const defaultQuality = resolveDefaultQuality(qualityOptions);
@@ -118,7 +151,9 @@ function AdminEpisodePreviewPlayerInner({ episode }: { episode: PreviewEpisode }
         ref={playerRef as Ref<CloudflarePlayerHandle>}
         streamVideoId={episode.streamVideoId || undefined}
         videoUrl={episode.playbackUrl || episode.videoUrl || undefined}
+        activeSubtitleLanguage={activeSubtitleLanguage}
         poster={episode.thumbnail || undefined}
+        subtitles={subtitleTracks}
         quality={state.quality}
         autoplay
         showNativeBigPlayButton={false}
@@ -141,6 +176,9 @@ function AdminEpisodePreviewPlayerInner({ episode }: { episode: PreviewEpisode }
         onPlaybackRateChange={handlePlaybackRateChange}
         onQualityChange={actions.setQuality}
         showCenterPlayButton={false}
+        subtitleTracks={subtitleTracks}
+        activeSubtitleLanguage={activeSubtitleLanguage}
+        onSubtitleChange={setActiveSubtitleLanguage}
         onToggleFullscreen={toggleFullscreen}
         qualityOptions={qualityOptions}
         isFullscreen={isFullscreen}
@@ -150,7 +188,7 @@ function AdminEpisodePreviewPlayerInner({ episode }: { episode: PreviewEpisode }
   );
 }
 
-function AdminEpisodePreviewPlayer({ episode }: { episode: PreviewEpisode }) {
+function AdminEpisodePreviewPlayer({ episode }: { episode: ActivePreviewEpisode }) {
   return (
     <PlayerRoot className="h-full w-full">
       <AdminEpisodePreviewPlayerInner episode={episode} />
@@ -170,8 +208,12 @@ export default function CreatorContentReviewDetailPage() {
   const [decision, setDecision] = useState<Decision>("approved");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [activePreview, setActivePreview] = useState<PreviewEpisode | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [activePreview, setActivePreview] = useState<ActivePreviewEpisode | null>(null);
   const [activeCover, setActiveCover] = useState<CoverVariant>("portrait");
+  const [episodeReviewState, setEpisodeReviewState] = useState<
+    Record<string, { decision: EpisodeDecision; note: string }>
+  >({});
 
   useEffect(() => {
     let cancelled = false;
@@ -210,10 +252,29 @@ export default function CreatorContentReviewDetailPage() {
   );
 
   const previewEpisodes = useMemo(() => data?.episodesPreview || [], [data?.episodesPreview]);
+  const catalogEpisodes = useMemo(() => data?.episodesCatalog || [], [data?.episodesCatalog]);
   const featuredPreview = useMemo(
     () => previewEpisodes.find((episode) => canPreviewEpisode(episode)) || previewEpisodes[0] || null,
     [previewEpisodes],
   );
+
+  useEffect(() => {
+    if (!previewEpisodes.length) {
+      setEpisodeReviewState({});
+      return;
+    }
+
+    setEpisodeReviewState((current) => {
+      const next: Record<string, { decision: EpisodeDecision; note: string }> = {};
+      previewEpisodes.forEach((episode) => {
+        next[episode.id] = current[episode.id] || {
+          decision: episode.reviewStatus === "rejected" ? "rejected" : "approved",
+          note: episode.rejectionReason || episode.reviewNote || "",
+        };
+      });
+      return next;
+    });
+  }, [previewEpisodes]);
 
   const coverOptions = useMemo(
     () => [
@@ -252,8 +313,8 @@ export default function CreatorContentReviewDetailPage() {
     };
   }, [activePreview]);
 
-  const handleOpenPreview = useCallback((episode: PreviewEpisode | null) => {
-    if (!episode) {
+  const handleOpenPreview = useCallback(async (episode: ReviewEpisode | null) => {
+    if (!episode || !data) {
       toast("No newly added episodes are available in this review batch.", "info");
       return;
     }
@@ -263,54 +324,97 @@ export default function CreatorContentReviewDetailPage() {
       return;
     }
 
-    setActivePreview(episode);
-  }, [toast]);
+    setPreviewLoading(true);
+    try {
+      const response: any = await adminApi.getCreatorContentReviewEpisodePreview(data.dramaId, episode.id);
+      const previewPayload = response?.data || response;
+      setActivePreview({
+        ...episode,
+        ...previewPayload,
+        durationSeconds: episode.durationSeconds,
+        thumbnail: episode.thumbnail,
+      });
+    } catch (error: any) {
+      toast(error?.message || "Failed to load episode preview.", "error");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [data, toast]);
+
+  const updateEpisodeDecision = useCallback((episodeId: string, nextDecision: EpisodeDecision) => {
+    setEpisodeReviewState((current) => ({
+      ...current,
+      [episodeId]: {
+        decision: nextDecision,
+        note: current[episodeId]?.note || "",
+      },
+    }));
+  }, []);
+
+  const updateEpisodeDecisionNote = useCallback((episodeId: string, nextNote: string) => {
+    setEpisodeReviewState((current) => ({
+      ...current,
+      [episodeId]: {
+        decision: current[episodeId]?.decision || "approved",
+        note: nextNote,
+      },
+    }));
+  }, []);
+
+  const applyDecisionToAll = useCallback(() => {
+    setEpisodeReviewState((current) => {
+      const next = { ...current };
+      previewEpisodes.forEach((episode) => {
+        next[episode.id] = {
+          decision: decision === "approved" ? "approved" : "rejected",
+          note: current[episode.id]?.note || "",
+        };
+      });
+      return next;
+    });
+  }, [decision, previewEpisodes]);
 
   async function handleSubmitReview() {
     if (!data) return;
-    if (!note.trim()) {
-      toast("A review note is required before saving the decision.", "info");
+    if (!previewEpisodes.length) {
+      toast("There are no pending episodes in this review batch.", "info");
       return;
     }
 
+    const rejectedWithoutNotes = previewEpisodes
+      .filter((episode) => episodeReviewState[episode.id]?.decision === "rejected")
+      .filter((episode) => !(episodeReviewState[episode.id]?.note || note).trim())
+      .map((episode) => episode.episodeNumber);
+
+    if (rejectedWithoutNotes.length > 0) {
+      toast(`Rejected episodes need notes: ${rejectedWithoutNotes.join(", ")}`, "info");
+      return;
+    }
+
+    const episodeDecisions = previewEpisodes.map((episode) => ({
+      episodeId: episode.id,
+      decision: episodeReviewState[episode.id]?.decision || "approved",
+      note: episodeReviewState[episode.id]?.note || "",
+    }));
+
     setSubmitting(true);
     try {
-      await adminApi.reviewCreatorContent(data.dramaId, { decision, note });
-    } catch {
-      // Keep the local admin workflow usable while backend integration is incomplete.
+      await adminApi.reviewCreatorContent(data.dramaId, { decision, note, episodeDecisions });
+      const refreshedResponse: any = await adminApi.getCreatorContentReview(data.dramaId);
+      const refreshedReview = refreshedResponse?.data?.review || refreshedResponse?.data || refreshedResponse;
+      if (refreshedReview?.dramaId) {
+        setData(refreshedReview);
+      }
+    } catch (error: any) {
+      toast(error?.message || "Failed to save the review decision.", "error");
+      return;
     } finally {
       setSubmitting(false);
     }
 
-    const nextStatus = decision === "approved" ? "published" : "rejected";
-    setData((current) =>
-      current
-        ? {
-            ...current,
-            status: nextStatus,
-            reviewNote: note,
-            rejectionReason: decision === "approved" ? "" : note,
-            reviewedAt: new Date().toISOString(),
-            slaStatus: "resolved",
-            reviewHistory: [
-              {
-                id: `local-review-${Date.now()}`,
-                at: new Date().toISOString(),
-                actor: "Current Admin",
-                action:
-                  decision === "approved"
-                    ? "Approved and published"
-                    : "Changes requested",
-                note,
-              },
-              ...current.reviewHistory,
-            ],
-          }
-        : current,
-    );
-
     toast("Content review decision recorded.", "success");
     setNote("");
+    setActivePreview(null);
   }
 
   if (loading && !data) {
@@ -613,54 +717,95 @@ export default function CreatorContentReviewDetailPage() {
               <div className="mt-5 space-y-3">
                 {previewEpisodes.length ? (
                   previewEpisodes.map((episode) => (
-                    <button
+                    <div
                       key={episode.id}
-                      type="button"
-                      onClick={() => handleOpenPreview(episode)}
-                      className="flex w-full items-start justify-between gap-4 rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-left transition hover:border-indigo-500/50 hover:bg-[#151524]"
+                      className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4"
                     >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium text-white">
-                            Episode {episode.episodeNumber}: {episode.title}
-                          </p>
-                          {episode.isNew ? (
-                            <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-300">
-                              New episode
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium text-white">
+                              Episode {episode.episodeNumber}: {episode.title}
+                            </p>
+                            {episode.isNew ? (
+                              <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-300">
+                                New episode
+                              </span>
+                            ) : null}
+                            <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+                              {formatEpisodePrice(episode)}
                             </span>
-                          ) : null}
-                          <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
-                            {formatEpisodePrice(episode)}
-                          </span>
+                            {episode.subtitleTracks?.length ? (
+                              <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-300">
+                                {episode.subtitleTracks.length} subtitle track{episode.subtitleTracks.length === 1 ? "" : "s"}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-400">
+                            {episode.description || "No episode synopsis provided for this submission."}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+                            <span>{formatEpisodeRuntime(episode.durationSeconds)}</span>
+                            <span>{episode.status}</span>
+                            {episode.createdAt ? (
+                              <span>Added {formatAdminDate(episode.createdAt, true)}</span>
+                            ) : null}
+                          </div>
                         </div>
-                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-gray-400">
-                          {episode.description || "No episode synopsis provided for this submission."}
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
-                          <span>{formatEpisodeRuntime(episode.durationSeconds)}</span>
-                          <span>{episode.status}</span>
-                          {episode.createdAt ? (
-                            <span>Added {formatAdminDate(episode.createdAt, true)}</span>
-                          ) : null}
+
+                        <div className="flex flex-col items-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPreview(episode)}
+                            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium ${
+                              canPreviewEpisode(episode)
+                                ? "border-gray-600 text-gray-200 hover:border-indigo-400 hover:text-white"
+                                : "border-gray-800 text-gray-500"
+                            }`}
+                          >
+                            <PlayCircle className="h-3.5 w-3.5" />
+                            {canPreviewEpisode(episode) ? "Watch" : "Video pending"}
+                          </button>
+                          <span className="text-xs text-gray-500">
+                            #{episode.episodeNumber.toString().padStart(2, "0")}
+                          </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-gray-500">
-                          #{episode.episodeNumber.toString().padStart(2, "0")}
-                        </span>
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium ${
-                            canPreviewEpisode(episode)
-                              ? "border-gray-600 text-gray-200"
-                              : "border-gray-800 text-gray-500"
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => updateEpisodeDecision(episode.id, "approved")}
+                          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                            episodeReviewState[episode.id]?.decision !== "rejected"
+                              ? "bg-emerald-500/15 text-emerald-300"
+                              : "bg-[#151524] text-gray-400"
                           }`}
                         >
-                          <PlayCircle className="h-3.5 w-3.5" />
-                          {canPreviewEpisode(episode) ? "Watch" : "Video pending"}
-                        </span>
+                          Approve episode
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateEpisodeDecision(episode.id, "rejected")}
+                          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                            episodeReviewState[episode.id]?.decision === "rejected"
+                              ? "bg-rose-500/15 text-rose-300"
+                              : "bg-[#151524] text-gray-400"
+                          }`}
+                        >
+                          Reject episode
+                        </button>
                       </div>
-                    </button>
+
+                      {episodeReviewState[episode.id]?.decision === "rejected" ? (
+                        <textarea
+                          value={episodeReviewState[episode.id]?.note || ""}
+                          onChange={(event) => updateEpisodeDecisionNote(episode.id, event.target.value)}
+                          placeholder="Add a creator-facing rejection note for this episode."
+                          className="mt-3 min-h-[88px] w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-3 py-2 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
+                        />
+                      ) : null}
+                    </div>
                   ))
                 ) : (
                   <div className="rounded-xl border border-dashed border-gray-700 bg-[#0f0f17] p-6 text-sm text-gray-400">
@@ -785,32 +930,38 @@ export default function CreatorContentReviewDetailPage() {
       <section className={panelClassName}>
         <h2 className="text-lg font-semibold text-white">Reviewer decision</h2>
         <p className="mt-1 text-sm text-gray-400">
-          Use the content summary, checklist, episode spot-check, and risk panel
-          above before recording the final decision.
+          Use the batch action as a shortcut, then fine-tune the decisions on individual episodes above before saving.
         </p>
         <div className="mt-5 grid gap-4 xl:grid-cols-[240px_minmax(0,1fr)]">
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-300">
-              Decision
+              Batch action
             </label>
             <select
               value={decision}
               onChange={(event) => setDecision(event.target.value as Decision)}
               className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500"
             >
-              <option value="approved">Approve and publish</option>
-              <option value="request_changes">Request changes</option>
-              <option value="rejected">Reject for rights/policy issues</option>
+              <option value="approved">Approve all new episodes</option>
+              <option value="request_changes">Request changes for all</option>
+              <option value="rejected">Reject all for rights/policy issues</option>
             </select>
+            <button
+              type="button"
+              onClick={applyDecisionToAll}
+              className="mt-3 w-full rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-200 hover:border-indigo-400 hover:text-white"
+            >
+              Apply batch action to all pending episodes
+            </button>
           </div>
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-300">
-              Review note
+              Global review summary
             </label>
             <textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
-              placeholder="Summarize the publish rationale or the issues the creator must fix."
+              placeholder="Optional summary for the creator or the internal audit trail. Rejected episodes still need per-episode notes."
               className="min-h-[160px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
             />
           </div>
@@ -820,9 +971,17 @@ export default function CreatorContentReviewDetailPage() {
           disabled={submitting}
           className="mt-5 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {submitting ? "Saving..." : "Save content review"}
+          {submitting ? "Saving..." : "Save episode review"}
         </button>
       </section>
+
+      {previewLoading ? (
+        <div className="fixed inset-0 z-[88] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="rounded-2xl bg-[#13131d] px-6 py-5 text-sm font-semibold text-white shadow-2xl">
+            Loading episode preview...
+          </div>
+        </div>
+      ) : null}
 
       {activePreview ? (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
@@ -880,6 +1039,20 @@ export default function CreatorContentReviewDetailPage() {
                   <p className="mt-2 text-sm text-emerald-300">
                     {formatEpisodePrice(activePreview)}
                   </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {activePreview.subtitleTracks?.length ? (
+                      <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-300">
+                        {activePreview.subtitleTracks.length} subtitle track{activePreview.subtitleTracks.length === 1 ? "" : "s"}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-300">
+                        No subtitles
+                      </span>
+                    )}
+                    <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold text-indigo-300">
+                      Max quality {activePreview.maxQuality || "auto"}
+                    </span>
+                  </div>
                   <p className="mt-3 text-sm leading-6 text-gray-300">
                     {activePreview.description || "No episode synopsis provided for this submission."}
                   </p>
@@ -895,18 +1068,32 @@ export default function CreatorContentReviewDetailPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {previewEpisodes.map((episode) => (
+                  {catalogEpisodes.map((episode) => (
                     <button
                       key={episode.id}
                       type="button"
                       onClick={() => handleOpenPreview(episode)}
-                      className={`flex w-full items-start justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                      className={`flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left transition ${
                         activePreview.id === episode.id
                           ? "border-indigo-500/60 bg-indigo-500/10"
                           : "border-gray-700/50 bg-[#13131d] hover:border-gray-500"
                       }`}
                     >
-                      <div className="min-w-0">
+                      <div className="h-[76px] w-[56px] flex-shrink-0 overflow-hidden rounded-lg border border-gray-800 bg-[#0b0f19]">
+                        {episode.thumbnail ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={episode.thumbnail}
+                            alt={episode.title}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-gray-600">
+                            <PlayCircle className="h-4 w-4" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-medium text-white">
                             EP {episode.episodeNumber}
@@ -914,6 +1101,11 @@ export default function CreatorContentReviewDetailPage() {
                           {episode.isNew ? (
                             <span className="rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-indigo-300">
                               New
+                            </span>
+                          ) : null}
+                          {episode.reviewStatus === "rejected" ? (
+                            <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-300">
+                              Rejected
                             </span>
                           ) : null}
                         </div>
