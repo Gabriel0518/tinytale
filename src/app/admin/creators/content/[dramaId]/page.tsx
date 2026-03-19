@@ -64,7 +64,8 @@ function formatEpisodePrice(episode: ReviewEpisode | ActivePreviewEpisode) {
 }
 
 function formatEpisodeSubtitleCount(episode: ReviewEpisode | ActivePreviewEpisode) {
-  const subtitleCount = Math.max(0, episode.subtitleTracks?.length || episode.subtitles?.length || 0);
+  const previewSubtitles = "subtitles" in episode ? episode.subtitles?.length || 0 : 0;
+  const subtitleCount = Math.max(0, episode.subtitleTracks?.length || previewSubtitles || 0);
   if (!subtitleCount) return "No subtitles";
   return `${subtitleCount} subtitle track${subtitleCount === 1 ? "" : "s"}`;
 }
