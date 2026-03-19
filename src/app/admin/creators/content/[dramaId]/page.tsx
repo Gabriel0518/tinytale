@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { type Ref, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   FileCheck2,
@@ -323,13 +324,22 @@ export default function CreatorContentReviewDetailPage() {
   }, [activeCover, data?.horizontalCover]);
 
   useEffect(() => {
-    if (!activePreview) return;
-    const previousOverflow = document.body.style.overflow;
+    if (!coverPreviewOpen && !activePreview) return undefined;
+
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyOverscroll = document.body.style.overscrollBehavior;
+
+    document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.overscrollBehavior = previousBodyOverscroll;
     };
-  }, [activePreview]);
+  }, [activePreview, coverPreviewOpen]);
 
   useEffect(() => {
     if (!coverPreviewOpen && !activePreview) return undefined;
@@ -490,6 +500,59 @@ export default function CreatorContentReviewDetailPage() {
   const isLandscapePreview =
     (activePreview?.videoWidth || 0) > (activePreview?.videoHeight || 0)
     && (activePreview?.videoHeight || 0) > 0;
+
+  const loadingOverlay = previewLoading ? (
+    <div className="fixed inset-0 z-[88] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="rounded-2xl bg-[#13131d] px-6 py-5 text-sm font-semibold text-white shadow-2xl">
+        Loading episode preview...
+      </div>
+    </div>
+  ) : null;
+
+  const coverPreviewModal = coverPreviewOpen ? (
+    <div
+      className="fixed inset-0 z-[89] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+      onClick={() => setCoverPreviewOpen(false)}
+    >
+      <div
+        className="relative flex max-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-[#0f0f17] shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => setCoverPreviewOpen(false)}
+          className="absolute right-4 top-4 z-20 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/65 text-white shadow-lg backdrop-blur transition hover:border-white/40 hover:bg-black/85"
+          aria-label="Close cover preview"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="shrink-0 border-b border-gray-800 px-5 py-4 pr-16">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-400">
+              {activeCoverOption.label}
+            </p>
+            <h3 className="truncate text-base font-semibold text-white">
+              {data.title}
+            </h3>
+          </div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto bg-[#05070d] p-5">
+          <div className={`mx-auto overflow-hidden rounded-2xl border border-gray-800 bg-black ${
+            activeCoverOption.key === "portrait" ? "max-w-[520px]" : "max-w-6xl"
+          }`}>
+            <div className={activeCoverOption.aspectClassName}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={activeCoverOption.url || data.cover}
+                alt={`${data.title} ${activeCoverOption.label}`}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="space-y-6 text-gray-200">
@@ -1025,68 +1088,10 @@ export default function CreatorContentReviewDetailPage() {
         </button>
       </section>
 
-      {previewLoading ? (
-        <div className="fixed inset-0 z-[88] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="rounded-2xl bg-[#13131d] px-6 py-5 text-sm font-semibold text-white shadow-2xl">
-            Loading episode preview...
-          </div>
-        </div>
-      ) : null}
+      {typeof window !== "undefined" && loadingOverlay ? createPortal(loadingOverlay, document.body) : null}
+      {typeof window !== "undefined" && coverPreviewModal ? createPortal(coverPreviewModal, document.body) : null}
 
-      {coverPreviewOpen ? (
-        <div
-          className="fixed inset-0 z-[89] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
-          onClick={() => setCoverPreviewOpen(false)}
-        >
-          <div
-            className="relative w-full max-w-6xl overflow-hidden rounded-2xl border border-gray-700 bg-[#0f0f17] shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => setCoverPreviewOpen(false)}
-              className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/60 text-white shadow-lg backdrop-blur transition hover:border-white/40 hover:bg-black/80"
-              aria-label="Close cover preview"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <div className="flex items-center justify-between gap-4 border-b border-gray-800 px-5 py-4">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-400">
-                  {activeCoverOption.label}
-                </p>
-                <h3 className="truncate text-base font-semibold text-white">
-                  {data.title}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setCoverPreviewOpen(false)}
-                className="inline-flex items-center gap-1 rounded-md border border-gray-700 px-3 py-2 text-xs font-medium text-gray-300 hover:border-gray-500 hover:text-white"
-              >
-                <X className="h-3.5 w-3.5" />
-                Close
-              </button>
-            </div>
-            <div className="bg-[#05070d] p-5">
-              <div className={`mx-auto overflow-hidden rounded-2xl border border-gray-800 bg-black ${
-                activeCoverOption.key === "portrait" ? "max-w-[520px]" : "max-w-6xl"
-              }`}>
-                <div className={activeCoverOption.aspectClassName}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={activeCoverOption.url || data.cover}
-                    alt={`${data.title} ${activeCoverOption.label}`}
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {activePreview ? (
+      {typeof window !== "undefined" && activePreview ? createPortal((
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
           <div className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-[#0f0f17] shadow-2xl">
             <div className="flex items-center justify-between gap-4 border-b border-gray-800 px-5 py-4">
@@ -1281,7 +1286,7 @@ export default function CreatorContentReviewDetailPage() {
             </div>
           </div>
         </div>
-      ) : null}
+      ), document.body) : null}
     </div>
   );
 }
