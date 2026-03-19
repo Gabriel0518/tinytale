@@ -331,6 +331,26 @@ export default function CreatorContentReviewDetailPage() {
     };
   }, [activePreview]);
 
+  useEffect(() => {
+    if (!coverPreviewOpen && !activePreview) return undefined;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (activePreview) {
+        setActivePreview(null);
+        return;
+      }
+      if (coverPreviewOpen) {
+        setCoverPreviewOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activePreview, coverPreviewOpen]);
+
   const handleOpenPreview = useCallback(async (episode: ReviewEpisode | null) => {
     if (!episode || !data) {
       toast("No newly added episodes are available in this review batch.", "info");
@@ -1014,8 +1034,22 @@ export default function CreatorContentReviewDetailPage() {
       ) : null}
 
       {coverPreviewOpen ? (
-        <div className="fixed inset-0 z-[89] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-6xl overflow-hidden rounded-2xl border border-gray-700 bg-[#0f0f17] shadow-2xl">
+        <div
+          className="fixed inset-0 z-[89] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onClick={() => setCoverPreviewOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-6xl overflow-hidden rounded-2xl border border-gray-700 bg-[#0f0f17] shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setCoverPreviewOpen(false)}
+              className="absolute right-4 top-4 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/60 text-white shadow-lg backdrop-blur transition hover:border-white/40 hover:bg-black/80"
+              aria-label="Close cover preview"
+            >
+              <X className="h-4 w-4" />
+            </button>
             <div className="flex items-center justify-between gap-4 border-b border-gray-800 px-5 py-4">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-400">
