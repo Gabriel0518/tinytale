@@ -178,6 +178,14 @@ jobs:
           REMOTE_URL="$(git -C "$PREV_LIVE_DIR" remote get-url origin)"
           echo "Current frontend SHA: $(git -C "$PREV_LIVE_DIR" rev-parse --short "$PREV_SHA")"
 
+          restart_pm2_app() {
+            local app_name="$1"
+            local frontend_cwd="$2"
+
+            pm2 delete "$app_name" >/dev/null 2>&1 || true
+            FRONTEND_LINK="$frontend_cwd" PM2_APP="$app_name" pm2 start "$SHARED_PM2_ECOSYSTEM" --only "$app_name" --update-env
+          }
+
           rollback() {
             local line="${1:-unknown}"
             trap - ERR
@@ -185,7 +193,7 @@ jobs:
             echo "Deployment failed at line $line. Rolling back to $(git -C "$PREV_LIVE_DIR" rev-parse --short "$PREV_SHA")"
             ln -sfn "$PREV_LIVE_DIR" "$CURRENT_LINK" || true
             ln -sfn "$CURRENT_LINK" "$FRONTEND_LINK" || true
-            pm2 reload "$PM2_APP" --update-env || pm2 restart "$PM2_APP" --update-env || true
+            restart_pm2_app "$PM2_APP" "$CURRENT_LINK" || true
             exit 1
           }
 
@@ -245,13 +253,15 @@ jobs:
           mkdir -p .next
           ln -sfn "$SHARED_NEXT_CACHE_DIR" .next/cache
           npm run build
+          BUILD_ID="$(cat .next/BUILD_ID)"
+          echo "Built Next.js buildId: $BUILD_ID"
 
           cat > "$SHARED_PM2_ECOSYSTEM" <<EOF_PM2
           module.exports = {
             apps: [
               {
                 name: process.env.PM2_APP || "tinytale-web",
-                cwd: process.env.FRONTEND_LINK || "$FRONTEND_LINK",
+                cwd: process.env.FRONTEND_LINK || "$CURRENT_LINK",
                 script: "node_modules/next/dist/bin/next",
                 args: "start -p 7001",
                 interpreter: "node",
@@ -266,7 +276,7 @@ jobs:
 
           ln -sfn "$TARGET_RELEASE" "$CURRENT_LINK"
           ln -sfn "$CURRENT_LINK" "$FRONTEND_LINK"
-          FRONTEND_LINK="$FRONTEND_LINK" PM2_APP="$PM2_APP" pm2 startOrReload "$SHARED_PM2_ECOSYSTEM" --only "$PM2_APP" --update-env
+          restart_pm2_app "$PM2_APP" "$CURRENT_LINK"
 
           passed=0
           for attempt in 1 2 3 4 5; do
@@ -283,6 +293,27 @@ jobs:
 
           if [ "$passed" -ne 1 ]; then
             echo "Health check failed after deployment"
+            exit 1
+          fi
+
+          admin_passed=0
+          for attempt in 1 2 3 4 5; do
+            admin_status="$(curl -o /dev/null -s -w '%{http_code}' --max-time 10 http://127.0.0.1:7001/admin/login || true)"
+            admin_html="$(curl -fsS --max-time 10 http://127.0.0.1:7001/admin/login || true)"
+            admin_build_id="$(printf '%s' "$admin_html" | grep -o '"buildId":"[^"]*"' | head -n 1 | cut -d '"' -f 4)"
+
+            if [ "$admin_status" = "200" ] && [ "$admin_build_id" = "$BUILD_ID" ]; then
+              admin_passed=1
+              echo "Admin build check passed with buildId $admin_build_id"
+              break
+            fi
+
+            echo "Admin build check attempt $attempt failed (HTTP $admin_status, buildId ${admin_build_id:-missing}), retrying..."
+            sleep 3
+          done
+
+          if [ "$admin_passed" -ne 1 ]; then
+            echo "Admin build check failed after deployment"
             exit 1
           fi
 
