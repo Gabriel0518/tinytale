@@ -42,7 +42,9 @@ type ActivePreviewEpisode = ReviewEpisode & CreatorEpisodePreviewPayload;
 type EpisodeDecision = "approved" | "rejected";
 
 function canPreviewEpisode(episode: ReviewEpisode | ActivePreviewEpisode | null | undefined) {
-  return Boolean(episode && (episode.hasVideo || episode.streamVideoId));
+  return Boolean(
+    episode && (episode.hasVideo || episode.streamVideoId || (episode as ActivePreviewEpisode).playbackUrl || (episode as ActivePreviewEpisode).videoUrl),
+  );
 }
 
 function formatEpisodeRuntime(seconds: number) {
@@ -59,6 +61,12 @@ function formatEpisodeRuntime(seconds: number) {
 function formatEpisodePrice(episode: ReviewEpisode | ActivePreviewEpisode) {
   if (episode.isFree || !episode.unlockPrice) return "Free";
   return `${Math.round(episode.unlockPrice)} coins`;
+}
+
+function formatEpisodeSubtitleCount(episode: ReviewEpisode | ActivePreviewEpisode) {
+  const subtitleCount = Math.max(0, episode.subtitleTracks?.length || episode.subtitles?.length || 0);
+  if (!subtitleCount) return "No subtitles";
+  return `${subtitleCount} subtitle track${subtitleCount === 1 ? "" : "s"}`;
 }
 
 function resolvePreviewDefaultSubtitle(
@@ -150,6 +158,7 @@ function AdminEpisodePreviewPlayerInner({ episode }: { episode: ActivePreviewEpi
       <CloudflarePlayer
         ref={playerRef as Ref<CloudflarePlayerHandle>}
         streamVideoId={episode.streamVideoId || undefined}
+        signedToken={episode.signedToken || undefined}
         videoUrl={episode.playbackUrl || episode.videoUrl || undefined}
         activeSubtitleLanguage={activeSubtitleLanguage}
         poster={episode.thumbnail || undefined}
@@ -336,12 +345,19 @@ export default function CreatorContentReviewDetailPage() {
     try {
       const response: any = await adminApi.getCreatorContentReviewEpisodePreview(data.dramaId, episode.id);
       const previewPayload = response?.data || response;
-      setActivePreview({
+      const nextPreview: ActivePreviewEpisode = {
         ...episode,
         ...previewPayload,
         durationSeconds: episode.durationSeconds,
-        thumbnail: episode.thumbnail,
-      });
+        thumbnail: previewPayload?.thumbnailUrl || episode.thumbnail,
+      };
+
+      if (!canPreviewEpisode(nextPreview)) {
+        toast("This episode preview is still missing a playable video source.", "info");
+        return;
+      }
+
+      setActivePreview(nextPreview);
     } catch (error: any) {
       toast(error?.message || "Failed to load episode preview.", "error");
     } finally {
@@ -503,38 +519,15 @@ export default function CreatorContentReviewDetailPage() {
                       Cover review
                     </p>
                     <p className="mt-1 text-sm text-gray-400">
-                      Toggle storefront assets, then open the review player from the card.
+                      Use the cover card to switch artwork and jump into the video review player.
                     </p>
-                  </div>
-                  <div className="inline-flex rounded-xl bg-[#0f0f17] p-1">
-                    {coverOptions.map((option) => {
-                      const disabled = option.key === "landscape" && !data.horizontalCover;
-                      const isActive = option.key === activeCover;
-                      return (
-                        <button
-                          key={option.key}
-                          type="button"
-                          disabled={disabled}
-                          onClick={() => setActiveCover(option.key)}
-                          className={`rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
-                            isActive
-                              ? "bg-indigo-600 text-white"
-                              : "text-gray-400 hover:text-gray-200"
-                          } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
-                        >
-                          <span className="block">{option.label}</span>
-                          <span className="mt-0.5 block text-[10px] font-medium uppercase tracking-[0.12em] opacity-80">
-                            {option.ratio}
-                          </span>
-                        </button>
-                      );
-                    })}
                   </div>
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setCoverPreviewOpen(true)}
+                  onClick={() => handleOpenPreview(featuredPreview)}
+                  disabled={!featuredPreview || previewLoading}
                   className="group relative w-full overflow-hidden rounded-2xl border border-gray-700/50 bg-[#0f0f17] text-left"
                 >
                   <div className={activeCoverOption.aspectClassName}>
@@ -546,39 +539,56 @@ export default function CreatorContentReviewDetailPage() {
                     />
                   </div>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setCoverPreviewOpen(true);
+                      }}
+                      className="inline-flex rounded-full border border-white/20 bg-black/45 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur transition hover:border-white/40"
+                    >
+                      View cover
+                    </button>
+                    <div className="inline-flex rounded-full border border-white/10 bg-black/45 p-1 backdrop-blur">
+                      {coverOptions.map((option) => {
+                        const disabled = option.key === "landscape" && !data.horizontalCover;
+                        const isActive = option.key === activeCover;
+                        return (
+                          <button
+                            key={option.key}
+                            type="button"
+                            disabled={disabled}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActiveCover(option.key);
+                            }}
+                            className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
+                              isActive
+                                ? "bg-indigo-600 text-white"
+                                : "text-gray-200 hover:bg-white/10"
+                            } ${disabled ? "cursor-not-allowed opacity-40" : ""}`}
+                          >
+                            {option.key === "portrait" ? "2:3" : "16:9"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                   <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-5">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-indigo-300">
-                        Cover preview
+                        {activeCoverOption.label}
                       </p>
                       <p className="mt-2 text-sm text-gray-200">
-                        Open a large preview to inspect the selected storefront artwork.
+                        Click the cover to open the episode review player.
                       </p>
                     </div>
                     <span className="inline-flex rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur">
-                      Preview cover
+                      {previewLoading ? "Loading..." : "Review video"}
                     </span>
                   </div>
                 </button>
-
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setCoverPreviewOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-gray-700 px-4 py-2 text-sm font-medium text-gray-200 hover:border-indigo-400 hover:text-white"
-                  >
-                    Preview large cover
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenPreview(featuredPreview)}
-                    disabled={!featuredPreview || previewLoading}
-                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <PlayCircle className="h-4 w-4" />
-                    Open video review
-                  </button>
-                </div>
 
                 {!data.horizontalCover ? (
                   <p className="text-xs text-amber-300">
@@ -1045,13 +1055,38 @@ export default function CreatorContentReviewDetailPage() {
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
           <div className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-gray-700 bg-[#0f0f17] shadow-2xl">
             <div className="flex items-center justify-between gap-4 border-b border-gray-800 px-5 py-4">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-400">
                   Episode player
                 </p>
                 <h3 className="truncate text-base font-semibold text-white">
                   Episode {activePreview.episodeNumber}: {activePreview.title}
                 </h3>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {activePreview.isNew ? (
+                    <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-300">
+                      New episode
+                    </span>
+                  ) : null}
+                  <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-gray-200">
+                    {formatEpisodeRuntime(activePreview.durationSeconds)}
+                  </span>
+                  <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-gray-200">
+                    {activePreview.status}
+                  </span>
+                  <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+                    {formatEpisodePrice(activePreview)}
+                  </span>
+                  <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-300">
+                    {formatEpisodeSubtitleCount(activePreview)}
+                  </span>
+                  <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold text-indigo-300">
+                    Max quality {activePreview.maxQuality || "auto"}
+                  </span>
+                </div>
+                <p className="mt-2 max-w-4xl text-sm leading-6 text-gray-400">
+                  {activePreview.description || "No episode synopsis provided for this submission."}
+                </p>
               </div>
               <button
                 type="button"
@@ -1063,7 +1098,7 @@ export default function CreatorContentReviewDetailPage() {
               </button>
             </div>
 
-            <div className="grid min-h-0 gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="grid min-h-0 gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
               <div className="flex min-h-0 flex-col border-b border-gray-800 bg-[#05070d] lg:border-b-0 lg:border-r">
                 <div className="p-4 lg:p-5">
                   <div
@@ -1144,51 +1179,10 @@ export default function CreatorContentReviewDetailPage() {
               <div className="flex min-h-0 flex-col border-t border-gray-800 p-5 lg:border-l lg:border-t-0">
                 <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-gray-500">
-                    Current preview
-                  </p>
-                  <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <p className="text-lg font-semibold text-white">
-                      {activePreview.title}
-                    </p>
-                    {activePreview.isNew ? (
-                      <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-300">
-                        New episode
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-2 text-sm text-gray-400">
-                    Episode {activePreview.episodeNumber} ·{" "}
-                    {formatEpisodeRuntime(activePreview.durationSeconds)} ·{" "}
-                    {activePreview.status}
-                  </p>
-                  <p className="mt-2 text-sm text-emerald-300">
-                    {formatEpisodePrice(activePreview)}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {activePreview.subtitleTracks?.length ? (
-                      <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-[11px] font-semibold text-sky-300">
-                        {activePreview.subtitleTracks.length} subtitle track{activePreview.subtitleTracks.length === 1 ? "" : "s"}
-                      </span>
-                    ) : (
-                      <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-300">
-                        No subtitles
-                      </span>
-                    )}
-                    <span className="rounded-full bg-indigo-500/10 px-2.5 py-1 text-[11px] font-semibold text-indigo-300">
-                      Max quality {activePreview.maxQuality || "auto"}
-                    </span>
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-gray-300">
-                    {activePreview.description || "No episode synopsis provided for this submission."}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-4">
-                  <p className="text-xs uppercase tracking-[0.12em] text-gray-500">
                     Episode navigator
                   </p>
-                  <p className="mt-3 text-sm leading-6 text-gray-300">
-                    Scroll through every uploaded episode, hover a thumbnail to see the title, and click to switch the player.
+                  <p className="mt-2 text-sm leading-6 text-gray-300">
+                    Click a thumbnail to switch videos. Hover to see the full episode title.
                   </p>
                 </div>
 

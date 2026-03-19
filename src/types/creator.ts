@@ -261,6 +261,7 @@ export interface CreatorEpisodeItem {
 export interface CreatorEpisodePreviewPayload {
   episodeId: string;
   streamVideoId?: string;
+  signedToken?: string;
   videoUrl?: string;
   playbackUrl?: string;
   thumbnailUrl?: string;
