@@ -103,6 +103,14 @@ export default function LoginPage() {
     setTurnstileToken('');
   }, []);
 
+  const completeAuthRedirect = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.location.assign(postLoginTarget);
+      return;
+    }
+    router.push(postLoginTarget);
+  }, [postLoginTarget, router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -133,7 +141,7 @@ export default function LoginPage() {
     setError("");
     try {
       await googleLogin(accessToken);
-      router.push(postLoginTarget);
+      completeAuthRedirect();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t.genericError;
       setError(message || t.googleLoginFailed);
@@ -152,7 +160,7 @@ export default function LoginPage() {
       setError("");
       try {
         await facebookLogin(accessToken);
-        router.push(postLoginTarget);
+        completeAuthRedirect();
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : t.genericError;
         setError(message || t.facebookLoginFailed);
@@ -305,6 +313,7 @@ export default function LoginPage() {
             text="Google"
           />
           <button
+            type="button"
             onClick={handleFacebookLogin}
             disabled={isLoading}
             className="flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#1a1c23] py-3 text-sm font-medium text-white transition hover:bg-[#22242b]"

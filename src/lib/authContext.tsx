@@ -33,12 +33,24 @@ function normalizeAuthUser(raw: any): User | null {
 
 function setSessionCookie() {
   if (typeof document === 'undefined') return;
-  document.cookie = `${SESSION_COOKIE_NAME}=1; Path=/; Max-Age=${SESSION_COOKIE_MAX_AGE}; SameSite=Lax`;
+  const isHttps = window.location.protocol === 'https:';
+  const hostname = window.location.hostname.toLowerCase();
+  const domain = hostname === 'tinytale.top' || hostname === 'www.tinytale.top' || hostname.endsWith('.tinytale.top')
+    ? ' Domain=.tinytale.top;'
+    : '';
+  const secure = isHttps ? ' Secure;' : '';
+  document.cookie = `${SESSION_COOKIE_NAME}=1; Path=/; Max-Age=${SESSION_COOKIE_MAX_AGE}; SameSite=Lax;${secure}${domain}`;
 }
 
 function clearSessionCookie() {
   if (typeof document === 'undefined') return;
-  document.cookie = `${SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+  const isHttps = window.location.protocol === 'https:';
+  const hostname = window.location.hostname.toLowerCase();
+  const domain = hostname === 'tinytale.top' || hostname === 'www.tinytale.top' || hostname.endsWith('.tinytale.top')
+    ? ' Domain=.tinytale.top;'
+    : '';
+  const secure = isHttps ? ' Secure;' : '';
+  document.cookie = `${SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax;${secure}${domain}`;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
