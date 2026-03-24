@@ -586,12 +586,18 @@ function CreatorPreviewPlayerInner({ episode }: { episode: PreviewEpisodeState }
   }, [actions, qualityOptions, state.quality]);
 
   const handlePlayPause = useCallback(() => {
-    if (state.isPlaying) {
+    const player = playerRef.current?.getPlayer?.();
+    const isActuallyPlaying = player ? !player.paused() && !player.ended() : state.isPlaying;
+
+    if (isActuallyPlaying) {
       playerRef.current?.pause();
-    } else {
-      playerRef.current?.play();
+      actions.setPlaying(false);
+      return;
     }
-  }, [playerRef, state.isPlaying]);
+
+    playerRef.current?.play();
+    actions.setPlaying(true);
+  }, [actions, playerRef, state.isPlaying]);
 
   const handleSeek = useCallback((time: number) => {
     playerRef.current?.seek(time);
@@ -632,7 +638,13 @@ function CreatorPreviewPlayerInner({ episode }: { episode: PreviewEpisodeState }
         }}
         onPlay={() => actions.setPlaying(true)}
         onPause={() => actions.setPlaying(false)}
-        onReady={() => actions.setLoading(false)}
+        onReady={() => {
+          actions.setLoading(false);
+          const player = playerRef.current?.getPlayer?.();
+          if (player && !player.paused() && !player.ended()) {
+            actions.setPlaying(true);
+          }
+        }}
         onError={(message) => actions.setError(message)}
         className="h-full w-full"
       />
