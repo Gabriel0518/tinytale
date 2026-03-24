@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Script from "next/script";
 import { useSearchParams } from "next/navigation";
@@ -41,6 +41,10 @@ type AirwallexCheckoutCopy = {
   checkoutHint: string;
   httpsWarning: string;
   methodLabel: string;
+  sdkLoading: string;
+  sdkFailed: string;
+  checkoutDataIncomplete: string;
+  checkoutCreateFailed: string;
   methodMap: Record<string, string>;
 };
 
@@ -59,6 +63,10 @@ const COPY: FlexibleRecord<SupportedLocale, AirwallexCheckoutCopy> = {
     checkoutHint: "A hosted Airwallex payment page will open in the next step.",
     httpsWarning: "Airwallex hosted checkout requires an HTTPS success URL. Please set AIRWALLEX_SUCCESS_URL or FRONTEND_URL to an HTTPS page before testing this flow.",
     methodLabel: "Chosen Method",
+    sdkLoading: "Airwallex checkout is still loading. Please try again in a moment.",
+    sdkFailed: "Failed to load Airwallex checkout SDK. Please refresh and try again.",
+    checkoutDataIncomplete: "Airwallex checkout session data is incomplete.",
+    checkoutCreateFailed: "Failed to create Airwallex checkout.",
     methodMap: {
       card: "Global Cards",
       cards: "Global Cards",
@@ -94,6 +102,10 @@ const COPY: FlexibleRecord<SupportedLocale, AirwallexCheckoutCopy> = {
     checkoutHint: "下一步会跳转到 Airwallex 托管支付页完成支付。",
     httpsWarning: "Airwallex 托管收银台要求成功回跳地址必须为 HTTPS。测试前请先把 AIRWALLEX_SUCCESS_URL 或 FRONTEND_URL 配置成 HTTPS 页面。",
     methodLabel: "已选方式",
+    sdkLoading: "Airwallex 收银台仍在加载，请稍后再试。",
+    sdkFailed: "Airwallex 收银台 SDK 加载失败，请刷新页面后重试。",
+    checkoutDataIncomplete: "Airwallex 收银台会话数据不完整。",
+    checkoutCreateFailed: "创建 Airwallex 收银台失败。",
     methodMap: {
       card: "全球银行卡",
       cards: "全球银行卡",
@@ -126,6 +138,7 @@ export default function AirwallexCheckoutPage() {
   const searchParams = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
+  const [sdkFailed, setSdkFailed] = useState(false);
 
   const packageId = searchParams.get("packageId") || "";
   const coins = Number(searchParams.get("coins") || 0);
@@ -154,10 +167,21 @@ export default function AirwallexCheckoutPage() {
     }).format(Number(price || 0));
   }, [amountLocale, price]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.AirwallexComponentsSDK) {
+      setSdkReady(true);
+      setSdkFailed(false);
+    }
+  }, []);
+
   const handleContinue = async () => {
     if (!token || !packageId) return;
+    if (sdkFailed) {
+      toast(t.sdkFailed, "error");
+      return;
+    }
     if (!sdkReady || !window.AirwallexComponentsSDK) {
-      toast("Airwallex SDK is still loading", "error");
+      toast(t.sdkLoading, "error");
       return;
     }
 
@@ -171,7 +195,7 @@ export default function AirwallexCheckoutPage() {
       }
 
       if (!res.data?.paymentIntentId || !res.data?.clientSecret) {
-        toast("Airwallex checkout session data is incomplete", "error");
+        toast(t.checkoutDataIncomplete, "error");
         return;
       }
 
@@ -191,7 +215,7 @@ export default function AirwallexCheckoutPage() {
         pendingUrl: successUrl,
       });
     } catch (error: unknown) {
-      toast(error instanceof Error ? error.message : "Failed to create Airwallex checkout", "error");
+      toast(error instanceof Error ? error.message : t.checkoutCreateFailed, "error");
     } finally {
       setSubmitting(false);
     }
@@ -208,9 +232,16 @@ export default function AirwallexCheckoutPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       <Script
-        src="https://checkout.airwallex.com/assets/elements.bundle.min.js"
+        src="https://static.airwallex.com/components/sdk/v1/index.js"
         strategy="afterInteractive"
-        onLoad={() => setSdkReady(true)}
+        onLoad={() => {
+          setSdkReady(Boolean(window.AirwallexComponentsSDK));
+          setSdkFailed(!window.AirwallexComponentsSDK);
+        }}
+        onError={() => {
+          setSdkReady(false);
+          setSdkFailed(true);
+        }}
       />
       <Navbar />
       <div className="mx-auto max-w-3xl px-4 pb-16 pt-28">
@@ -256,7 +287,7 @@ export default function AirwallexCheckoutPage() {
               </p>
               <button
                 onClick={handleContinue}
-                disabled={!token || !packageId || submitting || !sdkReady}
+                disabled={!token || !packageId || submitting}
                 className="mt-8 w-full rounded-2xl bg-white px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? "Loading..." : t.continue}
