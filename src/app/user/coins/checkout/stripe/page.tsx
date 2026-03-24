@@ -109,7 +109,7 @@ export default function StripeCheckoutPage() {
     if (!token || !packageId) return;
     setSubmitting(true);
     try {
-      const res = await coinsApi.createOrder(token, packageId, "stripe");
+      const res = await coinsApi.createOrder(token, packageId, "stripe", paymentOption);
       if (res.data?.checkoutUrl) {
         window.location.href = res.data.checkoutUrl;
         return;

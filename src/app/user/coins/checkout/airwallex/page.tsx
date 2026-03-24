@@ -163,7 +163,7 @@ export default function AirwallexCheckoutPage() {
 
     setSubmitting(true);
     try {
-      const res = await coinsApi.createOrder(token, packageId, "airwallex");
+      const res = await coinsApi.createOrder(token, packageId, "airwallex", paymentOption);
       const successUrl = String(res.data?.successUrl || "");
       if (!successUrl.startsWith("https://")) {
         toast(t.httpsWarning, "error");

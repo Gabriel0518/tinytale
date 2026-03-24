@@ -33,6 +33,11 @@ interface PricingContext {
 type PaymentProvider = "stripe" | "airwallex";
 type PaymentOption = string;
 
+type PaymentChannel = {
+  provider: PaymentProvider;
+  paymentOptions: PaymentOption[];
+};
+
 type PaymentOptionDefinition = {
   id: PaymentOption;
   label: string;
@@ -61,6 +66,8 @@ type CoinsCopy = {
   providerLabels: Record<PaymentProvider, string>;
   selectedProvider: string;
   selectedMethod: string;
+  noPaymentChannels: string;
+  noPaymentMethods: string;
   continueToCheckout: string;
   haveRedeemCode: string;
   enterCode: string;
@@ -125,6 +132,8 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     },
     selectedProvider: "Selected Channel",
     selectedMethod: "Selected Method",
+    noPaymentChannels: "No payment channels are currently available for your region.",
+    noPaymentMethods: "No payment methods are available for this channel right now.",
     continueToCheckout: "Continue to checkout",
     haveRedeemCode: "Have a redeem code?",
     enterCode: "Enter code",
@@ -256,6 +265,8 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     },
     selectedProvider: "已选渠道",
     selectedMethod: "已选方式",
+    noPaymentChannels: "当前地区暂时没有可用的支付渠道。",
+    noPaymentMethods: "该支付渠道当前没有可用的支付方式。",
     continueToCheckout: "继续支付",
     haveRedeemCode: "有兑换码？",
     enterCode: "输入兑换码",
@@ -403,72 +414,68 @@ function CoinBadge() {
 function buildPaymentOption(
   copy: CoinsCopy,
   id: string,
-  pill: string,
+  provider: PaymentProvider,
 ): PaymentOptionDefinition {
   const catalog = copy.paymentOptionCatalog[id];
   return {
     id,
     label: catalog.label,
     description: catalog.description,
-    pill,
+    pill: getPaymentOptionPill(copy, provider, id),
   };
 }
 
-function getRegionalPaymentOptions(copy: CoinsCopy, countryCode: string | undefined): Record<PaymentProvider, PaymentOptionDefinition[]> {
-  const code = String(countryCode || "US").toUpperCase();
-
-  const stripe: PaymentOptionDefinition[] = [
-    buildPaymentOption(copy, "card", copy.methodPills.recommended),
-  ];
-
-  if (["US", "CA", "GB", "AU", "NZ", "SG", "HK", "JP", "DE", "FR", "NL", "SE", "CH", "IE"].includes(code)) {
-    stripe.push(buildPaymentOption(copy, "wallet", copy.methodPills.express));
+function getPaymentOptionPill(copy: CoinsCopy, provider: PaymentProvider, optionId: PaymentOption): string {
+  if (provider === "stripe") {
+    return optionId === "wallet" ? copy.methodPills.express : copy.methodPills.recommended;
   }
 
-  const airwallex: PaymentOptionDefinition[] = [
-    buildPaymentOption(copy, "card", copy.methodPills.global),
-  ];
-
-  if (code === "SG") {
-    airwallex.push(
-      buildPaymentOption(copy, "paynow", copy.methodPills.instant),
-      buildPaymentOption(copy, "grabpay", copy.methodPills.wallet),
-    );
-  } else if (code === "MY") {
-    airwallex.push(
-      buildPaymentOption(copy, "fpx", copy.methodPills.bank),
-      buildPaymentOption(copy, "tng", copy.methodPills.wallet),
-    );
-  } else if (code === "ID") {
-    airwallex.push(
-      buildPaymentOption(copy, "qris", copy.methodPills.local),
-      buildPaymentOption(copy, "local_bank", copy.methodPills.bank),
-    );
-  } else if (code === "TH") {
-    airwallex.push(
-      buildPaymentOption(copy, "promptpay", copy.methodPills.instant),
-      buildPaymentOption(copy, "truemoney", copy.methodPills.wallet),
-    );
-  } else if (code === "HK") {
-    airwallex.push(
-      buildPaymentOption(copy, "fps", copy.methodPills.instant),
-      buildPaymentOption(copy, "alipayhk", copy.methodPills.wallet),
-      buildPaymentOption(copy, "wechatpayhk", copy.methodPills.wallet),
-    );
-  } else if (code === "JP") {
-    airwallex.push(buildPaymentOption(copy, "konbini", copy.methodPills.local));
-  } else if (code === "NL") {
-    airwallex.push(buildPaymentOption(copy, "ideal", copy.methodPills.bank));
-  } else if (code === "PL") {
-    airwallex.push(buildPaymentOption(copy, "blik", copy.methodPills.instant));
-  } else if (["DE", "AT", "BE", "ES", "IT", "FR"].includes(code)) {
-    airwallex.push(buildPaymentOption(copy, "sofort", copy.methodPills.bank));
-  } else if (["PH", "VN", "IN", "KR", "TW"].includes(code)) {
-    airwallex.push(buildPaymentOption(copy, "local_bank", copy.methodPills.local));
+  switch (optionId) {
+    case "card":
+      return copy.methodPills.global;
+    case "paynow":
+    case "promptpay":
+    case "fps":
+    case "blik":
+      return copy.methodPills.instant;
+    case "grabpay":
+    case "tng":
+    case "truemoney":
+    case "alipayhk":
+    case "wechatpayhk":
+      return copy.methodPills.wallet;
+    case "fpx":
+    case "ideal":
+    case "sofort":
+    case "local_bank":
+      return copy.methodPills.bank;
+    default:
+      return copy.methodPills.local;
   }
-
-  return { stripe, airwallex };
 }
+
+function toPaymentOptionDefinitions(
+  copy: CoinsCopy,
+  provider: PaymentProvider,
+  optionIds: PaymentOption[],
+): PaymentOptionDefinition[] {
+  return optionIds
+    .filter((id) => Boolean(copy.paymentOptionCatalog[id]))
+    .map((id) => buildPaymentOption(copy, id, provider));
+}
+
+const PROVIDER_CARD_META: Record<PaymentProvider, { logo: JSX.Element; border: string; glow: string }> = {
+  stripe: {
+    logo: <StripeLogo />,
+    border: "border-[#635bff]/40",
+    glow: "shadow-[0_0_32px_rgba(99,91,255,0.12)]",
+  },
+  airwallex: {
+    logo: <AirwallexLogo />,
+    border: "border-teal-400/35",
+    glow: "shadow-[0_0_32px_rgba(45,212,191,0.12)]",
+  },
+};
 
 export default function CoinsPage() {
   const locale = useLocale();
@@ -502,6 +509,7 @@ export default function CoinsPage() {
   const { toast } = useToast();
   const [packages, setPackages] = useState<CoinPackage[]>([]);
   const [pricingContext, setPricingContext] = useState<PricingContext | null>(null);
+  const [paymentChannels, setPaymentChannels] = useState<Partial<Record<PaymentProvider, PaymentChannel>>>({});
   const [loading, setLoading] = useState(true);
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>("stripe");
@@ -527,15 +535,24 @@ export default function CoinsPage() {
     if (!user) return;
     const load = async () => {
       try {
-        const res = await coinsApi.getPackages() as { data?: CoinPackage[]; pricingContext?: PricingContext };
+        const res = await coinsApi.getPackages() as {
+          data?: CoinPackage[];
+          pricingContext?: PricingContext;
+          paymentChannels?: Partial<Record<PaymentProvider, PaymentChannel>>;
+        };
         const pkgs = (res.data || [])
           .map((item) => ({ ...item, _id: String(item._id || item.id || "") }))
           .filter((item) => item._id);
         setPackages(pkgs);
         setPricingContext(res.pricingContext || null);
+        setPaymentChannels(res.paymentChannels || {});
         if (pkgs.length > 0) setSelectedPkg(pkgs[1]?._id || pkgs[0]._id);
       } catch {
         setPricingContext(null);
+        setPaymentChannels({
+          stripe: { provider: "stripe", paymentOptions: ["card"] },
+          airwallex: { provider: "airwallex", paymentOptions: ["card"] },
+        });
         setPackages([
           { _id: "p1", coins: 100, price: 0.99, bonus: 0, tag: null, originalPrice: null },
           { _id: "p2", coins: 550, price: 4.99, bonus: 50, tag: "Popular", originalPrice: 5.99 },
@@ -553,17 +570,33 @@ export default function CoinsPage() {
   }, [user]);
 
   const selected = packages.find((pkg) => pkg._id === selectedPkg);
-  const regionalOptions = useMemo(
-    () => getRegionalPaymentOptions(t, pricingContext?.countryCode),
-    [pricingContext?.countryCode, t],
+  const availableProviders = useMemo(
+    () => (Object.keys(paymentChannels) as PaymentProvider[]).filter((provider) => {
+      const channel = paymentChannels[provider];
+      return Boolean(channel && channel.paymentOptions.length > 0);
+    }),
+    [paymentChannels],
   );
-  const activeMethods = regionalOptions[selectedProvider];
+  const effectiveSelectedProvider = availableProviders.includes(selectedProvider)
+    ? selectedProvider
+    : availableProviders[0] || selectedProvider;
+  const activeMethods = useMemo(
+    () => toPaymentOptionDefinitions(t, effectiveSelectedProvider, paymentChannels[effectiveSelectedProvider]?.paymentOptions || []),
+    [effectiveSelectedProvider, paymentChannels, t],
+  );
+
+  useEffect(() => {
+    if (availableProviders.length === 0) return;
+    if (!availableProviders.includes(selectedProvider)) {
+      setSelectedProvider(availableProviders[0]);
+    }
+  }, [availableProviders, selectedProvider]);
 
   useEffect(() => {
     setProviderSelections((current) => {
       const next = { ...current };
-      (Object.keys(regionalOptions) as PaymentProvider[]).forEach((provider) => {
-        const methods = regionalOptions[provider];
+      (Object.keys(paymentChannels) as PaymentProvider[]).forEach((provider) => {
+        const methods = toPaymentOptionDefinitions(t, provider, paymentChannels[provider]?.paymentOptions || []);
         const currentSelection = current[provider];
         if (!currentSelection || !methods.some((item) => item.id === currentSelection)) {
           next[provider] = methods[0]?.id || null;
@@ -571,12 +604,12 @@ export default function CoinsPage() {
       });
       return next;
     });
-  }, [regionalOptions]);
+  }, [paymentChannels, t]);
 
   const selectedMethodDefinition = useMemo(() => {
-    const optionId = providerSelections[selectedProvider];
-    return regionalOptions[selectedProvider].find((item) => item.id === optionId) || null;
-  }, [providerSelections, regionalOptions, selectedProvider]);
+    const optionId = providerSelections[effectiveSelectedProvider];
+    return activeMethods.find((item) => item.id === optionId) || null;
+  }, [activeMethods, effectiveSelectedProvider, providerSelections]);
 
   const startCheckout = async (provider: PaymentProvider, paymentOption: PaymentOption) => {
     if (!selected || !token) return;
@@ -603,11 +636,15 @@ export default function CoinsPage() {
       toast(t.toasts.selectPackageFirst, "error");
       return;
     }
-    if (!selectedProvider) {
+    if (!paymentChannels[effectiveSelectedProvider]) {
       toast(t.toasts.selectProviderFirst, "error");
       return;
     }
-    const defaultMethod = providerSelections[selectedProvider] || regionalOptions[selectedProvider][0]?.id || null;
+    const defaultMethod = providerSelections[effectiveSelectedProvider] || activeMethods[0]?.id || null;
+    if (!defaultMethod) {
+      toast(t.toasts.selectPaymentMethod, "error");
+      return;
+    }
     setModalSelection(defaultMethod);
     setIsMethodModalOpen(true);
   };
@@ -619,10 +656,14 @@ export default function CoinsPage() {
     }
     setProviderSelections((current) => ({
       ...current,
-      [selectedProvider]: modalSelection,
+      [effectiveSelectedProvider]: modalSelection,
     }));
-    await startCheckout(selectedProvider, modalSelection);
+    await startCheckout(effectiveSelectedProvider, modalSelection);
   };
+
+  const selectedProviderLabel = paymentChannels[effectiveSelectedProvider]
+    ? t.providerLabels[effectiveSelectedProvider]
+    : t.noPaymentChannels;
 
   const handleRedeem = async () => {
     if (!token || !redeemCode.trim()) return;
@@ -799,7 +840,7 @@ export default function CoinsPage() {
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-semibold">{t.providerTitle}</h3>
               <div className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-xs text-gray-400">
-                {t.selectedProvider}: <span className="font-semibold text-white">{t.providerLabels[selectedProvider]}</span>
+                {t.selectedProvider}: <span className="font-semibold text-white">{selectedProviderLabel}</span>
                 {selectedMethodDefinition && (
                   <>
                     {" · "}
@@ -809,26 +850,15 @@ export default function CoinsPage() {
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              {([
-                {
-                  id: "stripe" as const,
-                  logo: <StripeLogo />,
-                  border: "border-[#635bff]/40",
-                  glow: "shadow-[0_0_32px_rgba(99,91,255,0.12)]",
-                },
-                {
-                  id: "airwallex" as const,
-                  logo: <AirwallexLogo />,
-                  border: "border-teal-400/35",
-                  glow: "shadow-[0_0_32px_rgba(45,212,191,0.12)]",
-                },
-              ]).map((provider) => {
-                const isActive = selectedProvider === provider.id;
+            {availableProviders.length > 0 ? (
+              <div className="mt-6 grid grid-cols-2 gap-4">
+                {availableProviders.map((providerId) => {
+                const provider = PROVIDER_CARD_META[providerId];
+                const isActive = effectiveSelectedProvider === providerId;
                 return (
                   <button
-                    key={provider.id}
-                    onClick={() => setSelectedProvider(provider.id)}
+                    key={providerId}
+                    onClick={() => setSelectedProvider(providerId)}
                     aria-pressed={isActive}
                     className={`flex min-h-[152px] items-center justify-center rounded-3xl border bg-black/30 text-white transition hover:-translate-y-1 hover:border-white/20 ${
                       isActive ? `${provider.border} ${provider.glow}` : "border-white/10"
@@ -847,24 +877,29 @@ export default function CoinsPage() {
                   </button>
                 );
               })}
-            </div>
+              </div>
+            ) : (
+              <div className="mt-6 rounded-3xl border border-dashed border-white/10 bg-black/20 px-5 py-8 text-center text-sm text-gray-400">
+                {t.noPaymentChannels}
+              </div>
+            )}
 
             <div className="mt-6 rounded-3xl border border-yellow-500/15 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(12,10,9,0.6))] p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-yellow-200/70">{t.paymentChannel}</p>
                   <p className="mt-2 text-lg font-semibold text-white">
-                    {t.providerLabels[selectedProvider]}
+                    {selectedProviderLabel}
                     {selectedMethodDefinition ? ` · ${selectedMethodDefinition.label}` : ""}
                   </p>
                   <p className="mt-1 text-sm text-gray-300">
-                    {selectedMethodDefinition?.description || t.chooseMethodHint}
+                    {selectedMethodDefinition?.description || (availableProviders.length > 0 ? t.chooseMethodHint : t.noPaymentMethods)}
                   </p>
                 </div>
 
                 <button
                   onClick={openMethodModal}
-                  disabled={!selected || paying}
+                  disabled={!selected || paying || activeMethods.length === 0}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-yellow-600 to-yellow-500 px-6 py-3.5 text-sm font-bold text-black transition hover:from-yellow-500 hover:to-yellow-400 disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto"
                 >
                   {paying ? (
@@ -945,7 +980,7 @@ export default function CoinsPage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-yellow-300/75">{t.paymentChannel}</p>
-                <h3 className="mt-3 text-2xl font-semibold">{t.modalTitle(t.providerLabels[selectedProvider])}</h3>
+                <h3 className="mt-3 text-2xl font-semibold">{t.modalTitle(selectedProviderLabel)}</h3>
                 <p className="mt-3 max-w-xl text-sm leading-6 text-gray-400">{t.modalSubtitle}</p>
                 <p className="mt-3 text-xs uppercase tracking-[0.18em] text-gray-500">
                   {t.availableInRegion(pricingContext?.countryCode || "US")}
@@ -963,7 +998,7 @@ export default function CoinsPage() {
             </div>
 
             <div className="mt-6 grid gap-4">
-              {activeMethods.map((method) => {
+              {activeMethods.length > 0 ? activeMethods.map((method) => {
                 const isSelected = modalSelection === method.id;
                 return (
                   <button
@@ -993,7 +1028,11 @@ export default function CoinsPage() {
                     </div>
                   </button>
                 );
-              })}
+              }) : (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-zinc-900/40 px-5 py-8 text-center text-sm text-gray-400">
+                  {t.noPaymentMethods}
+                </div>
+              )}
             </div>
 
             <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-gray-400">

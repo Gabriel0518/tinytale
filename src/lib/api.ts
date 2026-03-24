@@ -162,6 +162,29 @@ class ApiClient {
 export const api = new ApiClient(API_URL);
 
 export type RechargeProvider = 'stripe' | 'airwallex';
+export type RechargePaymentChannel = {
+  provider: RechargeProvider;
+  paymentOptions: string[];
+};
+
+export type RechargePackagesResponse = {
+  success: boolean;
+  data: Array<{
+    id?: string;
+    _id: string;
+    coins: number;
+    price: number;
+    bonus: number;
+    tag: string | null;
+    originalPrice: number | null;
+  }>;
+  pricingContext?: {
+    tier: 1 | 2 | 3;
+    countryCode: string;
+    currencyCode: string;
+  };
+  paymentChannels?: Partial<Record<RechargeProvider, RechargePaymentChannel>>;
+};
 
 export type RechargeOrderResponse = {
   success: boolean;
@@ -178,6 +201,7 @@ export type RechargeOrderResponse = {
     countryCode?: string;
     env?: 'demo' | 'prod';
     successUrl?: string;
+    paymentOption?: string;
   };
 };
 
@@ -416,13 +440,13 @@ export const coinsApi = {
   },
 
   getPackages: () =>
-    api.get('/api/payment/packages'),
+    api.get<RechargePackagesResponse>('/api/payment/packages'),
 
   recharge: (token: string, packageId: string) =>
     api.post('/api/coins/recharge', { amount: packageId }, { token }),
 
-  createOrder: (token: string, packageId: string, paymentMethod: RechargeProvider) =>
-    api.post<RechargeOrderResponse>('/api/payment/create-order', { packageId, paymentMethod }, { token }),
+  createOrder: (token: string, packageId: string, paymentMethod: RechargeProvider, paymentOption?: string) =>
+    api.post<RechargeOrderResponse>('/api/payment/create-order', { packageId, paymentMethod, paymentOption }, { token }),
 
   verifySession: (token: string, sessionId: string) =>
     api.get<RechargeVerificationResponse>('/api/payment/verify-session/' + sessionId, { token }),
