@@ -139,6 +139,7 @@ export default function AirwallexCheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [sdkReady, setSdkReady] = useState(false);
   const [sdkFailed, setSdkFailed] = useState(false);
+  const [showHttpsWarning, setShowHttpsWarning] = useState(false);
 
   const packageId = searchParams.get("packageId") || "";
   const coins = Number(searchParams.get("coins") || 0);
@@ -174,6 +175,12 @@ export default function AirwallexCheckoutPage() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setShowHttpsWarning(window.location.protocol !== "https:");
+    }
+  }, []);
+
   const handleContinue = async () => {
     if (!token || !packageId) return;
     if (sdkFailed) {
@@ -190,6 +197,7 @@ export default function AirwallexCheckoutPage() {
       const res = await coinsApi.createOrder(token, packageId, "airwallex", paymentOption);
       const successUrl = String(res.data?.successUrl || "");
       if (!successUrl.startsWith("https://")) {
+        setShowHttpsWarning(true);
         toast(t.httpsWarning, "error");
         return;
       }
@@ -282,9 +290,11 @@ export default function AirwallexCheckoutPage() {
                 <p className="text-xs uppercase tracking-[0.2em] text-teal-100/70">{t.methodLabel}</p>
                 <p className="mt-2 text-sm font-semibold text-white">{t.methodMap[paymentOption] || t.methodMap.cards}</p>
               </div>
-              <p className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
-                {t.httpsWarning}
-              </p>
+              {showHttpsWarning && (
+                <p className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
+                  {t.httpsWarning}
+                </p>
+              )}
               <button
                 onClick={handleContinue}
                 disabled={!token || !packageId || submitting}
