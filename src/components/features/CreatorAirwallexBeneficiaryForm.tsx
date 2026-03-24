@@ -166,13 +166,10 @@ export function CreatorAirwallexBeneficiaryForm({
     <div className="rounded-[24px] border border-[#d9e9ff] bg-[linear-gradient(180deg,#f4f9ff,#ffffff)] p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#1876f2]">Airwallex embedded onboarding</p>
-          <h3 className="mt-3 text-[20px] font-bold tracking-[-0.02em] text-[#0f172a]">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#1876f2]">Airwallex</p>
+          <h3 className="mt-2 text-[20px] font-bold tracking-[-0.02em] text-[#0f172a]">
             {existingSummary?.beneficiaryId ? "Edit payout beneficiary" : "Create payout beneficiary"}
           </h3>
-          <p className="mt-2 max-w-[680px] text-[15px] leading-7 text-[#64748b]">
-            Complete the Airwallex beneficiary form here so TinyTale can collect, verify, and manage creator payout details without redirecting you away from Settlement Center.
-          </p>
         </div>
       </div>
 

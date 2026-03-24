@@ -5,16 +5,13 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
+  X,
   ArrowRight,
   Banknote,
   Building2,
-  ChevronRight,
   CircleHelp,
   Download,
-  FileSpreadsheet,
-  Landmark,
   Loader2,
-  Sparkles,
 } from "lucide-react";
 import { creatorApi } from "@/lib/api";
 import { CreatorAirwallexBeneficiaryForm } from "@/components/features/CreatorAirwallexBeneficiaryForm";
@@ -65,36 +62,16 @@ function mapStatementFilter(status: CreatorSettlementStatement["status"]): State
   return "pending";
 }
 
-function getAirwallexPayoutAction(status: CreatorSettlementBankStatus) {
+function getAirwallexManageLabel(status: CreatorSettlementBankStatus) {
   switch (status) {
     case "verified":
-      return {
-        primaryLabel: "Edit payout beneficiary",
-        secondaryLabel: "Refresh verification",
-        helper:
-          "Your Airwallex beneficiary is verified and ready for payouts. Re-open the embedded form here if you need to update beneficiary details or payout destination information.",
-      };
+      return "Manage account";
     case "pending_review":
-      return {
-        primaryLabel: "Continue beneficiary setup",
-        secondaryLabel: "Refresh verification",
-        helper:
-          "Your beneficiary is saved, but verification still needs another pass or follow-up. Re-open the embedded Airwallex form to fix details, then refresh verification from this page.",
-      };
+      return "Continue setup";
     case "rejected":
-      return {
-        primaryLabel: "Fix beneficiary details",
-        secondaryLabel: "Refresh verification",
-        helper:
-          "Airwallex found a blocking issue with this payout account. Update the beneficiary details here and rerun verification before finance can release funds.",
-      };
+      return "Update account";
     default:
-      return {
-        primaryLabel: "Create payout beneficiary",
-        secondaryLabel: "Why Airwallex?",
-        helper:
-          "TinyTale now uses Airwallex embedded onboarding for creator payouts. Airwallex collects and verifies beneficiary banking details directly inside Settlement Center.",
-      };
+      return "Add bank account";
   }
 }
 
@@ -106,7 +83,7 @@ export default function CreatorSettlementsPage() {
 
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [payoutActionLoading, setPayoutActionLoading] = useState<"setup" | "verify" | null>(null);
+  const [payoutActionLoading, setPayoutActionLoading] = useState(false);
   const [showBeneficiaryForm, setShowBeneficiaryForm] = useState(false);
   const [beneficiaryDefaults, setBeneficiaryDefaults] = useState<Record<string, unknown> | null>(null);
   const [beneficiaryTransferMethods, setBeneficiaryTransferMethods] = useState<string[]>([]);
@@ -174,8 +151,8 @@ export default function CreatorSettlementsPage() {
     return candidate?.creatorShareUsd || 0;
   }, [overview]);
 
-  const airwallexPayoutAction = useMemo(
-    () => getAirwallexPayoutAction(overview?.bankAccount.verificationStatus || "missing"),
+  const manageBankAccountLabel = useMemo(
+    () => getAirwallexManageLabel(overview?.bankAccount.verificationStatus || "missing"),
     [overview?.bankAccount.verificationStatus],
   );
 
@@ -210,7 +187,7 @@ export default function CreatorSettlementsPage() {
     }
 
     try {
-      setPayoutActionLoading("setup");
+      setPayoutActionLoading(true);
       const beneficiaryId = overview?.bankAccount.airwallexBeneficiary?.beneficiaryId;
       if (beneficiaryId) {
         const response = await creatorApi.getAirwallexSettlementBeneficiary(token);
@@ -224,31 +201,7 @@ export default function CreatorSettlementsPage() {
     } catch (error) {
       toast(error instanceof Error ? error.message : t("Failed to open Airwallex beneficiary form."), "error");
     } finally {
-      setPayoutActionLoading(null);
-    }
-  };
-
-  const handleAirwallexVerificationRefresh = async () => {
-    if (!token) {
-      toast(t("Please sign in again to manage your payout account."), "error");
-      return;
-    }
-
-    const beneficiaryId = overview?.bankAccount.airwallexBeneficiary?.beneficiaryId;
-    if (!beneficiaryId) {
-      toast(t("Create your Airwallex payout beneficiary first."), "info");
-      return;
-    }
-
-    try {
-      setPayoutActionLoading("verify");
-      await creatorApi.verifyAirwallexSettlementBeneficiary(token, beneficiaryId);
-      await refreshOverview();
-      toast(t("Airwallex beneficiary verification has been refreshed."), "success");
-    } catch (error) {
-      toast(error instanceof Error ? error.message : t("Failed to refresh Airwallex verification."), "error");
-    } finally {
-      setPayoutActionLoading(null);
+      setPayoutActionLoading(false);
     }
   };
 
@@ -347,164 +300,109 @@ export default function CreatorSettlementsPage() {
       </section>
 
       <section className={`${cardClassName} p-6 md:p-7`}>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">Bank Account</h2>
-            <p className="mt-2 max-w-[720px] text-[15px] leading-7 text-[#64748b]">
-              {t("Use Airwallex embedded onboarding to collect, manage, and verify your payout beneficiary without leaving Settlement Center.")}
-            </p>
-          </div>
-          <Landmark className="h-5 w-5 text-[#94a3b8]" />
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">Bank Account</h2>
+          <button
+            type="button"
+            onClick={handleOpenAirwallexForm}
+            disabled={payoutActionLoading}
+            className="inline-flex h-11 items-center rounded-2xl bg-[#1876f2] px-5 text-[14px] font-bold text-white transition hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {payoutActionLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {t("Opening Airwallex...")}
+              </>
+            ) : (
+              manageBankAccountLabel
+            )}
+          </button>
         </div>
 
-        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-          {showBeneficiaryForm ? (
-            <CreatorAirwallexBeneficiaryForm
-              token={token || ""}
-              existingSummary={overview?.bankAccount.airwallexBeneficiary || null}
-              existingBeneficiary={beneficiaryDefaults}
-              existingTransferMethods={beneficiaryTransferMethods}
-              onSaved={handleAirwallexSaved}
-              onClose={() => setShowBeneficiaryForm(false)}
-            />
-          ) : (
-            <div className="rounded-[24px] border border-[#d9e9ff] bg-[linear-gradient(180deg,#f4f9ff,#ffffff)] p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="inline-flex items-center gap-2 rounded-full bg-[#e8f1ff] px-3 py-1 text-[12px] font-semibold text-[#1876f2]">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Airwallex embedded onboarding
-                  </div>
-                  <h3 className="mt-4 text-[20px] font-bold tracking-[-0.02em] text-[#0f172a]">
-                    {t(airwallexPayoutAction.primaryLabel)}
-                  </h3>
-                  <p className="mt-2 max-w-[640px] text-[15px] leading-7 text-[#64748b]">
-                    {t(airwallexPayoutAction.helper)}
-                  </p>
-                </div>
+        <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(280px,0.7fr)]">
+          <div className="rounded-[24px] border border-[#d9e9ff] bg-[linear-gradient(180deg,#f8fbff,#ffffff)] p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#eff6ff] text-[#1876f2]">
+                <Building2 className="h-5 w-5" />
               </div>
-
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-[18px] bg-white px-4 py-4 shadow-[inset_0_0_0_1px_#edf2f7]">
-                  <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Current payout profile</p>
-                  <p className="mt-2 text-[16px] font-bold text-[#0f172a]">
-                    {overview?.bankAccount.bankName ? `${overview.bankAccount.bankName} ${overview.bankAccount.accountNumberMasked}` : t("No Airwallex beneficiary connected")}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-[18px] font-bold text-[#0f172a]">
+                    {overview?.bankAccount.bankName || "No bank account connected"}
                   </p>
-                  <p className="mt-1 text-[14px] text-[#64748b]">
-                    {overview?.bankAccount.accountHolderName || t("Create your payout beneficiary from this card")}
-                  </p>
-                  {overview?.bankAccount.airwallexBeneficiary?.email ? (
-                    <p className="mt-1 text-[13px] text-[#94a3b8]">
-                      {overview.bankAccount.airwallexBeneficiary.email}
-                    </p>
-                  ) : null}
+                  <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.bankAccount.verificationStatus || "missing")}`}>
+                    {overview?.bankAccount.verificationLabel || "Missing"}
+                  </span>
                 </div>
-                <div className="rounded-[18px] bg-white px-4 py-4 shadow-[inset_0_0_0_1px_#edf2f7]">
-                  <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Verification status</p>
-                  <div className="mt-2 flex items-center gap-3">
-                    <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.bankAccount.verificationStatus || "missing")}`}>
-                      {overview?.bankAccount.verificationLabel || "Missing"}
-                    </span>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Account holder</p>
+                    <p className="mt-2 text-[15px] font-semibold text-[#0f172a]">
+                      {overview?.bankAccount.accountHolderName || "Not added yet"}
+                    </p>
                   </div>
-                  <p className="mt-2 text-[14px] text-[#64748b]">
-                    {overview?.bankAccount.airwallexBeneficiary?.verificationCheckedAt
-                      ? t("Last verified __ARG_0__", formatDate(overview.bankAccount.airwallexBeneficiary.verificationCheckedAt))
-                      : overview?.bankAccount.updatedAt
-                        ? t("Last updated __ARG_0__", formatDate(overview.bankAccount.updatedAt))
-                        : t("The payout setup has not been started yet.")}
-                  </p>
-                  {overview?.bankAccount.airwallexBeneficiary?.verificationCode ? (
-                    <p className="mt-1 text-[13px] text-[#b45309]">
-                      {overview.bankAccount.airwallexBeneficiary.verificationCode}
-                      {overview.bankAccount.airwallexBeneficiary.verificationAccountNameMatchResult
-                        ? ` · ${overview.bankAccount.airwallexBeneficiary.verificationAccountNameMatchResult}`
-                        : ""}
+                  <div>
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Account number</p>
+                    <p className="mt-2 text-[15px] font-semibold text-[#0f172a]">
+                      {overview?.bankAccount.accountNumberMasked || "Not added yet"}
                     </p>
-                  ) : null}
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Country</p>
+                    <p className="mt-2 text-[15px] font-semibold text-[#0f172a]">
+                      {overview?.bankAccount.country || "Not added yet"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Currency</p>
+                    <p className="mt-2 text-[15px] font-semibold text-[#0f172a]">
+                      {overview?.bankAccount.currency || "Not added yet"}
+                    </p>
+                  </div>
                 </div>
+                {overview?.bankAccount.airwallexBeneficiary?.email ? (
+                  <p className="mt-4 text-[14px] text-[#64748b]">{overview.bankAccount.airwallexBeneficiary.email}</p>
+                ) : null}
               </div>
+            </div>
+          </div>
 
-              <div className="mt-5 flex flex-wrap gap-3">
+          <div className="rounded-[24px] bg-[#f8fafc] p-4">
+            <div className="rounded-[20px] bg-white p-5 shadow-[inset_0_0_0_1px_#edf2f7]">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Account Management</p>
+              <p className="mt-3 text-[18px] font-bold text-[#0f172a]">
+                {overview?.bankAccount.airwallexBeneficiary?.beneficiaryId ? "Beneficiary connected" : "Add your payout bank account"}
+              </p>
+              <p className="mt-2 text-[14px] text-[#64748b]">
+                {overview?.bankAccount.updatedAt
+                  ? `Last updated ${formatDate(overview.bankAccount.updatedAt)}`
+                  : "No bank account information added yet"}
+              </p>
+              {overview?.bankAccount.airwallexBeneficiary?.verificationCode ? (
+                <p className="mt-3 text-[13px] text-[#b45309]">
+                  {overview.bankAccount.airwallexBeneficiary.verificationCode}
+                  {overview.bankAccount.airwallexBeneficiary.verificationAccountNameMatchResult
+                    ? ` · ${overview.bankAccount.airwallexBeneficiary.verificationAccountNameMatchResult}`
+                    : ""}
+                </p>
+              ) : null}
+
+              <div className="mt-5">
                 <button
                   type="button"
                   onClick={handleOpenAirwallexForm}
-                  disabled={payoutActionLoading !== null}
-                  className="inline-flex h-11 items-center rounded-2xl bg-[#1876f2] px-5 text-[14px] font-bold text-white transition hover:bg-[#1669da]"
+                  disabled={payoutActionLoading}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-[#1876f2] px-5 text-[14px] font-bold text-white transition hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {payoutActionLoading === "setup" ? (
+                  {payoutActionLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       {t("Opening Airwallex...")}
                     </>
                   ) : (
-                    t(airwallexPayoutAction.primaryLabel)
+                    manageBankAccountLabel
                   )}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleAirwallexVerificationRefresh}
-                  disabled={payoutActionLoading !== null}
-                  className="inline-flex h-11 items-center rounded-2xl border border-[#dbe3ec] bg-white px-5 text-[14px] font-semibold text-[#334155] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {payoutActionLoading === "verify" ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {t("Refreshing...")}
-                    </>
-                  ) : (
-                    t(airwallexPayoutAction.secondaryLabel)
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="rounded-[24px] bg-[#f8fafc] p-4">
-            <div className="rounded-[20px] bg-white p-5 shadow-[inset_0_0_0_1px_#edf2f7]">
-              <div className="flex items-center gap-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#eff6ff] text-[#1876f2]">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[16px] font-bold text-[#0f172a]">
-                    {overview?.bankAccount.bankName ? `${overview.bankAccount.bankName} ${overview.bankAccount.accountNumberMasked}` : t("No Airwallex beneficiary connected")}
-                  </p>
-                  <p className="mt-1 text-[14px] text-[#64748b]">
-                    {overview?.bankAccount.accountHolderName || t("Primary payout profile will appear here after beneficiary setup")}
-                  </p>
-                  {overview?.bankAccount.providerLabel ? (
-                    <p className="mt-1 text-[13px] text-[#94a3b8]">{overview.bankAccount.providerLabel}</p>
-                  ) : null}
-                </div>
-                <span className={`ml-auto rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.bankAccount.verificationStatus || "missing")}`}>
-                  {overview?.bankAccount.verificationLabel || "Missing"}
-                </span>
-              </div>
-              <div className="mt-5 space-y-3 text-[14px] leading-6 text-[#64748b]">
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-[#1876f2]" />
-                  <p>{t("Create and edit the payout beneficiary here instead of typing full banking details into local TinyTale forms.")}</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-[#1876f2]" />
-                  <p>{t("Run beneficiary verification from the same card after saving changes, so payout readiness stays visible in one workflow.")}</p>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="mt-1 h-2 w-2 rounded-full bg-[#1876f2]" />
-                  <p>{t("Tax information still stays inside TinyTale so settlement review and statement confirmation remain in one workflow.")}</p>
-                </div>
-              </div>
-
-              <div className="mt-5 border-t border-[#edf2f7] pt-2">
-                <Link href={localizePath("/creator/settlements/tax-information", locale)} className="flex items-center justify-between py-4">
-                  <span className="text-[15px] font-semibold text-[#0f172a]">Tax Information (W-9)</span>
-                  <div className="flex items-center gap-3">
-                    <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.taxInfo.status === "submitted" ? "verified" : "missing")}`}>
-                      {overview?.taxInfo.status === "submitted" ? "Submitted" : "Missing"}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-[#94a3b8]" />
-                  </div>
-                </Link>
               </div>
             </div>
           </div>
@@ -598,25 +496,7 @@ export default function CreatorSettlementsPage() {
         </div>
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <section className="rounded-[24px] border border-[#bfd8ff] bg-[linear-gradient(180deg,#edf5ff,#f7fbff)] p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-          <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(24,118,242,0.12)] text-[#1876f2]">
-              <FileSpreadsheet className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-[18px] font-bold text-[#0f172a]">Need a detailed tax report?</h3>
-              <p className="mt-2 max-w-[460px] text-[15px] leading-7 text-[#64748b]">
-                Download your consolidated annual earning statement for tax filing purposes.
-              </p>
-              <button type="button" onClick={handleExportData} className="mt-5 inline-flex items-center gap-2 text-[15px] font-bold text-[#1876f2] hover:text-[#1669da]">
-                Download Annual Report
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </section>
-
+      <div className="grid gap-6">
         <section className={`${cardClassName} p-6`}>
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f1f5f9] text-[#475569]">
@@ -635,6 +515,36 @@ export default function CreatorSettlementsPage() {
           </div>
         </section>
       </div>
+
+      {showBeneficiaryForm ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0f172a]/45 px-4 py-8 backdrop-blur-sm">
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowBeneficiaryForm(false)}
+            aria-hidden="true"
+          />
+          <div className="relative z-10 max-h-[calc(100vh-48px)] w-full max-w-[1080px] overflow-y-auto">
+            <div className="mb-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowBeneficiaryForm(false)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#0f172a] shadow-[0_12px_30px_rgba(15,23,42,0.12)] transition hover:bg-white"
+                aria-label="Close bank account form"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <CreatorAirwallexBeneficiaryForm
+              token={token || ""}
+              existingSummary={overview?.bankAccount.airwallexBeneficiary || null}
+              existingBeneficiary={beneficiaryDefaults}
+              existingTransferMethods={beneficiaryTransferMethods}
+              onSaved={handleAirwallexSaved}
+              onClose={() => setShowBeneficiaryForm(false)}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
