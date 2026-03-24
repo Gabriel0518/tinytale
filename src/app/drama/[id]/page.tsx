@@ -164,6 +164,7 @@ function PlayerInner({
   streamInfo,
   activeEpisode,
   drama,
+  autoplay,
   onPlaybackProgress,
   onPrevious,
   onNext,
@@ -174,6 +175,7 @@ function PlayerInner({
   streamInfo: StreamPlaybackInfo | null;
   activeEpisode: Episode | null;
   drama: Drama;
+  autoplay: boolean;
   onPlaybackProgress?: (time: number, duration: number) => void;
   onPrevious?: () => void;
   onNext?: () => void;
@@ -212,13 +214,26 @@ function PlayerInner({
     });
   }, [streamInfo?.subtitles]);
 
+  useEffect(() => {
+    actions.setLoading(true);
+    actions.setCurrentTime(0);
+    actions.setDuration(Number(activeEpisode?.duration || 0));
+    actions.setPlaying(autoplay);
+    actions.setError(null);
+  }, [actions, activeEpisode?._id, activeEpisode?.duration, autoplay]);
+
   const handlePlayPause = useCallback(() => {
-    if (state.isPlaying) {
+    const player = playerRef.current?.getPlayer?.();
+    const isActuallyPlaying = player ? !player.paused() && !player.ended() : state.isPlaying;
+
+    if (isActuallyPlaying) {
       playerRef.current?.pause();
+      actions.setPlaying(false);
     } else {
       playerRef.current?.play();
+      actions.setPlaying(true);
     }
-  }, [state.isPlaying, playerRef]);
+  }, [actions, playerRef, state.isPlaying]);
 
   const handleSeek = useCallback((time: number) => {
     playerRef.current?.seek(time);
@@ -263,6 +278,7 @@ function PlayerInner({
         activeSubtitleLanguage={activeSubtitleLanguage}
         poster={activeEpisode?.thumbnail || drama.cover}
         subtitles={streamInfo?.subtitles}
+        autoplay={autoplay}
         onEnded={onNext}
         onTimeUpdate={(time, duration) => {
           actions.setCurrentTime(time);
@@ -271,7 +287,13 @@ function PlayerInner({
         }}
         onPlay={() => actions.setPlaying(true)}
         onPause={() => actions.setPlaying(false)}
-        onReady={() => actions.setLoading(false)}
+        onReady={() => {
+          actions.setLoading(false);
+          const player = playerRef.current?.getPlayer?.();
+          if (player && !player.paused() && !player.ended()) {
+            actions.setPlaying(true);
+          }
+        }}
         onError={(err) => actions.setError(err)}
         className="h-full w-full"
       />
@@ -328,6 +350,7 @@ function DramaDetailContent() {
   const [loading, setLoading] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
   const [activeEpisode, setActiveEpisode] = useState<Episode | null>(null);
+  const [episodeAutoplay, setEpisodeAutoplay] = useState(true);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState("");
@@ -457,6 +480,7 @@ function DramaDetailContent() {
       return;
     }
     let cancelled = false;
+    setStreamInfo(null);
     episodesApi.getStream(activeEpisode._id, token || undefined)
       .then((res: any) => {
         if (!cancelled) setStreamInfo(res.data ?? res);
@@ -514,8 +538,11 @@ function DramaDetailContent() {
         return;
       }
     }
+    const player = playerRef.current?.getPlayer?.();
+    const shouldAutoplayNext = player ? !player.paused() && !player.ended() : true;
+    setEpisodeAutoplay(shouldAutoplayNext);
     setActiveEpisode(episode);
-  }, [token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, confirmDialog, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.cancel, t.unlockSuccess, t.unlockFail]);
+  }, [token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, confirmDialog, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.cancel, t.unlockSuccess, t.unlockFail, playerRef]);
 
   // Unlock all paid episodes
   const lockedEpisodes = episodes.filter(ep => !ep.isFree && !unlockedEpisodeIds.has(ep._id));
@@ -690,6 +717,7 @@ function DramaDetailContent() {
                   streamInfo={streamInfo}
                   activeEpisode={activeEpisode}
                   drama={drama}
+                  autoplay={episodeAutoplay}
                 onPlaybackProgress={(time, duration) => {
                     if (!token || !activeEpisode?._id) return;
                     if (!duration || duration <= 0) return;
