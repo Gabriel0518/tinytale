@@ -29,7 +29,7 @@ import { useCreatorI18n } from "../_lib/creator-i18n";
 const cardClassName =
   "rounded-[24px] border border-[#e2e8f0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]";
 
-type StatementFilter = "all" | "paid" | "pending" | "processing" | "disputed" | "held";
+type StatementFilter = "all" | "paid" | "pending" | "processing" | "disputed" | "held" | "rejected";
 function statusBadgeClass(status: CreatorSettlementStatement["status"] | CreatorSettlementOverview["summary"]["bankStatus"]) {
   switch (status) {
     case "paid":
@@ -59,6 +59,7 @@ function mapStatementFilter(status: CreatorSettlementStatement["status"]): State
   if (status === "processing") return "processing";
   if (status === "disputed") return "disputed";
   if (status === "held") return "held";
+  if (status === "rejected") return "rejected";
   return "pending";
 }
 
@@ -420,6 +421,7 @@ export default function CreatorSettlementsPage() {
               ["processing", "Processing"],
               ["held", "Held"],
               ["disputed", "Disputed"],
+              ["rejected", "Rejected"],
             ] as const).map(([value, label]) => (
               <button
                 key={value}

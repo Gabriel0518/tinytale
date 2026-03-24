@@ -16,7 +16,7 @@ import {
 
 const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";
 
-type SettlementDecision = "confirm" | "hold" | "mark_paid" | "mark_disputed";
+type SettlementDecision = "confirm" | "hold" | "mark_paid" | "mark_disputed" | "reject_payout";
 type SettlementDecisionDraft = {
   decision: SettlementDecision;
   note: string;
@@ -24,6 +24,7 @@ type SettlementDecisionDraft = {
 
 function getDefaultDecision(status: CreatorAdminSettlementStatus): SettlementDecision {
   if (status === "paid" || status === "processing") return "mark_paid";
+  if (status === "rejected") return "reject_payout";
   if (status === "disputed") return "mark_disputed";
   if (status === "held") return "hold";
   return "confirm";
@@ -115,7 +116,7 @@ export default function CreatorSettlementsAdminPage() {
 
   async function handleReview(item: CreatorAdminSettlementItem) {
     const draft = drafts[item.id] || buildDraft(item);
-    if (!draft.note.trim()) {
+    if ((draft.decision === "hold" || draft.decision === "mark_disputed" || draft.decision === "reject_payout") && !draft.note.trim()) {
       toast("A settlement note is required.", "info");
       return;
     }
@@ -127,6 +128,8 @@ export default function CreatorSettlementsAdminPage() {
         response?.data?.status
         || (draft.decision === "mark_disputed"
           ? "disputed"
+          : draft.decision === "reject_payout"
+            ? "rejected"
           : draft.decision === "hold"
             ? "held"
             : draft.decision === "mark_paid"
@@ -138,6 +141,9 @@ export default function CreatorSettlementsAdminPage() {
         ...currentItem,
         status: nextStatus,
         note: draft.note,
+        rejectionReason: nextStatus === "rejected" ? (response?.data?.rejectionReason || draft.note) : "",
+        rejectedAt: nextStatus === "rejected" ? (response?.data?.rejectedAt || new Date().toISOString()) : null,
+        rejectionHistory: nextStatus === "rejected" ? (response?.data?.rejectionHistory || currentItem.rejectionHistory || []) : currentItem.rejectionHistory,
         transferReference: nextTransferReference,
         payoutId: nextPayoutId,
         payoutStatus: nextStatus === "paid" ? "paid" : nextStatus === "processing" ? "pending" : currentItem.payoutStatus,
@@ -156,6 +162,8 @@ export default function CreatorSettlementsAdminPage() {
           ? `${item.bankProvider === "airwallex" ? "Airwallex transfer" : "Stripe payout"} submitted.`
           : nextStatus === "paid"
             ? `${item.bankProvider === "airwallex" ? "Airwallex transfer" : "Stripe payout"} completed.`
+            : nextStatus === "rejected"
+              ? "Settlement payout rejected."
             : "Settlement updated.",
         "success",
       );
@@ -174,6 +182,7 @@ export default function CreatorSettlementsAdminPage() {
     processing: items.filter((item) => item.status === "processing").length,
     paid: items.filter((item) => item.status === "paid").length,
     heldOrDisputed: items.filter((item) => item.status === "held" || item.status === "disputed").length,
+    rejected: items.filter((item) => item.status === "rejected").length,
   }), [items]);
 
   return (
@@ -204,6 +213,7 @@ export default function CreatorSettlementsAdminPage() {
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Processing</p><p className="mt-3 text-3xl font-bold text-sky-300">{stats.processing}</p></article>
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Paid</p><p className="mt-3 text-3xl font-bold text-green-300">{stats.paid}</p></article>
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Held / Disputed</p><p className="mt-3 text-3xl font-bold text-red-300">{stats.heldOrDisputed}</p></article>
+        <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Rejected</p><p className="mt-3 text-3xl font-bold text-slate-300">{stats.rejected}</p></article>
       </section>
 
       <section className={panelClassName}>
@@ -225,6 +235,7 @@ export default function CreatorSettlementsAdminPage() {
             <option value="paid">Paid</option>
             <option value="held">Held</option>
             <option value="disputed">Disputed</option>
+            <option value="rejected">Rejected</option>
           </select>
         </div>
       </section>
@@ -333,6 +344,10 @@ export default function CreatorSettlementsAdminPage() {
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Execute payout</p>
                 <p className="mt-2 text-sm leading-6 text-gray-300">Execute the provider payout only after the statement is released and the payout profile is fully verified.</p>
+              </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Reject payout</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Reject removes the payout request path for this statement and records the rejection note for audit history.</p>
               </div>
             </div>
           </article>
@@ -457,6 +472,7 @@ export default function CreatorSettlementsAdminPage() {
                         <option value="confirm">Confirm statement</option>
                         <option value="hold">Place hold</option>
                         <option value="mark_disputed">Mark disputed</option>
+                        <option value="reject_payout">Reject payout</option>
                         <option value="mark_paid">{activeModalItem.bankProvider === "airwallex" ? "Execute Airwallex transfer" : "Execute Stripe payout"}</option>
                       </select>
                     </div>

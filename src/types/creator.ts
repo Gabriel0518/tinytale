@@ -602,7 +602,7 @@ export interface CreatorSettlementStatement {
   settlementBaseUsd: number;
   creatorShareUsd: number;
   unlockCount: number;
-  status: "pending" | "generated" | "confirmed" | "processing" | "paid" | "disputed" | "held";
+  status: "pending" | "generated" | "confirmed" | "processing" | "paid" | "disputed" | "held" | "rejected";
   statusLabel: string;
   payoutDate: string | null;
 }
@@ -1082,7 +1082,15 @@ export type CreatorAdminSettlementStatus =
   | "processing"
   | "paid"
   | "disputed"
-  | "held";
+  | "held"
+  | "rejected";
+
+export interface CreatorAdminSettlementRejectionRecord {
+  id: string;
+  rejectedAt: string;
+  note: string;
+  adminId?: string | null;
+}
 
 export interface CreatorAdminBankAccountItem {
   creatorId: string;
@@ -1158,6 +1166,9 @@ export interface CreatorAdminPayoutRequestItem {
   paidAt?: string | null;
   payoutFailureMessage?: string;
   note: string;
+  rejectedAt?: string | null;
+  rejectionReason?: string;
+  rejectionHistory?: CreatorAdminSettlementRejectionRecord[];
 }
 
 export interface CreatorAdminSettlementItem {
@@ -1201,6 +1212,9 @@ export interface CreatorAdminSettlementItem {
   payoutStatus?: string;
   paidAt?: string | null;
   note: string;
+  rejectedAt?: string | null;
+  rejectionReason?: string;
+  rejectionHistory?: CreatorAdminSettlementRejectionRecord[];
 }
 
 export interface CreatorAdminRevenueOverview {

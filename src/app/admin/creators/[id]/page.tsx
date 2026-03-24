@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ShieldAlert } from "lucide-react";
+import { ArrowLeft, ShieldAlert, Trash2 } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { adminApi } from "@/lib/adminApi";
 import {
@@ -27,6 +27,7 @@ export default function CreatorDetailPage() {
   const [nextLevel, setNextLevel] = useState("Rising");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deletingBank, setDeletingBank] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,6 +95,81 @@ export default function CreatorDetailPage() {
 
     toast("Creator profile updated.", "success");
     setNote("");
+  }
+
+  async function handleDeleteBankAccount() {
+    if (!data) return;
+
+    const hasBankRecord = Boolean(
+      data.bankAccount.bankName
+      || data.bankAccount.maskedAccountNumber
+      || data.bankAccount.airwallexBeneficiaryId
+      || data.bankAccount.stripeAccountId
+    );
+
+    if (!hasBankRecord) {
+      toast("No payout account is attached to this creator.", "info");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Delete this creator payout account record? This will clear Stripe/Airwallex bank data for both admin and creator views.",
+    );
+    if (!confirmed) return;
+
+    setDeletingBank(true);
+    try {
+      const response: any = await adminApi.deleteCreatorBankAccount(data.id);
+      const nextBank = response?.data?.bankAccount;
+      setData((current) => current ? {
+        ...current,
+        bankStatus: response?.data?.bankStatus || "missing",
+        bankAccount: nextBank ? {
+          ...current.bankAccount,
+          ...nextBank,
+        } : {
+          status: "missing",
+          accountHolderName: "",
+          bankName: "",
+          maskedAccountNumber: "",
+          country: "",
+          updatedAt: response?.data?.updatedAt || new Date().toISOString(),
+          provider: "airwallex",
+          providerLabel: "Airwallex Beneficiary",
+          verificationLabel: "Missing",
+          stripeAccountId: "",
+          stripeEmail: "",
+          stripeRequirementsCurrentlyDue: [],
+          stripeRequirementsPendingVerification: [],
+          stripeRequirementsEventuallyDue: [],
+          stripeDisabledReason: "",
+          adminOverrideStatus: null,
+          airwallexBeneficiaryId: "",
+          airwallexEntityType: "",
+          airwallexTransferMethods: [],
+          airwallexVerificationCode: "",
+          airwallexVerificationAccountNameMatchResult: "",
+          airwallexVerificationResolvedAccountName: "",
+          airwallexVerificationResolvedBankName: "",
+          airwallexVerificationCheckedAt: null,
+        },
+        auditTrail: [
+          {
+            id: `bank-delete-${Date.now()}`,
+            at: response?.data?.updatedAt || new Date().toISOString(),
+            actor: "Current Admin",
+            action: "Creator bank account deleted",
+            summary: "Cleared payout bank account data so the creator can resubmit fresh payout details.",
+          },
+          ...current.auditTrail,
+        ],
+      } : current);
+      toast("Creator payout account deleted.", "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Failed to delete payout account.", "error");
+    } finally {
+      setDeletingBank(false);
+    }
   }
 
   if (loading && !data) {
@@ -305,6 +381,15 @@ export default function CreatorDetailPage() {
                 <Link href="/admin/creators/payout-requests" className="inline-flex items-center justify-center rounded-lg border border-gray-600 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-[#1a1a2e]">
                   Open payout queue
                 </Link>
+                <button
+                  type="button"
+                  onClick={handleDeleteBankAccount}
+                  disabled={deletingBank}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-500/40 px-3 py-2 text-xs font-medium text-rose-200 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  {deletingBank ? "Deleting payout account..." : "Delete payout account"}
+                </button>
               </div>
             </div>
           </article>

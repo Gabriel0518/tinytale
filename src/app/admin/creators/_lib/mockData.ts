@@ -282,6 +282,11 @@ export function getCreatorDmcaStatusMeta(status: CreatorAdminDmcaStatus) {
 
 export function getCreatorSettlementStatusMeta(status: CreatorAdminSettlementStatus) {
   switch (status) {
+    case "rejected":
+      return {
+        label: "Rejected",
+        className: "bg-slate-500/15 text-slate-300 ring-1 ring-slate-500/20",
+      };
     case "processing":
       return {
         label: "Processing",

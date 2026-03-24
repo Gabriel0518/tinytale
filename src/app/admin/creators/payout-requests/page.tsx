@@ -16,7 +16,7 @@ import {
 
 const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";
 
-type PayoutDecision = "hold" | "confirm" | "mark_paid";
+type PayoutDecision = "hold" | "confirm" | "mark_paid" | "reject_payout";
 type PayoutDecisionDraft = {
   decision: PayoutDecision;
   note: string;
@@ -25,6 +25,7 @@ type PayoutDecisionDraft = {
 
 function getDefaultDecision(status: CreatorAdminSettlementStatus): PayoutDecision {
   if (status === "paid" || status === "processing") return "mark_paid";
+  if (status === "rejected") return "reject_payout";
   if (status === "held" || status === "disputed") return "hold";
   return "confirm";
 }
@@ -40,6 +41,7 @@ function buildDraft(item: CreatorAdminPayoutRequestItem): PayoutDecisionDraft {
 export default function CreatorPayoutRequestsPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<CreatorAdminPayoutRequestItem[]>(mockCreatorPayoutRequests);
+  const [rejectedItems, setRejectedItems] = useState<CreatorAdminPayoutRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -56,14 +58,17 @@ export default function CreatorPayoutRequestsPage() {
       try {
         const response: any = await adminApi.getCreatorPayoutRequests();
         const next = response?.data?.items || response?.data?.requests || response?.data || [];
-        if (!cancelled && Array.isArray(next) && next.length > 0) {
+        const nextRejected = response?.data?.rejectedItems || [];
+        if (!cancelled && Array.isArray(next)) {
           setItems(next);
           setDrafts(Object.fromEntries(next.map((item: CreatorAdminPayoutRequestItem) => [item.id, buildDraft(item)])));
+          setRejectedItems(Array.isArray(nextRejected) ? nextRejected : []);
         }
       } catch {
         if (!cancelled) {
           setItems(mockCreatorPayoutRequests);
           setDrafts(Object.fromEntries(mockCreatorPayoutRequests.map((item) => [item.id, buildDraft(item)])));
+          setRejectedItems([]);
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -100,6 +105,26 @@ export default function CreatorPayoutRequestsPage() {
     return true;
   }), [items, search, status]);
 
+  const filteredRejected = useMemo(() => rejectedItems.filter((item) => {
+    const query = search.trim().toLowerCase();
+    if (query) {
+      const haystack = [
+        item.creatorName,
+        item.creatorEmail,
+        item.statementNo,
+        item.rejectionReason || "",
+        item.note,
+        item.bankName || "",
+        item.maskedAccountNumber || "",
+        item.airwallexBeneficiaryId || "",
+        item.stripeAccountId || "",
+      ].join(" ").toLowerCase();
+      if (!haystack.includes(query)) return false;
+    }
+    if (status !== "all" && status !== "rejected") return false;
+    return item.status === "rejected";
+  }), [rejectedItems, search, status]);
+
   const activeModalItem = useMemo(
     () => filtered.find((item) => item.id === activeModalId) || items.find((item) => item.id === activeModalId) || null,
     [activeModalId, filtered, items],
@@ -116,7 +141,7 @@ export default function CreatorPayoutRequestsPage() {
 
   async function handleReview(item: CreatorAdminPayoutRequestItem) {
     const draft = drafts[item.id] || buildDraft(item);
-    if (!draft.note.trim() && draft.decision !== "mark_paid") {
+    if ((draft.decision === "hold" || draft.decision === "reject_payout") && !draft.note.trim()) {
       toast("A payout note is required.", "info");
       return;
     }
@@ -131,22 +156,43 @@ export default function CreatorPayoutRequestsPage() {
         response?.data?.status
         || (draft.decision === "mark_paid"
           ? "processing"
+          : draft.decision === "reject_payout"
+            ? "rejected"
           : draft.decision === "confirm"
             ? "confirmed"
             : "held");
       const nextTransferReference = response?.data?.transferReference || item.transferReference || "";
       const nextPayoutId = response?.data?.payoutId || item.payoutId || "";
 
-      setItems((current) => current.map((currentItem) => currentItem.id === item.id ? {
-        ...currentItem,
-        status: nextStatus,
-        note: draft.note || currentItem.note,
-        holdReason: draft.decision === "hold" ? (draft.note || currentItem.holdReason) : "",
-        transferReference: nextTransferReference,
-        payoutId: nextPayoutId,
-        payoutStatus: nextStatus === "paid" ? "paid" : nextStatus === "processing" ? "pending" : currentItem.payoutStatus,
-        paidAt: nextStatus === "paid" ? new Date().toISOString() : currentItem.paidAt,
-      } : currentItem));
+      if (nextStatus === "rejected") {
+        const rejectedItem: CreatorAdminPayoutRequestItem = {
+          ...item,
+          status: "rejected",
+          note: draft.note || item.note,
+          holdReason: "",
+          rejectionReason: response?.data?.rejectionReason || draft.note || item.rejectionReason || "",
+          rejectedAt: response?.data?.rejectedAt || new Date().toISOString(),
+          rejectionHistory: response?.data?.rejectionHistory || item.rejectionHistory || [],
+          transferReference: nextTransferReference,
+          payoutId: nextPayoutId,
+        };
+        setItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
+        setRejectedItems((current) => [rejectedItem, ...current.filter((currentItem) => currentItem.id !== item.id)]);
+      } else {
+        setItems((current) => current.map((currentItem) => currentItem.id === item.id ? {
+          ...currentItem,
+          status: nextStatus,
+          note: draft.note || currentItem.note,
+          holdReason: draft.decision === "hold" ? (draft.note || currentItem.holdReason) : "",
+          rejectionReason: "",
+          rejectedAt: null,
+          rejectionHistory: currentItem.rejectionHistory || [],
+          transferReference: nextTransferReference,
+          payoutId: nextPayoutId,
+          payoutStatus: nextStatus === "paid" ? "paid" : nextStatus === "processing" ? "pending" : currentItem.payoutStatus,
+          paidAt: nextStatus === "paid" ? new Date().toISOString() : currentItem.paidAt,
+        } : currentItem));
+      }
       setDrafts((current) => ({
         ...current,
         [item.id]: {
@@ -161,6 +207,8 @@ export default function CreatorPayoutRequestsPage() {
           ? `${item.bankProvider === "airwallex" ? "Airwallex transfer" : "Stripe payout"} submitted.`
           : nextStatus === "paid"
             ? `${item.bankProvider === "airwallex" ? "Airwallex transfer" : "Stripe payout"} completed.`
+            : nextStatus === "rejected"
+              ? "Payout request rejected and moved to history."
             : "Payout request updated.",
         "success",
       );
@@ -177,7 +225,8 @@ export default function CreatorPayoutRequestsPage() {
     processing: items.filter((item) => item.status === "processing").length,
     paid: items.filter((item) => item.status === "paid").length,
     held: items.filter((item) => item.status === "held" || item.status === "disputed").length,
-  }), [items]);
+    rejected: rejectedItems.length,
+  }), [items, rejectedItems]);
 
   return (
     <div className="space-y-6 text-gray-200">
@@ -207,6 +256,7 @@ export default function CreatorPayoutRequestsPage() {
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Processing</p><p className="mt-3 text-3xl font-bold text-sky-300">{stats.processing}</p></article>
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Paid</p><p className="mt-3 text-3xl font-bold text-green-300">{stats.paid}</p></article>
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Held</p><p className="mt-3 text-3xl font-bold text-red-300">{stats.held}</p></article>
+        <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Rejected</p><p className="mt-3 text-3xl font-bold text-slate-300">{stats.rejected}</p></article>
       </section>
 
       <section className={panelClassName}>
@@ -228,6 +278,7 @@ export default function CreatorPayoutRequestsPage() {
             <option value="paid">Paid</option>
             <option value="held">Held</option>
             <option value="disputed">Disputed</option>
+            <option value="rejected">Rejected</option>
           </select>
         </div>
       </section>
@@ -337,8 +388,42 @@ export default function CreatorPayoutRequestsPage() {
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Execute payout</p>
                 <p className="mt-2 text-sm leading-6 text-gray-300">This creates a real provider-side payout action. Airwallex beneficiaries will create transfers, while legacy Stripe accounts will continue to create Stripe payouts.</p>
               </div>
+              <div className="rounded-xl bg-[#0f0f17] p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Reject payout</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Reject removes the request from the active payout queue and keeps an auditable rejection record with the finance note.</p>
+              </div>
             </div>
           </article>
+        </div>
+      </section>
+
+      <section className={panelClassName}>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white">Rejected payout records</h2>
+            <p className="mt-1 text-sm text-gray-400">These requests were intentionally removed from the active payout queue by finance.</p>
+          </div>
+          <span className="rounded-full bg-slate-500/15 px-3 py-1 text-xs font-semibold text-slate-300">{filteredRejected.length}</span>
+        </div>
+
+        <div className="mt-5 grid gap-3">
+          {loading ? (
+            <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-500">Loading rejection history...</div>
+          ) : filteredRejected.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-700/50 bg-[#0f0f17] p-4 text-sm text-gray-500">No rejected payout records match the current filters.</div>
+          ) : filteredRejected.map((item) => (
+            <div key={`${item.id}-rejected`} className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-white">{item.creatorName} · {item.statementNo}</p>
+                  <p className="mt-1 text-sm text-gray-400">{item.bankProviderLabel || "Payout profile"} · {item.bankName || item.maskedAccountNumber || "No bank attached"}</p>
+                </div>
+                <span className="rounded-full bg-slate-500/15 px-2.5 py-1 text-xs font-semibold text-slate-300">Rejected</span>
+              </div>
+              <p className="mt-3 text-sm text-gray-300">{item.rejectionReason || item.note || "No rejection note recorded."}</p>
+              <p className="mt-2 text-xs text-gray-500">Rejected {item.rejectedAt ? formatAdminDate(item.rejectedAt, true) : "recently"}</p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -436,6 +521,7 @@ export default function CreatorPayoutRequestsPage() {
                       >
                         <option value="confirm">Confirm for payout</option>
                         <option value="hold">Place hold</option>
+                        <option value="reject_payout">Reject payout request</option>
                         <option value="mark_paid">{activeModalItem.bankProvider === "airwallex" ? "Execute Airwallex transfer" : "Execute Stripe payout"}</option>
                       </select>
                     </div>
@@ -444,7 +530,7 @@ export default function CreatorPayoutRequestsPage() {
                       <textarea
                         value={draft.note}
                         onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.id]: { ...draft, note: event.target.value } }))}
-                        placeholder={`Explain why the payout is confirmed, held, or submitted to ${activeModalItem.bankProvider === "airwallex" ? "Airwallex" : "Stripe"}.`}
+                        placeholder={`Explain why the payout is confirmed, held, rejected, or submitted to ${activeModalItem.bankProvider === "airwallex" ? "Airwallex" : "Stripe"}.`}
                         className="min-h-[140px] w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
                       />
                     </div>

@@ -640,6 +640,9 @@ export const adminApi = {
   reviewCreatorBankAccount: (creatorId: string, data: any, token = getAdminToken()) =>
     api.post(`/api/admin/creator-bank-accounts/${creatorId}/review`, data, { token }),
 
+  deleteCreatorBankAccount: (creatorId: string, token = getAdminToken()) =>
+    api.delete(`/api/admin/creator-bank-accounts/${creatorId}`, { token }),
+
   getCreatorSettlements: (params?: Record<string, any>, token = getAdminToken()) => {
     const query = params ? new URLSearchParams(
       Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => [k, String(v)]))
