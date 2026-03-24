@@ -709,6 +709,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
   const [autoSliceDurationMinutes, setAutoSliceDurationMinutes] = useState(2);
   const [autoSliceRunning, setAutoSliceRunning] = useState(false);
   const [autoSliceStatusMap, setAutoSliceStatusMap] = useState<Record<string, EpisodeStatusUi>>({});
+  const [autoSliceSubtitleReminderOpen, setAutoSliceSubtitleReminderOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewEpisode, setPreviewEpisode] = useState<PreviewEpisodeState | null>(null);
 
@@ -948,13 +949,13 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
   }, [episodes]);
 
   useEffect(() => {
-    if (!previewEpisode && !coverPreviewOpen) return;
+    if (!previewEpisode && !coverPreviewOpen && !autoSliceSubtitleReminderOpen) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [coverPreviewOpen, previewEpisode]);
+  }, [autoSliceSubtitleReminderOpen, coverPreviewOpen, previewEpisode]);
 
   const refreshEpisodes = useCallback(async () => {
     if (!dramaId) return;
@@ -1491,6 +1492,8 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
         creatorApi.deleteUploadedVideo(token, previousUid).catch(() => undefined);
       }
 
+      setSourceSubtitle(null);
+      setAutoSliceSubtitleReminderOpen(false);
       setSourceUpload({
         videoUid: "",
         fileName: file.name,
@@ -1563,6 +1566,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
           statusText: t("Source video ready for auto-slice"),
           error: "",
         }));
+        setAutoSliceSubtitleReminderOpen(true);
       } catch (err: any) {
         const message = getTusErrorMessage(err, t("Source upload failed"));
         if (activeSourceVideoUid) {
@@ -2468,7 +2472,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
                           {sourceUpload.fileName || t("Upload Source Video (MP4)")}
                         </p>
                         <p className="text-xs text-[#64748b]">
-                          {sourceUpload.statusText || t("Cloudflare Stream will transcode before slicing")}
+                          {sourceUpload.statusText || t("System will transcode before slicing")}
                         </p>
                         {sourceUpload.error ? <p className="mt-1 text-xs text-[#b91c1c]">{sourceUpload.error}</p> : null}
                       </div>
@@ -3205,6 +3209,44 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="rounded-[24px] bg-white px-6 py-5 text-sm font-semibold text-[#0f172a] shadow-2xl">
             {t("Loading episode preview...")}
+          </div>
+        </div>
+      ) : null}
+
+      {autoSliceSubtitleReminderOpen ? (
+        <div className="fixed inset-0 z-[82] flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-[0px_24px_60px_rgba(15,23,42,0.28)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#1876f2]">{t("Next Step")}</p>
+                <h3 className="mt-2 text-[22px] font-black tracking-[-0.03em] text-[#0f172a]">
+                  {t("Upload subtitles before auto-slice")}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAutoSliceSubtitleReminderOpen(false)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#dbe4f0] text-[#475569] transition hover:bg-[#f8fafc] hover:text-[#0f172a]"
+                aria-label={t("Close")}
+              >
+                <XCircle className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mt-4 text-sm leading-6 text-[#475569]">
+              {t("Source video upload is complete. Please upload the matching subtitle file before starting auto-slice.")}
+            </p>
+            <div className="mt-5 rounded-[18px] border border-[#dbeafe] bg-[#eff6ff] px-4 py-3 text-sm text-[#1d4ed8]">
+              {t("Auto-slice will stay unavailable until a source subtitle is uploaded.")}
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setAutoSliceSubtitleReminderOpen(false)}
+                className="rounded-[16px] bg-[#1876f2] px-5 py-2.5 text-sm font-bold text-white shadow-[0px_10px_15px_-3px_rgba(24,118,242,0.2),0px_4px_6px_-4px_rgba(24,118,242,0.2)] transition hover:bg-[#1669da]"
+              >
+                {t("I understand")}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
