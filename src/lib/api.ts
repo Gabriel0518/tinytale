@@ -161,6 +161,39 @@ class ApiClient {
 
 export const api = new ApiClient(API_URL);
 
+export type RechargeProvider = 'stripe' | 'airwallex';
+
+export type RechargeOrderResponse = {
+  success: boolean;
+  data: {
+    provider: RechargeProvider;
+    checkoutUrl?: string;
+    sessionId?: string;
+    transactionId: string;
+    paymentIntentId?: string;
+    clientSecret?: string;
+    amount?: number;
+    amountMinor?: number;
+    currency?: string;
+    countryCode?: string;
+    env?: 'demo' | 'prod';
+    successUrl?: string;
+  };
+};
+
+export type RechargeVerificationResponse = {
+  success: boolean;
+  data: {
+    provider?: RechargeProvider;
+    status: string;
+    coins: number;
+    bonus: number;
+    amount: number;
+    currency: string;
+    transactionStatus: string;
+  };
+};
+
 type CreatorAutoSplitResponseData = {
   jobId?: string;
   status?: 'processing' | 'completed' | 'failed';
@@ -388,11 +421,14 @@ export const coinsApi = {
   recharge: (token: string, packageId: string) =>
     api.post('/api/coins/recharge', { amount: packageId }, { token }),
 
-  createOrder: (token: string, packageId: string, paymentMethod: string) =>
-    api.post<{ success: boolean; data: { checkoutUrl: string; sessionId: string; transactionId: string } }>('/api/payment/create-order', { packageId, paymentMethod }, { token }),
+  createOrder: (token: string, packageId: string, paymentMethod: RechargeProvider) =>
+    api.post<RechargeOrderResponse>('/api/payment/create-order', { packageId, paymentMethod }, { token }),
 
   verifySession: (token: string, sessionId: string) =>
-    api.get('/api/payment/verify-session/' + sessionId, { token }),
+    api.get<RechargeVerificationResponse>('/api/payment/verify-session/' + sessionId, { token }),
+
+  verifyAirwallexIntent: (token: string, intentId: string) =>
+    api.get<RechargeVerificationResponse>('/api/payment/verify-airwallex-intent/' + intentId, { token }),
 
   redeem: (token: string, code: string) =>
     api.post('/api/coins/redeem', { code }, { token }),

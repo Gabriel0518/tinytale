@@ -29,7 +29,7 @@ interface PricingContext {
   currencyCode: string;
 }
 
-type PaymentMethod = "stripe" | "paypal" | "apple_pay";
+type PaymentMethod = "stripe" | "airwallex";
 
 type CoinsCopy = {
   title: string;
@@ -49,7 +49,9 @@ type CoinsCopy = {
   selectPackageHint: string;
   paymentMethod: string;
   paymentMethodLabels: Record<PaymentMethod, string>;
+  paymentMethodDescriptions: Record<PaymentMethod, string>;
   paySecurely: string;
+  continueToCheckout: string;
   haveRedeemCode: string;
   enterCode: string;
   redeem: string;
@@ -77,7 +79,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     notes: [
       "Coins are non-refundable once purchased.",
       "Bonus coins are valid for 30 days from the date of purchase.",
-      "Prices use USD as the base. Stripe Checkout may show local currency based on your location.",
+      "Prices use USD as the base. The final checkout currency may vary by provider and region.",
     ],
     orderSummary: "Order Summary",
     selectedCoins: (coins) => `${coins.toLocaleString()} Coins`,
@@ -87,9 +89,13 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     paymentMethod: "Payment Method",
     paymentMethodLabels: {
       stripe: "Credit / Debit Card",
-      paypal: "PayPal",
-      apple_pay: "Apple Pay" },
+      airwallex: "Airwallex Hosted Checkout" },
+    paymentMethodDescriptions: {
+      stripe: "Redirect to Stripe Checkout for card payment.",
+      airwallex: "Pay through Airwallex's hosted payment page.",
+    },
     paySecurely: "Pay Securely",
+    continueToCheckout: "Continue to checkout",
     haveRedeemCode: "Have a redeem code?",
     enterCode: "Enter code",
     redeem: "Redeem",
@@ -113,7 +119,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     notes: [
       "金币购买后不支持退款。",
       "赠送金币自购买之日起 30 天内有效。",
-      "价格以 USD 为基准，Stripe 结账时可能根据地区显示本地货币。",
+      "价格以 USD 为基准，最终结账货币会根据支付渠道和地区变化。",
     ],
     orderSummary: "订单摘要",
     selectedCoins: (coins) => `${coins.toLocaleString()} 金币`,
@@ -123,9 +129,13 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     paymentMethod: "支付方式",
     paymentMethodLabels: {
       stripe: "信用卡 / 借记卡",
-      paypal: "PayPal",
-      apple_pay: "Apple Pay" },
+      airwallex: "Airwallex 托管收银台" },
+    paymentMethodDescriptions: {
+      stripe: "跳转到 Stripe Checkout 完成银行卡支付。",
+      airwallex: "通过 Airwallex Hosted Payment Page 完成支付。",
+    },
     paySecurely: "安全支付",
+    continueToCheckout: "前往收银台",
     haveRedeemCode: "有兑换码？",
     enterCode: "输入兑换码",
     redeem: "兑换",
@@ -149,7 +159,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     notes: [
       "購入したコインは返金できません。",
       "ボーナスコインは購入日から30日間有効です。",
-      "価格はUSD基準です。Stripeチェックアウトでは地域に応じて現地通貨表示になる場合があります。",
+      "価格はUSD基準です。最終的な決済通貨は決済手段と地域に応じて変わる場合があります。",
     ],
     orderSummary: "注文概要",
     selectedCoins: (coins) => `${coins.toLocaleString()} コイン`,
@@ -159,9 +169,13 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     paymentMethod: "支払い方法",
     paymentMethodLabels: {
       stripe: "クレジット / デビットカード",
-      paypal: "PayPal",
-      apple_pay: "Apple Pay" },
+      airwallex: "Airwallex ホスト型チェックアウト" },
+    paymentMethodDescriptions: {
+      stripe: "Stripe Checkout に移動してカード決済を行います。",
+      airwallex: "Airwallex Hosted Payment Page で決済します。",
+    },
     paySecurely: "安全に支払う",
+    continueToCheckout: "チェックアウトへ進む",
     haveRedeemCode: "引き換えコードをお持ちですか？",
     enterCode: "コードを入力",
     redeem: "引き換え",
@@ -185,7 +199,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     notes: [
       "Las monedas no son reembolsables una vez compradas.",
       "Las monedas de bono son válidas por 30 días desde la compra.",
-      "Los precios usan USD como base. Stripe Checkout puede mostrar moneda local según tu ubicación.",
+      "Los precios usan USD como base. La moneda final puede variar según el proveedor y tu región.",
     ],
     orderSummary: "Resumen del pedido",
     selectedCoins: (coins) => `${coins.toLocaleString()} monedas`,
@@ -195,9 +209,13 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     paymentMethod: "Método de pago",
     paymentMethodLabels: {
       stripe: "Tarjeta de crédito / débito",
-      paypal: "PayPal",
-      apple_pay: "Apple Pay" },
+      airwallex: "Checkout alojado de Airwallex" },
+    paymentMethodDescriptions: {
+      stripe: "Ir a Stripe Checkout para pagar con tarjeta.",
+      airwallex: "Pagar a través de la página alojada de Airwallex.",
+    },
     paySecurely: "Pagar de forma segura",
+    continueToCheckout: "Continuar al checkout",
     haveRedeemCode: "¿Tienes un código?",
     enterCode: "Ingresa el código",
     redeem: "Canjear",
@@ -221,7 +239,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     notes: [
       "As moedas não são reembolsáveis após a compra.",
       "As moedas bônus são válidas por 30 dias a partir da compra.",
-      "Os preços usam USD como base. O Stripe Checkout pode mostrar moeda local conforme sua região.",
+      "Os preços usam USD como base. A moeda final pode variar conforme o provedor e sua região.",
     ],
     orderSummary: "Resumo do pedido",
     selectedCoins: (coins) => `${coins.toLocaleString()} moedas`,
@@ -231,9 +249,13 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     paymentMethod: "Método de pagamento",
     paymentMethodLabels: {
       stripe: "Cartão de crédito / débito",
-      paypal: "PayPal",
-      apple_pay: "Apple Pay" },
+      airwallex: "Checkout hospedado Airwallex" },
+    paymentMethodDescriptions: {
+      stripe: "Ir para o Stripe Checkout para pagar com cartão.",
+      airwallex: "Pagar pela página hospedada da Airwallex.",
+    },
     paySecurely: "Pagar com segurança",
+    continueToCheckout: "Continuar para checkout",
     haveRedeemCode: "Tem um código de resgate?",
     enterCode: "Digite o código",
     redeem: "Resgatar",
@@ -257,7 +279,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     notes: [
       "एक बार खरीदे गए कॉइन्स रिफंड नहीं होते।",
       "बोनस कॉइन्स खरीद की तारीख से 30 दिन तक मान्य हैं।",
-      "कीमतें USD को आधार मानती हैं। Stripe Checkout आपके क्षेत्र के अनुसार स्थानीय मुद्रा दिखा सकता है।",
+      "कीमतें USD पर आधारित हैं। अंतिम भुगतान मुद्रा भुगतान चैनल और क्षेत्र के अनुसार बदल सकती है।",
     ],
     orderSummary: "ऑर्डर सारांश",
     selectedCoins: (coins) => `${coins.toLocaleString()} कॉइन्स`,
@@ -267,9 +289,13 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     paymentMethod: "भुगतान विधि",
     paymentMethodLabels: {
       stripe: "क्रेडिट / डेबिट कार्ड",
-      paypal: "PayPal",
-      apple_pay: "Apple Pay" },
+      airwallex: "Airwallex होस्टेड चेकआउट" },
+    paymentMethodDescriptions: {
+      stripe: "कार्ड भुगतान के लिए Stripe Checkout पर जाएं।",
+      airwallex: "Airwallex Hosted Payment Page के माध्यम से भुगतान करें।",
+    },
     paySecurely: "सुरक्षित भुगतान",
+    continueToCheckout: "चेकआउट पर जाएं",
     haveRedeemCode: "क्या आपके पास रिडीम कोड है?",
     enterCode: "कोड दर्ज करें",
     redeem: "रिडीम करें",
@@ -293,7 +319,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     notes: [
       "Koin tidak dapat dikembalikan setelah dibeli.",
       "Koin bonus berlaku 30 hari sejak tanggal pembelian.",
-      "Harga menggunakan USD sebagai dasar. Stripe Checkout dapat menampilkan mata uang lokal sesuai wilayahmu.",
+      "Harga menggunakan USD sebagai dasar. Mata uang akhir bisa berubah sesuai provider dan wilayahmu.",
     ],
     orderSummary: "Ringkasan pesanan",
     selectedCoins: (coins) => `${coins.toLocaleString()} koin`,
@@ -303,9 +329,13 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     paymentMethod: "Metode pembayaran",
     paymentMethodLabels: {
       stripe: "Kartu kredit / debit",
-      paypal: "PayPal",
-      apple_pay: "Apple Pay" },
+      airwallex: "Checkout hosted Airwallex" },
+    paymentMethodDescriptions: {
+      stripe: "Lanjut ke Stripe Checkout untuk bayar dengan kartu.",
+      airwallex: "Bayar lewat halaman checkout hosted milik Airwallex.",
+    },
     paySecurely: "Bayar dengan aman",
+    continueToCheckout: "Lanjut ke checkout",
     haveRedeemCode: "Punya kode redeem?",
     enterCode: "Masukkan kode",
     redeem: "Redeem",
@@ -409,13 +439,13 @@ export default function CoinsPage() {
     if (!selected || !token) return;
     setPaying(true);
     try {
-      const res = await coinsApi.createOrder(token, selected._id, paymentMethod);
-      const checkoutUrl = res.data?.checkoutUrl;
-      if (checkoutUrl) {
-        window.location.href = checkoutUrl;
-      } else {
-        toast(t.toasts.checkoutFailed, "error");
-      }
+      const query = new URLSearchParams({
+        packageId: selected._id,
+        coins: String(selected.coins),
+        bonus: String(selected.bonus),
+        price: String(selected.price),
+      });
+      window.location.href = localizePath(`/user/coins/checkout/${paymentMethod}?${query.toString()}`, locale);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t.toasts.paymentFailed;
       toast(message, "error");
@@ -586,8 +616,7 @@ export default function CoinsPage() {
                 <div className="space-y-2.5">
                   {([
                     ["stripe", t.paymentMethodLabels.stripe, <svg key="s" className="w-6 h-6" viewBox="0 0 24 24" fill="none"><rect x="1" y="4" width="22" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" /><path d="M1 10h22" stroke="currentColor" strokeWidth="1.5" /><path d="M5 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>],
-                    ["paypal", t.paymentMethodLabels.paypal, <svg key="pp" className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M7.076 21.337H2.47a.641.641 0 01-.633-.74L4.944.901C5.026.382 5.474 0 5.998 0h7.46c2.57 0 4.578.543 5.69 1.81 1.01 1.15 1.304 2.42 1.012 4.287-.023.143-.047.288-.077.437-.983 5.05-4.349 6.797-8.647 6.797h-2.19c-.524 0-.968.382-1.05.9l-1.12 7.106z" opacity="0.7" /></svg>],
-                    ["apple_pay", t.paymentMethodLabels.apple_pay, <svg key="ap" className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" /></svg>],
+                    ["airwallex", t.paymentMethodLabels.airwallex, <svg key="aw" className="w-6 h-6" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="2.5" width="19" height="19" rx="5" stroke="currentColor" strokeWidth="1.5" /><path d="M8 16l4-8 4 8m-6.75-2h5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>],
                   ] as [PaymentMethod, string, React.ReactNode][]).map(([id, label, icon]) => (
                     <button
                       key={id}
@@ -600,7 +629,10 @@ export default function CoinsPage() {
                       }`}
                     >
                       <span className={paymentMethod === id ? "text-yellow-400" : "text-gray-400"}>{icon}</span>
-                      <span className="text-sm font-medium">{label}</span>
+                      <div className="min-w-0 text-left">
+                        <p className="text-sm font-medium">{label}</p>
+                        <p className="text-xs text-gray-500">{t.paymentMethodDescriptions[id]}</p>
+                      </div>
                       <div className={`ml-auto w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === id ? "border-yellow-500" : "border-gray-600"}`}>
                         {paymentMethod === id && <div className="w-2 h-2 rounded-full bg-yellow-500" />}
                       </div>
@@ -619,7 +651,7 @@ export default function CoinsPage() {
                 ) : (
                   <>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                    {t.paySecurely} {selected ? formatUsd(selected.price) : ""}
+                    {t.continueToCheckout} {selected ? formatUsd(selected.price) : ""}
                   </>
                 )}
               </button>

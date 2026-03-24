@@ -42,7 +42,7 @@ interface Filters {
   adaptivePricingApplied: string;
 }
 
-const CHANNELS = ["All", "Stripe", "Credit Card", "PayPal", "Apple Pay", "Google Pay", "Coins", "System"];
+const CHANNELS = ["All", "Stripe", "Airwallex", "Credit Card", "PayPal", "Apple Pay", "Google Pay", "Coins", "System"];
 const STATUSES = ["All", "Completed", "Pending", "Failed", "Refunded"];
 const CURRENCIES = ["All", "USD", "EUR", "GBP", "JPY", "KRW", "CAD", "AUD", "BRL", "INR", "IDR", "MXN"];
 const TIERS = ["All", "1", "2", "3"];
@@ -76,6 +76,7 @@ const statusBadge: Record<string, string> = {
 // ── Payment method display name mapping ─────────────────────────────────────────
 const channelDisplayName: Record<string, string> = {
   stripe: "Stripe",
+  airwallex: "Airwallex",
   credit_card: "Credit Card",
   paypal: "PayPal",
   apple_pay: "Apple Pay",

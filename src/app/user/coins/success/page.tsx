@@ -94,6 +94,8 @@ function PaymentSuccessContent() {
   const { token, refreshUser } = useAuth();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
+  const airwallexIntentId = searchParams.get("id");
+  const provider = searchParams.get("provider");
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [coins, setCoins] = useState(0);
   const [bonus, setBonus] = useState(0);
@@ -127,12 +129,20 @@ function PaymentSuccessContent() {
   };
 
   useEffect(() => {
-    if (!sessionId || !token) return;
+    if (!token) return;
     const verify = async () => {
       try {
-        const res = await coinsApi.verifySession(token, sessionId);
+        const res = provider === "airwallex" && airwallexIntentId
+          ? await coinsApi.verifyAirwallexIntent(token, airwallexIntentId)
+          : sessionId
+            ? await coinsApi.verifySession(token, sessionId)
+            : null;
+        if (!res) {
+          setStatus("error");
+          return;
+        }
         const d = res.data;
-        if (d.status === "paid" && d.transactionStatus === "completed") {
+        if ((d.status === "paid" || d.status === "succeeded") && d.transactionStatus === "completed") {
           setCoins(d.coins);
           setBonus(d.bonus);
           setAmount(d.amount);
@@ -147,7 +157,7 @@ function PaymentSuccessContent() {
       }
     };
     verify();
-  }, [sessionId, token, refreshUser]);
+  }, [sessionId, airwallexIntentId, provider, token, refreshUser]);
 
   return (
     <div className="max-w-lg mx-auto px-4 pt-32 pb-20 text-center">

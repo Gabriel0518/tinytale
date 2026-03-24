@@ -559,6 +559,7 @@ function getStatusBadge(status: string): string {
 function formatPaymentMethod(method: string): string {
   const map: Record<string, string> = {
     stripe: "Stripe",
+    airwallex: "Airwallex",
     credit_card: "Credit Card",
     paypal: "PayPal",
     apple_pay: "Apple Pay",
