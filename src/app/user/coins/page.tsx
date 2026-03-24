@@ -482,21 +482,6 @@ const PAYMENT_METHOD_BUTTON_LABELS: Partial<Record<PaymentOption, string>> = {
   sofort: "Sofort",
 };
 
-const PAYMENT_METHOD_REGION_BADGE_MAP: Partial<Record<PaymentOption, string>> = {
-  alipayhk: "HK",
-  wechatpayhk: "HK",
-  fps: "HK",
-  paynow: "SG",
-  fpx: "MY",
-  tng: "MY",
-  promptpay: "TH",
-  truemoney: "TH",
-  qris: "ID",
-  ideal: "NL",
-  blik: "PL",
-  konbini: "JP",
-};
-
 function PaymentMethodText({
   label,
   compact = false,
@@ -644,16 +629,17 @@ export default function CoinsPage() {
     });
   }, [paymentChannels, t]);
 
-  const selectedMethodDefinition = useMemo(() => {
-    const optionId = providerSelections[effectiveSelectedProvider];
-    return activeMethods.find((item) => item.id === optionId) || null;
-  }, [activeMethods, effectiveSelectedProvider, providerSelections]);
   const selectedMethodId = providerSelections[effectiveSelectedProvider] || null;
   const selectedProviderMeta = PROVIDER_TOGGLE_META[effectiveSelectedProvider];
   const pricingCountryCode = pricingContext?.countryCode || "US";
-  const selectedMethodButtonLabel = selectedMethodDefinition
-    ? PAYMENT_METHOD_BUTTON_LABELS[selectedMethodDefinition.id] || selectedMethodDefinition.label
-    : null;
+  const paymentMethodsTitle = locale === "zh" ? "支付方式" : "Payment Methods";
+  const serviceFeeLabel = locale === "zh" ? "服务费" : "Service Fee";
+  const supportedMethodsHint = locale === "zh"
+    ? "支持的结账方式取决于你的账单地区。"
+    : "Supported checkout methods depend on your billing region.";
+  const securedByProviderLabel = locale === "zh"
+    ? `由 ${selectedProviderMeta.label} 安全托管结账`
+    : `Secured by ${selectedProviderMeta.label}`;
 
   const startCheckout = async (provider: PaymentProvider, paymentOption: PaymentOption) => {
     if (!selected || !token) return;
@@ -776,146 +762,155 @@ export default function CoinsPage() {
           </div>
         </div>
 
-        <section>
-          <h2 className="mb-5 text-xl font-semibold">{t.selectPackage}</h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {packages.map((pkg) => {
-              const isSelected = selectedPkg === pkg._id;
-              const tagText = pkg.tag === "Popular" ? t.tagPopular : pkg.tag === "Best Value" ? t.tagBestValue : pkg.tag;
+        <div className="grid grid-cols-1 gap-x-10 gap-y-10 xl:grid-cols-12">
+          <section className="xl:col-span-8">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-xl font-semibold">{t.selectPackage}</h2>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {packages.map((pkg) => {
+                const isSelected = selectedPkg === pkg._id;
+                const tagText = pkg.tag === "Popular" ? t.tagPopular : pkg.tag === "Best Value" ? t.tagBestValue : pkg.tag;
 
-              return (
-                <button
-                  key={pkg._id}
-                  onClick={() => setSelectedPkg(pkg._id)}
-                  aria-pressed={isSelected}
-                  className={`relative rounded-2xl p-5 text-left transition-all duration-200 hover:-translate-y-1 ${
-                    isSelected
-                      ? "border-2 border-yellow-500/70 bg-gradient-to-b from-yellow-900/30 to-yellow-950/20 shadow-[0_0_24px_rgba(255,215,0,0.14)]"
-                      : "border border-white/10 bg-zinc-900/70 hover:border-white/20"
-                  }`}
-                >
-                  {pkg.tag && (
-                    <span className={`absolute -top-2.5 right-3 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                      pkg.tag === "Popular" ? "bg-blue-500 text-white" : "bg-green-500 text-white"
-                    }`}>
-                      {tagText}
-                    </span>
-                  )}
-
-                  {isSelected && (
-                    <div className="absolute left-3 top-3">
-                      <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  )}
-
-                  <div className="mb-3 flex items-center gap-2">
-                    <CoinBadge />
-                    <span className={`text-2xl font-bold ${isSelected ? "text-yellow-300" : "text-white"}`}>
-                      {pkg.coins.toLocaleString()}
-                    </span>
-                  </div>
-
-                  {pkg.bonus > 0 && (
-                    <p className="mb-2 text-xs font-medium text-red-400">+{pkg.bonus.toLocaleString()} {t.bonus}</p>
-                  )}
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold text-white">{formatUsd(pkg.price)}</span>
-                    {pkg.originalPrice && (
-                      <span className="text-xs text-gray-500 line-through">{formatUsd(pkg.originalPrice)}</span>
+                return (
+                  <button
+                    key={pkg._id}
+                    onClick={() => setSelectedPkg(pkg._id)}
+                    aria-pressed={isSelected}
+                    className={`relative flex min-h-[188px] flex-col justify-between rounded-3xl border p-6 text-left transition-all duration-200 active:scale-[0.99] ${
+                      isSelected
+                        ? "border-yellow-500/70 bg-[linear-gradient(180deg,rgba(255,215,0,0.12),rgba(39,31,7,0.18))] shadow-[0_0_24px_rgba(255,215,0,0.12)]"
+                        : "border-white/8 bg-zinc-900/70 hover:border-white/15 hover:bg-zinc-900"
+                    }`}
+                  >
+                    {pkg.tag && (
+                      <span className={`absolute -top-3 right-5 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${
+                        pkg.tag === "Popular"
+                          ? "border border-blue-500/30 bg-blue-500/20 text-blue-300"
+                          : "border border-emerald-500/30 bg-emerald-500/20 text-emerald-300"
+                      }`}>
+                        {tagText}
+                      </span>
                     )}
+
+                    {isSelected && (
+                      <div className="absolute -top-3 right-5 flex h-6 w-6 items-center justify-center rounded-full bg-yellow-400 text-black shadow-lg shadow-yellow-500/20">
+                        <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.704 5.29a1 1 0 00-1.408-1.42l-6.21 6.158-2.39-2.37a1 1 0 10-1.41 1.418l3.095 3.067a1 1 0 001.408 0l6.915-6.855z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-yellow-400/12 text-yellow-300">
+                        <CoinBadge />
+                      </div>
+                      <h3 className="text-2xl font-bold text-white">{pkg.coins.toLocaleString()} Coins</h3>
+                      <p className="mt-2 text-sm font-medium text-zinc-400">
+                        {pkg.bonus > 0 ? `+${pkg.bonus.toLocaleString()} ${t.bonus}` : "Standard Pack"}
+                      </p>
+                    </div>
+
+                    <div className="mt-8 flex items-end gap-2">
+                      <span className="text-3xl font-black text-white">{formatUsd(pkg.price)}</span>
+                      {pkg.originalPrice && (
+                        <span className="pb-1 text-xs text-gray-500 line-through">{formatUsd(pkg.originalPrice)}</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <aside className="xl:col-span-4 xl:flex xl:flex-col">
+            <div className="hidden xl:block h-[3.25rem]" />
+            <div className="flex flex-1 flex-col rounded-3xl border border-white/5 bg-zinc-900/80 p-8 shadow-2xl">
+              <h3 className="text-2xl font-bold">{t.orderSummary}</h3>
+              {selected ? (
+                <div className="mt-8 flex flex-1 flex-col">
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-6">
+                      <div>
+                        <p className="text-sm font-medium text-zinc-400">Selected Package</p>
+                        <p className="mt-1 text-lg font-bold text-white">{t.selectedCoins(selected.coins)}</p>
+                      </div>
+                      <span className="text-sm text-zinc-400">{formatUsd(selected.price)}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm text-zinc-400">
+                      <span className="font-medium">{t.bonusCoins}</span>
+                      <span className="font-medium text-yellow-300">+{selected.bonus.toLocaleString()} Coins</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm text-zinc-400">
+                      <span className="font-medium">{serviceFeeLabel}</span>
+                      <span className="font-medium">$0.00</span>
+                    </div>
                   </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
 
-        <section className="mt-8 grid gap-6 xl:grid-cols-[0.88fr_1.12fr]">
-          <div className="rounded-3xl border border-yellow-500/20 bg-zinc-900/70 p-6 shadow-[inset_0_1px_0_rgba(255,215,0,0.08)]">
-            <h3 className="text-xl font-semibold">{t.orderSummary}</h3>
-            {selected ? (
-              <div className="mt-6 space-y-5">
-                <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                  <div className="flex items-center gap-3">
-                    <CoinBadge />
-                    <span className="text-sm text-gray-100">{t.selectedCoins(selected.coins)}</span>
+                  <div className="mt-auto border-t border-yellow-400/15 pt-6">
+                    <div className="mb-8 flex items-end justify-between">
+                      <span className="text-xl font-bold text-white">{t.total}</span>
+                      <span className="text-4xl font-black text-yellow-400">{formatUsd(selected.price)}</span>
+                    </div>
+
+                    <button
+                      onClick={continueWithSelectedMethod}
+                      disabled={!selected || paying || activeMethods.length === 0}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-yellow-400 px-6 py-4 text-lg font-bold text-[#3a3000] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {paying ? (
+                        <div className="h-5 w-5 rounded-full border-2 border-[#3a3000] border-t-transparent animate-spin" />
+                      ) : (
+                        t.continueToCheckout
+                      )}
+                    </button>
+
+                    <div className="mt-6 flex items-center justify-center gap-2 text-xs uppercase tracking-[0.22em] text-zinc-500">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                      </svg>
+                      {securedByProviderLabel}
+                    </div>
                   </div>
-                  <span className="text-sm font-medium text-white">{formatUsd(selected.price)}</span>
                 </div>
+              ) : (
+                <p className="mt-6 text-sm text-gray-500">{t.selectPackageHint}</p>
+              )}
+            </div>
+          </aside>
 
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-green-400">{t.bonusCoins}</span>
-                  <span className="font-medium text-green-400">+{selected.bonus.toLocaleString()}</span>
-                </div>
+          <section className="xl:col-span-8 space-y-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <h2 className="text-2xl font-bold text-white">{paymentMethodsTitle}</h2>
 
-                <div className="flex items-center justify-between border-t border-white/10 pt-4">
-                  <span className="font-semibold text-white">{t.total}</span>
-                  <span className="text-3xl font-bold text-yellow-400">{formatUsd(selected.price)}</span>
-                </div>
-              </div>
-            ) : (
-              <p className="mt-6 text-sm text-gray-500">{t.selectPackageHint}</p>
-            )}
-          </div>
-
-          <div className="rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.05),transparent_32%),linear-gradient(180deg,rgba(18,18,24,0.98),rgba(12,12,18,0.94))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h3 className="text-xl font-semibold">{t.providerTitle}</h3>
-                <p className="mt-2 text-sm text-gray-400">{t.chooseMethodHint}</p>
-              </div>
-
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#0b0b10] px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-gray-400">
-                <span className={`h-2 w-2 rounded-full ${selectedProviderMeta.dot}`} />
-                {pricingCountryCode} · {activeMethods.length} methods
+              <div className="inline-flex rounded-xl border border-white/5 bg-zinc-900 p-1">
+                {availableProviders.map((providerId) => {
+                  const isActive = effectiveSelectedProvider === providerId;
+                  return (
+                    <button
+                      key={providerId}
+                      onClick={() => setSelectedProvider(providerId)}
+                      aria-pressed={isActive}
+                      className={`rounded-lg px-7 py-2.5 text-sm font-bold transition-all ${
+                        isActive
+                          ? "bg-yellow-400 text-[#3a3000] shadow-lg shadow-yellow-500/20"
+                          : "text-zinc-400 hover:text-white"
+                      }`}
+                    >
+                      {t.providerLabels[providerId]}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {availableProviders.length > 0 ? (
-              <>
-                <div className="mt-6 flex">
-                  <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#0a0a0f] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                    {availableProviders.map((providerId) => {
-                      const provider = PROVIDER_TOGGLE_META[providerId];
-                      const isActive = effectiveSelectedProvider === providerId;
-
-                      return (
-                        <button
-                          key={providerId}
-                          onClick={() => setSelectedProvider(providerId)}
-                          aria-pressed={isActive}
-                          aria-label={t.providerLabels[providerId]}
-                          className={`group relative overflow-hidden rounded-full border px-3 py-1.5 text-left transition-all duration-200 ${
-                            isActive
-                              ? `${provider.border} ${provider.glow} bg-[linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))]`
-                              : "border-transparent bg-transparent hover:border-white/10 hover:bg-white/[0.03]"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className={`text-[10px] font-semibold uppercase tracking-[0.22em] ${isActive ? "text-white/88" : "text-gray-500"}`}>
-                              {provider.label}
-                            </span>
-                            <span className={`h-2 w-2 rounded-full ${isActive ? provider.dot : "bg-white/10"}`} />
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-gray-500">Available methods</p>
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-gray-600">{activeMethods.length} options</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {activeMethods.length > 0 ? activeMethods.map((method) => {
+            <div className="rounded-3xl border border-white/5 bg-white/[0.03] p-8">
+              {activeMethods.length > 0 ? (
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                  {activeMethods.map((method) => {
                     const isSelected = selectedMethodId === method.id;
-                    const regionBadge = PAYMENT_METHOD_REGION_BADGE_MAP[method.id];
-
                     return (
                       <button
                         key={method.id}
@@ -924,78 +919,42 @@ export default function CoinsPage() {
                           [effectiveSelectedProvider]: method.id,
                         }))}
                         aria-pressed={isSelected}
-                        aria-label={method.label}
-                        className={`group relative overflow-hidden rounded-[20px] border px-4 py-3 transition-all duration-200 ${
+                        className={`relative flex min-h-[96px] items-center justify-center rounded-2xl border p-6 transition-all ${
                           isSelected
-                            ? `${selectedProviderMeta.border} ${selectedProviderMeta.glow} bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(12,12,16,0.96))] -translate-y-0.5`
-                            : "border-white/10 bg-[#0b0b10] hover:border-white/15 hover:bg-white/[0.025] hover:-translate-y-0.5"
+                            ? "border-yellow-400 ring-4 ring-yellow-400/10 bg-zinc-900"
+                            : "border-white/10 bg-zinc-900 hover:border-white/20"
                         }`}
                       >
-                        <div className={`absolute inset-x-5 bottom-0 h-px bg-gradient-to-r ${selectedProviderMeta.tint} ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-60"}`} />
-                        {regionBadge && (
-                          <span className="absolute right-3 top-3 inline-flex min-w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-300">
-                            {regionBadge}
+                        <PaymentMethodText
+                          label={PAYMENT_METHOD_BUTTON_LABELS[method.id] || method.label}
+                        />
+                        {isSelected && (
+                          <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full border-2 border-zinc-900 bg-yellow-400 text-[#3a3000]">
+                            <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.704 5.29a1 1 0 00-1.408-1.42l-6.21 6.158-2.39-2.37a1 1 0 10-1.41 1.418l3.095 3.067a1 1 0 001.408 0l6.915-6.855z" clipRule="evenodd" />
+                            </svg>
                           </span>
                         )}
-                        <div className="flex min-h-[52px] items-center justify-center px-2">
-                          <PaymentMethodText
-                            label={PAYMENT_METHOD_BUTTON_LABELS[method.id] || method.label}
-                          />
-                        </div>
-                        <span className="sr-only">{method.label}</span>
                       </button>
                     );
-                  }) : (
-                    <div className="col-span-full rounded-3xl border border-dashed border-white/10 bg-black/20 px-5 py-8 text-center text-sm text-gray-400">
-                      {t.noPaymentMethods}
-                    </div>
-                  )}
-                  </div>
+                  })}
                 </div>
-
-                <div className="mt-6 rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.10),rgba(255,255,255,0.02))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-[11px] uppercase tracking-[0.24em] text-yellow-200/70">Secure checkout</p>
-                      <div className="mt-3 flex flex-wrap items-center gap-3">
-                        <div className="rounded-full border border-white/10 bg-[#0c0c10] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/88">
-                          {selectedProviderMeta.label}
-                        </div>
-                      </div>
-                      <p className="mt-3 text-base font-semibold text-white">
-                        {selectedMethodButtonLabel || t.noPaymentMethods}
-                      </p>
-                      <p className="mt-1 text-sm text-gray-300">
-                        {selectedMethodDefinition?.description || "Redirect to secure hosted checkout."}
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={continueWithSelectedMethod}
-                      disabled={!selected || paying || activeMethods.length === 0}
-                      className="inline-flex min-w-[240px] items-center justify-center gap-2 rounded-[22px] bg-gradient-to-r from-yellow-600 to-yellow-500 px-6 py-4 text-sm font-bold text-black shadow-[0_18px_36px_rgba(234,179,8,0.22)] transition hover:from-yellow-500 hover:to-yellow-400 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {paying ? (
-                        <div className="h-5 w-5 rounded-full border-2 border-black border-t-transparent animate-spin" />
-                      ) : (
-                        <>
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                          </svg>
-                          {t.continueToCheckout} {selected ? formatUsd(selected.price) : ""}
-                        </>
-                      )}
-                    </button>
-                  </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-white/10 bg-zinc-900/40 px-5 py-8 text-center text-sm text-gray-400">
+                  {t.noPaymentMethods}
                 </div>
-              </>
-            ) : (
-              <div className="mt-6 rounded-3xl border border-dashed border-white/10 bg-black/20 px-5 py-8 text-center text-sm text-gray-400">
-                {t.noPaymentChannels}
-              </div>
-            )}
-          </div>
-        </section>
+              )}
+
+              <p className="mt-6 flex items-center gap-1.5 text-xs text-zinc-500">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {supportedMethodsHint}
+                <span className="uppercase tracking-[0.16em]">{pricingCountryCode}</span>
+              </p>
+            </div>
+          </section>
+        </div>
 
         <section className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
           <div className="rounded-2xl border border-white/5 bg-zinc-900/40 p-5">
