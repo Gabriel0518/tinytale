@@ -390,13 +390,13 @@ const CHECKOUT_CONTEXT_COPY: FlexibleRecord<SupportedLocale, (countryCode: strin
 
 function StripeLogo() {
   return (
-    <div className="flex h-12 w-32 items-center justify-center rounded-2xl bg-white px-3 shadow-[inset_0_0_0_1px_rgba(99,91,255,0.08)]">
+    <div className="flex h-8 w-[118px] items-center justify-center">
       <Image
         src="/payment/stripe-logo.png"
         alt="Stripe"
         width={176}
         height={56}
-        className="h-7 w-auto object-contain"
+        className="h-8 w-auto object-contain"
         priority
       />
     </div>
@@ -405,13 +405,13 @@ function StripeLogo() {
 
 function AirwallexLogo() {
   return (
-    <div className="flex h-12 w-32 items-center justify-center rounded-2xl bg-white px-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
+    <div className="flex h-8 w-[118px] items-center justify-center">
       <Image
         src="/payment/airwallex-logo.png"
         alt="Airwallex"
         width={176}
         height={56}
-        className="h-7 w-auto object-contain"
+        className="h-6 w-auto object-contain"
         priority
       />
     </div>
@@ -486,16 +486,20 @@ function toPaymentOptionDefinitions(
     .map((id) => buildPaymentOption(copy, id, provider));
 }
 
-const PROVIDER_TOGGLE_META: Record<PaymentProvider, { logo: JSX.Element; border: string; glow: string }> = {
+const PROVIDER_TOGGLE_META: Record<PaymentProvider, { logo: JSX.Element; border: string; glow: string; tint: string; dot: string }> = {
   stripe: {
     logo: <StripeLogo />,
     border: "border-[#635bff]/40",
     glow: "shadow-[0_0_32px_rgba(99,91,255,0.12)]",
+    tint: "from-[#635bff]/18 via-[#635bff]/8 to-transparent",
+    dot: "bg-[#635bff]",
   },
   airwallex: {
     logo: <AirwallexLogo />,
     border: "border-teal-400/35",
     glow: "shadow-[0_0_32px_rgba(45,212,191,0.12)]",
+    tint: "from-teal-400/16 via-teal-400/8 to-transparent",
+    dot: "bg-teal-300",
   },
 };
 
@@ -506,8 +510,8 @@ const PAYMENT_METHOD_LOGO_MAP: Record<string, PaymentLogoAsset[]> = {
     { src: "/payment/methods/datatrans/american-express.svg", alt: "American Express", width: 40, height: 24, className: "h-5 w-auto object-contain" },
   ],
   wallet: [
-    { src: "/payment/methods/datatrans/apple-pay.svg", alt: "Apple Pay", width: 44, height: 18, className: "h-5 w-auto object-contain" },
-    { src: "/payment/methods/datatrans/google-pay.svg", alt: "Google Pay", width: 44, height: 18, className: "h-5 w-auto object-contain" },
+    { src: "/payment/methods/datatrans/apple-pay.svg", alt: "Apple Pay", width: 44, height: 18, className: "h-4.5 w-auto object-contain" },
+    { src: "/payment/methods/datatrans/google-pay.svg", alt: "Google Pay", width: 44, height: 18, className: "h-4.5 w-auto object-contain" },
   ],
   paynow: [
     { alt: "PayNow", text: "PayNow" },
@@ -537,12 +541,10 @@ const PAYMENT_METHOD_LOGO_MAP: Record<string, PaymentLogoAsset[]> = {
     { alt: "FPS", text: "FPS" },
   ],
   alipayhk: [
-    { src: "/payment/methods/datatrans/alipay.svg", alt: "Alipay", width: 28, height: 28, className: "h-7 w-7 object-contain" },
-    { alt: "Hong Kong", text: "HK", textClassName: "px-2 text-[10px] tracking-[0.18em]" },
+    { src: "/payment/methods/datatrans/alipay.svg", alt: "Alipay", width: 28, height: 28, className: "h-6 w-6 object-contain" },
   ],
   wechatpayhk: [
-    { src: "/payment/methods/datatrans/wechat-pay.svg", alt: "WeChat Pay", width: 28, height: 28, className: "h-7 w-7 object-contain" },
-    { alt: "Hong Kong", text: "HK", textClassName: "px-2 text-[10px] tracking-[0.18em]" },
+    { src: "/payment/methods/datatrans/wechat-pay.svg", alt: "WeChat Pay", width: 28, height: 28, className: "h-6 w-6 object-contain" },
   ],
   konbini: [
     { alt: "Konbini", text: "Konbini" },
@@ -558,6 +560,21 @@ const PAYMENT_METHOD_LOGO_MAP: Record<string, PaymentLogoAsset[]> = {
   ],
 };
 
+const PAYMENT_METHOD_REGION_BADGE_MAP: Partial<Record<PaymentOption, string>> = {
+  alipayhk: "HK",
+  wechatpayhk: "HK",
+  fps: "HK",
+  paynow: "SG",
+  fpx: "MY",
+  tng: "MY",
+  promptpay: "TH",
+  truemoney: "TH",
+  qris: "ID",
+  ideal: "NL",
+  blik: "PL",
+  konbini: "JP",
+};
+
 function PaymentMethodLogo({
   methodId,
   compact = false,
@@ -570,11 +587,7 @@ function PaymentMethodLogo({
   ];
 
   return (
-    <div
-      className={`flex items-center justify-center rounded-2xl bg-white shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] ${
-        compact ? "h-11 min-w-[86px] px-3" : "h-16 min-w-[120px] px-4"
-      }`}
-    >
+    <div className="flex items-center justify-center">
       <div className={`flex flex-wrap items-center justify-center ${compact ? "gap-1.5" : "gap-2.5"}`}>
         {assets.map((asset, index) => (
           asset.src ? (
@@ -589,7 +602,7 @@ function PaymentMethodLogo({
           ) : (
             <span
               key={`${methodId}-text-${index}`}
-              className={`inline-flex items-center justify-center rounded-xl bg-slate-100 px-2.5 py-1 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-900 ${
+              className={`inline-flex items-center justify-center text-center text-[11px] font-semibold uppercase tracking-[0.24em] text-white/88 ${
                 compact ? "min-h-7" : "min-h-8"
               } ${asset.textClassName || ""}`}
             >
@@ -734,6 +747,8 @@ export default function CoinsPage() {
     return activeMethods.find((item) => item.id === optionId) || null;
   }, [activeMethods, effectiveSelectedProvider, providerSelections]);
   const selectedMethodId = providerSelections[effectiveSelectedProvider] || null;
+  const selectedProviderMeta = PROVIDER_TOGGLE_META[effectiveSelectedProvider];
+  const pricingCountryCode = pricingContext?.countryCode || "US";
 
   const startCheckout = async (provider: PaymentProvider, paymentOption: PaymentOption) => {
     if (!selected || !token) return;
@@ -941,30 +956,22 @@ export default function CoinsPage() {
             )}
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-zinc-900/70 p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.05),transparent_32%),linear-gradient(180deg,rgba(18,18,24,0.98),rgba(12,12,18,0.94))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h3 className="text-xl font-semibold">{t.providerTitle}</h3>
                 <p className="mt-2 text-sm text-gray-400">{t.chooseMethodHint}</p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 rounded-[22px] border border-white/10 bg-black/25 px-3 py-2">
-                {availableProviders.length > 0 && (
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-1.5">
-                    {PROVIDER_TOGGLE_META[effectiveSelectedProvider].logo}
-                  </div>
-                )}
-                {selectedMethodId && (
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-1.5">
-                    <PaymentMethodLogo methodId={selectedMethodId} compact />
-                  </div>
-                )}
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#0b0b10] px-3 py-2 text-[11px] uppercase tracking-[0.2em] text-gray-400">
+                <span className={`h-2 w-2 rounded-full ${selectedProviderMeta.dot}`} />
+                {pricingCountryCode} · {activeMethods.length} methods
               </div>
             </div>
 
             {availableProviders.length > 0 ? (
               <>
-                <div className="mt-6 rounded-[28px] border border-white/10 bg-black/30 p-2">
+                <div className="mt-6 rounded-[28px] border border-white/10 bg-[#0a0a0f] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                   <div className="grid grid-cols-2 gap-2">
                     {availableProviders.map((providerId) => {
                       const provider = PROVIDER_TOGGLE_META[providerId];
@@ -976,29 +983,37 @@ export default function CoinsPage() {
                           onClick={() => setSelectedProvider(providerId)}
                           aria-pressed={isActive}
                           aria-label={t.providerLabels[providerId]}
-                          className={`relative flex min-h-[86px] items-center justify-center rounded-[24px] border bg-black/30 px-4 py-5 transition ${
+                          className={`group relative overflow-hidden rounded-[24px] border px-4 py-4 text-left transition-all duration-200 ${
                             isActive
-                              ? `${provider.border} ${provider.glow}`
-                              : "border-transparent hover:border-white/15"
+                              ? `${provider.border} ${provider.glow} bg-[linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))]`
+                              : "border-transparent bg-transparent hover:border-white/10 hover:bg-white/[0.03]"
                           }`}
                         >
-                          {provider.logo}
-                          {isActive && (
-                            <span className="absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full bg-yellow-500 text-black">
-                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75 10.5 18l9-13.5" />
-                              </svg>
+                          <div className={`absolute inset-x-6 bottom-0 h-px bg-gradient-to-r ${provider.tint} ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
+                          <div className="flex items-center justify-between">
+                            <span className={`text-[10px] font-medium uppercase tracking-[0.22em] ${isActive ? "text-white/78" : "text-gray-500"}`}>
+                              {t.providerLabels[providerId]}
                             </span>
-                          )}
+                            <span className={`h-2 w-2 rounded-full ${isActive ? provider.dot : "bg-white/10"}`} />
+                          </div>
+                          <div className="mt-4 flex min-h-[36px] items-center justify-center">
+                            {provider.logo}
+                          </div>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <div className="mt-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-gray-500">Available methods</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-gray-600">{activeMethods.length} options</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {activeMethods.length > 0 ? activeMethods.map((method) => {
                     const isSelected = selectedMethodId === method.id;
+                    const regionBadge = PAYMENT_METHOD_REGION_BADGE_MAP[method.id];
 
                     return (
                       <button
@@ -1009,21 +1024,22 @@ export default function CoinsPage() {
                         }))}
                         aria-pressed={isSelected}
                         aria-label={method.label}
-                        className={`relative flex min-h-[96px] items-center justify-center rounded-[24px] border px-4 py-4 transition ${
+                        className={`group relative overflow-hidden rounded-[24px] border px-4 py-4 transition-all duration-200 ${
                           isSelected
-                            ? "border-yellow-500/50 bg-[linear-gradient(180deg,rgba(250,204,21,0.16),rgba(24,24,27,0.96))] shadow-[0_0_24px_rgba(250,204,21,0.12)]"
-                            : "border-white/10 bg-black/25 hover:border-white/20 hover:bg-black/40"
+                            ? `${selectedProviderMeta.border} ${selectedProviderMeta.glow} bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(12,12,16,0.96))] -translate-y-0.5`
+                            : "border-white/10 bg-[#0b0b10] hover:border-white/15 hover:bg-white/[0.025] hover:-translate-y-0.5"
                         }`}
                       >
-                        <PaymentMethodLogo methodId={method.id} />
-                        <span className="sr-only">{method.label}</span>
-                        {isSelected && (
-                          <span className="absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full bg-yellow-500 text-black">
-                            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75 10.5 18l9-13.5" />
-                            </svg>
+                        <div className={`absolute inset-x-5 bottom-0 h-px bg-gradient-to-r ${selectedProviderMeta.tint} ${isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-60"}`} />
+                        {regionBadge && (
+                          <span className="absolute right-3 top-3 inline-flex min-w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gray-300">
+                            {regionBadge}
                           </span>
                         )}
+                        <div className="flex min-h-[84px] items-center justify-center">
+                          <PaymentMethodLogo methodId={method.id} />
+                        </div>
+                        <span className="sr-only">{method.label}</span>
                       </button>
                     );
                   }) : (
@@ -1031,31 +1047,30 @@ export default function CoinsPage() {
                       {t.noPaymentMethods}
                     </div>
                   )}
+                  </div>
                 </div>
 
-                <div className="mt-6 rounded-3xl border border-yellow-500/15 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(12,10,9,0.6))] p-5">
-                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.2em] text-yellow-200/70">{t.paymentChannel}</p>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <div className="rounded-2xl border border-white/10 bg-white/5 p-1.5">
-                          {PROVIDER_TOGGLE_META[effectiveSelectedProvider].logo}
+                <div className="mt-6 rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,rgba(250,204,21,0.10),rgba(255,255,255,0.02))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-yellow-200/70">Secure checkout</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <div className="rounded-2xl border border-white/10 bg-[#0c0c10] px-3 py-2">
+                          {selectedProviderMeta.logo}
                         </div>
-                        {selectedMethodId ? (
-                          <div className="rounded-2xl border border-white/10 bg-white/5 p-1.5">
-                            <PaymentMethodLogo methodId={selectedMethodId} compact />
-                          </div>
-                        ) : null}
                       </div>
-                      <p className="mt-3 text-sm text-gray-300">
-                        {selectedMethodDefinition?.description || t.noPaymentMethods}
+                      <p className="mt-3 text-base font-semibold text-white">
+                        {selectedMethodDefinition?.label || t.noPaymentMethods}
+                      </p>
+                      <p className="mt-1 text-sm text-gray-300">
+                        {selectedMethodDefinition?.description || "Redirect to secure hosted checkout."}
                       </p>
                     </div>
 
                     <button
                       onClick={continueWithSelectedMethod}
                       disabled={!selected || paying || activeMethods.length === 0}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-yellow-600 to-yellow-500 px-6 py-3.5 text-sm font-bold text-black transition hover:from-yellow-500 hover:to-yellow-400 disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto"
+                      className="inline-flex min-w-[240px] items-center justify-center gap-2 rounded-[22px] bg-gradient-to-r from-yellow-600 to-yellow-500 px-6 py-4 text-sm font-bold text-black shadow-[0_18px_36px_rgba(234,179,8,0.22)] transition hover:from-yellow-500 hover:to-yellow-400 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {paying ? (
                         <div className="h-5 w-5 rounded-full border-2 border-black border-t-transparent animate-spin" />
