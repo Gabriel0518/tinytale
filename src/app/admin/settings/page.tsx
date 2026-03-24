@@ -202,6 +202,7 @@ type CleanupTargetKey = "stream" | "r2";
 
 interface CleanupTargetResult {
   enabled: boolean;
+  error?: string;
   scanned: number;
   referenced: number;
   candidates: number;
@@ -1758,6 +1759,11 @@ export default function AdminSettingsPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
                   <h4 className="text-sm font-semibold text-gray-100">Stream Result</h4>
+                  {streamResult?.error && (
+                    <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                      {streamResult.error}
+                    </div>
+                  )}
                   <div className="mt-3 space-y-1 text-sm text-gray-300">
                     <p>Scanned: {streamResult?.scanned || 0}</p>
                     <p>Referenced: {streamResult?.referenced || 0}</p>
@@ -1775,6 +1781,11 @@ export default function AdminSettingsPage() {
 
                 <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
                   <h4 className="text-sm font-semibold text-gray-100">R2 Result</h4>
+                  {r2Result?.error && (
+                    <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                      {r2Result.error}
+                    </div>
+                  )}
                   <div className="mt-3 space-y-1 text-sm text-gray-300">
                     <p>Scanned: {r2Result?.scanned || 0}</p>
                     <p>Referenced: {r2Result?.referenced || 0}</p>
