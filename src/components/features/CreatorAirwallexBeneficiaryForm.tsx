@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { creatorApi } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
@@ -36,8 +36,8 @@ export function CreatorAirwallexBeneficiaryForm({
 }: Props) {
   const { toast } = useToast();
   const elementRef = useRef<BeneficiaryElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const fallbackReadyTimerRef = useRef<number | null>(null);
-  const containerId = useId().replace(/:/g, "-");
   const [booting, setBooting] = useState(true);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -65,7 +65,7 @@ export function CreatorAirwallexBeneficiaryForm({
           creatorApi.createAirwallexSettlementAuthCode(token),
         ]);
 
-        if (cancelled) return;
+        if (cancelled || !containerRef.current) return;
 
         await init({
           env: authResponse.data.env,
@@ -112,7 +112,7 @@ export function CreatorAirwallexBeneficiaryForm({
           }
         });
 
-        element.mount(containerId);
+        element.mount(containerRef.current);
         elementRef.current = element;
         setReady(true);
 
@@ -142,7 +142,7 @@ export function CreatorAirwallexBeneficiaryForm({
       elementRef.current?.destroy();
       elementRef.current = null;
     };
-  }, [containerId, defaultValues, token]);
+  }, [defaultValues, token]);
 
   async function handleSave() {
     if (!elementRef.current) {
@@ -202,7 +202,7 @@ export function CreatorAirwallexBeneficiaryForm({
                 Preparing beneficiary fields...
               </div>
             ) : null}
-            <div id={containerId} className="min-h-[640px]" />
+            <div ref={containerRef} className="min-h-[640px]" />
           </div>
         )}
       </div>
