@@ -4,7 +4,6 @@ export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useToast } from "@/components/ui/Toast";
@@ -44,16 +43,6 @@ type PaymentOptionDefinition = {
   label: string;
   description: string;
   pill: string;
-};
-
-type PaymentLogoAsset = {
-  src?: string;
-  alt: string;
-  width?: number;
-  height?: number;
-  className?: string;
-  text?: string;
-  textClassName?: string;
 };
 
 type CoinsCopy = {
@@ -388,36 +377,6 @@ const CHECKOUT_CONTEXT_COPY: FlexibleRecord<SupportedLocale, (countryCode: strin
   zh: (countryCode, currencyCode) => `结账地区：${countryCode}，最终展示货币可能为 ${currencyCode}。`,
 };
 
-function StripeLogo() {
-  return (
-    <div className="flex h-8 w-[118px] items-center justify-center">
-      <Image
-        src="/payment/stripe-logo.png"
-        alt="Stripe"
-        width={176}
-        height={56}
-        className="h-8 w-auto object-contain"
-        priority
-      />
-    </div>
-  );
-}
-
-function AirwallexLogo() {
-  return (
-    <div className="flex h-8 w-[118px] items-center justify-center">
-      <Image
-        src="/payment/airwallex-logo.png"
-        alt="Airwallex"
-        width={176}
-        height={56}
-        className="h-6 w-auto object-contain"
-        priority
-      />
-    </div>
-  );
-}
-
 function CoinBadge() {
   return (
     <svg className="h-7 w-7 text-yellow-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -486,16 +445,16 @@ function toPaymentOptionDefinitions(
     .map((id) => buildPaymentOption(copy, id, provider));
 }
 
-const PROVIDER_TOGGLE_META: Record<PaymentProvider, { logo: JSX.Element; border: string; glow: string; tint: string; dot: string }> = {
+const PROVIDER_TOGGLE_META: Record<PaymentProvider, { label: string; border: string; glow: string; tint: string; dot: string }> = {
   stripe: {
-    logo: <StripeLogo />,
+    label: "STRIPE",
     border: "border-[#635bff]/40",
     glow: "shadow-[0_0_32px_rgba(99,91,255,0.12)]",
     tint: "from-[#635bff]/18 via-[#635bff]/8 to-transparent",
     dot: "bg-[#635bff]",
   },
   airwallex: {
-    logo: <AirwallexLogo />,
+    label: "AIRWALLEX",
     border: "border-teal-400/35",
     glow: "shadow-[0_0_32px_rgba(45,212,191,0.12)]",
     tint: "from-teal-400/16 via-teal-400/8 to-transparent",
@@ -503,61 +462,24 @@ const PROVIDER_TOGGLE_META: Record<PaymentProvider, { logo: JSX.Element; border:
   },
 };
 
-const PAYMENT_METHOD_LOGO_MAP: Record<string, PaymentLogoAsset[]> = {
-  card: [
-    { src: "/payment/methods/datatrans/visa.svg", alt: "Visa", width: 50, height: 16, className: "h-4 w-auto object-contain" },
-    { src: "/payment/methods/datatrans/mastercard.svg", alt: "Mastercard", width: 32, height: 24, className: "h-6 w-auto object-contain" },
-    { src: "/payment/methods/datatrans/american-express.svg", alt: "American Express", width: 40, height: 24, className: "h-5 w-auto object-contain" },
-  ],
-  wallet: [
-    { src: "/payment/methods/datatrans/apple-pay.svg", alt: "Apple Pay", width: 44, height: 18, className: "h-4.5 w-auto object-contain" },
-    { src: "/payment/methods/datatrans/google-pay.svg", alt: "Google Pay", width: 44, height: 18, className: "h-4.5 w-auto object-contain" },
-  ],
-  paynow: [
-    { alt: "PayNow", text: "PayNow" },
-  ],
-  grabpay: [
-    { alt: "GrabPay", text: "GrabPay" },
-  ],
-  fpx: [
-    { alt: "FPX", text: "FPX" },
-  ],
-  tng: [
-    { alt: "Touch 'n Go eWallet", text: "Touch 'n Go" },
-  ],
-  qris: [
-    { alt: "QRIS", text: "QRIS" },
-  ],
-  local_bank: [
-    { alt: "Local Bank Transfer", text: "Bank Transfer" },
-  ],
-  promptpay: [
-    { alt: "PromptPay", text: "PromptPay" },
-  ],
-  truemoney: [
-    { alt: "TrueMoney", text: "TrueMoney" },
-  ],
-  fps: [
-    { alt: "FPS", text: "FPS" },
-  ],
-  alipayhk: [
-    { src: "/payment/methods/datatrans/alipay.svg", alt: "Alipay", width: 28, height: 28, className: "h-6 w-6 object-contain" },
-  ],
-  wechatpayhk: [
-    { src: "/payment/methods/datatrans/wechat-pay.svg", alt: "WeChat Pay", width: 28, height: 28, className: "h-6 w-6 object-contain" },
-  ],
-  konbini: [
-    { alt: "Konbini", text: "Konbini" },
-  ],
-  ideal: [
-    { src: "/payment/methods/datatrans/ideal.svg", alt: "iDEAL", width: 34, height: 24, className: "h-6 w-auto object-contain" },
-  ],
-  blik: [
-    { src: "/payment/methods/datatrans/blik.svg", alt: "BLIK", width: 48, height: 24, className: "h-6 w-auto object-contain" },
-  ],
-  sofort: [
-    { alt: "Sofort", text: "Sofort" },
-  ],
+const PAYMENT_METHOD_BUTTON_LABELS: Partial<Record<PaymentOption, string>> = {
+  card: "Cards",
+  wallet: "Apple Pay / Google Pay",
+  paynow: "PayNow",
+  grabpay: "GrabPay",
+  fpx: "FPX",
+  tng: "Touch 'n Go",
+  qris: "QRIS",
+  local_bank: "Bank Transfer",
+  promptpay: "PromptPay",
+  truemoney: "TrueMoney",
+  fps: "FPS",
+  alipayhk: "AlipayHK",
+  wechatpayhk: "WeChat Pay HK",
+  konbini: "Konbini",
+  ideal: "iDEAL",
+  blik: "BLIK",
+  sofort: "Sofort",
 };
 
 const PAYMENT_METHOD_REGION_BADGE_MAP: Partial<Record<PaymentOption, string>> = {
@@ -575,42 +497,22 @@ const PAYMENT_METHOD_REGION_BADGE_MAP: Partial<Record<PaymentOption, string>> = 
   konbini: "JP",
 };
 
-function PaymentMethodLogo({
-  methodId,
+function PaymentMethodText({
+  label,
   compact = false,
 }: {
-  methodId: PaymentOption;
+  label: string;
   compact?: boolean;
 }) {
-  const assets = PAYMENT_METHOD_LOGO_MAP[methodId] || [
-    { alt: methodId, text: methodId.replace(/_/g, " ").toUpperCase() },
-  ];
-
   return (
     <div className="flex items-center justify-center">
-      <div className={`flex flex-wrap items-center justify-center ${compact ? "gap-1.5" : "gap-2.5"}`}>
-        {assets.map((asset, index) => (
-          asset.src ? (
-            <Image
-              key={`${methodId}-${asset.src}`}
-              src={asset.src}
-              alt={asset.alt}
-              width={asset.width || 40}
-              height={asset.height || 24}
-              className={asset.className || "h-6 w-auto object-contain"}
-            />
-          ) : (
-            <span
-              key={`${methodId}-text-${index}`}
-              className={`inline-flex items-center justify-center text-center text-[11px] font-semibold uppercase tracking-[0.24em] text-white/88 ${
-                compact ? "min-h-7" : "min-h-8"
-              } ${asset.textClassName || ""}`}
-            >
-              {asset.text || asset.alt}
-            </span>
-          )
-        ))}
-      </div>
+      <span
+        className={`text-center font-semibold uppercase text-white/90 ${
+          compact ? "text-[11px] tracking-[0.22em]" : "text-[12px] tracking-[0.24em]"
+        }`}
+      >
+        {label}
+      </span>
     </div>
   );
 }
@@ -749,6 +651,9 @@ export default function CoinsPage() {
   const selectedMethodId = providerSelections[effectiveSelectedProvider] || null;
   const selectedProviderMeta = PROVIDER_TOGGLE_META[effectiveSelectedProvider];
   const pricingCountryCode = pricingContext?.countryCode || "US";
+  const selectedMethodButtonLabel = selectedMethodDefinition
+    ? PAYMENT_METHOD_BUTTON_LABELS[selectedMethodDefinition.id] || selectedMethodDefinition.label
+    : null;
 
   const startCheckout = async (provider: PaymentProvider, paymentOption: PaymentOption) => {
     if (!selected || !token) return;
@@ -971,8 +876,8 @@ export default function CoinsPage() {
 
             {availableProviders.length > 0 ? (
               <>
-                <div className="mt-6 rounded-[28px] border border-white/10 bg-[#0a0a0f] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                  <div className="grid grid-cols-2 gap-2">
+                <div className="mt-6 flex">
+                  <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-[#0a0a0f] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
                     {availableProviders.map((providerId) => {
                       const provider = PROVIDER_TOGGLE_META[providerId];
                       const isActive = effectiveSelectedProvider === providerId;
@@ -983,21 +888,17 @@ export default function CoinsPage() {
                           onClick={() => setSelectedProvider(providerId)}
                           aria-pressed={isActive}
                           aria-label={t.providerLabels[providerId]}
-                          className={`group relative overflow-hidden rounded-[24px] border px-4 py-4 text-left transition-all duration-200 ${
+                          className={`group relative overflow-hidden rounded-full border px-3 py-1.5 text-left transition-all duration-200 ${
                             isActive
                               ? `${provider.border} ${provider.glow} bg-[linear-gradient(135deg,rgba(255,255,255,0.05),rgba(255,255,255,0.01))]`
                               : "border-transparent bg-transparent hover:border-white/10 hover:bg-white/[0.03]"
                           }`}
                         >
-                          <div className={`absolute inset-x-6 bottom-0 h-px bg-gradient-to-r ${provider.tint} ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-50"}`} />
                           <div className="flex items-center justify-between">
-                            <span className={`text-[10px] font-medium uppercase tracking-[0.22em] ${isActive ? "text-white/78" : "text-gray-500"}`}>
-                              {t.providerLabels[providerId]}
+                            <span className={`text-[10px] font-semibold uppercase tracking-[0.22em] ${isActive ? "text-white/88" : "text-gray-500"}`}>
+                              {provider.label}
                             </span>
                             <span className={`h-2 w-2 rounded-full ${isActive ? provider.dot : "bg-white/10"}`} />
-                          </div>
-                          <div className="mt-4 flex min-h-[36px] items-center justify-center">
-                            {provider.logo}
                           </div>
                         </button>
                       );
@@ -1024,7 +925,7 @@ export default function CoinsPage() {
                         }))}
                         aria-pressed={isSelected}
                         aria-label={method.label}
-                        className={`group relative overflow-hidden rounded-[24px] border px-4 py-4 transition-all duration-200 ${
+                        className={`group relative overflow-hidden rounded-[20px] border px-4 py-3 transition-all duration-200 ${
                           isSelected
                             ? `${selectedProviderMeta.border} ${selectedProviderMeta.glow} bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(12,12,16,0.96))] -translate-y-0.5`
                             : "border-white/10 bg-[#0b0b10] hover:border-white/15 hover:bg-white/[0.025] hover:-translate-y-0.5"
@@ -1036,8 +937,10 @@ export default function CoinsPage() {
                             {regionBadge}
                           </span>
                         )}
-                        <div className="flex min-h-[84px] items-center justify-center">
-                          <PaymentMethodLogo methodId={method.id} />
+                        <div className="flex min-h-[52px] items-center justify-center px-2">
+                          <PaymentMethodText
+                            label={PAYMENT_METHOD_BUTTON_LABELS[method.id] || method.label}
+                          />
                         </div>
                         <span className="sr-only">{method.label}</span>
                       </button>
@@ -1055,12 +958,12 @@ export default function CoinsPage() {
                     <div className="min-w-0">
                       <p className="text-[11px] uppercase tracking-[0.24em] text-yellow-200/70">Secure checkout</p>
                       <div className="mt-3 flex flex-wrap items-center gap-3">
-                        <div className="rounded-2xl border border-white/10 bg-[#0c0c10] px-3 py-2">
-                          {selectedProviderMeta.logo}
+                        <div className="rounded-full border border-white/10 bg-[#0c0c10] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-white/88">
+                          {selectedProviderMeta.label}
                         </div>
                       </div>
                       <p className="mt-3 text-base font-semibold text-white">
-                        {selectedMethodDefinition?.label || t.noPaymentMethods}
+                        {selectedMethodButtonLabel || t.noPaymentMethods}
                       </p>
                       <p className="mt-1 text-sm text-gray-300">
                         {selectedMethodDefinition?.description || "Redirect to secure hosted checkout."}
