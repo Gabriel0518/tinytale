@@ -251,19 +251,43 @@ export default function CreatorDetailPage() {
 
         <div className="space-y-4">
           <article className={panelClassName}>
-            <h2 className="text-lg font-semibold text-white">Bank account status</h2>
+            <h2 className="text-lg font-semibold text-white">Payout account status</h2>
             <div className="mt-5 rounded-xl bg-[#0f0f17] p-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="font-medium text-white">{data.bankAccount.bankName}</p>
-                  <p className="mt-1 text-sm text-gray-400">{data.bankAccount.accountHolderName} · {data.bankAccount.maskedAccountNumber}</p>
+                  <p className="font-medium text-white">{data.bankAccount.bankName || "Stripe onboarding not finished"}</p>
+                  <p className="mt-1 text-sm text-gray-400">{data.bankAccount.accountHolderName || data.bankAccount.stripeEmail || "Missing payout owner"} · {data.bankAccount.maskedAccountNumber || data.bankAccount.stripeAccountId || "No external bank account attached"}</p>
                 </div>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
               </div>
               <p className="mt-3 text-sm text-gray-400">Country: {data.bankAccount.country} · Updated {formatAdminDate(data.bankAccount.updatedAt, true)}</p>
+              {data.bankAccount.providerLabel || data.bankAccount.verificationLabel ? (
+                <p className="mt-2 text-sm text-indigo-300">{data.bankAccount.providerLabel || "Stripe Connect"}{data.bankAccount.verificationLabel ? ` · ${data.bankAccount.verificationLabel}` : ""}</p>
+              ) : null}
+              {data.bankAccount.stripeAccountId || data.bankAccount.stripeEmail ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                  <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-3">
+                    <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Stripe account</p>
+                    <p className="mt-1 text-sm text-white">{data.bankAccount.stripeAccountId || "Not available"}</p>
+                    <p className="mt-1 text-xs text-gray-400">{data.bankAccount.stripeEmail || "No Stripe email available"}</p>
+                  </div>
+                </div>
+              ) : null}
+              {data.bankAccount.stripeRequirementsCurrentlyDue?.length ? (
+                <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-amber-200">Currently due in Stripe</p>
+                  <p className="mt-2 text-sm leading-6 text-amber-100">{data.bankAccount.stripeRequirementsCurrentlyDue.join(", ")}</p>
+                </div>
+              ) : null}
+              {data.bankAccount.stripeDisabledReason ? (
+                <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-rose-200">Stripe disabled reason</p>
+                  <p className="mt-2 text-sm leading-6 text-rose-100">{data.bankAccount.stripeDisabledReason}</p>
+                </div>
+              ) : null}
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                 <Link href="/admin/creators/bank-accounts" className="inline-flex items-center justify-center rounded-lg border border-gray-600 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-[#1a1a2e]">
-                  Review bank queue
+                  Review payout queue
                 </Link>
                 <Link href="/admin/creators/payout-requests" className="inline-flex items-center justify-center rounded-lg border border-gray-600 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-[#1a1a2e]">
                   Open payout queue

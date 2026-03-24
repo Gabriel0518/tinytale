@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   Banknote,
@@ -14,32 +14,38 @@ import {
   FileSpreadsheet,
   Landmark,
   Loader2,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { creatorApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
-import { useCountryCatalog } from "@/hooks/useCountryCatalog";
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
-import type { CreatorSettlementOverview, CreatorSettlementStatement } from "@/types/creator";
+import type {
+  CreatorSettlementBankStatus,
+  CreatorSettlementOverview,
+  CreatorSettlementStatement,
+} from "@/types/creator";
 import { useCreatorI18n } from "../_lib/creator-i18n";
 
 const cardClassName =
   "rounded-[24px] border border-[#e2e8f0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]";
-const inputClassName =
-  "h-[50px] w-full rounded-2xl border border-[#dbe3ec] bg-white px-4 text-[15px] text-[#0f172a] outline-none transition placeholder:text-[#94a3b8] focus:border-[#1876f2] focus:ring-4 focus:ring-[rgba(24,118,242,0.12)]";
 
-type StatementFilter = "all" | "paid" | "pending" | "disputed";
-
+type StatementFilter = "all" | "paid" | "pending" | "processing" | "disputed" | "held";
 function statusBadgeClass(status: CreatorSettlementStatement["status"] | CreatorSettlementOverview["summary"]["bankStatus"]) {
   switch (status) {
     case "paid":
     case "verified":
       return "bg-[#dcfce7] text-[#166534]";
+    case "processing":
+      return "bg-[#dbeafe] text-[#1d4ed8]";
     case "confirmed":
       return "bg-[#dbeafe] text-[#1d4ed8]";
     case "generated":
       return "bg-[#fef3c7] text-[#b45309]";
+    case "held":
+      return "bg-[#fee2e2] text-[#b91c1c]";
     case "disputed":
     case "rejected":
       return "bg-[#fee2e2] text-[#b91c1c]";
@@ -53,37 +59,56 @@ function statusBadgeClass(status: CreatorSettlementStatement["status"] | Creator
 
 function mapStatementFilter(status: CreatorSettlementStatement["status"]): StatementFilter {
   if (status === "paid") return "paid";
+  if (status === "processing") return "processing";
   if (status === "disputed") return "disputed";
+  if (status === "held") return "held";
   return "pending";
 }
 
-function FieldLabel({ children }: { children: ReactNode }) {
-  return <label className="mb-2 block text-[14px] font-semibold text-[#0f172a]">{children}</label>;
+function getStripePayoutAction(status: CreatorSettlementBankStatus) {
+  switch (status) {
+    case "verified":
+      return {
+        primaryLabel: "Manage Stripe Payout Account",
+        secondaryLabel: "Review Stripe Status",
+        helper:
+          "Your payout profile is already on file. Use Stripe to update account details, ownership information, or payout settings without re-entering banking data in TinyTale.",
+      };
+    case "pending_review":
+      return {
+        primaryLabel: "Continue Stripe Onboarding",
+        secondaryLabel: "Review Stripe Status",
+        helper:
+          "Your payout setup is in progress. Finish the Stripe-hosted onboarding flow to confirm banking details and clear any remaining verification requirements.",
+      };
+    case "rejected":
+      return {
+        primaryLabel: "Fix Payout Details in Stripe",
+        secondaryLabel: "Review Stripe Status",
+        helper:
+          "Stripe or finance still needs updated payout information. Re-open the hosted payout flow to correct the blocked details instead of editing a local bank form.",
+      };
+    default:
+      return {
+        primaryLabel: "Create Stripe Payout Account",
+        secondaryLabel: "Why Stripe Setup?",
+        helper:
+          "TinyTale now uses Stripe-hosted onboarding for payout setup. Stripe collects and manages your payout details securely so banking verification can happen outside the creator dashboard.",
+      };
+  }
 }
 
 export default function CreatorSettlementsPage() {
   const locale = useLocale();
   const { t, formatCurrency, formatDate } = useCreatorI18n();
-  const { options: countryOptions } = useCountryCatalog(locale);
   const { token } = useAuth();
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [showBankEditor, setShowBankEditor] = useState(false);
+  const [payoutActionLoading, setPayoutActionLoading] = useState<"create" | "manage" | "status" | null>(null);
   const [filter, setFilter] = useState<StatementFilter>("all");
   const [overview, setOverview] = useState<CreatorSettlementOverview | null>(null);
-  const [form, setForm] = useState({
-    accountHolderName: "",
-    bankName: "",
-    accountNumber: "",
-    routingNumber: "",
-    swiftCode: "",
-    bankAddress: "",
-    country: "",
-    currency: "USD",
-  });
 
   useEffect(() => {
     if (!token) {
@@ -94,35 +119,40 @@ export default function CreatorSettlementsPage() {
     const authToken: string = token;
     let cancelled = false;
 
-    async function fetchOverview() {
+    async function loadOverview() {
       setLoading(true);
       try {
         const response = await creatorApi.getSettlementOverview(authToken);
         if (!response.success || cancelled) return;
-        const nextOverview = response.data;
-        setOverview(nextOverview);
-        setForm({
-          accountHolderName: nextOverview.bankAccount.accountHolderName || "",
-          bankName: nextOverview.bankAccount.bankName || "",
-          accountNumber: nextOverview.bankAccount.accountNumber || "",
-          routingNumber: nextOverview.bankAccount.routingNumber || "",
-          swiftCode: nextOverview.bankAccount.swiftCode || "",
-          bankAddress: nextOverview.bankAccount.bankAddress || "",
-          country: nextOverview.bankAccount.country || "",
-          currency: nextOverview.bankAccount.currency || "USD",
-        });
+        setOverview(response.data);
       } catch (error) {
-        if (!cancelled) toast(error instanceof Error ? error.message : t("Failed to load settlements."), "error");
+        if (!cancelled) {
+          toast(error instanceof Error ? error.message : t("Failed to load settlements."), "error");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
-    fetchOverview();
+    loadOverview();
     return () => {
       cancelled = true;
     };
   }, [t, toast, token]);
+
+  async function refreshOverview() {
+    if (!token) return null;
+    const authToken: string = token;
+    try {
+      const response = await creatorApi.getSettlementOverview(authToken);
+      if (!response.success) return null;
+      setOverview(response.data);
+      return response.data;
+    } catch (error) {
+      toast(error instanceof Error ? error.message : t("Failed to load settlements."), "error");
+      return null;
+    }
+  }
 
   const filteredStatements = useMemo(() => {
     const statements = overview?.statements || [];
@@ -132,9 +162,19 @@ export default function CreatorSettlementsPage() {
 
   const estimatedPayout = useMemo(() => {
     if (!overview) return 0;
-    const candidate = overview.statements.find((statement) => statement.status === "confirmed" || statement.status === "generated");
+    const candidate = overview.statements.find(
+      (statement) =>
+        statement.status === "confirmed"
+        || statement.status === "generated"
+        || statement.status === "processing",
+    );
     return candidate?.creatorShareUsd || 0;
   }, [overview]);
+
+  const stripePayoutAction = useMemo(
+    () => getStripePayoutAction(overview?.bankAccount.verificationStatus || "missing"),
+    [overview?.bankAccount.verificationStatus],
+  );
 
   const handleExportData = () => {
     if (!overview?.statements.length) {
@@ -160,45 +200,47 @@ export default function CreatorSettlementsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleSaveBankAccount = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!token) return;
-    if (!form.accountHolderName.trim() || !form.bankName.trim() || !form.accountNumber.trim() || !form.country.trim()) {
-      toast(t("Account holder, bank name, account number, and country are required."), "error");
+  const handleStripePayoutAction = async (mode: "create" | "manage" | "status") => {
+    if (!token) {
+      toast(t("Please sign in again to manage your payout account."), "error");
       return;
     }
 
-    try {
-      setSaving(true);
-      const response = await creatorApi.updateSettlementBankAccount(token, {
-        accountHolderName: form.accountHolderName.trim(),
-        bankName: form.bankName.trim(),
-        accountNumber: form.accountNumber.trim(),
-        routingNumber: form.routingNumber.trim(),
-        swiftCode: form.swiftCode.trim(),
-        bankAddress: form.bankAddress.trim(),
-        country: form.country.trim(),
-        currency: (form.currency.trim() || "USD").toUpperCase(),
-      });
+    const bankStatus = overview?.bankAccount.verificationStatus || "missing";
 
-      setOverview((current) => current
-        ? {
-            ...current,
-            bankAccount: response.data,
-            summary: {
-              ...current.summary,
-              bankStatus: response.data.verificationStatus,
-              bankStatusLabel: response.data.verificationLabel,
-              payoutMethodLabel: response.data.bankName ? t("Bank Transfer") : current.summary.payoutMethodLabel,
-            },
-          }
-        : current);
-      setShowBankEditor(false);
-      toast(t("Payout method updated."), "success");
+    try {
+      setPayoutActionLoading(mode);
+
+      if (mode === "status") {
+        if (bankStatus === "missing") {
+          toast(
+            t("Stripe-hosted onboarding collects and verifies your payout account securely. Start onboarding from the primary button when you are ready."),
+            "info",
+          );
+          return;
+        }
+
+        await refreshOverview();
+        toast(t("Stripe payout status has been refreshed."), "success");
+        return;
+      }
+
+      const shouldUseOnboarding =
+        mode === "create" || bankStatus === "pending_review" || bankStatus === "rejected";
+      const response = shouldUseOnboarding
+        ? await creatorApi.createStripeSettlementOnboardingLink(token)
+        : await creatorApi.createStripeSettlementDashboardLink(token);
+
+      const launchUrl = response.data?.url;
+      if (!launchUrl) {
+        throw new Error(t("Stripe did not return a payout link."));
+      }
+
+      window.location.href = launchUrl;
     } catch (error) {
-      toast(error instanceof Error ? error.message : t("Failed to update payout method."), "error");
+      toast(error instanceof Error ? error.message : t("Failed to open Stripe payout flow."), "error");
     } finally {
-      setSaving(false);
+      setPayoutActionLoading(null);
     }
   };
 
@@ -295,106 +337,152 @@ export default function CreatorSettlementsPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">Bank Account</h2>
+            <p className="mt-2 max-w-[720px] text-[15px] leading-7 text-[#64748b]">
+              {t("Use Stripe-hosted onboarding to create and manage your payout account. TinyTale keeps the settlement workflow here, while Stripe handles payout-account collection and verification.")}
+            </p>
           </div>
           <Landmark className="h-5 w-5 text-[#94a3b8]" />
         </div>
 
-        <div className="mt-5 rounded-[22px] bg-[#f8fafc] p-4">
-          <div className="flex items-center justify-between gap-4 rounded-[18px] bg-white px-4 py-4 shadow-[inset_0_0_0_1px_#edf2f7]">
-            <div className="flex items-center gap-4">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#eff6ff] text-[#1876f2]">
-                <Building2 className="h-5 w-5" />
-              </div>
+        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+          <div className="rounded-[24px] border border-[#d9e9ff] bg-[linear-gradient(180deg,#f4f9ff,#ffffff)] p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+            <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-[16px] font-bold text-[#0f172a]">
-                  {overview?.bankAccount.bankName ? `${overview.bankAccount.bankName} ${overview.bankAccount.accountNumberMasked}` : "No bank account on file"}
+                <div className="inline-flex items-center gap-2 rounded-full bg-[#e8f1ff] px-3 py-1 text-[12px] font-semibold text-[#1876f2]">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Stripe-hosted onboarding
+                </div>
+                <h3 className="mt-4 text-[20px] font-bold tracking-[-0.02em] text-[#0f172a]">
+                  {t(stripePayoutAction.primaryLabel)}
+                </h3>
+                <p className="mt-2 max-w-[640px] text-[15px] leading-7 text-[#64748b]">
+                  {t(stripePayoutAction.helper)}
+                </p>
+              </div>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-[#1876f2] shadow-[inset_0_0_0_1px_#d9e9ff]">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-[18px] bg-white px-4 py-4 shadow-[inset_0_0_0_1px_#edf2f7]">
+                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Current payout profile</p>
+                <p className="mt-2 text-[16px] font-bold text-[#0f172a]">
+                  {overview?.bankAccount.bankName ? `${overview.bankAccount.bankName} ${overview.bankAccount.accountNumberMasked}` : t("No Stripe payout account connected")}
                 </p>
                 <p className="mt-1 text-[14px] text-[#64748b]">
-                  {overview?.bankAccount.accountHolderName || "Primary account"}
+                  {overview?.bankAccount.accountHolderName || t("Stripe setup starts from this card")}
                 </p>
+                {overview?.bankAccount.stripeConnect?.email ? (
+                  <p className="mt-1 text-[13px] text-[#94a3b8]">
+                    {overview.bankAccount.stripeConnect.email}
+                  </p>
+                ) : null}
+              </div>
+              <div className="rounded-[18px] bg-white px-4 py-4 shadow-[inset_0_0_0_1px_#edf2f7]">
+                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Verification status</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.bankAccount.verificationStatus || "missing")}`}>
+                    {overview?.bankAccount.verificationLabel || "Missing"}
+                  </span>
+                </div>
+                <p className="mt-2 text-[14px] text-[#64748b]">
+                  {overview?.bankAccount.updatedAt
+                    ? t("Last synced __ARG_0__", formatDate(overview.bankAccount.updatedAt))
+                    : t("The payout setup has not been started yet.")}
+                </p>
+                {overview?.bankAccount.stripeConnect?.requirementsCurrentlyDue?.length ? (
+                  <p className="mt-1 text-[13px] text-[#b45309]">
+                    {t("__ARG_0__ Stripe verification item(s) still need attention.", String(overview.bankAccount.stripeConnect.requirementsCurrentlyDue.length))}
+                  </p>
+                ) : null}
               </div>
             </div>
-            <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.bankAccount.verificationStatus || "missing")}`}>
-              {overview?.bankAccount.verificationLabel || "Missing"}
-            </span>
+
+            <div className="mt-5 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => handleStripePayoutAction(overview?.bankAccount.verificationStatus === "missing" ? "create" : "manage")}
+                disabled={payoutActionLoading !== null}
+                className="inline-flex h-11 items-center rounded-2xl bg-[#1876f2] px-5 text-[14px] font-bold text-white transition hover:bg-[#1669da]"
+              >
+                {payoutActionLoading === "create" || payoutActionLoading === "manage" ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t("Opening Stripe...")}
+                  </>
+                ) : (
+                  t(stripePayoutAction.primaryLabel)
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStripePayoutAction("status")}
+                disabled={payoutActionLoading !== null}
+                className="inline-flex h-11 items-center rounded-2xl border border-[#dbe3ec] bg-white px-5 text-[14px] font-semibold text-[#334155] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {payoutActionLoading === "status" ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {t("Refreshing...")}
+                  </>
+                ) : (
+                  t(stripePayoutAction.secondaryLabel)
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-[24px] bg-[#f8fafc] p-4">
+            <div className="rounded-[20px] bg-white p-5 shadow-[inset_0_0_0_1px_#edf2f7]">
+              <div className="flex items-center gap-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#eff6ff] text-[#1876f2]">
+                  <Building2 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[16px] font-bold text-[#0f172a]">
+                    {overview?.bankAccount.bankName ? `${overview.bankAccount.bankName} ${overview.bankAccount.accountNumberMasked}` : t("No Stripe payout account connected")}
+                  </p>
+                  <p className="mt-1 text-[14px] text-[#64748b]">
+                    {overview?.bankAccount.accountHolderName || t("Primary payout profile will appear here after Stripe setup")}
+                  </p>
+                  {overview?.bankAccount.providerLabel ? (
+                    <p className="mt-1 text-[13px] text-[#94a3b8]">{overview.bankAccount.providerLabel}</p>
+                  ) : null}
+                </div>
+                <span className={`ml-auto rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.bankAccount.verificationStatus || "missing")}`}>
+                  {overview?.bankAccount.verificationLabel || "Missing"}
+                </span>
+              </div>
+              <div className="mt-5 space-y-3 text-[14px] leading-6 text-[#64748b]">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 h-2 w-2 rounded-full bg-[#1876f2]" />
+                  <p>{t("Create the payout account in Stripe from this page instead of typing full banking details into TinyTale.")}</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 h-2 w-2 rounded-full bg-[#1876f2]" />
+                  <p>{t("Update or fix payout information from the same bank account card after onboarding has started.")}</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 h-2 w-2 rounded-full bg-[#1876f2]" />
+                  <p>{t("Tax information still stays inside TinyTale so settlement review and statement confirmation remain in one workflow.")}</p>
+                </div>
+              </div>
+
+              <div className="mt-5 border-t border-[#edf2f7] pt-2">
+                <Link href={localizePath("/creator/settlements/tax-information", locale)} className="flex items-center justify-between py-4">
+                  <span className="text-[15px] font-semibold text-[#0f172a]">Tax Information (W-9)</span>
+                  <div className="flex items-center gap-3">
+                    <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.taxInfo.status === "submitted" ? "verified" : "missing")}`}>
+                      {overview?.taxInfo.status === "submitted" ? "Submitted" : "Missing"}
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-[#94a3b8]" />
+                  </div>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
-
-        <div className="mt-5 divide-y divide-[#edf2f7]">
-          <button
-            type="button"
-            onClick={() => setShowBankEditor((value) => !value)}
-            className="flex w-full items-center justify-between py-4 text-left"
-          >
-            <span className="text-[15px] font-semibold text-[#0f172a]">Update Payout Method</span>
-            <ChevronRight className={`h-4 w-4 text-[#94a3b8] transition ${showBankEditor ? "rotate-90" : ""}`} />
-          </button>
-          <Link href={localizePath("/creator/settlements/tax-information", locale)} className="flex items-center justify-between py-4">
-            <span className="text-[15px] font-semibold text-[#0f172a]">Tax Information (W-9)</span>
-            <div className="flex items-center gap-3">
-              <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.taxInfo.status === "submitted" ? "verified" : "missing")}`}>
-                {overview?.taxInfo.status === "submitted" ? "Submitted" : "Missing"}
-              </span>
-              <ChevronRight className="h-4 w-4 text-[#94a3b8]" />
-            </div>
-          </Link>
-        </div>
-
-        {showBankEditor ? (
-          <form className="mt-5 grid gap-4 border-t border-[#edf2f7] pt-5 md:grid-cols-2" onSubmit={handleSaveBankAccount}>
-            <div>
-              <FieldLabel>Account Holder Name</FieldLabel>
-              <input className={inputClassName} value={form.accountHolderName} onChange={(event) => setForm((prev) => ({ ...prev, accountHolderName: event.target.value }))} />
-            </div>
-            <div>
-              <FieldLabel>Bank Name</FieldLabel>
-              <input className={inputClassName} value={form.bankName} onChange={(event) => setForm((prev) => ({ ...prev, bankName: event.target.value }))} />
-            </div>
-            <div>
-              <FieldLabel>Account Number / IBAN</FieldLabel>
-              <input className={inputClassName} value={form.accountNumber} onChange={(event) => setForm((prev) => ({ ...prev, accountNumber: event.target.value }))} />
-            </div>
-            <div>
-              <FieldLabel>Routing Number</FieldLabel>
-              <input className={inputClassName} value={form.routingNumber} onChange={(event) => setForm((prev) => ({ ...prev, routingNumber: event.target.value }))} />
-            </div>
-            <div>
-              <FieldLabel>SWIFT / BIC</FieldLabel>
-              <input className={inputClassName} value={form.swiftCode} onChange={(event) => setForm((prev) => ({ ...prev, swiftCode: event.target.value.toUpperCase() }))} />
-            </div>
-            <div>
-              <FieldLabel>Bank Country</FieldLabel>
-              <select
-                className={inputClassName}
-                value={form.country}
-                onChange={(event) => setForm((prev) => ({ ...prev, country: event.target.value }))}
-              >
-                <option value="">Select country</option>
-                {countryOptions.map((option) => (
-                  <option key={`${option.alpha2}-${option.value}`} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <FieldLabel>Bank Address</FieldLabel>
-              <input className={inputClassName} value={form.bankAddress} onChange={(event) => setForm((prev) => ({ ...prev, bankAddress: event.target.value }))} />
-            </div>
-            <div>
-              <FieldLabel>Currency</FieldLabel>
-              <input className={inputClassName} value={form.currency} onChange={(event) => setForm((prev) => ({ ...prev, currency: event.target.value.toUpperCase() }))} />
-            </div>
-            <div className="md:col-span-2 flex justify-end gap-3 pt-2">
-              <button type="button" onClick={() => setShowBankEditor(false)} className="inline-flex h-11 items-center rounded-2xl border border-[#dbe3ec] bg-white px-5 text-[14px] font-semibold text-[#334155] transition hover:bg-[#f8fafc]">
-                Cancel
-              </button>
-              <button type="submit" disabled={saving} className="inline-flex h-11 items-center rounded-2xl bg-[#1876f2] px-5 text-[14px] font-bold text-white transition hover:bg-[#1669da] disabled:opacity-60">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Payout Method"}
-              </button>
-            </div>
-          </form>
-        ) : null}
       </section>
 
       <section id="monthly-statements" className={`${cardClassName} overflow-hidden`}>
@@ -405,6 +493,8 @@ export default function CreatorSettlementsPage() {
               ["all", "All"],
               ["paid", "Paid"],
               ["pending", "Pending"],
+              ["processing", "Processing"],
+              ["held", "Held"],
               ["disputed", "Disputed"],
             ] as const).map(([value, label]) => (
               <button

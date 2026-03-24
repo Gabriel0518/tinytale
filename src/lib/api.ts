@@ -611,6 +611,20 @@ export const creatorApi = {
   getSettlementTaxInfo: (token: string) =>
     api.get<{ success: boolean; data: CreatorSettlementTaxInfo }>(`/api/creator/settlements/tax-info`, { token }),
 
+  createStripeSettlementOnboardingLink: (token: string) =>
+    api.post<{ success: boolean; data: { url: string; accountId: string; mode: "onboarding" } }>(
+      `/api/creator/settlements/stripe/onboarding-link`,
+      {},
+      { token }
+    ),
+
+  createStripeSettlementDashboardLink: (token: string) =>
+    api.post<{ success: boolean; data: { url: string; accountId: string; mode: "dashboard" } }>(
+      `/api/creator/settlements/stripe/dashboard-link`,
+      {},
+      { token }
+    ),
+
   getNotifications: (token: string) =>
     api.get<{ success: boolean; data: CreatorNotificationListResponse }>(`/api/creator/notifications`, { token }),
 

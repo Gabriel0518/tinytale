@@ -519,6 +519,30 @@ export type CreatorSettlementBankStatus =
   | "verified"
   | "rejected";
 
+export interface CreatorSettlementStripeConnectSummary {
+  accountId: string;
+  accountType: "express";
+  country: string;
+  email: string;
+  businessType: string;
+  detailsSubmitted: boolean;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  requirementsCurrentlyDue: string[];
+  requirementsEventuallyDue: string[];
+  requirementsPastDue: string[];
+  requirementsPendingVerification: string[];
+  requirementsDisabledReason: string;
+  onboardingCompletedAt: string | null;
+  lastSyncedAt: string | null;
+  dashboardDisplayName: string;
+  accountHolderName: string;
+  externalAccountId: string;
+  externalAccountBankName: string;
+  externalAccountLast4: string;
+  externalAccountCurrency: string;
+}
+
 export interface CreatorSettlementBankAccount {
   accountHolderName: string;
   bankName: string;
@@ -534,6 +558,9 @@ export interface CreatorSettlementBankAccount {
   verificationLabel: string;
   verifiedAt: string | null;
   updatedAt: string | null;
+  provider?: "manual" | "stripe";
+  providerLabel?: string;
+  stripeConnect?: CreatorSettlementStripeConnectSummary | null;
 }
 
 export interface CreatorSettlementStatement {
@@ -547,7 +574,7 @@ export interface CreatorSettlementStatement {
   settlementBaseUsd: number;
   creatorShareUsd: number;
   unlockCount: number;
-  status: "pending" | "generated" | "confirmed" | "paid" | "disputed";
+  status: "pending" | "generated" | "confirmed" | "processing" | "paid" | "disputed" | "held";
   statusLabel: string;
   payoutDate: string | null;
 }
@@ -834,6 +861,16 @@ export interface CreatorAdminCreatorDetail extends CreatorAdminCreatorListItem {
     maskedAccountNumber: string;
     country: string;
     updatedAt: string | null;
+    provider?: "manual" | "stripe";
+    providerLabel?: string;
+    verificationLabel?: string;
+    stripeAccountId?: string;
+    stripeEmail?: string;
+    stripeRequirementsCurrentlyDue?: string[];
+    stripeRequirementsPendingVerification?: string[];
+    stripeRequirementsEventuallyDue?: string[];
+    stripeDisabledReason?: string;
+    adminOverrideStatus?: "rejected" | "frozen" | null;
   };
   topDramas: Array<{
     id: string;
@@ -1004,6 +1041,7 @@ export type CreatorAdminSettlementStatus =
   | "pending"
   | "generated"
   | "confirmed"
+  | "processing"
   | "paid"
   | "disputed"
   | "held";
@@ -1024,6 +1062,15 @@ export interface CreatorAdminBankAccountItem {
   pendingBalanceUsd: number;
   nextSettlementDate: string | null;
   lastReviewNote: string;
+  bankProvider?: "manual" | "stripe";
+  bankProviderLabel?: string;
+  verificationLabel?: string;
+  stripeAccountId?: string;
+  stripeEmail?: string;
+  stripeRequirementsCurrentlyDue?: string[];
+  stripeRequirementsPendingVerification?: string[];
+  stripeDisabledReason?: string;
+  adminOverrideStatus?: "rejected" | "frozen" | null;
 }
 
 export interface CreatorAdminPayoutRequestItem {
@@ -1037,10 +1084,25 @@ export interface CreatorAdminPayoutRequestItem {
   requestedAt: string;
   payoutDate: string | null;
   bankStatus: CreatorAdminBankStatus;
+  bankProvider?: "manual" | "stripe";
+  bankProviderLabel?: string;
+  bankVerificationLabel?: string;
+  bankName?: string;
+  maskedAccountNumber?: string;
+  stripeAccountId?: string;
+  stripeEmail?: string;
+  stripeRequirementsCurrentlyDue?: string[];
+  stripeRequirementsPendingVerification?: string[];
+  stripeDisabledReason?: string;
+  adminOverrideStatus?: "rejected" | "frozen" | null;
   status: CreatorAdminSettlementStatus;
   payoutMethodLabel: string;
   holdReason: string;
   transferReference: string;
+  payoutId?: string;
+  payoutStatus?: string;
+  paidAt?: string | null;
+  payoutFailureMessage?: string;
   note: string;
 }
 
@@ -1060,7 +1122,22 @@ export interface CreatorAdminSettlementItem {
   unlockCount: number;
   payoutDate: string | null;
   bankStatus: CreatorAdminBankStatus;
+  bankProvider?: "manual" | "stripe";
+  bankProviderLabel?: string;
+  bankVerificationLabel?: string;
+  bankName?: string;
+  maskedAccountNumber?: string;
+  stripeAccountId?: string;
+  stripeEmail?: string;
+  stripeRequirementsCurrentlyDue?: string[];
+  stripeRequirementsPendingVerification?: string[];
+  stripeDisabledReason?: string;
+  adminOverrideStatus?: "rejected" | "frozen" | null;
   status: CreatorAdminSettlementStatus;
+  transferReference?: string;
+  payoutId?: string;
+  payoutStatus?: string;
+  paidAt?: string | null;
   note: string;
 }
 

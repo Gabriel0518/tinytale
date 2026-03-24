@@ -282,6 +282,11 @@ export function getCreatorDmcaStatusMeta(status: CreatorAdminDmcaStatus) {
 
 export function getCreatorSettlementStatusMeta(status: CreatorAdminSettlementStatus) {
   switch (status) {
+    case "processing":
+      return {
+        label: "Processing",
+        className: "bg-sky-500/15 text-sky-300 ring-1 ring-sky-500/20",
+      };
     case "paid":
       return {
         label: "Paid",

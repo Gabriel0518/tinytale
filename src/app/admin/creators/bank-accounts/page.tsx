@@ -76,7 +76,16 @@ export default function CreatorBankAccountsPage() {
   const filtered = useMemo(() => items.filter((item) => {
     const query = search.trim().toLowerCase();
     if (query) {
-      const haystack = [item.creatorName, item.creatorEmail, item.bankName, item.country, item.maskedAccountNumber].join(" ").toLowerCase();
+      const haystack = [
+        item.creatorName,
+        item.creatorEmail,
+        item.bankName,
+        item.country,
+        item.maskedAccountNumber,
+        item.stripeEmail || "",
+        item.stripeAccountId || "",
+        item.bankProviderLabel || "",
+      ].join(" ").toLowerCase();
       if (!haystack.includes(query)) return false;
     }
     if (status !== "all" && item.bankStatus !== status) return false;
@@ -106,19 +115,22 @@ export default function CreatorBankAccountsPage() {
 
     setSubmittingId(item.creatorId);
     try {
-      await adminApi.reviewCreatorBankAccount(item.creatorId, { decision: draft.decision, note: draft.note });
-    } catch {
-      // Keep local admin workflow available before finance integration lands.
+      const response: any = await adminApi.reviewCreatorBankAccount(item.creatorId, { decision: draft.decision, note: draft.note });
+      const nextStatus = response?.data?.bankStatus || draft.decision;
+      setItems((current) => current.map((currentItem) => currentItem.creatorId === item.creatorId ? {
+        ...currentItem,
+        bankStatus: nextStatus,
+        lastReviewNote: draft.note,
+        updatedAt: response?.data?.updatedAt || new Date().toISOString(),
+        adminOverrideStatus: nextStatus === "frozen" || nextStatus === "rejected" ? nextStatus : null,
+      } : currentItem));
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Failed to save bank review.", "error");
+      setSubmittingId(null);
+      return;
     } finally {
       setSubmittingId(null);
     }
-
-    setItems((current) => current.map((currentItem) => currentItem.creatorId === item.creatorId ? {
-      ...currentItem,
-      bankStatus: draft.decision,
-      lastReviewNote: draft.note,
-      updatedAt: new Date().toISOString(),
-    } : currentItem));
     setDrafts((current) => ({
       ...current,
       [item.creatorId]: draft,
@@ -140,9 +152,9 @@ export default function CreatorBankAccountsPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-400">Creator Management / Finance</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Creator bank-account review</h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Creator payout-account review</h1>
             <p className="mt-3 text-sm leading-6 text-gray-400">
-              Review payout accounts before settlement release, capture rejection reasons, and freeze payout methods when compliance or finance blocks exist.
+              Review Stripe Connect payout status before settlement release, capture finance notes, and freeze payout release when compliance or finance blocks exist.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -170,7 +182,7 @@ export default function CreatorBankAccountsPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by creator, bank, country, or masked account"
+              placeholder="Search by creator, Stripe account, bank, country, or masked account"
               className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] pl-11 pr-4 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
             />
           </label>
@@ -193,7 +205,7 @@ export default function CreatorBankAccountsPage() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Account queue</h2>
-              <p className="text-sm text-gray-400">Compact finance list. Review each payout method from the action modal.</p>
+              <p className="text-sm text-gray-400">Compact finance list. Review each Stripe-managed payout profile from the action modal.</p>
             </div>
           </div>
 
@@ -229,9 +241,15 @@ export default function CreatorBankAccountsPage() {
                         <p className="mt-2 text-xs text-gray-400">{item.country} · Updated {formatAdminDate(item.updatedAt, true)}</p>
                       </td>
                       <td className="py-4 pr-4">
-                        <p className="font-medium text-gray-200">{item.bankName || "No bank submitted"}</p>
-                        <p className="mt-1 text-xs text-gray-500">{item.accountHolderName || "Missing account holder"}</p>
-                        <p className="mt-2 text-xs text-gray-400">{item.maskedAccountNumber || "Missing account number"}</p>
+                        <p className="font-medium text-gray-200">{item.bankName || "Stripe onboarding not finished"}</p>
+                        <p className="mt-1 text-xs text-gray-500">{item.accountHolderName || item.stripeEmail || "Missing payout owner"}</p>
+                        <p className="mt-2 text-xs text-gray-400">
+                          {item.maskedAccountNumber || item.stripeAccountId || "No external bank account attached"}
+                        </p>
+                        <p className="mt-2 text-xs text-indigo-300">{item.bankProviderLabel || "Stripe Connect"}{item.verificationLabel ? ` · ${item.verificationLabel}` : ""}</p>
+                        {item.stripeRequirementsCurrentlyDue?.length ? (
+                          <p className="mt-1 text-xs text-amber-300">{item.stripeRequirementsCurrentlyDue.length} Stripe requirement(s) currently due</p>
+                        ) : null}
                       </td>
                       <td className="py-4 pr-4">
                         <p className="font-medium text-white">{formatUsd(item.availableBalanceUsd)}</p>
@@ -277,15 +295,15 @@ export default function CreatorBankAccountsPage() {
             <div className="mt-5 grid gap-3">
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Verification gate</p>
-                <p className="mt-2 text-sm leading-6 text-gray-300">Verified bank details should be cleared before statements move into payout release or manual payment confirmation.</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Stripe should enable payouts before statements move into payout release or manual payment confirmation.</p>
               </div>
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">When to reject</p>
-                <p className="mt-2 text-sm leading-6 text-gray-300">Reject when account holder proof, bank name, or routing details are incomplete and require creator resubmission.</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Use reject when Stripe still needs creator follow-up, ownership clarification, or updated external account details.</p>
               </div>
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">When to freeze</p>
-                <p className="mt-2 text-sm leading-6 text-gray-300">Freeze the payout method if compliance review, ownership checks, or repeated mismatch patterns block finance release.</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Freeze payout release if compliance review, ownership checks, sanctions, or repeated mismatch patterns block finance release.</p>
               </div>
             </div>
           </article>
@@ -316,15 +334,19 @@ export default function CreatorBankAccountsPage() {
                 const bankMeta = getCreatorBankStatusMeta(activeModalItem.bankStatus);
                 const creatorMeta = getCreatorLifecycleMeta(activeModalItem.creatorStatus);
                 const isSubmitting = submittingId === activeModalItem.creatorId;
+                const stripeManaged = activeModalItem.bankProvider === "stripe";
 
                 return (
                   <div className="space-y-4">
                     <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="font-medium text-white">{activeModalItem.accountHolderName || "Missing account holder"}</p>
-                          <p className="mt-1 text-sm text-gray-400">{activeModalItem.bankName || "No bank name"} · {activeModalItem.maskedAccountNumber || "No account number"}</p>
+                          <p className="font-medium text-white">{activeModalItem.accountHolderName || activeModalItem.stripeEmail || "Missing account holder"}</p>
+                          <p className="mt-1 text-sm text-gray-400">{activeModalItem.bankName || "No external bank account yet"} · {activeModalItem.maskedAccountNumber || activeModalItem.stripeAccountId || "No account number"}</p>
                           <p className="mt-2 text-xs text-gray-500">{activeModalItem.country} · Updated {formatAdminDate(activeModalItem.updatedAt, true)}</p>
+                          {activeModalItem.bankProviderLabel ? (
+                            <p className="mt-2 text-xs text-indigo-300">{activeModalItem.bankProviderLabel}{activeModalItem.verificationLabel ? ` · ${activeModalItem.verificationLabel}` : ""}</p>
+                          ) : null}
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
@@ -341,6 +363,30 @@ export default function CreatorBankAccountsPage() {
                           <p className="mt-1 text-sm text-white">{formatUsd(activeModalItem.pendingBalanceUsd)}</p>
                         </div>
                       </div>
+                      {activeModalItem.stripeAccountId ? (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Stripe account</p>
+                            <p className="mt-1 text-sm text-white">{activeModalItem.stripeAccountId}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Stripe email</p>
+                            <p className="mt-1 text-sm text-white">{activeModalItem.stripeEmail || "Not available"}</p>
+                          </div>
+                        </div>
+                      ) : null}
+                      {activeModalItem.stripeRequirementsCurrentlyDue?.length ? (
+                        <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+                          <p className="text-xs uppercase tracking-[0.12em] text-amber-200">Currently due in Stripe</p>
+                          <p className="mt-2 text-sm leading-6 text-amber-100">{activeModalItem.stripeRequirementsCurrentlyDue.join(", ")}</p>
+                        </div>
+                      ) : null}
+                      {activeModalItem.stripeDisabledReason ? (
+                        <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4">
+                          <p className="text-xs uppercase tracking-[0.12em] text-rose-200">Stripe disabled reason</p>
+                          <p className="mt-2 text-sm leading-6 text-rose-100">{activeModalItem.stripeDisabledReason}</p>
+                        </div>
+                      ) : null}
                       <p className="mt-4 text-sm leading-6 text-gray-300">{activeModalItem.lastReviewNote || "No finance note on record."}</p>
                     </div>
 
@@ -351,9 +397,9 @@ export default function CreatorBankAccountsPage() {
                         onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.creatorId]: { ...draft, decision: event.target.value as BankDecision } }))}
                         className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500"
                       >
-                        <option value="verified">Approve bank account</option>
-                        <option value="rejected">Reject and request resubmission</option>
-                        <option value="frozen">Freeze payout method</option>
+                        <option value="verified">{stripeManaged ? "Clear finance hold / use Stripe status" : "Approve bank account"}</option>
+                        <option value="rejected">{stripeManaged ? "Mark creator follow-up required" : "Reject and request resubmission"}</option>
+                        <option value="frozen">Freeze payout release</option>
                       </select>
                     </div>
 
@@ -362,7 +408,7 @@ export default function CreatorBankAccountsPage() {
                       <textarea
                         value={draft.note}
                         onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.creatorId]: { ...draft, note: event.target.value } }))}
-                        placeholder="Explain the finance decision or the documents still required."
+                        placeholder={stripeManaged ? "Explain the finance decision, Stripe blockers, or the creator follow-up still required." : "Explain the finance decision or the documents still required."}
                         className="min-h-[160px] w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
                       />
                     </div>

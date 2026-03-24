@@ -23,7 +23,7 @@ type SettlementDecisionDraft = {
 };
 
 function getDefaultDecision(status: CreatorAdminSettlementStatus): SettlementDecision {
-  if (status === "paid") return "mark_paid";
+  if (status === "paid" || status === "processing") return "mark_paid";
   if (status === "disputed") return "mark_disputed";
   if (status === "held") return "hold";
   return "confirm";
@@ -78,7 +78,18 @@ export default function CreatorSettlementsAdminPage() {
   const filtered = useMemo(() => items.filter((item) => {
     const query = search.trim().toLowerCase();
     if (query) {
-      const haystack = [item.creatorName, item.statementNo, item.periodLabel, item.note].join(" ").toLowerCase();
+      const haystack = [
+        item.creatorName,
+        item.statementNo,
+        item.periodLabel,
+        item.note,
+        item.transferReference || "",
+        item.payoutId || "",
+        item.bankName || "",
+        item.maskedAccountNumber || "",
+        item.stripeAccountId || "",
+        item.stripeEmail || "",
+      ].join(" ").toLowerCase();
       if (!haystack.includes(query)) return false;
     }
     if (status !== "all" && item.status !== status) return false;
@@ -108,40 +119,56 @@ export default function CreatorSettlementsAdminPage() {
 
     setSubmittingId(item.id);
     try {
-      await adminApi.reviewCreatorSettlement(item.creatorId, item.statementId, { decision: draft.decision, note: draft.note });
-    } catch {
-      // Preserve local workflow while real finance integration is still deferred.
-    } finally {
-      setSubmittingId(null);
-    }
-
-    const nextStatus: CreatorAdminSettlementStatus =
-      draft.decision === "mark_paid"
-        ? "paid"
-        : draft.decision === "mark_disputed"
+      const response: any = await adminApi.reviewCreatorSettlement(item.creatorId, item.statementId, { decision: draft.decision, note: draft.note });
+      const nextStatus: CreatorAdminSettlementStatus =
+        response?.data?.status
+        || (draft.decision === "mark_disputed"
           ? "disputed"
           : draft.decision === "hold"
             ? "held"
-            : "confirmed";
-    setItems((current) => current.map((currentItem) => currentItem.id === item.id ? {
-      ...currentItem,
-      status: nextStatus,
-      note: draft.note,
-    } : currentItem));
-    setDrafts((current) => ({
-      ...current,
-      [item.id]: {
-        decision: getDefaultDecision(nextStatus),
+            : draft.decision === "mark_paid"
+              ? "processing"
+              : "confirmed");
+      const nextTransferReference = response?.data?.transferReference || item.transferReference || "";
+      const nextPayoutId = response?.data?.payoutId || item.payoutId || "";
+      setItems((current) => current.map((currentItem) => currentItem.id === item.id ? {
+        ...currentItem,
+        status: nextStatus,
         note: draft.note,
-      },
-    }));
-    setActiveModalId(null);
-    toast("Settlement updated.", "success");
+        transferReference: nextTransferReference,
+        payoutId: nextPayoutId,
+        payoutStatus: nextStatus === "paid" ? "paid" : nextStatus === "processing" ? "pending" : currentItem.payoutStatus,
+        paidAt: nextStatus === "paid" ? new Date().toISOString() : currentItem.paidAt,
+      } : currentItem));
+      setDrafts((current) => ({
+        ...current,
+        [item.id]: {
+          decision: getDefaultDecision(nextStatus),
+          note: draft.note,
+        },
+      }));
+      setActiveModalId(null);
+      toast(
+        nextStatus === "processing"
+          ? "Stripe payout submitted."
+          : nextStatus === "paid"
+            ? "Stripe payout completed."
+            : "Settlement updated.",
+        "success",
+      );
+      return;
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Failed to update settlement.", "error");
+      return;
+    } finally {
+      setSubmittingId(null);
+    }
   }
 
   const stats = useMemo(() => ({
     generated: items.filter((item) => item.status === "generated").length,
     confirmed: items.filter((item) => item.status === "confirmed").length,
+    processing: items.filter((item) => item.status === "processing").length,
     paid: items.filter((item) => item.status === "paid").length,
     heldOrDisputed: items.filter((item) => item.status === "held" || item.status === "disputed").length,
   }), [items]);
@@ -171,6 +198,7 @@ export default function CreatorSettlementsAdminPage() {
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Generated</p><p className="mt-3 text-3xl font-bold text-indigo-300">{stats.generated}</p></article>
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Confirmed</p><p className="mt-3 text-3xl font-bold text-emerald-300">{stats.confirmed}</p></article>
+        <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Processing</p><p className="mt-3 text-3xl font-bold text-sky-300">{stats.processing}</p></article>
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Paid</p><p className="mt-3 text-3xl font-bold text-green-300">{stats.paid}</p></article>
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Held / Disputed</p><p className="mt-3 text-3xl font-bold text-red-300">{stats.heldOrDisputed}</p></article>
       </section>
@@ -182,7 +210,7 @@ export default function CreatorSettlementsAdminPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by creator, statement no, period, or note"
+              placeholder="Search by creator, statement no, bank, Stripe account, or note"
               className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] pl-11 pr-4 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
             />
           </label>
@@ -190,6 +218,7 @@ export default function CreatorSettlementsAdminPage() {
             <option value="all">All statement states</option>
             <option value="generated">Generated</option>
             <option value="confirmed">Confirmed</option>
+            <option value="processing">Processing</option>
             <option value="paid">Paid</option>
             <option value="held">Held</option>
             <option value="disputed">Disputed</option>
@@ -239,6 +268,8 @@ export default function CreatorSettlementsAdminPage() {
                       <p className="font-medium text-white">{item.statementNo}</p>
                       <p className="mt-1 text-xs text-gray-500">{item.periodLabel}</p>
                       <p className="mt-2 text-xs text-gray-400">{item.unlockCount.toLocaleString()} unlocks</p>
+                      {item.transferReference ? <p className="mt-1 text-xs text-gray-400">Ref {item.transferReference}</p> : null}
+                      {item.payoutId ? <p className="mt-1 text-xs text-sky-300">Payout {item.payoutId}</p> : null}
                     </td>
                     <td className="py-4 pr-4">
                       <p className="font-medium text-gray-200">{item.creatorName}</p>
@@ -252,6 +283,14 @@ export default function CreatorSettlementsAdminPage() {
                     </td>
                     <td className="py-4 pr-4">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
+                      <p className="mt-2 text-xs text-gray-500">{item.bankProviderLabel || "Stripe Connect"}</p>
+                      {item.bankVerificationLabel ? <p className="mt-1 text-xs text-indigo-300">{item.bankVerificationLabel}</p> : null}
+                      {item.bankName || item.maskedAccountNumber ? (
+                        <p className="mt-1 text-xs text-gray-400">{item.bankName || "No bank attached"} {item.maskedAccountNumber || ""}</p>
+                      ) : null}
+                      {item.stripeRequirementsCurrentlyDue?.length ? (
+                        <p className="mt-1 text-xs text-amber-300">{item.stripeRequirementsCurrentlyDue.length} Stripe item(s) due</p>
+                      ) : null}
                     </td>
                     <td className="py-4 pr-4">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${settlementMeta.className}`}>{settlementMeta.label}</span>
@@ -286,8 +325,8 @@ export default function CreatorSettlementsAdminPage() {
                 <p className="mt-2 text-sm leading-6 text-gray-300">Use hold or disputed status when the revenue chain is incomplete, reserve logic is contested, or downstream payout must stop.</p>
               </div>
               <div className="rounded-xl bg-[#0f0f17] p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Mark paid</p>
-                <p className="mt-2 text-sm leading-6 text-gray-300">Only mark paid after finance execution so payout requests, creator balances, and support records remain consistent.</p>
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Execute Stripe payout</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Execute Stripe payout only after the statement is released and the connected payout profile is fully verified.</p>
               </div>
             </div>
           </article>
@@ -351,6 +390,42 @@ export default function CreatorSettlementsAdminPage() {
                           <p className="mt-1 text-sm text-gray-300">{formatUsd(activeModalItem.reserveUsd)}</p>
                         </div>
                       </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Payout profile</p>
+                          <p className="mt-1 text-sm text-white">{activeModalItem.bankProviderLabel || "Stripe Connect"}</p>
+                          <p className="mt-1 text-xs text-gray-400">{activeModalItem.bankName || "No bank attached"} {activeModalItem.maskedAccountNumber || ""}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Stripe account</p>
+                          <p className="mt-1 text-sm text-white">{activeModalItem.stripeAccountId || "Not available"}</p>
+                          <p className="mt-1 text-xs text-gray-400">{activeModalItem.stripeEmail || activeModalItem.bankVerificationLabel || "No Stripe email available"}</p>
+                        </div>
+                      </div>
+                      {activeModalItem.stripeRequirementsCurrentlyDue?.length ? (
+                        <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+                          <p className="text-xs uppercase tracking-[0.12em] text-amber-200">Stripe currently due</p>
+                          <p className="mt-2 text-sm leading-6 text-amber-100">{activeModalItem.stripeRequirementsCurrentlyDue.join(", ")}</p>
+                        </div>
+                      ) : null}
+                      {activeModalItem.stripeDisabledReason ? (
+                        <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4">
+                          <p className="text-xs uppercase tracking-[0.12em] text-rose-200">Stripe disabled reason</p>
+                          <p className="mt-2 text-sm leading-6 text-rose-100">{activeModalItem.stripeDisabledReason}</p>
+                        </div>
+                      ) : null}
+                      {(activeModalItem.transferReference || activeModalItem.payoutId) ? (
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Transfer reference</p>
+                            <p className="mt-2 break-all text-sm text-white">{activeModalItem.transferReference || "Not created yet"}</p>
+                          </div>
+                          <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Stripe payout id</p>
+                            <p className="mt-2 break-all text-sm text-white">{activeModalItem.payoutId || "Pending Stripe response"}</p>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
 
                     <div>
@@ -363,7 +438,7 @@ export default function CreatorSettlementsAdminPage() {
                         <option value="confirm">Confirm statement</option>
                         <option value="hold">Place hold</option>
                         <option value="mark_disputed">Mark disputed</option>
-                        <option value="mark_paid">Mark paid</option>
+                        <option value="mark_paid">Execute Stripe payout</option>
                       </select>
                     </div>
 
@@ -372,7 +447,7 @@ export default function CreatorSettlementsAdminPage() {
                       <textarea
                         value={draft.note}
                         onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.id]: { ...draft, note: event.target.value } }))}
-                        placeholder="Record the reason for confirmation, hold, dispute, or payment."
+                        placeholder="Record the reason for confirmation, hold, dispute, or Stripe payout execution."
                         className="min-h-[150px] w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
                       />
                     </div>
@@ -382,7 +457,7 @@ export default function CreatorSettlementsAdminPage() {
                       disabled={isSubmitting}
                       className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isSubmitting ? "Saving..." : "Save settlement action"}
+                      {isSubmitting ? "Saving..." : draft.decision === "mark_paid" ? "Execute Stripe payout" : "Save settlement action"}
                     </button>
                   </div>
                 );
