@@ -31,7 +31,7 @@ interface PricingContext {
 }
 
 type PaymentProvider = "stripe" | "airwallex";
-type PaymentOption = "card" | "wallet" | "cards" | "local";
+type PaymentOption = string;
 
 type PaymentOptionDefinition = {
   id: PaymentOption;
@@ -56,14 +56,11 @@ type CoinsCopy = {
   bonusCoins: string;
   total: string;
   selectPackageHint: string;
-  paymentMethod: string;
+  paymentChannel: string;
   providerTitle: string;
-  providerDescription: string;
   providerLabels: Record<PaymentProvider, string>;
-  providerDescriptions: Record<PaymentProvider, string>;
   selectedProvider: string;
   selectedMethod: string;
-  chooseMethod: string;
   continueToCheckout: string;
   haveRedeemCode: string;
   enterCode: string;
@@ -72,31 +69,37 @@ type CoinsCopy = {
   modalTitle: (provider: string) => string;
   modalSubtitle: string;
   modalNotice: string;
+  availableInRegion: (countryCode: string) => string;
+  chooseMethodHint: string;
+  actions: {
+    cancel: string;
+    continue: string;
+  };
   methodPills: {
     recommended: string;
     express: string;
     global: string;
     local: string;
+    bank: string;
+    wallet: string;
+    instant: string;
   };
-  paymentOptions: Record<PaymentProvider, PaymentOptionDefinition[]>;
+  paymentOptionCatalog: Record<string, { label: string; description: string }>;
   toasts: {
     selectPackageFirst: string;
+    selectProviderFirst: string;
     selectPaymentMethod: string;
     paymentFailed: string;
     redeemSuccess: (coins: number) => string;
     invalidCode: string;
     genericError: string;
   };
-  actions: {
-    cancel: string;
-    continue: string;
-  };
 };
 
 const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
   en: {
     title: "Gold Recharge",
-    subtitle: "Choose a package first, then pick your preferred checkout provider and payment method.",
+    subtitle: "Choose your package, then pick a payment channel and the checkout method available in your region.",
     currentBalance: "Current Balance",
     coinsUnit: "coins",
     transactionHistory: "Transaction History",
@@ -107,87 +110,127 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     notes: [
       "Coins are non-refundable once purchased.",
       "Bonus coins are valid for 30 days from the date of purchase.",
-      "Prices use USD as the base. Final payment methods and currencies are shown by the provider at checkout.",
+      "Final payment methods and currencies still depend on provider eligibility at checkout.",
     ],
     orderSummary: "Order Summary",
     selectedCoins: (coins) => `${coins.toLocaleString()} Coins`,
     bonusCoins: "Bonus Coins",
     total: "Total",
     selectPackageHint: "Select a package to continue",
-    paymentMethod: "Payment Channel",
+    paymentChannel: "Payment Channel",
     providerTitle: "Choose a payment channel",
-    providerDescription: "Tap a brand card to view the supported payment methods in the popup.",
     providerLabels: {
       stripe: "Stripe",
       airwallex: "Airwallex",
     },
-    providerDescriptions: {
-      stripe: "Optimized for cards and express wallets through Stripe Checkout.",
-      airwallex: "Hosted global checkout with cards and region-based local methods.",
-    },
     selectedProvider: "Selected Channel",
     selectedMethod: "Selected Method",
-    chooseMethod: "Choose payment method",
     continueToCheckout: "Continue to checkout",
     haveRedeemCode: "Have a redeem code?",
     enterCode: "Enter code",
     redeem: "Redeem",
     securedBy: "Secured by provider-hosted checkout and 256-bit SSL encryption",
     modalTitle: (provider) => `${provider} payment methods`,
-    modalSubtitle: "Choose how you want to pay before we take you to the hosted checkout page.",
-    modalNotice: "Available options may still change based on your browser, device, region, and provider eligibility rules.",
+    modalSubtitle: "Choose a payment method for your current region before we take you to the hosted checkout page.",
+    modalNotice: "Provider-side availability can still change based on browser, device, risk checks, and merchant configuration.",
+    availableInRegion: (countryCode) => `Available for your current region: ${countryCode}.`,
+    chooseMethodHint: "Choose a payment method",
+    actions: {
+      cancel: "Cancel",
+      continue: "Continue",
+    },
     methodPills: {
       recommended: "Recommended",
       express: "Express",
       global: "Global",
       local: "Local",
+      bank: "Bank",
+      wallet: "Wallet",
+      instant: "Instant",
     },
-    paymentOptions: {
-      stripe: [
-        {
-          id: "card",
-          label: "Credit / Debit Card",
-          description: "Visa, Mastercard, Amex, and other supported cards inside Stripe Checkout.",
-          pill: "Recommended",
-        },
-        {
-          id: "wallet",
-          label: "Apple Pay / Google Pay / Link",
-          description: "Express wallet methods shown by Stripe when your device and browser support them.",
-          pill: "Express",
-        },
-      ],
-      airwallex: [
-        {
-          id: "cards",
-          label: "Global Cards",
-          description: "International credit and debit card payment options through Airwallex.",
-          pill: "Global",
-        },
-        {
-          id: "local",
-          label: "Local Payment Methods",
-          description: "Region-based payment methods that Airwallex shows when available for your market.",
-          pill: "Local",
-        },
-      ],
+    paymentOptionCatalog: {
+      card: {
+        label: "Credit / Debit Card",
+        description: "Visa, Mastercard, Amex, and other supported cards in hosted checkout.",
+      },
+      wallet: {
+        label: "Apple Pay / Google Pay / Link",
+        description: "Express wallet methods shown when your browser and device support them.",
+      },
+      paynow: {
+        label: "PayNow",
+        description: "Singapore instant bank transfer and QR payment option.",
+      },
+      grabpay: {
+        label: "GrabPay",
+        description: "Popular Southeast Asia wallet payment option.",
+      },
+      fpx: {
+        label: "FPX Online Banking",
+        description: "Malaysia online banking redirect method.",
+      },
+      tng: {
+        label: "Touch 'n Go eWallet",
+        description: "Malaysia wallet payment method.",
+      },
+      qris: {
+        label: "QRIS",
+        description: "Indonesia QR payment option.",
+      },
+      local_bank: {
+        label: "Local Bank Transfer",
+        description: "Local banking method displayed inside provider checkout.",
+      },
+      promptpay: {
+        label: "PromptPay",
+        description: "Thailand instant local payment method.",
+      },
+      truemoney: {
+        label: "TrueMoney",
+        description: "Thailand wallet payment option.",
+      },
+      fps: {
+        label: "FPS",
+        description: "Hong Kong Faster Payment System.",
+      },
+      alipayhk: {
+        label: "AlipayHK",
+        description: "Hong Kong local wallet option.",
+      },
+      wechatpayhk: {
+        label: "WeChat Pay HK",
+        description: "Hong Kong wallet option through WeChat Pay HK.",
+      },
+      konbini: {
+        label: "Konbini",
+        description: "Japan convenience store payment option.",
+      },
+      ideal: {
+        label: "iDEAL",
+        description: "Netherlands local bank payment method.",
+      },
+      blik: {
+        label: "BLIK",
+        description: "Poland code-based instant payment method.",
+      },
+      sofort: {
+        label: "Sofort / Bank Redirect",
+        description: "European online banking redirect method.",
+      },
     },
     toasts: {
       selectPackageFirst: "Please select a recharge package first",
+      selectProviderFirst: "Please choose a payment channel first",
       selectPaymentMethod: "Please choose a payment method first",
       paymentFailed: "Payment failed",
       redeemSuccess: (coins) => `Redeemed ${coins} coins!`,
       invalidCode: "Invalid or expired code",
       genericError: "An error occurred",
     },
-    actions: {
-      cancel: "Cancel",
-      continue: "Continue",
-    },
   },
   zh: {
     title: "金币充值",
-    subtitle: "先选择套餐，再选择支付渠道与支付方式，最后进入对应的托管收银台完成支付。",
+    subtitle: "先选择套餐，再选择支付渠道，最后按你当前地区支持的支付方式进入托管收银台完成支付。",
     currentBalance: "当前余额",
     coinsUnit: "金币",
     transactionHistory: "交易记录",
@@ -198,82 +241,122 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     notes: [
       "金币购买后不支持退款。",
       "赠送金币自购买之日起 30 天内有效。",
-      "价格以 USD 为基准，最终可用支付方式和展示币种以支付渠道结账页为准。",
+      "最终可用支付方式和展示币种仍以支付渠道结账页为准。",
     ],
     orderSummary: "订单摘要",
     selectedCoins: (coins) => `${coins.toLocaleString()} 金币`,
     bonusCoins: "赠送金币",
     total: "合计",
     selectPackageHint: "请选择一个套餐继续",
-    paymentMethod: "支付渠道",
+    paymentChannel: "支付渠道",
     providerTitle: "选择支付渠道",
-    providerDescription: "点击品牌卡片，在弹窗中查看该渠道支持的支付方式。",
     providerLabels: {
       stripe: "Stripe",
       airwallex: "Airwallex",
     },
-    providerDescriptions: {
-      stripe: "适合银行卡与快捷钱包，进入 Stripe Checkout 完成支付。",
-      airwallex: "适合全球卡支付与地区本地化方式，进入 Airwallex 托管收银台。",
-    },
     selectedProvider: "已选渠道",
     selectedMethod: "已选方式",
-    chooseMethod: "选择支付方式",
-    continueToCheckout: "前往收银台",
+    continueToCheckout: "继续支付",
     haveRedeemCode: "有兑换码？",
     enterCode: "输入兑换码",
     redeem: "兑换",
     securedBy: "由支付渠道托管结账，并使用 256-bit SSL 加密保护",
     modalTitle: (provider) => `${provider} 支付方式`,
-    modalSubtitle: "请先选择本次要使用的支付方式，我们会再带你进入对应的托管收银台。",
-    modalNotice: "实际可用方式仍会受浏览器、设备、地区以及支付渠道资格规则影响。",
+    modalSubtitle: "请根据你当前地区选择本次要使用的支付方式，我们会再带你进入对应的托管收银台。",
+    modalNotice: "实际可用方式仍会受浏览器、设备、风控校验以及支付渠道配置影响。",
+    availableInRegion: (countryCode) => `当前根据你的地区 ${countryCode} 提供以下支付方式。`,
+    chooseMethodHint: "请选择支付方式",
+    actions: {
+      cancel: "取消",
+      continue: "继续",
+    },
     methodPills: {
       recommended: "推荐",
       express: "快捷",
       global: "全球",
       local: "本地",
+      bank: "银行",
+      wallet: "钱包",
+      instant: "即时",
     },
-    paymentOptions: {
-      stripe: [
-        {
-          id: "card",
-          label: "信用卡 / 借记卡",
-          description: "在 Stripe Checkout 中使用 Visa、Mastercard、Amex 等银行卡完成支付。",
-          pill: "推荐",
-        },
-        {
-          id: "wallet",
-          label: "Apple Pay / Google Pay / Link",
-          description: "当你的设备和浏览器支持时，Stripe 会展示快捷钱包支付方式。",
-          pill: "快捷",
-        },
-      ],
-      airwallex: [
-        {
-          id: "cards",
-          label: "全球银行卡",
-          description: "通过 Airwallex 支持的国际信用卡与借记卡完成支付。",
-          pill: "全球",
-        },
-        {
-          id: "local",
-          label: "本地支付方式",
-          description: "Airwallex 会根据你的地区展示可用的本地化支付方式。",
-          pill: "本地",
-        },
-      ],
+    paymentOptionCatalog: {
+      card: {
+        label: "信用卡 / 借记卡",
+        description: "在托管收银台中使用 Visa、Mastercard、Amex 等银行卡完成支付。",
+      },
+      wallet: {
+        label: "Apple Pay / Google Pay / Link",
+        description: "当你的浏览器和设备支持时，会展示快捷钱包支付方式。",
+      },
+      paynow: {
+        label: "PayNow",
+        description: "新加坡常用的即时银行转账与二维码支付方式。",
+      },
+      grabpay: {
+        label: "GrabPay",
+        description: "东南亚地区常见的钱包支付方式。",
+      },
+      fpx: {
+        label: "FPX 网银支付",
+        description: "马来西亚本地网银跳转支付方式。",
+      },
+      tng: {
+        label: "Touch 'n Go 电子钱包",
+        description: "马来西亚本地钱包支付方式。",
+      },
+      qris: {
+        label: "QRIS",
+        description: "印尼本地二维码支付方式。",
+      },
+      local_bank: {
+        label: "本地银行转账",
+        description: "由支付渠道在收银台中展示的本地银行支付方式。",
+      },
+      promptpay: {
+        label: "PromptPay",
+        description: "泰国本地即时支付方式。",
+      },
+      truemoney: {
+        label: "TrueMoney",
+        description: "泰国常见电子钱包支付方式。",
+      },
+      fps: {
+        label: "FPS 转数快",
+        description: "香港本地即时转账支付方式。",
+      },
+      alipayhk: {
+        label: "AlipayHK",
+        description: "香港地区常见钱包支付方式。",
+      },
+      wechatpayhk: {
+        label: "WeChat Pay HK",
+        description: "香港地区常见钱包支付方式。",
+      },
+      konbini: {
+        label: "便利店支付",
+        description: "日本本地便利店线下支付方式。",
+      },
+      ideal: {
+        label: "iDEAL",
+        description: "荷兰本地网银支付方式。",
+      },
+      blik: {
+        label: "BLIK",
+        description: "波兰本地即时码支付方式。",
+      },
+      sofort: {
+        label: "Sofort / 银行跳转",
+        description: "欧洲地区常见的网银跳转支付方式。",
+      },
     },
     toasts: {
       selectPackageFirst: "请先选择充值套餐",
+      selectProviderFirst: "请先选择支付渠道",
       selectPaymentMethod: "请先选择支付方式",
       paymentFailed: "支付失败",
       redeemSuccess: (coins) => `成功兑换 ${coins} 金币！`,
       invalidCode: "兑换码无效或已过期",
       genericError: "发生错误",
-    },
-    actions: {
-      cancel: "取消",
-      continue: "继续",
     },
   },
 };
@@ -285,7 +368,7 @@ const CHECKOUT_CONTEXT_COPY: FlexibleRecord<SupportedLocale, (countryCode: strin
 
 function StripeLogo() {
   return (
-    <svg className="h-6 w-auto" viewBox="0 0 48 20" fill="none" aria-hidden="true">
+    <svg className="h-8 w-auto" viewBox="0 0 48 20" fill="none" aria-hidden="true">
       <path d="M20.69 8.29c0-1.75 1.44-2.42 3.84-2.42 3.44 0 7.77 1.04 11.2 2.9V1.62C32.03.25 28.6 0 25.17 0c-8.42 0-13.98 4.4-13.98 11.74 0 11.45 15.74 9.62 15.74 14.67 0 2.08-1.81 2.75-4.35 2.75-3.75 0-8.55-1.55-12.35-3.61v7.24c4.2 1.82 8.45 2.59 12.35 2.59 8.63 0 14.57-4.26 14.57-11.7 0-12.36-15.77-10.16-15.77-15.39Z" fill="currentColor" />
       <path d="M7.94 1.05 0 34.87h8.71l7.94-33.82H7.94Z" fill="currentColor" />
       <path d="m46.14 1.05-7.9 33.82H47L54.9 1.05h-8.76Z" fill="currentColor" />
@@ -295,7 +378,7 @@ function StripeLogo() {
 
 function AirwallexLogo() {
   return (
-    <svg className="h-7 w-7" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+    <svg className="h-10 w-10" viewBox="0 0 32 32" fill="none" aria-hidden="true">
       <rect x="1.5" y="1.5" width="29" height="29" rx="10" stroke="currentColor" strokeWidth="2" />
       <path d="M10 22 16 9l6 13m-10-3h8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -304,7 +387,7 @@ function AirwallexLogo() {
 
 function CoinBadge() {
   return (
-    <svg className="w-7 h-7 text-yellow-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <svg className="h-7 w-7 text-yellow-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <circle cx="12" cy="12" r="10" fill="url(#coinGradSummary)" />
       <text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text>
       <defs>
@@ -315,6 +398,76 @@ function CoinBadge() {
       </defs>
     </svg>
   );
+}
+
+function buildPaymentOption(
+  copy: CoinsCopy,
+  id: string,
+  pill: string,
+): PaymentOptionDefinition {
+  const catalog = copy.paymentOptionCatalog[id];
+  return {
+    id,
+    label: catalog.label,
+    description: catalog.description,
+    pill,
+  };
+}
+
+function getRegionalPaymentOptions(copy: CoinsCopy, countryCode: string | undefined): Record<PaymentProvider, PaymentOptionDefinition[]> {
+  const code = String(countryCode || "US").toUpperCase();
+
+  const stripe: PaymentOptionDefinition[] = [
+    buildPaymentOption(copy, "card", copy.methodPills.recommended),
+  ];
+
+  if (["US", "CA", "GB", "AU", "NZ", "SG", "HK", "JP", "DE", "FR", "NL", "SE", "CH", "IE"].includes(code)) {
+    stripe.push(buildPaymentOption(copy, "wallet", copy.methodPills.express));
+  }
+
+  const airwallex: PaymentOptionDefinition[] = [
+    buildPaymentOption(copy, "card", copy.methodPills.global),
+  ];
+
+  if (code === "SG") {
+    airwallex.push(
+      buildPaymentOption(copy, "paynow", copy.methodPills.instant),
+      buildPaymentOption(copy, "grabpay", copy.methodPills.wallet),
+    );
+  } else if (code === "MY") {
+    airwallex.push(
+      buildPaymentOption(copy, "fpx", copy.methodPills.bank),
+      buildPaymentOption(copy, "tng", copy.methodPills.wallet),
+    );
+  } else if (code === "ID") {
+    airwallex.push(
+      buildPaymentOption(copy, "qris", copy.methodPills.local),
+      buildPaymentOption(copy, "local_bank", copy.methodPills.bank),
+    );
+  } else if (code === "TH") {
+    airwallex.push(
+      buildPaymentOption(copy, "promptpay", copy.methodPills.instant),
+      buildPaymentOption(copy, "truemoney", copy.methodPills.wallet),
+    );
+  } else if (code === "HK") {
+    airwallex.push(
+      buildPaymentOption(copy, "fps", copy.methodPills.instant),
+      buildPaymentOption(copy, "alipayhk", copy.methodPills.wallet),
+      buildPaymentOption(copy, "wechatpayhk", copy.methodPills.wallet),
+    );
+  } else if (code === "JP") {
+    airwallex.push(buildPaymentOption(copy, "konbini", copy.methodPills.local));
+  } else if (code === "NL") {
+    airwallex.push(buildPaymentOption(copy, "ideal", copy.methodPills.bank));
+  } else if (code === "PL") {
+    airwallex.push(buildPaymentOption(copy, "blik", copy.methodPills.instant));
+  } else if (["DE", "AT", "BE", "ES", "IT", "FR"].includes(code)) {
+    airwallex.push(buildPaymentOption(copy, "sofort", copy.methodPills.bank));
+  } else if (["PH", "VN", "IN", "KR", "TW"].includes(code)) {
+    airwallex.push(buildPaymentOption(copy, "local_bank", copy.methodPills.local));
+  }
+
+  return { stripe, airwallex };
 }
 
 export default function CoinsPage() {
@@ -353,10 +506,10 @@ export default function CoinsPage() {
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>("stripe");
   const [providerSelections, setProviderSelections] = useState<Record<PaymentProvider, PaymentOption | null>>({
-    stripe: "card",
-    airwallex: "cards",
+    stripe: null,
+    airwallex: null,
   });
-  const [modalProvider, setModalProvider] = useState<PaymentProvider | null>(null);
+  const [isMethodModalOpen, setIsMethodModalOpen] = useState(false);
   const [modalSelection, setModalSelection] = useState<PaymentOption | null>(null);
   const [redeemCode, setRedeemCode] = useState("");
   const [showRedeem, setShowRedeem] = useState(false);
@@ -400,31 +553,33 @@ export default function CoinsPage() {
   }, [user]);
 
   const selected = packages.find((pkg) => pkg._id === selectedPkg);
+  const regionalOptions = useMemo(
+    () => getRegionalPaymentOptions(t, pricingContext?.countryCode),
+    [pricingContext?.countryCode, t],
+  );
+  const activeMethods = regionalOptions[selectedProvider];
 
-  const activeMethods = modalProvider ? t.paymentOptions[modalProvider] : [];
+  useEffect(() => {
+    setProviderSelections((current) => {
+      const next = { ...current };
+      (Object.keys(regionalOptions) as PaymentProvider[]).forEach((provider) => {
+        const methods = regionalOptions[provider];
+        const currentSelection = current[provider];
+        if (!currentSelection || !methods.some((item) => item.id === currentSelection)) {
+          next[provider] = methods[0]?.id || null;
+        }
+      });
+      return next;
+    });
+  }, [regionalOptions]);
+
   const selectedMethodDefinition = useMemo(() => {
     const optionId = providerSelections[selectedProvider];
-    return t.paymentOptions[selectedProvider].find((item) => item.id === optionId) || null;
-  }, [providerSelections, selectedProvider, t]);
+    return regionalOptions[selectedProvider].find((item) => item.id === optionId) || null;
+  }, [providerSelections, regionalOptions, selectedProvider]);
 
-  const openProviderModal = (provider: PaymentProvider) => {
-    if (!selected) {
-      toast(t.toasts.selectPackageFirst, "error");
-      return;
-    }
-    setSelectedProvider(provider);
-    setModalProvider(provider);
-    setModalSelection(providerSelections[provider]);
-  };
-
-  const continueWithMethod = async () => {
+  const startCheckout = async (provider: PaymentProvider, paymentOption: PaymentOption) => {
     if (!selected || !token) return;
-    const paymentOption = providerSelections[selectedProvider];
-    if (!paymentOption) {
-      toast(t.toasts.selectPaymentMethod, "error");
-      return;
-    }
-
     setPaying(true);
     try {
       const query = new URLSearchParams({
@@ -434,25 +589,39 @@ export default function CoinsPage() {
         price: String(selected.price),
         paymentOption,
       });
-      window.location.href = localizePath(`/user/coins/checkout/${selectedProvider}?${query.toString()}`, locale);
+      window.location.href = localizePath(`/user/coins/checkout/${provider}?${query.toString()}`, locale);
     } catch (error: unknown) {
       toast(error instanceof Error ? error.message : t.toasts.paymentFailed, "error");
     } finally {
       setPaying(false);
+      setIsMethodModalOpen(false);
     }
   };
 
-  const confirmModalSelection = () => {
-    if (!modalProvider || !modalSelection) {
+  const openMethodModal = () => {
+    if (!selected) {
+      toast(t.toasts.selectPackageFirst, "error");
+      return;
+    }
+    if (!selectedProvider) {
+      toast(t.toasts.selectProviderFirst, "error");
+      return;
+    }
+    const defaultMethod = providerSelections[selectedProvider] || regionalOptions[selectedProvider][0]?.id || null;
+    setModalSelection(defaultMethod);
+    setIsMethodModalOpen(true);
+  };
+
+  const confirmMethodSelection = async () => {
+    if (!modalSelection) {
       toast(t.toasts.selectPaymentMethod, "error");
       return;
     }
     setProviderSelections((current) => ({
       ...current,
-      [modalProvider]: modalSelection,
+      [selectedProvider]: modalSelection,
     }));
-    setSelectedProvider(modalProvider);
-    setModalProvider(null);
+    await startCheckout(selectedProvider, modalSelection);
   };
 
   const handleRedeem = async () => {
@@ -473,7 +642,7 @@ export default function CoinsPage() {
   if (authLoading || !user || loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+        <div className="h-8 w-8 rounded-full border-2 border-yellow-500 border-t-transparent animate-spin" />
       </div>
     );
   }
@@ -485,7 +654,7 @@ export default function CoinsPage() {
       <div className="mx-auto max-w-6xl px-4 pb-16 pt-24">
         <div className="mb-8">
           <h1 className="text-3xl font-bold">
-            <span className="bg-clip-text text-transparent bg-[length:200%_auto] animate-shine bg-[linear-gradient(90deg,#FFD700_0%,#FFF8DC_25%,#FFD700_50%,#FFF8DC_75%,#FFD700_100%)]">
+            <span className="bg-[length:200%_auto] bg-[linear-gradient(90deg,#FFD700_0%,#FFF8DC_25%,#FFD700_50%,#FFF8DC_75%,#FFD700_100%)] bg-clip-text text-transparent animate-shine">
               {t.title}
             </span>
           </h1>
@@ -598,7 +767,7 @@ export default function CoinsPage() {
           </div>
         </section>
 
-        <section className="mt-8 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <section className="mt-8 grid gap-6 xl:grid-cols-[0.88fr_1.12fr]">
           <div className="rounded-3xl border border-yellow-500/20 bg-zinc-900/70 p-6 shadow-[inset_0_1px_0_rgba(255,215,0,0.08)]">
             <h3 className="text-xl font-semibold">{t.orderSummary}</h3>
             {selected ? (
@@ -627,11 +796,8 @@ export default function CoinsPage() {
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-zinc-900/70 p-6">
-            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-              <div>
-                <h3 className="text-xl font-semibold">{t.providerTitle}</h3>
-                <p className="mt-2 text-sm text-gray-400">{t.providerDescription}</p>
-              </div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-semibold">{t.providerTitle}</h3>
               <div className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-xs text-gray-400">
                 {t.selectedProvider}: <span className="font-semibold text-white">{t.providerLabels[selectedProvider]}</span>
                 {selectedMethodDefinition && (
@@ -643,53 +809,40 @@ export default function CoinsPage() {
               </div>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="mt-6 grid grid-cols-2 gap-4">
               {([
                 {
                   id: "stripe" as const,
-                  description: t.providerDescriptions.stripe,
                   logo: <StripeLogo />,
-                  accent: "from-[#1a2440] via-[#172554] to-[#0b1120]",
                   border: "border-[#635bff]/40",
+                  glow: "shadow-[0_0_32px_rgba(99,91,255,0.12)]",
                 },
                 {
                   id: "airwallex" as const,
-                  description: t.providerDescriptions.airwallex,
                   logo: <AirwallexLogo />,
-                  accent: "from-[#102a28] via-[#0f3c35] to-[#0b1114]",
-                  border: "border-teal-400/30",
+                  border: "border-teal-400/35",
+                  glow: "shadow-[0_0_32px_rgba(45,212,191,0.12)]",
                 },
               ]).map((provider) => {
                 const isActive = selectedProvider === provider.id;
-                const chosenMethod = t.paymentOptions[provider.id].find((item) => item.id === providerSelections[provider.id]);
-
                 return (
                   <button
                     key={provider.id}
-                    onClick={() => openProviderModal(provider.id)}
-                    className={`group rounded-3xl border p-5 text-left transition duration-200 hover:-translate-y-1 ${
-                      isActive
-                        ? `${provider.border} bg-gradient-to-br ${provider.accent} shadow-[0_0_26px_rgba(255,215,0,0.08)]`
-                        : "border-white/10 bg-black/30 hover:border-white/20"
+                    onClick={() => setSelectedProvider(provider.id)}
+                    aria-pressed={isActive}
+                    className={`flex min-h-[152px] items-center justify-center rounded-3xl border bg-black/30 text-white transition hover:-translate-y-1 hover:border-white/20 ${
+                      isActive ? `${provider.border} ${provider.glow}` : "border-white/10"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <div className={`inline-flex rounded-2xl border px-3 py-2 ${isActive ? provider.border : "border-white/10"} text-white`}>
-                        {provider.logo}
-                      </div>
-                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
-                        isActive ? "bg-yellow-500/15 text-yellow-200" : "bg-white/5 text-gray-400"
-                      }`}>
-                        {t.providerLabels[provider.id]}
-                      </span>
-                    </div>
-
-                    <p className="mt-5 text-sm leading-6 text-gray-300">{provider.description}</p>
-
-                    <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-4">
-                      <p className="text-xs uppercase tracking-[0.2em] text-gray-500">{t.selectedMethod}</p>
-                      <p className="mt-2 text-sm font-semibold text-white">{chosenMethod?.label || t.chooseMethod}</p>
-                      <p className="mt-1 text-xs text-gray-500">{chosenMethod?.description || t.modalSubtitle}</p>
+                    <div className="relative">
+                      {provider.logo}
+                      {isActive && (
+                        <span className="absolute -right-3 -top-3 inline-flex h-6 w-6 items-center justify-center rounded-full bg-yellow-500 text-black">
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75 10.5 18l9-13.5" />
+                          </svg>
+                        </span>
+                      )}
                     </div>
                   </button>
                 );
@@ -699,18 +852,18 @@ export default function CoinsPage() {
             <div className="mt-6 rounded-3xl border border-yellow-500/15 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(12,10,9,0.6))] p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-yellow-200/70">{t.paymentMethod}</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-yellow-200/70">{t.paymentChannel}</p>
                   <p className="mt-2 text-lg font-semibold text-white">
                     {t.providerLabels[selectedProvider]}
                     {selectedMethodDefinition ? ` · ${selectedMethodDefinition.label}` : ""}
                   </p>
                   <p className="mt-1 text-sm text-gray-300">
-                    {selectedMethodDefinition?.description || t.modalSubtitle}
+                    {selectedMethodDefinition?.description || t.chooseMethodHint}
                   </p>
                 </div>
 
                 <button
-                  onClick={continueWithMethod}
+                  onClick={openMethodModal}
                   disabled={!selected || paying}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-yellow-600 to-yellow-500 px-6 py-3.5 text-sm font-bold text-black transition hover:from-yellow-500 hover:to-yellow-400 disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto"
                 >
@@ -786,17 +939,20 @@ export default function CoinsPage() {
         </section>
       </div>
 
-      {modalProvider && (
+      {isMethodModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-[30px] border border-white/10 bg-[#111114] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-yellow-300/75">{t.paymentMethod}</p>
-                <h3 className="mt-3 text-2xl font-semibold">{t.modalTitle(t.providerLabels[modalProvider])}</h3>
+                <p className="text-xs uppercase tracking-[0.25em] text-yellow-300/75">{t.paymentChannel}</p>
+                <h3 className="mt-3 text-2xl font-semibold">{t.modalTitle(t.providerLabels[selectedProvider])}</h3>
                 <p className="mt-3 max-w-xl text-sm leading-6 text-gray-400">{t.modalSubtitle}</p>
+                <p className="mt-3 text-xs uppercase tracking-[0.18em] text-gray-500">
+                  {t.availableInRegion(pricingContext?.countryCode || "US")}
+                </p>
               </div>
               <button
-                onClick={() => setModalProvider(null)}
+                onClick={() => setIsMethodModalOpen(false)}
                 className="rounded-full border border-white/10 p-2 text-gray-400 transition hover:border-white/20 hover:text-white"
                 aria-label={t.actions.cancel}
               >
@@ -846,13 +1002,13 @@ export default function CoinsPage() {
 
             <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
               <button
-                onClick={() => setModalProvider(null)}
+                onClick={() => setIsMethodModalOpen(false)}
                 className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-gray-200 transition hover:border-white/20 hover:bg-white/5"
               >
                 {t.actions.cancel}
               </button>
               <button
-                onClick={confirmModalSelection}
+                onClick={confirmMethodSelection}
                 className="rounded-2xl bg-gradient-to-r from-yellow-600 to-yellow-500 px-5 py-3 text-sm font-bold text-black transition hover:from-yellow-500 hover:to-yellow-400"
               >
                 {t.actions.continue}
