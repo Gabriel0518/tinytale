@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useToast } from "@/components/ui/Toast";
@@ -379,20 +380,31 @@ const CHECKOUT_CONTEXT_COPY: FlexibleRecord<SupportedLocale, (countryCode: strin
 
 function StripeLogo() {
   return (
-    <svg className="h-8 w-auto" viewBox="0 0 48 20" fill="none" aria-hidden="true">
-      <path d="M20.69 8.29c0-1.75 1.44-2.42 3.84-2.42 3.44 0 7.77 1.04 11.2 2.9V1.62C32.03.25 28.6 0 25.17 0c-8.42 0-13.98 4.4-13.98 11.74 0 11.45 15.74 9.62 15.74 14.67 0 2.08-1.81 2.75-4.35 2.75-3.75 0-8.55-1.55-12.35-3.61v7.24c4.2 1.82 8.45 2.59 12.35 2.59 8.63 0 14.57-4.26 14.57-11.7 0-12.36-15.77-10.16-15.77-15.39Z" fill="currentColor" />
-      <path d="M7.94 1.05 0 34.87h8.71l7.94-33.82H7.94Z" fill="currentColor" />
-      <path d="m46.14 1.05-7.9 33.82H47L54.9 1.05h-8.76Z" fill="currentColor" />
-    </svg>
+    <div className="flex h-16 w-44 items-center justify-center rounded-2xl bg-white px-4 shadow-[inset_0_0_0_1px_rgba(99,91,255,0.08)]">
+      <Image
+        src="/stripe-logo.svg"
+        alt="Stripe"
+        width={176}
+        height={56}
+        className="h-10 w-auto object-contain"
+        priority
+      />
+    </div>
   );
 }
 
 function AirwallexLogo() {
   return (
-    <svg className="h-10 w-10" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <rect x="1.5" y="1.5" width="29" height="29" rx="10" stroke="currentColor" strokeWidth="2" />
-      <path d="M10 22 16 9l6 13m-10-3h8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div className="flex h-16 w-44 items-center justify-center rounded-2xl bg-white px-4 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
+      <Image
+        src="/airwallex-logo.svg"
+        alt="Airwallex"
+        width={176}
+        height={56}
+        className="h-10 w-auto object-contain"
+        priority
+      />
+    </div>
   );
 }
 
