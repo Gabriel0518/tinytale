@@ -382,7 +382,7 @@ function StripeLogo() {
   return (
     <div className="flex h-16 w-44 items-center justify-center rounded-2xl bg-white px-4 shadow-[inset_0_0_0_1px_rgba(99,91,255,0.08)]">
       <Image
-        src="/stripe-logo.svg"
+        src="/payment/stripe-logo.png"
         alt="Stripe"
         width={176}
         height={56}
@@ -397,7 +397,7 @@ function AirwallexLogo() {
   return (
     <div className="flex h-16 w-44 items-center justify-center rounded-2xl bg-white px-4 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
       <Image
-        src="/airwallex-logo.svg"
+        src="/payment/airwallex-logo.png"
         alt="Airwallex"
         width={176}
         height={56}
