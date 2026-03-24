@@ -115,6 +115,7 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     setError("");
+    let shouldKeepLoading = false;
 
     // Check Turnstile if configured
     if (TURNSTILE_SITE_KEY && !turnstileToken) {
@@ -125,28 +126,35 @@ export default function LoginPage() {
 
     try {
       await login(email, password, turnstileToken);
-      router.push(postLoginTarget);
+      shouldKeepLoading = true;
+      completeAuthRedirect();
     } catch (err: unknown) {
       // Reset Turnstile on error
       resetTurnstile();
       const message = err instanceof Error ? err.message : t.genericError;
       setError(message || t.loginFailed);
     } finally {
-      setIsLoading(false);
+      if (!shouldKeepLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
   const handleGoogleLoginSuccess = async (accessToken: string) => {
     setIsLoading(true);
     setError("");
+    let shouldKeepLoading = false;
     try {
       await googleLogin(accessToken);
+      shouldKeepLoading = true;
       completeAuthRedirect();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : t.genericError;
       setError(message || t.googleLoginFailed);
     } finally {
-      setIsLoading(false);
+      if (!shouldKeepLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -158,14 +166,18 @@ export default function LoginPage() {
     async (accessToken) => {
       setIsLoading(true);
       setError("");
+      let shouldKeepLoading = false;
       try {
         await facebookLogin(accessToken);
+        shouldKeepLoading = true;
         completeAuthRedirect();
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : t.genericError;
         setError(message || t.facebookLoginFailed);
       } finally {
-        setIsLoading(false);
+        if (!shouldKeepLoading) {
+          setIsLoading(false);
+        }
       }
     },
     (error) => {
@@ -181,7 +193,32 @@ export default function LoginPage() {
         </Link>
       }
     >
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/40 p-8 backdrop-blur-xl">
+      <>
+        {isLoading ? (
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#07080d]/88 px-6 backdrop-blur-md">
+            <div className="w-full max-w-xs rounded-[28px] border border-white/10 bg-black/60 px-8 py-9 text-center shadow-[0_30px_80px_rgba(0,0,0,0.55)]">
+              <div className="relative mx-auto mb-6 h-24 w-24">
+                <div className="absolute inset-0 rounded-full border-4 border-white/10" />
+                <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-amber-400 border-r-orange-500" />
+                <div className="absolute inset-[10px] rounded-full border-4 border-transparent border-b-white/70 border-l-white/15 animate-[spin_1.6s_linear_infinite_reverse]" />
+                <div className="absolute inset-[26px] flex items-center justify-center rounded-full bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 shadow-[0_0_30px_rgba(245,158,11,0.45)]">
+                  <svg className="h-7 w-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 5v14l11-7-11-7Z" />
+                  </svg>
+                </div>
+              </div>
+              <p className="text-lg font-semibold text-white">{t.loadingTitle}</p>
+              <p className="mt-2 text-sm leading-6 text-gray-300">{t.loadingDescription}</p>
+              <div className="mt-5 flex items-center justify-center gap-2">
+                <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-amber-400 [animation-delay:-0.25s]" />
+                <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-orange-400 [animation-delay:-0.1s]" />
+                <span className="h-2.5 w-2.5 animate-bounce rounded-full bg-white/80" />
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/40 p-8 backdrop-blur-xl">
         {/* Gold Lock Icon */}
         <div className="mb-6 flex justify-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-500">
@@ -339,7 +376,8 @@ export default function LoginPage() {
             &larr; {t.backHome}
           </Link>
         </div>
-      </div>
+        </div>
+      </>
     </AuthLayout>
   );
 }
@@ -365,7 +403,9 @@ const LOGIN_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     genericError: "An error occurred",
     loginFailed: "Login failed. Please try again.",
     googleLoginFailed: "Google login failed. Please try again.",
-    facebookLoginFailed: "Facebook login failed. Please try again." },
+    facebookLoginFailed: "Facebook login failed. Please try again.",
+    loadingTitle: "Preparing your session",
+    loadingDescription: "Please wait a moment while we securely sign you in." },
   zh: {
     signUp: "注册",
     signIn: "登录",
@@ -386,7 +426,9 @@ const LOGIN_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     genericError: "发生错误",
     loginFailed: "登录失败，请重试。",
     googleLoginFailed: "Google 登录失败，请重试。",
-    facebookLoginFailed: "Facebook 登录失败，请重试。" },
+    facebookLoginFailed: "Facebook 登录失败，请重试。",
+    loadingTitle: "正在进入账号",
+    loadingDescription: "网络较慢时会多等待几秒，请保持当前页面。" },
   ja: {
     signUp: "新規登録",
     signIn: "ログイン",
@@ -407,7 +449,9 @@ const LOGIN_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     genericError: "エラーが発生しました",
     loginFailed: "ログインに失敗しました。再試行してください。",
     googleLoginFailed: "Google ログインに失敗しました。",
-    facebookLoginFailed: "Facebook ログインに失敗しました。" },
+    facebookLoginFailed: "Facebook ログインに失敗しました。",
+    loadingTitle: "セッションを準備しています",
+    loadingDescription: "安全にログインしています。少々お待ちください。" },
   es: {
     signUp: "Registrarse",
     signIn: "Entrar",
@@ -428,7 +472,9 @@ const LOGIN_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     genericError: "Ocurrió un error",
     loginFailed: "Error de inicio de sesión. Inténtalo de nuevo.",
     googleLoginFailed: "Falló el inicio con Google.",
-    facebookLoginFailed: "Falló el inicio con Facebook." },
+    facebookLoginFailed: "Falló el inicio con Facebook.",
+    loadingTitle: "Preparando tu sesión",
+    loadingDescription: "Espera un momento mientras completamos el inicio de sesión." },
   pt: {
     signUp: "Cadastrar",
     signIn: "Entrar",
@@ -449,7 +495,9 @@ const LOGIN_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     genericError: "Ocorreu um erro",
     loginFailed: "Falha no login. Tente novamente.",
     googleLoginFailed: "Falha no login com Google.",
-    facebookLoginFailed: "Falha no login com Facebook." },
+    facebookLoginFailed: "Falha no login com Facebook.",
+    loadingTitle: "Preparando sua sessão",
+    loadingDescription: "Aguarde um instante enquanto concluímos seu login." },
   hi: {
     signUp: "साइन अप",
     signIn: "साइन इन",
@@ -470,7 +518,9 @@ const LOGIN_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     genericError: "कोई त्रुटि हुई",
     loginFailed: "लॉगिन विफल हुआ।",
     googleLoginFailed: "Google लॉगिन विफल हुआ।",
-    facebookLoginFailed: "Facebook लॉगिन विफल हुआ।" },
+    facebookLoginFailed: "Facebook लॉगिन विफल हुआ।",
+    loadingTitle: "आपका सत्र तैयार किया जा रहा है",
+    loadingDescription: "कृपया कुछ क्षण प्रतीक्षा करें, हम आपको सुरक्षित रूप से लॉगिन कर रहे हैं।" },
   id: {
     signUp: "Daftar",
     signIn: "Masuk",
@@ -491,4 +541,6 @@ const LOGIN_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     genericError: "Terjadi kesalahan",
     loginFailed: "Gagal masuk. Coba lagi.",
     googleLoginFailed: "Login Google gagal.",
-    facebookLoginFailed: "Login Facebook gagal." } };
+    facebookLoginFailed: "Login Facebook gagal.",
+    loadingTitle: "Menyiapkan sesi Anda",
+    loadingDescription: "Mohon tunggu sebentar, kami sedang menyelesaikan proses masuk Anda." } };
