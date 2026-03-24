@@ -235,7 +235,14 @@ export default function CreatorDramasPage() {
                     <tr key={item._id} className="border-t border-[#f8fafc] text-[13px] text-[#0f172a]">
                       <td className="px-5 py-4.5">
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 rounded-[14px]" style={{ backgroundImage: rowGradientSeed(index) }} />
+                          <div className="h-[72px] w-[48px] flex-shrink-0 overflow-hidden rounded-[14px] border border-[#e2e8f0] bg-[#f8fafc] shadow-[0px_1px_2px_0px_rgba(15,23,42,0.06)]">
+                            {item.cover ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={item.cover} alt={item.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full" style={{ backgroundImage: rowGradientSeed(index) }} />
+                            )}
+                          </div>
                           <div>
                             <p className="font-semibold text-[#0f172a]">{item.title}</p>
                             <p className="text-xs text-[#64748b]">
