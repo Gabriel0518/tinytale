@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { creatorApi } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
@@ -36,7 +36,8 @@ export function CreatorAirwallexBeneficiaryForm({
 }: Props) {
   const { toast } = useToast();
   const elementRef = useRef<BeneficiaryElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const fallbackReadyTimerRef = useRef<number | null>(null);
+  const containerId = useId().replace(/:/g, "-");
   const [booting, setBooting] = useState(true);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -69,13 +70,13 @@ export function CreatorAirwallexBeneficiaryForm({
         await init({
           env: authResponse.data.env,
           locale: "en",
-          enabledElements: ["payouts"],
+          enabledElements: ["beneficiaryForm"],
           authCode: authResponse.data.authCode,
           clientId: authResponse.data.clientId,
           codeVerifier: authResponse.data.codeVerifier,
         });
 
-        if (cancelled || !containerRef.current) return;
+        if (cancelled) return;
 
         const element = (await createElement("beneficiaryForm", {
           locale: "en",
@@ -111,8 +112,15 @@ export function CreatorAirwallexBeneficiaryForm({
           }
         });
 
-        element.mount(containerRef.current);
+        element.mount(containerId);
         elementRef.current = element;
+        setReady(true);
+
+        fallbackReadyTimerRef.current = window.setTimeout(() => {
+          if (!cancelled) {
+            setReady(true);
+          }
+        }, 2500);
       } catch (error) {
         if (!cancelled) {
           setBootError(error instanceof Error ? error.message : "Failed to initialize Airwallex beneficiary form.");
@@ -128,10 +136,13 @@ export function CreatorAirwallexBeneficiaryForm({
 
     return () => {
       cancelled = true;
+      if (fallbackReadyTimerRef.current) {
+        window.clearTimeout(fallbackReadyTimerRef.current);
+      }
       elementRef.current?.destroy();
       elementRef.current = null;
     };
-  }, [defaultValues, token]);
+  }, [containerId, defaultValues, token]);
 
   async function handleSave() {
     if (!elementRef.current) {
@@ -191,7 +202,7 @@ export function CreatorAirwallexBeneficiaryForm({
                 Preparing beneficiary fields...
               </div>
             ) : null}
-            <div ref={containerRef} className="min-h-[640px]" />
+            <div id={containerId} className="min-h-[640px]" />
           </div>
         )}
       </div>
