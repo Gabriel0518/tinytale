@@ -84,6 +84,9 @@ export default function CreatorBankAccountsPage() {
         item.maskedAccountNumber,
         item.stripeEmail || "",
         item.stripeAccountId || "",
+        item.airwallexBeneficiaryId || "",
+        item.airwallexVerificationResolvedBankName || "",
+        item.airwallexVerificationResolvedAccountName || "",
         item.bankProviderLabel || "",
       ].join(" ").toLowerCase();
       if (!haystack.includes(query)) return false;
@@ -154,7 +157,7 @@ export default function CreatorBankAccountsPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-400">Creator Management / Finance</p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight text-white">Creator payout-account review</h1>
             <p className="mt-3 text-sm leading-6 text-gray-400">
-              Review Stripe Connect payout status before settlement release, capture finance notes, and freeze payout release when compliance or finance blocks exist.
+              Review Airwallex beneficiary verification before settlement release, capture finance notes, and freeze payout release when compliance or finance blocks exist.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -182,7 +185,7 @@ export default function CreatorBankAccountsPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by creator, Stripe account, bank, country, or masked account"
+              placeholder="Search by creator, Airwallex beneficiary, bank, country, or masked account"
               className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] pl-11 pr-4 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
             />
           </label>
@@ -205,7 +208,7 @@ export default function CreatorBankAccountsPage() {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Account queue</h2>
-              <p className="text-sm text-gray-400">Compact finance list. Review each Stripe-managed payout profile from the action modal.</p>
+              <p className="text-sm text-gray-400">Compact finance list. Review each payout beneficiary from the action modal.</p>
             </div>
           </div>
 
@@ -241,12 +244,15 @@ export default function CreatorBankAccountsPage() {
                         <p className="mt-2 text-xs text-gray-400">{item.country} · Updated {formatAdminDate(item.updatedAt, true)}</p>
                       </td>
                       <td className="py-4 pr-4">
-                        <p className="font-medium text-gray-200">{item.bankName || "Stripe onboarding not finished"}</p>
-                        <p className="mt-1 text-xs text-gray-500">{item.accountHolderName || item.stripeEmail || "Missing payout owner"}</p>
+                        <p className="font-medium text-gray-200">{item.bankName || "Beneficiary setup not finished"}</p>
+                        <p className="mt-1 text-xs text-gray-500">{item.accountHolderName || item.airwallexVerificationResolvedAccountName || item.stripeEmail || "Missing payout owner"}</p>
                         <p className="mt-2 text-xs text-gray-400">
-                          {item.maskedAccountNumber || item.stripeAccountId || "No external bank account attached"}
+                          {item.maskedAccountNumber || item.airwallexBeneficiaryId || item.stripeAccountId || "No external bank account attached"}
                         </p>
-                        <p className="mt-2 text-xs text-indigo-300">{item.bankProviderLabel || "Stripe Connect"}{item.verificationLabel ? ` · ${item.verificationLabel}` : ""}</p>
+                        <p className="mt-2 text-xs text-indigo-300">{item.bankProviderLabel || "Airwallex Beneficiary"}{item.verificationLabel ? ` · ${item.verificationLabel}` : ""}</p>
+                        {item.airwallexVerificationCode ? (
+                          <p className="mt-1 text-xs text-amber-300">{item.airwallexVerificationCode}{item.airwallexVerificationAccountNameMatchResult ? ` · ${item.airwallexVerificationAccountNameMatchResult}` : ""}</p>
+                        ) : null}
                         {item.stripeRequirementsCurrentlyDue?.length ? (
                           <p className="mt-1 text-xs text-amber-300">{item.stripeRequirementsCurrentlyDue.length} Stripe requirement(s) currently due</p>
                         ) : null}
@@ -295,11 +301,11 @@ export default function CreatorBankAccountsPage() {
             <div className="mt-5 grid gap-3">
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Verification gate</p>
-                <p className="mt-2 text-sm leading-6 text-gray-300">Stripe should enable payouts before statements move into payout release or manual payment confirmation.</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Airwallex beneficiary verification should pass before statements move into payout release or payment confirmation.</p>
               </div>
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">When to reject</p>
-                <p className="mt-2 text-sm leading-6 text-gray-300">Use reject when Stripe still needs creator follow-up, ownership clarification, or updated external account details.</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Use reject when Airwallex or finance still needs creator follow-up, ownership clarification, or updated beneficiary details.</p>
               </div>
               <div className="rounded-xl bg-[#0f0f17] p-4">
                 <p className="text-xs uppercase tracking-[0.12em] text-gray-500">When to freeze</p>
@@ -334,15 +340,15 @@ export default function CreatorBankAccountsPage() {
                 const bankMeta = getCreatorBankStatusMeta(activeModalItem.bankStatus);
                 const creatorMeta = getCreatorLifecycleMeta(activeModalItem.creatorStatus);
                 const isSubmitting = submittingId === activeModalItem.creatorId;
-                const stripeManaged = activeModalItem.bankProvider === "stripe";
+                const managedProvider = activeModalItem.bankProvider === "airwallex" ? "Airwallex" : "Stripe";
 
                 return (
                   <div className="space-y-4">
                     <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-4">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="font-medium text-white">{activeModalItem.accountHolderName || activeModalItem.stripeEmail || "Missing account holder"}</p>
-                          <p className="mt-1 text-sm text-gray-400">{activeModalItem.bankName || "No external bank account yet"} · {activeModalItem.maskedAccountNumber || activeModalItem.stripeAccountId || "No account number"}</p>
+                          <p className="font-medium text-white">{activeModalItem.accountHolderName || activeModalItem.airwallexVerificationResolvedAccountName || activeModalItem.stripeEmail || "Missing account holder"}</p>
+                          <p className="mt-1 text-sm text-gray-400">{activeModalItem.bankName || "No external bank account yet"} · {activeModalItem.maskedAccountNumber || activeModalItem.airwallexBeneficiaryId || activeModalItem.stripeAccountId || "No account number"}</p>
                           <p className="mt-2 text-xs text-gray-500">{activeModalItem.country} · Updated {formatAdminDate(activeModalItem.updatedAt, true)}</p>
                           {activeModalItem.bankProviderLabel ? (
                             <p className="mt-2 text-xs text-indigo-300">{activeModalItem.bankProviderLabel}{activeModalItem.verificationLabel ? ` · ${activeModalItem.verificationLabel}` : ""}</p>
@@ -363,16 +369,29 @@ export default function CreatorBankAccountsPage() {
                           <p className="mt-1 text-sm text-white">{formatUsd(activeModalItem.pendingBalanceUsd)}</p>
                         </div>
                       </div>
-                      {activeModalItem.stripeAccountId ? (
+                      {activeModalItem.airwallexBeneficiaryId || activeModalItem.stripeAccountId ? (
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                           <div>
-                            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Stripe account</p>
-                            <p className="mt-1 text-sm text-white">{activeModalItem.stripeAccountId}</p>
+                            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">{activeModalItem.bankProvider === "airwallex" ? "Airwallex beneficiary" : "Stripe account"}</p>
+                            <p className="mt-1 text-sm text-white">{activeModalItem.airwallexBeneficiaryId || activeModalItem.stripeAccountId}</p>
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Stripe email</p>
-                            <p className="mt-1 text-sm text-white">{activeModalItem.stripeEmail || "Not available"}</p>
+                            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">{activeModalItem.bankProvider === "airwallex" ? "Verification result" : "Stripe email"}</p>
+                            <p className="mt-1 text-sm text-white">
+                              {activeModalItem.bankProvider === "airwallex"
+                                ? `${activeModalItem.airwallexVerificationCode || "Not verified"}${activeModalItem.airwallexVerificationAccountNameMatchResult ? ` · ${activeModalItem.airwallexVerificationAccountNameMatchResult}` : ""}`
+                                : activeModalItem.stripeEmail || "Not available"}
+                            </p>
                           </div>
+                        </div>
+                      ) : null}
+                      {activeModalItem.airwallexVerificationResolvedBankName ? (
+                        <div className="mt-4 rounded-xl border border-sky-500/20 bg-sky-500/10 p-4">
+                          <p className="text-xs uppercase tracking-[0.12em] text-sky-100">Airwallex resolved details</p>
+                          <p className="mt-2 text-sm leading-6 text-sky-50">
+                            {activeModalItem.airwallexVerificationResolvedBankName}
+                            {activeModalItem.airwallexVerificationResolvedAccountName ? ` · ${activeModalItem.airwallexVerificationResolvedAccountName}` : ""}
+                          </p>
                         </div>
                       ) : null}
                       {activeModalItem.stripeRequirementsCurrentlyDue?.length ? (
@@ -397,8 +416,8 @@ export default function CreatorBankAccountsPage() {
                         onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.creatorId]: { ...draft, decision: event.target.value as BankDecision } }))}
                         className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500"
                       >
-                        <option value="verified">{stripeManaged ? "Clear finance hold / use Stripe status" : "Approve bank account"}</option>
-                        <option value="rejected">{stripeManaged ? "Mark creator follow-up required" : "Reject and request resubmission"}</option>
+                        <option value="verified">{activeModalItem.bankProvider === "airwallex" || activeModalItem.bankProvider === "stripe" ? `Clear finance hold / use ${managedProvider} status` : "Approve bank account"}</option>
+                        <option value="rejected">{activeModalItem.bankProvider === "airwallex" || activeModalItem.bankProvider === "stripe" ? "Mark creator follow-up required" : "Reject and request resubmission"}</option>
                         <option value="frozen">Freeze payout release</option>
                       </select>
                     </div>
@@ -408,7 +427,7 @@ export default function CreatorBankAccountsPage() {
                       <textarea
                         value={draft.note}
                         onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.creatorId]: { ...draft, note: event.target.value } }))}
-                        placeholder={stripeManaged ? "Explain the finance decision, Stripe blockers, or the creator follow-up still required." : "Explain the finance decision or the documents still required."}
+                        placeholder={activeModalItem.bankProvider === "airwallex" || activeModalItem.bankProvider === "stripe" ? `Explain the finance decision, ${managedProvider} blockers, or the creator follow-up still required.` : "Explain the finance decision or the documents still required."}
                         className="min-h-[160px] w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
                       />
                     </div>

@@ -255,22 +255,35 @@ export default function CreatorDetailPage() {
             <div className="mt-5 rounded-xl bg-[#0f0f17] p-4">
               <div className="flex items-center justify-between gap-4">
                 <div>
-                  <p className="font-medium text-white">{data.bankAccount.bankName || "Stripe onboarding not finished"}</p>
-                  <p className="mt-1 text-sm text-gray-400">{data.bankAccount.accountHolderName || data.bankAccount.stripeEmail || "Missing payout owner"} · {data.bankAccount.maskedAccountNumber || data.bankAccount.stripeAccountId || "No external bank account attached"}</p>
+                  <p className="font-medium text-white">{data.bankAccount.bankName || "Beneficiary setup not finished"}</p>
+                  <p className="mt-1 text-sm text-gray-400">{data.bankAccount.accountHolderName || data.bankAccount.airwallexVerificationResolvedAccountName || data.bankAccount.stripeEmail || "Missing payout owner"} · {data.bankAccount.maskedAccountNumber || data.bankAccount.airwallexBeneficiaryId || data.bankAccount.stripeAccountId || "No external bank account attached"}</p>
                 </div>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
               </div>
               <p className="mt-3 text-sm text-gray-400">Country: {data.bankAccount.country} · Updated {formatAdminDate(data.bankAccount.updatedAt, true)}</p>
               {data.bankAccount.providerLabel || data.bankAccount.verificationLabel ? (
-                <p className="mt-2 text-sm text-indigo-300">{data.bankAccount.providerLabel || "Stripe Connect"}{data.bankAccount.verificationLabel ? ` · ${data.bankAccount.verificationLabel}` : ""}</p>
+                <p className="mt-2 text-sm text-indigo-300">{data.bankAccount.providerLabel || "Airwallex Beneficiary"}{data.bankAccount.verificationLabel ? ` · ${data.bankAccount.verificationLabel}` : ""}</p>
               ) : null}
-              {data.bankAccount.stripeAccountId || data.bankAccount.stripeEmail ? (
+              {data.bankAccount.airwallexBeneficiaryId || data.bankAccount.stripeAccountId || data.bankAccount.stripeEmail ? (
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                   <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-3">
-                    <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Stripe account</p>
-                    <p className="mt-1 text-sm text-white">{data.bankAccount.stripeAccountId || "Not available"}</p>
-                    <p className="mt-1 text-xs text-gray-400">{data.bankAccount.stripeEmail || "No Stripe email available"}</p>
+                    <p className="text-xs uppercase tracking-[0.12em] text-gray-500">{data.bankAccount.bankProvider === "airwallex" ? "Airwallex beneficiary" : "Stripe account"}</p>
+                    <p className="mt-1 text-sm text-white">{data.bankAccount.airwallexBeneficiaryId || data.bankAccount.stripeAccountId || "Not available"}</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      {data.bankAccount.bankProvider === "airwallex"
+                        ? `${data.bankAccount.airwallexVerificationCode || "Not verified"}${data.bankAccount.airwallexVerificationAccountNameMatchResult ? ` · ${data.bankAccount.airwallexVerificationAccountNameMatchResult}` : ""}`
+                        : data.bankAccount.stripeEmail || "No Stripe email available"}
+                    </p>
                   </div>
+                </div>
+              ) : null}
+              {data.bankAccount.airwallexVerificationResolvedBankName ? (
+                <div className="mt-4 rounded-xl border border-sky-500/20 bg-sky-500/10 p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-sky-200">Airwallex resolved details</p>
+                  <p className="mt-2 text-sm leading-6 text-sky-100">
+                    {data.bankAccount.airwallexVerificationResolvedBankName}
+                    {data.bankAccount.airwallexVerificationResolvedAccountName ? ` · ${data.bankAccount.airwallexVerificationResolvedAccountName}` : ""}
+                  </p>
                 </div>
               ) : null}
               {data.bankAccount.stripeRequirementsCurrentlyDue?.length ? (

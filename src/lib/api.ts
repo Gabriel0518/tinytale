@@ -11,6 +11,7 @@ import type {
   CreatorEpisodePreviewPayload,
   CreatorNotificationListResponse,
   CreatorOverviewAnalytics,
+  CreatorSettlementAirwallexBeneficiarySummary,
   CreatorRevenueAnalytics,
   CreatorSettlementBankAccount,
   CreatorSettlementDetail,
@@ -684,6 +685,66 @@ export const creatorApi = {
       {},
       { token }
     ),
+
+  createAirwallexSettlementAuthCode: (token: string) =>
+    api.post<{
+      success: boolean;
+      data: {
+        authCode: string;
+        codeVerifier: string;
+        clientId: string;
+        env: "demo" | "prod";
+        scope: string[];
+      };
+    }>(
+      `/api/creator/settlements/airwallex/auth-code`,
+      {},
+      { token }
+    ),
+
+  getAirwallexSettlementBeneficiary: (token: string) =>
+    api.get<{
+      success: boolean;
+      data: {
+        summary: CreatorSettlementAirwallexBeneficiarySummary | null;
+        beneficiary: Record<string, unknown> | null;
+        transferMethods: string[];
+      };
+    }>(`/api/creator/settlements/airwallex/beneficiary`, { token }),
+
+  createAirwallexSettlementBeneficiary: (
+    token: string,
+    payload: Record<string, unknown>
+  ) =>
+    api.post<{
+      success: boolean;
+      data: {
+        summary: CreatorSettlementAirwallexBeneficiarySummary;
+        verification: Record<string, unknown> | null;
+      };
+    }>(`/api/creator/settlements/airwallex/beneficiary`, payload, { token }),
+
+  updateAirwallexSettlementBeneficiary: (
+    token: string,
+    beneficiaryId: string,
+    payload: Record<string, unknown>
+  ) =>
+    api.put<{
+      success: boolean;
+      data: {
+        summary: CreatorSettlementAirwallexBeneficiarySummary;
+        verification: Record<string, unknown> | null;
+      };
+    }>(`/api/creator/settlements/airwallex/beneficiary/${beneficiaryId}`, payload, { token }),
+
+  verifyAirwallexSettlementBeneficiary: (token: string, beneficiaryId: string) =>
+    api.post<{
+      success: boolean;
+      data: {
+        summary: CreatorSettlementAirwallexBeneficiarySummary;
+        verification: Record<string, unknown> | null;
+      };
+    }>(`/api/creator/settlements/airwallex/beneficiary/${beneficiaryId}/verify`, {}, { token }),
 
   getNotifications: (token: string) =>
     api.get<{ success: boolean; data: CreatorNotificationListResponse }>(`/api/creator/notifications`, { token }),

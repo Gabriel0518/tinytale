@@ -89,6 +89,9 @@ export default function CreatorSettlementsAdminPage() {
         item.maskedAccountNumber || "",
         item.stripeAccountId || "",
         item.stripeEmail || "",
+        item.airwallexBeneficiaryId || "",
+        item.airwallexVerificationResolvedBankName || "",
+        item.airwallexVerificationResolvedAccountName || "",
       ].join(" ").toLowerCase();
       if (!haystack.includes(query)) return false;
     }
@@ -150,9 +153,9 @@ export default function CreatorSettlementsAdminPage() {
       setActiveModalId(null);
       toast(
         nextStatus === "processing"
-          ? "Stripe payout submitted."
+          ? `${item.bankProvider === "airwallex" ? "Airwallex transfer" : "Stripe payout"} submitted.`
           : nextStatus === "paid"
-            ? "Stripe payout completed."
+            ? `${item.bankProvider === "airwallex" ? "Airwallex transfer" : "Stripe payout"} completed.`
             : "Settlement updated.",
         "success",
       );
@@ -210,7 +213,7 @@ export default function CreatorSettlementsAdminPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by creator, statement no, bank, Stripe account, or note"
+              placeholder="Search by creator, statement no, bank, beneficiary/account id, or note"
               className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] pl-11 pr-4 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
             />
           </label>
@@ -283,10 +286,13 @@ export default function CreatorSettlementsAdminPage() {
                     </td>
                     <td className="py-4 pr-4">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
-                      <p className="mt-2 text-xs text-gray-500">{item.bankProviderLabel || "Stripe Connect"}</p>
+                      <p className="mt-2 text-xs text-gray-500">{item.bankProviderLabel || "Airwallex Beneficiary"}</p>
                       {item.bankVerificationLabel ? <p className="mt-1 text-xs text-indigo-300">{item.bankVerificationLabel}</p> : null}
                       {item.bankName || item.maskedAccountNumber ? (
                         <p className="mt-1 text-xs text-gray-400">{item.bankName || "No bank attached"} {item.maskedAccountNumber || ""}</p>
+                      ) : null}
+                      {item.airwallexVerificationCode ? (
+                        <p className="mt-1 text-xs text-amber-300">{item.airwallexVerificationCode}{item.airwallexVerificationAccountNameMatchResult ? ` · ${item.airwallexVerificationAccountNameMatchResult}` : ""}</p>
                       ) : null}
                       {item.stripeRequirementsCurrentlyDue?.length ? (
                         <p className="mt-1 text-xs text-amber-300">{item.stripeRequirementsCurrentlyDue.length} Stripe item(s) due</p>
@@ -325,8 +331,8 @@ export default function CreatorSettlementsAdminPage() {
                 <p className="mt-2 text-sm leading-6 text-gray-300">Use hold or disputed status when the revenue chain is incomplete, reserve logic is contested, or downstream payout must stop.</p>
               </div>
               <div className="rounded-xl bg-[#0f0f17] p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Execute Stripe payout</p>
-                <p className="mt-2 text-sm leading-6 text-gray-300">Execute Stripe payout only after the statement is released and the connected payout profile is fully verified.</p>
+                <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Execute payout</p>
+                <p className="mt-2 text-sm leading-6 text-gray-300">Execute the provider payout only after the statement is released and the payout profile is fully verified.</p>
               </div>
             </div>
           </article>
@@ -393,15 +399,28 @@ export default function CreatorSettlementsAdminPage() {
                       <div className="mt-4 grid gap-3 sm:grid-cols-2">
                         <div>
                           <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Payout profile</p>
-                          <p className="mt-1 text-sm text-white">{activeModalItem.bankProviderLabel || "Stripe Connect"}</p>
+                          <p className="mt-1 text-sm text-white">{activeModalItem.bankProviderLabel || "Airwallex Beneficiary"}</p>
                           <p className="mt-1 text-xs text-gray-400">{activeModalItem.bankName || "No bank attached"} {activeModalItem.maskedAccountNumber || ""}</p>
                         </div>
                         <div>
-                          <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Stripe account</p>
-                          <p className="mt-1 text-sm text-white">{activeModalItem.stripeAccountId || "Not available"}</p>
-                          <p className="mt-1 text-xs text-gray-400">{activeModalItem.stripeEmail || activeModalItem.bankVerificationLabel || "No Stripe email available"}</p>
+                          <p className="text-xs uppercase tracking-[0.12em] text-gray-500">{activeModalItem.bankProvider === "airwallex" ? "Airwallex beneficiary" : "Stripe account"}</p>
+                          <p className="mt-1 text-sm text-white">{activeModalItem.airwallexBeneficiaryId || activeModalItem.stripeAccountId || "Not available"}</p>
+                          <p className="mt-1 text-xs text-gray-400">
+                            {activeModalItem.bankProvider === "airwallex"
+                              ? `${activeModalItem.airwallexVerificationCode || "Not verified"}${activeModalItem.airwallexVerificationAccountNameMatchResult ? ` · ${activeModalItem.airwallexVerificationAccountNameMatchResult}` : ""}`
+                              : activeModalItem.stripeEmail || activeModalItem.bankVerificationLabel || "No Stripe email available"}
+                          </p>
                         </div>
                       </div>
+                      {activeModalItem.airwallexVerificationResolvedBankName ? (
+                        <div className="mt-4 rounded-xl border border-sky-500/20 bg-sky-500/10 p-4">
+                          <p className="text-xs uppercase tracking-[0.12em] text-sky-100">Airwallex resolved details</p>
+                          <p className="mt-2 text-sm leading-6 text-sky-50">
+                            {activeModalItem.airwallexVerificationResolvedBankName}
+                            {activeModalItem.airwallexVerificationResolvedAccountName ? ` · ${activeModalItem.airwallexVerificationResolvedAccountName}` : ""}
+                          </p>
+                        </div>
+                      ) : null}
                       {activeModalItem.stripeRequirementsCurrentlyDue?.length ? (
                         <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
                           <p className="text-xs uppercase tracking-[0.12em] text-amber-200">Stripe currently due</p>
@@ -421,8 +440,8 @@ export default function CreatorSettlementsAdminPage() {
                             <p className="mt-2 break-all text-sm text-white">{activeModalItem.transferReference || "Not created yet"}</p>
                           </div>
                           <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
-                            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Stripe payout id</p>
-                            <p className="mt-2 break-all text-sm text-white">{activeModalItem.payoutId || "Pending Stripe response"}</p>
+                            <p className="text-xs uppercase tracking-[0.12em] text-gray-500">{activeModalItem.bankProvider === "airwallex" ? "Provider payout id" : "Stripe payout id"}</p>
+                            <p className="mt-2 break-all text-sm text-white">{activeModalItem.payoutId || `Pending ${activeModalItem.bankProvider === "airwallex" ? "Airwallex" : "Stripe"} response`}</p>
                           </div>
                         </div>
                       ) : null}
@@ -438,7 +457,7 @@ export default function CreatorSettlementsAdminPage() {
                         <option value="confirm">Confirm statement</option>
                         <option value="hold">Place hold</option>
                         <option value="mark_disputed">Mark disputed</option>
-                        <option value="mark_paid">Execute Stripe payout</option>
+                        <option value="mark_paid">{activeModalItem.bankProvider === "airwallex" ? "Execute Airwallex transfer" : "Execute Stripe payout"}</option>
                       </select>
                     </div>
 
@@ -447,7 +466,7 @@ export default function CreatorSettlementsAdminPage() {
                       <textarea
                         value={draft.note}
                         onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.id]: { ...draft, note: event.target.value } }))}
-                        placeholder="Record the reason for confirmation, hold, dispute, or Stripe payout execution."
+                        placeholder={`Record the reason for confirmation, hold, dispute, or ${activeModalItem.bankProvider === "airwallex" ? "Airwallex transfer" : "Stripe payout"} execution.`}
                         className="min-h-[150px] w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 py-3 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-500"
                       />
                     </div>
@@ -457,7 +476,7 @@ export default function CreatorSettlementsAdminPage() {
                       disabled={isSubmitting}
                       className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isSubmitting ? "Saving..." : draft.decision === "mark_paid" ? "Execute Stripe payout" : "Save settlement action"}
+                      {isSubmitting ? "Saving..." : draft.decision === "mark_paid" ? (activeModalItem.bankProvider === "airwallex" ? "Execute Airwallex transfer" : "Execute Stripe payout") : "Save settlement action"}
                     </button>
                   </div>
                 );

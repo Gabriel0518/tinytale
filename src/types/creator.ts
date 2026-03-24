@@ -519,6 +519,8 @@ export type CreatorSettlementBankStatus =
   | "verified"
   | "rejected";
 
+export type CreatorSettlementPayoutProvider = "manual" | "stripe" | "airwallex";
+
 export interface CreatorSettlementStripeConnectSummary {
   accountId: string;
   accountType: "express";
@@ -543,6 +545,31 @@ export interface CreatorSettlementStripeConnectSummary {
   externalAccountCurrency: string;
 }
 
+export interface CreatorSettlementAirwallexBeneficiarySummary {
+  beneficiaryId: string;
+  type: "BANK_ACCOUNT" | "DIGITAL_WALLET";
+  entityType: "PERSONAL" | "COMPANY";
+  transferMethods: string[];
+  countryCode: string;
+  currency: string;
+  bankName: string;
+  accountName: string;
+  accountNumberLast4: string;
+  accountNumberMasked: string;
+  routingType1: string;
+  routingValue1Masked: string;
+  localClearingSystem: string;
+  email: string;
+  verificationCode: string;
+  verificationMessage: string;
+  verificationAccountNameMatchResult: string;
+  verificationResolvedAccountName: string;
+  verificationResolvedBankName: string;
+  verificationCheckedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
 export interface CreatorSettlementBankAccount {
   accountHolderName: string;
   bankName: string;
@@ -558,9 +585,10 @@ export interface CreatorSettlementBankAccount {
   verificationLabel: string;
   verifiedAt: string | null;
   updatedAt: string | null;
-  provider?: "manual" | "stripe";
+  provider?: CreatorSettlementPayoutProvider;
   providerLabel?: string;
   stripeConnect?: CreatorSettlementStripeConnectSummary | null;
+  airwallexBeneficiary?: CreatorSettlementAirwallexBeneficiarySummary | null;
 }
 
 export interface CreatorSettlementStatement {
@@ -861,8 +889,10 @@ export interface CreatorAdminCreatorDetail extends CreatorAdminCreatorListItem {
     maskedAccountNumber: string;
     country: string;
     updatedAt: string | null;
-    provider?: "manual" | "stripe";
+    provider?: CreatorSettlementPayoutProvider;
+    bankProvider?: CreatorSettlementPayoutProvider;
     providerLabel?: string;
+    bankProviderLabel?: string;
     verificationLabel?: string;
     stripeAccountId?: string;
     stripeEmail?: string;
@@ -871,6 +901,14 @@ export interface CreatorAdminCreatorDetail extends CreatorAdminCreatorListItem {
     stripeRequirementsEventuallyDue?: string[];
     stripeDisabledReason?: string;
     adminOverrideStatus?: "rejected" | "frozen" | null;
+    airwallexBeneficiaryId?: string;
+    airwallexEntityType?: "PERSONAL" | "COMPANY" | "";
+    airwallexTransferMethods?: string[];
+    airwallexVerificationCode?: string;
+    airwallexVerificationAccountNameMatchResult?: string;
+    airwallexVerificationResolvedAccountName?: string;
+    airwallexVerificationResolvedBankName?: string;
+    airwallexVerificationCheckedAt?: string | null;
   };
   topDramas: Array<{
     id: string;
@@ -1062,7 +1100,7 @@ export interface CreatorAdminBankAccountItem {
   pendingBalanceUsd: number;
   nextSettlementDate: string | null;
   lastReviewNote: string;
-  bankProvider?: "manual" | "stripe";
+  bankProvider?: CreatorSettlementPayoutProvider;
   bankProviderLabel?: string;
   verificationLabel?: string;
   stripeAccountId?: string;
@@ -1071,6 +1109,14 @@ export interface CreatorAdminBankAccountItem {
   stripeRequirementsPendingVerification?: string[];
   stripeDisabledReason?: string;
   adminOverrideStatus?: "rejected" | "frozen" | null;
+  airwallexBeneficiaryId?: string;
+  airwallexEntityType?: "PERSONAL" | "COMPANY" | "";
+  airwallexTransferMethods?: string[];
+  airwallexVerificationCode?: string;
+  airwallexVerificationAccountNameMatchResult?: string;
+  airwallexVerificationResolvedAccountName?: string;
+  airwallexVerificationResolvedBankName?: string;
+  airwallexVerificationCheckedAt?: string | null;
 }
 
 export interface CreatorAdminPayoutRequestItem {
@@ -1084,7 +1130,7 @@ export interface CreatorAdminPayoutRequestItem {
   requestedAt: string;
   payoutDate: string | null;
   bankStatus: CreatorAdminBankStatus;
-  bankProvider?: "manual" | "stripe";
+  bankProvider?: CreatorSettlementPayoutProvider;
   bankProviderLabel?: string;
   bankVerificationLabel?: string;
   bankName?: string;
@@ -1095,6 +1141,14 @@ export interface CreatorAdminPayoutRequestItem {
   stripeRequirementsPendingVerification?: string[];
   stripeDisabledReason?: string;
   adminOverrideStatus?: "rejected" | "frozen" | null;
+  airwallexBeneficiaryId?: string;
+  airwallexEntityType?: "PERSONAL" | "COMPANY" | "";
+  airwallexTransferMethods?: string[];
+  airwallexVerificationCode?: string;
+  airwallexVerificationAccountNameMatchResult?: string;
+  airwallexVerificationResolvedAccountName?: string;
+  airwallexVerificationResolvedBankName?: string;
+  airwallexVerificationCheckedAt?: string | null;
   status: CreatorAdminSettlementStatus;
   payoutMethodLabel: string;
   holdReason: string;
@@ -1122,7 +1176,7 @@ export interface CreatorAdminSettlementItem {
   unlockCount: number;
   payoutDate: string | null;
   bankStatus: CreatorAdminBankStatus;
-  bankProvider?: "manual" | "stripe";
+  bankProvider?: CreatorSettlementPayoutProvider;
   bankProviderLabel?: string;
   bankVerificationLabel?: string;
   bankName?: string;
@@ -1133,6 +1187,14 @@ export interface CreatorAdminSettlementItem {
   stripeRequirementsPendingVerification?: string[];
   stripeDisabledReason?: string;
   adminOverrideStatus?: "rejected" | "frozen" | null;
+  airwallexBeneficiaryId?: string;
+  airwallexEntityType?: "PERSONAL" | "COMPANY" | "";
+  airwallexTransferMethods?: string[];
+  airwallexVerificationCode?: string;
+  airwallexVerificationAccountNameMatchResult?: string;
+  airwallexVerificationResolvedAccountName?: string;
+  airwallexVerificationResolvedBankName?: string;
+  airwallexVerificationCheckedAt?: string | null;
   status: CreatorAdminSettlementStatus;
   transferReference?: string;
   payoutId?: string;

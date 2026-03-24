@@ -14,10 +14,10 @@ import {
   FileSpreadsheet,
   Landmark,
   Loader2,
-  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import { creatorApi } from "@/lib/api";
+import { CreatorAirwallexBeneficiaryForm } from "@/components/features/CreatorAirwallexBeneficiaryForm";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
 import { localizePath } from "@/lib/i18n";
@@ -65,35 +65,35 @@ function mapStatementFilter(status: CreatorSettlementStatement["status"]): State
   return "pending";
 }
 
-function getStripePayoutAction(status: CreatorSettlementBankStatus) {
+function getAirwallexPayoutAction(status: CreatorSettlementBankStatus) {
   switch (status) {
     case "verified":
       return {
-        primaryLabel: "Manage Stripe Payout Account",
-        secondaryLabel: "Review Stripe Status",
+        primaryLabel: "Edit payout beneficiary",
+        secondaryLabel: "Refresh verification",
         helper:
-          "Your payout profile is already on file. Use Stripe to update account details, ownership information, or payout settings without re-entering banking data in TinyTale.",
+          "Your Airwallex beneficiary is verified and ready for payouts. Re-open the embedded form here if you need to update beneficiary details or payout destination information.",
       };
     case "pending_review":
       return {
-        primaryLabel: "Continue Stripe Onboarding",
-        secondaryLabel: "Review Stripe Status",
+        primaryLabel: "Continue beneficiary setup",
+        secondaryLabel: "Refresh verification",
         helper:
-          "Your payout setup is in progress. Finish the Stripe-hosted onboarding flow to confirm banking details and clear any remaining verification requirements.",
+          "Your beneficiary is saved, but verification still needs another pass or follow-up. Re-open the embedded Airwallex form to fix details, then refresh verification from this page.",
       };
     case "rejected":
       return {
-        primaryLabel: "Fix Payout Details in Stripe",
-        secondaryLabel: "Review Stripe Status",
+        primaryLabel: "Fix beneficiary details",
+        secondaryLabel: "Refresh verification",
         helper:
-          "Stripe or finance still needs updated payout information. Re-open the hosted payout flow to correct the blocked details instead of editing a local bank form.",
+          "Airwallex found a blocking issue with this payout account. Update the beneficiary details here and rerun verification before finance can release funds.",
       };
     default:
       return {
-        primaryLabel: "Create Stripe Payout Account",
-        secondaryLabel: "Why Stripe Setup?",
+        primaryLabel: "Create payout beneficiary",
+        secondaryLabel: "Why Airwallex?",
         helper:
-          "TinyTale now uses Stripe-hosted onboarding for payout setup. Stripe collects and manages your payout details securely so banking verification can happen outside the creator dashboard.",
+          "TinyTale now uses Airwallex embedded onboarding for creator payouts. Airwallex collects and verifies beneficiary banking details directly inside Settlement Center.",
       };
   }
 }
@@ -106,7 +106,10 @@ export default function CreatorSettlementsPage() {
 
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [payoutActionLoading, setPayoutActionLoading] = useState<"create" | "manage" | "status" | null>(null);
+  const [payoutActionLoading, setPayoutActionLoading] = useState<"setup" | "verify" | null>(null);
+  const [showBeneficiaryForm, setShowBeneficiaryForm] = useState(false);
+  const [beneficiaryDefaults, setBeneficiaryDefaults] = useState<Record<string, unknown> | null>(null);
+  const [beneficiaryTransferMethods, setBeneficiaryTransferMethods] = useState<string[]>([]);
   const [filter, setFilter] = useState<StatementFilter>("all");
   const [overview, setOverview] = useState<CreatorSettlementOverview | null>(null);
 
@@ -171,8 +174,8 @@ export default function CreatorSettlementsPage() {
     return candidate?.creatorShareUsd || 0;
   }, [overview]);
 
-  const stripePayoutAction = useMemo(
-    () => getStripePayoutAction(overview?.bankAccount.verificationStatus || "missing"),
+  const airwallexPayoutAction = useMemo(
+    () => getAirwallexPayoutAction(overview?.bankAccount.verificationStatus || "missing"),
     [overview?.bankAccount.verificationStatus],
   );
 
@@ -200,48 +203,58 @@ export default function CreatorSettlementsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleStripePayoutAction = async (mode: "create" | "manage" | "status") => {
+  const handleOpenAirwallexForm = async () => {
     if (!token) {
       toast(t("Please sign in again to manage your payout account."), "error");
       return;
     }
 
-    const bankStatus = overview?.bankAccount.verificationStatus || "missing";
-
     try {
-      setPayoutActionLoading(mode);
-
-      if (mode === "status") {
-        if (bankStatus === "missing") {
-          toast(
-            t("Stripe-hosted onboarding collects and verifies your payout account securely. Start onboarding from the primary button when you are ready."),
-            "info",
-          );
-          return;
-        }
-
-        await refreshOverview();
-        toast(t("Stripe payout status has been refreshed."), "success");
-        return;
+      setPayoutActionLoading("setup");
+      const beneficiaryId = overview?.bankAccount.airwallexBeneficiary?.beneficiaryId;
+      if (beneficiaryId) {
+        const response = await creatorApi.getAirwallexSettlementBeneficiary(token);
+        setBeneficiaryDefaults((response.data?.beneficiary as Record<string, unknown> | null) || null);
+        setBeneficiaryTransferMethods(response.data?.transferMethods || []);
+      } else {
+        setBeneficiaryDefaults(null);
+        setBeneficiaryTransferMethods(["LOCAL"]);
       }
-
-      const shouldUseOnboarding =
-        mode === "create" || bankStatus === "pending_review" || bankStatus === "rejected";
-      const response = shouldUseOnboarding
-        ? await creatorApi.createStripeSettlementOnboardingLink(token)
-        : await creatorApi.createStripeSettlementDashboardLink(token);
-
-      const launchUrl = response.data?.url;
-      if (!launchUrl) {
-        throw new Error(t("Stripe did not return a payout link."));
-      }
-
-      window.location.href = launchUrl;
+      setShowBeneficiaryForm(true);
     } catch (error) {
-      toast(error instanceof Error ? error.message : t("Failed to open Stripe payout flow."), "error");
+      toast(error instanceof Error ? error.message : t("Failed to open Airwallex beneficiary form."), "error");
     } finally {
       setPayoutActionLoading(null);
     }
+  };
+
+  const handleAirwallexVerificationRefresh = async () => {
+    if (!token) {
+      toast(t("Please sign in again to manage your payout account."), "error");
+      return;
+    }
+
+    const beneficiaryId = overview?.bankAccount.airwallexBeneficiary?.beneficiaryId;
+    if (!beneficiaryId) {
+      toast(t("Create your Airwallex payout beneficiary first."), "info");
+      return;
+    }
+
+    try {
+      setPayoutActionLoading("verify");
+      await creatorApi.verifyAirwallexSettlementBeneficiary(token, beneficiaryId);
+      await refreshOverview();
+      toast(t("Airwallex beneficiary verification has been refreshed."), "success");
+    } catch (error) {
+      toast(error instanceof Error ? error.message : t("Failed to refresh Airwallex verification."), "error");
+    } finally {
+      setPayoutActionLoading(null);
+    }
+  };
+
+  const handleAirwallexSaved = async () => {
+    await refreshOverview();
+    setShowBeneficiaryForm(false);
   };
 
   const handleDownloadStatementPdf = async (statementId: string) => {
@@ -338,100 +351,113 @@ export default function CreatorSettlementsPage() {
           <div>
             <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">Bank Account</h2>
             <p className="mt-2 max-w-[720px] text-[15px] leading-7 text-[#64748b]">
-              {t("Use Stripe-hosted onboarding to create and manage your payout account. TinyTale keeps the settlement workflow here, while Stripe handles payout-account collection and verification.")}
+              {t("Use Airwallex embedded onboarding to collect, manage, and verify your payout beneficiary without leaving Settlement Center.")}
             </p>
           </div>
           <Landmark className="h-5 w-5 text-[#94a3b8]" />
         </div>
 
         <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-          <div className="rounded-[24px] border border-[#d9e9ff] bg-[linear-gradient(180deg,#f4f9ff,#ffffff)] p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-2 rounded-full bg-[#e8f1ff] px-3 py-1 text-[12px] font-semibold text-[#1876f2]">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Stripe-hosted onboarding
-                </div>
-                <h3 className="mt-4 text-[20px] font-bold tracking-[-0.02em] text-[#0f172a]">
-                  {t(stripePayoutAction.primaryLabel)}
-                </h3>
-                <p className="mt-2 max-w-[640px] text-[15px] leading-7 text-[#64748b]">
-                  {t(stripePayoutAction.helper)}
-                </p>
-              </div>
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-[#1876f2] shadow-[inset_0_0_0_1px_#d9e9ff]">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-            </div>
-
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-[18px] bg-white px-4 py-4 shadow-[inset_0_0_0_1px_#edf2f7]">
-                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Current payout profile</p>
-                <p className="mt-2 text-[16px] font-bold text-[#0f172a]">
-                  {overview?.bankAccount.bankName ? `${overview.bankAccount.bankName} ${overview.bankAccount.accountNumberMasked}` : t("No Stripe payout account connected")}
-                </p>
-                <p className="mt-1 text-[14px] text-[#64748b]">
-                  {overview?.bankAccount.accountHolderName || t("Stripe setup starts from this card")}
-                </p>
-                {overview?.bankAccount.stripeConnect?.email ? (
-                  <p className="mt-1 text-[13px] text-[#94a3b8]">
-                    {overview.bankAccount.stripeConnect.email}
+          {showBeneficiaryForm ? (
+            <CreatorAirwallexBeneficiaryForm
+              token={token || ""}
+              existingSummary={overview?.bankAccount.airwallexBeneficiary || null}
+              existingBeneficiary={beneficiaryDefaults}
+              existingTransferMethods={beneficiaryTransferMethods}
+              onSaved={handleAirwallexSaved}
+              onClose={() => setShowBeneficiaryForm(false)}
+            />
+          ) : (
+            <div className="rounded-[24px] border border-[#d9e9ff] bg-[linear-gradient(180deg,#f4f9ff,#ffffff)] p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full bg-[#e8f1ff] px-3 py-1 text-[12px] font-semibold text-[#1876f2]">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Airwallex embedded onboarding
+                  </div>
+                  <h3 className="mt-4 text-[20px] font-bold tracking-[-0.02em] text-[#0f172a]">
+                    {t(airwallexPayoutAction.primaryLabel)}
+                  </h3>
+                  <p className="mt-2 max-w-[640px] text-[15px] leading-7 text-[#64748b]">
+                    {t(airwallexPayoutAction.helper)}
                   </p>
-                ) : null}
-              </div>
-              <div className="rounded-[18px] bg-white px-4 py-4 shadow-[inset_0_0_0_1px_#edf2f7]">
-                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Verification status</p>
-                <div className="mt-2 flex items-center gap-3">
-                  <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.bankAccount.verificationStatus || "missing")}`}>
-                    {overview?.bankAccount.verificationLabel || "Missing"}
-                  </span>
                 </div>
-                <p className="mt-2 text-[14px] text-[#64748b]">
-                  {overview?.bankAccount.updatedAt
-                    ? t("Last synced __ARG_0__", formatDate(overview.bankAccount.updatedAt))
-                    : t("The payout setup has not been started yet.")}
-                </p>
-                {overview?.bankAccount.stripeConnect?.requirementsCurrentlyDue?.length ? (
-                  <p className="mt-1 text-[13px] text-[#b45309]">
-                    {t("__ARG_0__ Stripe verification item(s) still need attention.", String(overview.bankAccount.stripeConnect.requirementsCurrentlyDue.length))}
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-[18px] bg-white px-4 py-4 shadow-[inset_0_0_0_1px_#edf2f7]">
+                  <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Current payout profile</p>
+                  <p className="mt-2 text-[16px] font-bold text-[#0f172a]">
+                    {overview?.bankAccount.bankName ? `${overview.bankAccount.bankName} ${overview.bankAccount.accountNumberMasked}` : t("No Airwallex beneficiary connected")}
                   </p>
-                ) : null}
+                  <p className="mt-1 text-[14px] text-[#64748b]">
+                    {overview?.bankAccount.accountHolderName || t("Create your payout beneficiary from this card")}
+                  </p>
+                  {overview?.bankAccount.airwallexBeneficiary?.email ? (
+                    <p className="mt-1 text-[13px] text-[#94a3b8]">
+                      {overview.bankAccount.airwallexBeneficiary.email}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="rounded-[18px] bg-white px-4 py-4 shadow-[inset_0_0_0_1px_#edf2f7]">
+                  <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Verification status</p>
+                  <div className="mt-2 flex items-center gap-3">
+                    <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.bankAccount.verificationStatus || "missing")}`}>
+                      {overview?.bankAccount.verificationLabel || "Missing"}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[14px] text-[#64748b]">
+                    {overview?.bankAccount.airwallexBeneficiary?.verificationCheckedAt
+                      ? t("Last verified __ARG_0__", formatDate(overview.bankAccount.airwallexBeneficiary.verificationCheckedAt))
+                      : overview?.bankAccount.updatedAt
+                        ? t("Last updated __ARG_0__", formatDate(overview.bankAccount.updatedAt))
+                        : t("The payout setup has not been started yet.")}
+                  </p>
+                  {overview?.bankAccount.airwallexBeneficiary?.verificationCode ? (
+                    <p className="mt-1 text-[13px] text-[#b45309]">
+                      {overview.bankAccount.airwallexBeneficiary.verificationCode}
+                      {overview.bankAccount.airwallexBeneficiary.verificationAccountNameMatchResult
+                        ? ` · ${overview.bankAccount.airwallexBeneficiary.verificationAccountNameMatchResult}`
+                        : ""}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleOpenAirwallexForm}
+                  disabled={payoutActionLoading !== null}
+                  className="inline-flex h-11 items-center rounded-2xl bg-[#1876f2] px-5 text-[14px] font-bold text-white transition hover:bg-[#1669da]"
+                >
+                  {payoutActionLoading === "setup" ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t("Opening Airwallex...")}
+                    </>
+                  ) : (
+                    t(airwallexPayoutAction.primaryLabel)
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAirwallexVerificationRefresh}
+                  disabled={payoutActionLoading !== null}
+                  className="inline-flex h-11 items-center rounded-2xl border border-[#dbe3ec] bg-white px-5 text-[14px] font-semibold text-[#334155] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {payoutActionLoading === "verify" ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {t("Refreshing...")}
+                    </>
+                  ) : (
+                    t(airwallexPayoutAction.secondaryLabel)
+                  )}
+                </button>
               </div>
             </div>
-
-            <div className="mt-5 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => handleStripePayoutAction(overview?.bankAccount.verificationStatus === "missing" ? "create" : "manage")}
-                disabled={payoutActionLoading !== null}
-                className="inline-flex h-11 items-center rounded-2xl bg-[#1876f2] px-5 text-[14px] font-bold text-white transition hover:bg-[#1669da]"
-              >
-                {payoutActionLoading === "create" || payoutActionLoading === "manage" ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t("Opening Stripe...")}
-                  </>
-                ) : (
-                  t(stripePayoutAction.primaryLabel)
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleStripePayoutAction("status")}
-                disabled={payoutActionLoading !== null}
-                className="inline-flex h-11 items-center rounded-2xl border border-[#dbe3ec] bg-white px-5 text-[14px] font-semibold text-[#334155] transition hover:bg-[#f8fafc] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {payoutActionLoading === "status" ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t("Refreshing...")}
-                  </>
-                ) : (
-                  t(stripePayoutAction.secondaryLabel)
-                )}
-              </button>
-            </div>
-          </div>
+          )}
 
           <div className="rounded-[24px] bg-[#f8fafc] p-4">
             <div className="rounded-[20px] bg-white p-5 shadow-[inset_0_0_0_1px_#edf2f7]">
@@ -441,10 +467,10 @@ export default function CreatorSettlementsPage() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[16px] font-bold text-[#0f172a]">
-                    {overview?.bankAccount.bankName ? `${overview.bankAccount.bankName} ${overview.bankAccount.accountNumberMasked}` : t("No Stripe payout account connected")}
+                    {overview?.bankAccount.bankName ? `${overview.bankAccount.bankName} ${overview.bankAccount.accountNumberMasked}` : t("No Airwallex beneficiary connected")}
                   </p>
                   <p className="mt-1 text-[14px] text-[#64748b]">
-                    {overview?.bankAccount.accountHolderName || t("Primary payout profile will appear here after Stripe setup")}
+                    {overview?.bankAccount.accountHolderName || t("Primary payout profile will appear here after beneficiary setup")}
                   </p>
                   {overview?.bankAccount.providerLabel ? (
                     <p className="mt-1 text-[13px] text-[#94a3b8]">{overview.bankAccount.providerLabel}</p>
@@ -457,11 +483,11 @@ export default function CreatorSettlementsPage() {
               <div className="mt-5 space-y-3 text-[14px] leading-6 text-[#64748b]">
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-[#1876f2]" />
-                  <p>{t("Create the payout account in Stripe from this page instead of typing full banking details into TinyTale.")}</p>
+                  <p>{t("Create and edit the payout beneficiary here instead of typing full banking details into local TinyTale forms.")}</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-[#1876f2]" />
-                  <p>{t("Update or fix payout information from the same bank account card after onboarding has started.")}</p>
+                  <p>{t("Run beneficiary verification from the same card after saving changes, so payout readiness stays visible in one workflow.")}</p>
                 </div>
                 <div className="flex items-start gap-3">
                   <div className="mt-1 h-2 w-2 rounded-full bg-[#1876f2]" />
