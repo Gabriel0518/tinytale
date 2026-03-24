@@ -1,7 +1,8 @@
 "use client";
-export const dynamic = 'force-dynamic';
 
-import { useCallback, useState, useEffect} from "react";
+export const dynamic = "force-dynamic";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
@@ -9,9 +10,9 @@ import { useToast } from "@/components/ui/Toast";
 import { coinsApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
-import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
-import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { resolveLocaleCopy } from "@/lib/locale-copy";
 
 interface CoinPackage {
   id?: string;
@@ -29,7 +30,15 @@ interface PricingContext {
   currencyCode: string;
 }
 
-type PaymentMethod = "stripe" | "airwallex";
+type PaymentProvider = "stripe" | "airwallex";
+type PaymentOption = "card" | "wallet" | "cards" | "local";
+
+type PaymentOptionDefinition = {
+  id: PaymentOption;
+  label: string;
+  description: string;
+  pill: string;
+};
 
 type CoinsCopy = {
   title: string;
@@ -48,27 +57,46 @@ type CoinsCopy = {
   total: string;
   selectPackageHint: string;
   paymentMethod: string;
-  paymentMethodLabels: Record<PaymentMethod, string>;
-  paymentMethodDescriptions: Record<PaymentMethod, string>;
-  paySecurely: string;
+  providerTitle: string;
+  providerDescription: string;
+  providerLabels: Record<PaymentProvider, string>;
+  providerDescriptions: Record<PaymentProvider, string>;
+  selectedProvider: string;
+  selectedMethod: string;
+  chooseMethod: string;
   continueToCheckout: string;
   haveRedeemCode: string;
   enterCode: string;
   redeem: string;
   securedBy: string;
+  modalTitle: (provider: string) => string;
+  modalSubtitle: string;
+  modalNotice: string;
+  methodPills: {
+    recommended: string;
+    express: string;
+    global: string;
+    local: string;
+  };
+  paymentOptions: Record<PaymentProvider, PaymentOptionDefinition[]>;
   toasts: {
-    checkoutFailed: string;
+    selectPackageFirst: string;
+    selectPaymentMethod: string;
     paymentFailed: string;
     redeemSuccess: (coins: number) => string;
     invalidCode: string;
     genericError: string;
+  };
+  actions: {
+    cancel: string;
+    continue: string;
   };
 };
 
 const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
   en: {
     title: "Gold Recharge",
-    subtitle: "Purchase gold coins to unlock premium episodes and exclusive content",
+    subtitle: "Choose a package first, then pick your preferred checkout provider and payment method.",
     currentBalance: "Current Balance",
     coinsUnit: "coins",
     transactionHistory: "Transaction History",
@@ -79,36 +107,87 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     notes: [
       "Coins are non-refundable once purchased.",
       "Bonus coins are valid for 30 days from the date of purchase.",
-      "Prices use USD as the base. The final checkout currency may vary by provider and region.",
+      "Prices use USD as the base. Final payment methods and currencies are shown by the provider at checkout.",
     ],
     orderSummary: "Order Summary",
     selectedCoins: (coins) => `${coins.toLocaleString()} Coins`,
     bonusCoins: "Bonus Coins",
     total: "Total",
     selectPackageHint: "Select a package to continue",
-    paymentMethod: "Payment Method",
-    paymentMethodLabels: {
-      stripe: "Credit / Debit Card",
-      airwallex: "Airwallex Hosted Checkout" },
-    paymentMethodDescriptions: {
-      stripe: "Redirect to Stripe Checkout for card payment.",
-      airwallex: "Pay through Airwallex's hosted payment page.",
+    paymentMethod: "Payment Channel",
+    providerTitle: "Choose a payment channel",
+    providerDescription: "Tap a brand card to view the supported payment methods in the popup.",
+    providerLabels: {
+      stripe: "Stripe",
+      airwallex: "Airwallex",
     },
-    paySecurely: "Pay Securely",
+    providerDescriptions: {
+      stripe: "Optimized for cards and express wallets through Stripe Checkout.",
+      airwallex: "Hosted global checkout with cards and region-based local methods.",
+    },
+    selectedProvider: "Selected Channel",
+    selectedMethod: "Selected Method",
+    chooseMethod: "Choose payment method",
     continueToCheckout: "Continue to checkout",
     haveRedeemCode: "Have a redeem code?",
     enterCode: "Enter code",
     redeem: "Redeem",
-    securedBy: "Secured by 256-bit SSL encryption",
+    securedBy: "Secured by provider-hosted checkout and 256-bit SSL encryption",
+    modalTitle: (provider) => `${provider} payment methods`,
+    modalSubtitle: "Choose how you want to pay before we take you to the hosted checkout page.",
+    modalNotice: "Available options may still change based on your browser, device, region, and provider eligibility rules.",
+    methodPills: {
+      recommended: "Recommended",
+      express: "Express",
+      global: "Global",
+      local: "Local",
+    },
+    paymentOptions: {
+      stripe: [
+        {
+          id: "card",
+          label: "Credit / Debit Card",
+          description: "Visa, Mastercard, Amex, and other supported cards inside Stripe Checkout.",
+          pill: "Recommended",
+        },
+        {
+          id: "wallet",
+          label: "Apple Pay / Google Pay / Link",
+          description: "Express wallet methods shown by Stripe when your device and browser support them.",
+          pill: "Express",
+        },
+      ],
+      airwallex: [
+        {
+          id: "cards",
+          label: "Global Cards",
+          description: "International credit and debit card payment options through Airwallex.",
+          pill: "Global",
+        },
+        {
+          id: "local",
+          label: "Local Payment Methods",
+          description: "Region-based payment methods that Airwallex shows when available for your market.",
+          pill: "Local",
+        },
+      ],
+    },
     toasts: {
-      checkoutFailed: "Failed to create checkout session",
+      selectPackageFirst: "Please select a recharge package first",
+      selectPaymentMethod: "Please choose a payment method first",
       paymentFailed: "Payment failed",
       redeemSuccess: (coins) => `Redeemed ${coins} coins!`,
       invalidCode: "Invalid or expired code",
-      genericError: "An error occurred" } },
+      genericError: "An error occurred",
+    },
+    actions: {
+      cancel: "Cancel",
+      continue: "Continue",
+    },
+  },
   zh: {
     title: "金币充值",
-    subtitle: "购买金币以解锁付费剧集与专属内容",
+    subtitle: "先选择套餐，再选择支付渠道与支付方式，最后进入对应的托管收银台完成支付。",
     currentBalance: "当前余额",
     coinsUnit: "金币",
     transactionHistory: "交易记录",
@@ -119,243 +198,124 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     notes: [
       "金币购买后不支持退款。",
       "赠送金币自购买之日起 30 天内有效。",
-      "价格以 USD 为基准，最终结账货币会根据支付渠道和地区变化。",
+      "价格以 USD 为基准，最终可用支付方式和展示币种以支付渠道结账页为准。",
     ],
     orderSummary: "订单摘要",
     selectedCoins: (coins) => `${coins.toLocaleString()} 金币`,
     bonusCoins: "赠送金币",
     total: "合计",
     selectPackageHint: "请选择一个套餐继续",
-    paymentMethod: "支付方式",
-    paymentMethodLabels: {
-      stripe: "信用卡 / 借记卡",
-      airwallex: "Airwallex 托管收银台" },
-    paymentMethodDescriptions: {
-      stripe: "跳转到 Stripe Checkout 完成银行卡支付。",
-      airwallex: "通过 Airwallex Hosted Payment Page 完成支付。",
+    paymentMethod: "支付渠道",
+    providerTitle: "选择支付渠道",
+    providerDescription: "点击品牌卡片，在弹窗中查看该渠道支持的支付方式。",
+    providerLabels: {
+      stripe: "Stripe",
+      airwallex: "Airwallex",
     },
-    paySecurely: "安全支付",
+    providerDescriptions: {
+      stripe: "适合银行卡与快捷钱包，进入 Stripe Checkout 完成支付。",
+      airwallex: "适合全球卡支付与地区本地化方式，进入 Airwallex 托管收银台。",
+    },
+    selectedProvider: "已选渠道",
+    selectedMethod: "已选方式",
+    chooseMethod: "选择支付方式",
     continueToCheckout: "前往收银台",
     haveRedeemCode: "有兑换码？",
     enterCode: "输入兑换码",
     redeem: "兑换",
-    securedBy: "由 256-bit SSL 加密保护",
+    securedBy: "由支付渠道托管结账，并使用 256-bit SSL 加密保护",
+    modalTitle: (provider) => `${provider} 支付方式`,
+    modalSubtitle: "请先选择本次要使用的支付方式，我们会再带你进入对应的托管收银台。",
+    modalNotice: "实际可用方式仍会受浏览器、设备、地区以及支付渠道资格规则影响。",
+    methodPills: {
+      recommended: "推荐",
+      express: "快捷",
+      global: "全球",
+      local: "本地",
+    },
+    paymentOptions: {
+      stripe: [
+        {
+          id: "card",
+          label: "信用卡 / 借记卡",
+          description: "在 Stripe Checkout 中使用 Visa、Mastercard、Amex 等银行卡完成支付。",
+          pill: "推荐",
+        },
+        {
+          id: "wallet",
+          label: "Apple Pay / Google Pay / Link",
+          description: "当你的设备和浏览器支持时，Stripe 会展示快捷钱包支付方式。",
+          pill: "快捷",
+        },
+      ],
+      airwallex: [
+        {
+          id: "cards",
+          label: "全球银行卡",
+          description: "通过 Airwallex 支持的国际信用卡与借记卡完成支付。",
+          pill: "全球",
+        },
+        {
+          id: "local",
+          label: "本地支付方式",
+          description: "Airwallex 会根据你的地区展示可用的本地化支付方式。",
+          pill: "本地",
+        },
+      ],
+    },
     toasts: {
-      checkoutFailed: "创建结账会话失败",
+      selectPackageFirst: "请先选择充值套餐",
+      selectPaymentMethod: "请先选择支付方式",
       paymentFailed: "支付失败",
       redeemSuccess: (coins) => `成功兑换 ${coins} 金币！`,
       invalidCode: "兑换码无效或已过期",
-      genericError: "发生错误" } },
-  ja: {
-    title: "コインチャージ",
-    subtitle: "コインを購入してプレミアム話数と限定コンテンツを解放",
-    currentBalance: "現在の残高",
-    coinsUnit: "コイン",
-    transactionHistory: "取引履歴",
-    selectPackage: "パッケージを選択",
-    tagPopular: "人気No.1",
-    tagBestValue: "最もお得",
-    bonus: "ボーナス",
-    notes: [
-      "購入したコインは返金できません。",
-      "ボーナスコインは購入日から30日間有効です。",
-      "価格はUSD基準です。最終的な決済通貨は決済手段と地域に応じて変わる場合があります。",
-    ],
-    orderSummary: "注文概要",
-    selectedCoins: (coins) => `${coins.toLocaleString()} コイン`,
-    bonusCoins: "ボーナスコイン",
-    total: "合計",
-    selectPackageHint: "続行するにはパッケージを選択してください",
-    paymentMethod: "支払い方法",
-    paymentMethodLabels: {
-      stripe: "クレジット / デビットカード",
-      airwallex: "Airwallex ホスト型チェックアウト" },
-    paymentMethodDescriptions: {
-      stripe: "Stripe Checkout に移動してカード決済を行います。",
-      airwallex: "Airwallex Hosted Payment Page で決済します。",
+      genericError: "发生错误",
     },
-    paySecurely: "安全に支払う",
-    continueToCheckout: "チェックアウトへ進む",
-    haveRedeemCode: "引き換えコードをお持ちですか？",
-    enterCode: "コードを入力",
-    redeem: "引き換え",
-    securedBy: "256-bit SSL 暗号化で保護",
-    toasts: {
-      checkoutFailed: "チェックアウトセッションの作成に失敗しました",
-      paymentFailed: "支払いに失敗しました",
-      redeemSuccess: (coins) => `${coins} コインを引き換えました！`,
-      invalidCode: "無効または期限切れのコードです",
-      genericError: "エラーが発生しました" } },
-  es: {
-    title: "Recarga de monedas",
-    subtitle: "Compra monedas para desbloquear episodios premium y contenido exclusivo",
-    currentBalance: "Saldo actual",
-    coinsUnit: "monedas",
-    transactionHistory: "Historial de transacciones",
-    selectPackage: "Selecciona un paquete",
-    tagPopular: "Más popular",
-    tagBestValue: "Mejor valor",
-    bonus: "Bono",
-    notes: [
-      "Las monedas no son reembolsables una vez compradas.",
-      "Las monedas de bono son válidas por 30 días desde la compra.",
-      "Los precios usan USD como base. La moneda final puede variar según el proveedor y tu región.",
-    ],
-    orderSummary: "Resumen del pedido",
-    selectedCoins: (coins) => `${coins.toLocaleString()} monedas`,
-    bonusCoins: "Monedas de bono",
-    total: "Total",
-    selectPackageHint: "Selecciona un paquete para continuar",
-    paymentMethod: "Método de pago",
-    paymentMethodLabels: {
-      stripe: "Tarjeta de crédito / débito",
-      airwallex: "Checkout alojado de Airwallex" },
-    paymentMethodDescriptions: {
-      stripe: "Ir a Stripe Checkout para pagar con tarjeta.",
-      airwallex: "Pagar a través de la página alojada de Airwallex.",
+    actions: {
+      cancel: "取消",
+      continue: "继续",
     },
-    paySecurely: "Pagar de forma segura",
-    continueToCheckout: "Continuar al checkout",
-    haveRedeemCode: "¿Tienes un código?",
-    enterCode: "Ingresa el código",
-    redeem: "Canjear",
-    securedBy: "Protegido con cifrado SSL de 256 bits",
-    toasts: {
-      checkoutFailed: "No se pudo crear la sesión de pago",
-      paymentFailed: "Pago fallido",
-      redeemSuccess: (coins) => `¡Canjeaste ${coins} monedas!`,
-      invalidCode: "Código inválido o vencido",
-      genericError: "Ocurrió un error" } },
-  pt: {
-    title: "Recarga de moedas",
-    subtitle: "Compre moedas para desbloquear episódios premium e conteúdo exclusivo",
-    currentBalance: "Saldo atual",
-    coinsUnit: "moedas",
-    transactionHistory: "Histórico de transações",
-    selectPackage: "Selecione um pacote",
-    tagPopular: "Mais popular",
-    tagBestValue: "Melhor custo-benefício",
-    bonus: "Bônus",
-    notes: [
-      "As moedas não são reembolsáveis após a compra.",
-      "As moedas bônus são válidas por 30 dias a partir da compra.",
-      "Os preços usam USD como base. A moeda final pode variar conforme o provedor e sua região.",
-    ],
-    orderSummary: "Resumo do pedido",
-    selectedCoins: (coins) => `${coins.toLocaleString()} moedas`,
-    bonusCoins: "Moedas bônus",
-    total: "Total",
-    selectPackageHint: "Selecione um pacote para continuar",
-    paymentMethod: "Método de pagamento",
-    paymentMethodLabels: {
-      stripe: "Cartão de crédito / débito",
-      airwallex: "Checkout hospedado Airwallex" },
-    paymentMethodDescriptions: {
-      stripe: "Ir para o Stripe Checkout para pagar com cartão.",
-      airwallex: "Pagar pela página hospedada da Airwallex.",
-    },
-    paySecurely: "Pagar com segurança",
-    continueToCheckout: "Continuar para checkout",
-    haveRedeemCode: "Tem um código de resgate?",
-    enterCode: "Digite o código",
-    redeem: "Resgatar",
-    securedBy: "Protegido por criptografia SSL de 256 bits",
-    toasts: {
-      checkoutFailed: "Falha ao criar sessão de checkout",
-      paymentFailed: "Falha no pagamento",
-      redeemSuccess: (coins) => `${coins} moedas resgatadas!`,
-      invalidCode: "Código inválido ou expirado",
-      genericError: "Ocorreu um erro" } },
-  hi: {
-    title: "कॉइन रिचार्ज",
-    subtitle: "प्रीमियम एपिसोड और एक्सक्लूसिव कंटेंट अनलॉक करने के लिए कॉइन खरीदें",
-    currentBalance: "वर्तमान बैलेंस",
-    coinsUnit: "कॉइन्स",
-    transactionHistory: "ट्रांजैक्शन हिस्ट्री",
-    selectPackage: "पैकेज चुनें",
-    tagPopular: "सबसे लोकप्रिय",
-    tagBestValue: "सबसे बेहतर मूल्य",
-    bonus: "बोनस",
-    notes: [
-      "एक बार खरीदे गए कॉइन्स रिफंड नहीं होते।",
-      "बोनस कॉइन्स खरीद की तारीख से 30 दिन तक मान्य हैं।",
-      "कीमतें USD पर आधारित हैं। अंतिम भुगतान मुद्रा भुगतान चैनल और क्षेत्र के अनुसार बदल सकती है।",
-    ],
-    orderSummary: "ऑर्डर सारांश",
-    selectedCoins: (coins) => `${coins.toLocaleString()} कॉइन्स`,
-    bonusCoins: "बोनस कॉइन्स",
-    total: "कुल",
-    selectPackageHint: "जारी रखने के लिए पैकेज चुनें",
-    paymentMethod: "भुगतान विधि",
-    paymentMethodLabels: {
-      stripe: "क्रेडिट / डेबिट कार्ड",
-      airwallex: "Airwallex होस्टेड चेकआउट" },
-    paymentMethodDescriptions: {
-      stripe: "कार्ड भुगतान के लिए Stripe Checkout पर जाएं।",
-      airwallex: "Airwallex Hosted Payment Page के माध्यम से भुगतान करें।",
-    },
-    paySecurely: "सुरक्षित भुगतान",
-    continueToCheckout: "चेकआउट पर जाएं",
-    haveRedeemCode: "क्या आपके पास रिडीम कोड है?",
-    enterCode: "कोड दर्ज करें",
-    redeem: "रिडीम करें",
-    securedBy: "256-bit SSL एन्क्रिप्शन द्वारा सुरक्षित",
-    toasts: {
-      checkoutFailed: "चेकआउट सत्र बनाना विफल रहा",
-      paymentFailed: "भुगतान विफल",
-      redeemSuccess: (coins) => `${coins} कॉइन्स सफलतापूर्वक रिडीम हुए!`,
-      invalidCode: "अमान्य या समाप्त कोड",
-      genericError: "एक त्रुटि हुई" } },
-  id: {
-    title: "Isi ulang koin",
-    subtitle: "Beli koin untuk membuka episode premium dan konten eksklusif",
-    currentBalance: "Saldo saat ini",
-    coinsUnit: "koin",
-    transactionHistory: "Riwayat transaksi",
-    selectPackage: "Pilih paket",
-    tagPopular: "Paling populer",
-    tagBestValue: "Paling hemat",
-    bonus: "Bonus",
-    notes: [
-      "Koin tidak dapat dikembalikan setelah dibeli.",
-      "Koin bonus berlaku 30 hari sejak tanggal pembelian.",
-      "Harga menggunakan USD sebagai dasar. Mata uang akhir bisa berubah sesuai provider dan wilayahmu.",
-    ],
-    orderSummary: "Ringkasan pesanan",
-    selectedCoins: (coins) => `${coins.toLocaleString()} koin`,
-    bonusCoins: "Koin bonus",
-    total: "Total",
-    selectPackageHint: "Pilih paket untuk melanjutkan",
-    paymentMethod: "Metode pembayaran",
-    paymentMethodLabels: {
-      stripe: "Kartu kredit / debit",
-      airwallex: "Checkout hosted Airwallex" },
-    paymentMethodDescriptions: {
-      stripe: "Lanjut ke Stripe Checkout untuk bayar dengan kartu.",
-      airwallex: "Bayar lewat halaman checkout hosted milik Airwallex.",
-    },
-    paySecurely: "Bayar dengan aman",
-    continueToCheckout: "Lanjut ke checkout",
-    haveRedeemCode: "Punya kode redeem?",
-    enterCode: "Masukkan kode",
-    redeem: "Redeem",
-    securedBy: "Diamankan dengan enkripsi SSL 256-bit",
-    toasts: {
-      checkoutFailed: "Gagal membuat sesi checkout",
-      paymentFailed: "Pembayaran gagal",
-      redeemSuccess: (coins) => `Berhasil redeem ${coins} koin!`,
-      invalidCode: "Kode tidak valid atau kedaluwarsa",
-      genericError: "Terjadi kesalahan" } } };
+  },
+};
 
 const CHECKOUT_CONTEXT_COPY: FlexibleRecord<SupportedLocale, (countryCode: string, currencyCode: string) => string> = {
   en: (countryCode, currencyCode) => `Checkout region: ${countryCode}, settlement display currency may be ${currencyCode}.`,
   zh: (countryCode, currencyCode) => `结账地区：${countryCode}，最终展示货币可能为 ${currencyCode}。`,
-  ja: (countryCode, currencyCode) => `チェックアウト地域: ${countryCode}、表示通貨は ${currencyCode} になる可能性があります。`,
-  es: (countryCode, currencyCode) => `Región de checkout: ${countryCode}. La moneda mostrada puede ser ${currencyCode}.`,
-  pt: (countryCode, currencyCode) => `Região do checkout: ${countryCode}. A moeda exibida pode ser ${currencyCode}.`,
-  hi: (countryCode, currencyCode) => `चेकआउट क्षेत्र: ${countryCode}। अंतिम प्रदर्शित मुद्रा ${currencyCode} हो सकती है।`,
-  id: (countryCode, currencyCode) => `Wilayah checkout: ${countryCode}. Mata uang yang ditampilkan bisa ${currencyCode}.`,
 };
+
+function StripeLogo() {
+  return (
+    <svg className="h-6 w-auto" viewBox="0 0 48 20" fill="none" aria-hidden="true">
+      <path d="M20.69 8.29c0-1.75 1.44-2.42 3.84-2.42 3.44 0 7.77 1.04 11.2 2.9V1.62C32.03.25 28.6 0 25.17 0c-8.42 0-13.98 4.4-13.98 11.74 0 11.45 15.74 9.62 15.74 14.67 0 2.08-1.81 2.75-4.35 2.75-3.75 0-8.55-1.55-12.35-3.61v7.24c4.2 1.82 8.45 2.59 12.35 2.59 8.63 0 14.57-4.26 14.57-11.7 0-12.36-15.77-10.16-15.77-15.39Z" fill="currentColor" />
+      <path d="M7.94 1.05 0 34.87h8.71l7.94-33.82H7.94Z" fill="currentColor" />
+      <path d="m46.14 1.05-7.9 33.82H47L54.9 1.05h-8.76Z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function AirwallexLogo() {
+  return (
+    <svg className="h-7 w-7" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <rect x="1.5" y="1.5" width="29" height="29" rx="10" stroke="currentColor" strokeWidth="2" />
+      <path d="M10 22 16 9l6 13m-10-3h8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CoinBadge() {
+  return (
+    <svg className="w-7 h-7 text-yellow-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" fill="url(#coinGradSummary)" />
+      <text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text>
+      <defs>
+        <linearGradient id="coinGradSummary" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#FFD700" />
+          <stop offset="100%" stopColor="#F59E0B" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
 
 export default function CoinsPage() {
   const locale = useLocale();
@@ -372,6 +332,7 @@ export default function CoinsPage() {
     ko: "ko-KR",
     fr: "fr-FR",
   } as const)[locale] || "en-US";
+
   const formatUsd = useCallback(
     (value: number) =>
       new Intl.NumberFormat(localeTag, {
@@ -380,7 +341,7 @@ export default function CoinsPage() {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
       }).format(Number(value || 0)),
-    [localeTag]
+    [localeTag],
   );
 
   const { user, token, refreshUser } = useAuth();
@@ -390,11 +351,18 @@ export default function CoinsPage() {
   const [pricingContext, setPricingContext] = useState<PricingContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPkg, setSelectedPkg] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("stripe");
+  const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>("stripe");
+  const [providerSelections, setProviderSelections] = useState<Record<PaymentProvider, PaymentOption | null>>({
+    stripe: "card",
+    airwallex: "cards",
+  });
+  const [modalProvider, setModalProvider] = useState<PaymentProvider | null>(null);
+  const [modalSelection, setModalSelection] = useState<PaymentOption | null>(null);
   const [redeemCode, setRedeemCode] = useState("");
   const [showRedeem, setShowRedeem] = useState(false);
   const [balance, setBalance] = useState(0);
   const [silverBalance, setSilverBalance] = useState(0);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -431,12 +399,32 @@ export default function CoinsPage() {
     load();
   }, [user]);
 
-  const selected = packages.find((p) => p._id === selectedPkg);
+  const selected = packages.find((pkg) => pkg._id === selectedPkg);
 
-  const [paying, setPaying] = useState(false);
+  const activeMethods = modalProvider ? t.paymentOptions[modalProvider] : [];
+  const selectedMethodDefinition = useMemo(() => {
+    const optionId = providerSelections[selectedProvider];
+    return t.paymentOptions[selectedProvider].find((item) => item.id === optionId) || null;
+  }, [providerSelections, selectedProvider, t]);
 
-  const handlePay = async () => {
+  const openProviderModal = (provider: PaymentProvider) => {
+    if (!selected) {
+      toast(t.toasts.selectPackageFirst, "error");
+      return;
+    }
+    setSelectedProvider(provider);
+    setModalProvider(provider);
+    setModalSelection(providerSelections[provider]);
+  };
+
+  const continueWithMethod = async () => {
     if (!selected || !token) return;
+    const paymentOption = providerSelections[selectedProvider];
+    if (!paymentOption) {
+      toast(t.toasts.selectPaymentMethod, "error");
+      return;
+    }
+
     setPaying(true);
     try {
       const query = new URLSearchParams({
@@ -444,27 +432,40 @@ export default function CoinsPage() {
         coins: String(selected.coins),
         bonus: String(selected.bonus),
         price: String(selected.price),
+        paymentOption,
       });
-      window.location.href = localizePath(`/user/coins/checkout/${paymentMethod}?${query.toString()}`, locale);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t.toasts.paymentFailed;
-      toast(message, "error");
+      window.location.href = localizePath(`/user/coins/checkout/${selectedProvider}?${query.toString()}`, locale);
+    } catch (error: unknown) {
+      toast(error instanceof Error ? error.message : t.toasts.paymentFailed, "error");
     } finally {
       setPaying(false);
     }
+  };
+
+  const confirmModalSelection = () => {
+    if (!modalProvider || !modalSelection) {
+      toast(t.toasts.selectPaymentMethod, "error");
+      return;
+    }
+    setProviderSelections((current) => ({
+      ...current,
+      [modalProvider]: modalSelection,
+    }));
+    setSelectedProvider(modalProvider);
+    setModalProvider(null);
   };
 
   const handleRedeem = async () => {
     if (!token || !redeemCode.trim()) return;
     try {
       const res = await coinsApi.redeem(token, redeemCode.trim());
-      const d = res.data;
-      toast(d.message || t.toasts.redeemSuccess(d.coins), "success");
+      const data = res.data;
+      toast(data.message || t.toasts.redeemSuccess(data.coins), "success");
       setRedeemCode("");
       setShowRedeem(false);
       await refreshUser();
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t.toasts.genericError;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : t.toasts.genericError;
       toast(message || t.toasts.invalidCode, "error");
     }
   };
@@ -481,23 +482,36 @@ export default function CoinsPage() {
     <div className="min-h-screen bg-black text-white">
       <Navbar />
 
-      <div className="max-w-6xl mx-auto px-4 pt-24 pb-16">
+      <div className="mx-auto max-w-6xl px-4 pb-16 pt-24">
         <div className="mb-8">
           <h1 className="text-3xl font-bold">
-            <span className="bg-clip-text text-transparent bg-[length:200%_auto] animate-shine bg-[linear-gradient(90deg,#FFD700_0%,#FFF8DC_25%,#FFD700_50%,#FFF8DC_75%,#FFD700_100%)]">{t.title}</span>
+            <span className="bg-clip-text text-transparent bg-[length:200%_auto] animate-shine bg-[linear-gradient(90deg,#FFD700_0%,#FFF8DC_25%,#FFD700_50%,#FFF8DC_75%,#FFD700_100%)]">
+              {t.title}
+            </span>
           </h1>
-          <p className="text-gray-400 mt-2">{t.subtitle}</p>
+          <p className="mt-2 text-gray-400">{t.subtitle}</p>
         </div>
 
-        <div className="relative mb-10 rounded-2xl overflow-hidden bg-gradient-to-r from-yellow-900/40 via-yellow-800/30 to-yellow-900/40 border border-yellow-500/20 p-6 shadow-[0_0_30px_rgba(255,215,0,0.08)]">
+        <div className="relative mb-12 overflow-hidden rounded-2xl border border-yellow-500/20 bg-gradient-to-r from-yellow-900/40 via-yellow-800/30 to-yellow-900/40 p-6 shadow-[0_0_30px_rgba(255,215,0,0.08)]">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,215,0,0.1),transparent_70%)]" />
-          <div className="relative flex items-center justify-between">
+          <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-sm text-yellow-200/70 mb-1">{t.currentBalance}</p>
+              <p className="mb-1 text-sm text-yellow-200/70">{t.currentBalance}</p>
               <div className="flex items-center gap-3">
-                <svg className="w-10 h-10 text-yellow-400 drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="url(#coinGrad)" /><text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text><defs><linearGradient id="coinGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFD700" /><stop offset="100%" stopColor="#F59E0B" /></linearGradient></defs></svg>
-                <span className="text-4xl font-bold bg-clip-text text-transparent bg-[length:200%_auto] animate-shine bg-[linear-gradient(90deg,#FFD700_0%,#FFF8DC_25%,#FFD700_50%,#FFF8DC_75%,#FFD700_100%)]">{balance.toLocaleString()}</span>
-                <span className="text-yellow-300/60 text-lg">{t.coinsUnit}</span>
+                <svg className="h-10 w-10 text-yellow-400 drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]" viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="12" cy="12" r="10" fill="url(#coinGrad)" />
+                  <text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text>
+                  <defs>
+                    <linearGradient id="coinGrad" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="#FFD700" />
+                      <stop offset="100%" stopColor="#F59E0B" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <span className="bg-[length:200%_auto] bg-[linear-gradient(90deg,#FFD700_0%,#FFF8DC_25%,#FFD700_50%,#FFF8DC_75%,#FFD700_100%)] bg-clip-text text-4xl font-bold text-transparent animate-shine">
+                  {balance.toLocaleString()}
+                </span>
+                <span className="text-lg text-yellow-300/60">{t.coinsUnit}</span>
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <svg className="h-6 w-6 text-gray-300" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -514,176 +528,339 @@ export default function CoinsPage() {
                 <span className="text-sm text-gray-400">Silver Coins</span>
               </div>
             </div>
-            <Link href={localizePath("/user/purchases", locale)} className="flex items-center gap-2 text-sm text-yellow-300/70 hover:text-yellow-200 transition">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+
+            <Link
+              href={localizePath("/user/purchases", locale)}
+              className="flex items-center gap-2 text-sm text-yellow-300/70 transition hover:text-yellow-200"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
               {t.transactionHistory}
             </Link>
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-8">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-semibold mb-5">{t.selectPackage}</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {packages.map((pkg) => {
-                const isSelected = selectedPkg === pkg._id;
-                const tagText = pkg.tag === "Popular" ? t.tagPopular : pkg.tag === "Best Value" ? t.tagBestValue : pkg.tag;
+        <section>
+          <h2 className="mb-5 text-xl font-semibold">{t.selectPackage}</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {packages.map((pkg) => {
+              const isSelected = selectedPkg === pkg._id;
+              const tagText = pkg.tag === "Popular" ? t.tagPopular : pkg.tag === "Best Value" ? t.tagBestValue : pkg.tag;
+
+              return (
+                <button
+                  key={pkg._id}
+                  onClick={() => setSelectedPkg(pkg._id)}
+                  aria-pressed={isSelected}
+                  className={`relative rounded-2xl p-5 text-left transition-all duration-200 hover:-translate-y-1 ${
+                    isSelected
+                      ? "border-2 border-yellow-500/70 bg-gradient-to-b from-yellow-900/30 to-yellow-950/20 shadow-[0_0_24px_rgba(255,215,0,0.14)]"
+                      : "border border-white/10 bg-zinc-900/70 hover:border-white/20"
+                  }`}
+                >
+                  {pkg.tag && (
+                    <span className={`absolute -top-2.5 right-3 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                      pkg.tag === "Popular" ? "bg-blue-500 text-white" : "bg-green-500 text-white"
+                    }`}>
+                      {tagText}
+                    </span>
+                  )}
+
+                  {isSelected && (
+                    <div className="absolute left-3 top-3">
+                      <svg className="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+
+                  <div className="mb-3 flex items-center gap-2">
+                    <CoinBadge />
+                    <span className={`text-2xl font-bold ${isSelected ? "text-yellow-300" : "text-white"}`}>
+                      {pkg.coins.toLocaleString()}
+                    </span>
+                  </div>
+
+                  {pkg.bonus > 0 && (
+                    <p className="mb-2 text-xs font-medium text-red-400">+{pkg.bonus.toLocaleString()} {t.bonus}</p>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-white">{formatUsd(pkg.price)}</span>
+                    {pkg.originalPrice && (
+                      <span className="text-xs text-gray-500 line-through">{formatUsd(pkg.originalPrice)}</span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mt-8 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+          <div className="rounded-3xl border border-yellow-500/20 bg-zinc-900/70 p-6 shadow-[inset_0_1px_0_rgba(255,215,0,0.08)]">
+            <h3 className="text-xl font-semibold">{t.orderSummary}</h3>
+            {selected ? (
+              <div className="mt-6 space-y-5">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-3">
+                    <CoinBadge />
+                    <span className="text-sm text-gray-100">{t.selectedCoins(selected.coins)}</span>
+                  </div>
+                  <span className="text-sm font-medium text-white">{formatUsd(selected.price)}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-green-400">{t.bonusCoins}</span>
+                  <span className="font-medium text-green-400">+{selected.bonus.toLocaleString()}</span>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-white/10 pt-4">
+                  <span className="font-semibold text-white">{t.total}</span>
+                  <span className="text-3xl font-bold text-yellow-400">{formatUsd(selected.price)}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-6 text-sm text-gray-500">{t.selectPackageHint}</p>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-zinc-900/70 p-6">
+            <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h3 className="text-xl font-semibold">{t.providerTitle}</h3>
+                <p className="mt-2 text-sm text-gray-400">{t.providerDescription}</p>
+              </div>
+              <div className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-xs text-gray-400">
+                {t.selectedProvider}: <span className="font-semibold text-white">{t.providerLabels[selectedProvider]}</span>
+                {selectedMethodDefinition && (
+                  <>
+                    {" · "}
+                    {t.selectedMethod}: <span className="font-semibold text-white">{selectedMethodDefinition.label}</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              {([
+                {
+                  id: "stripe" as const,
+                  description: t.providerDescriptions.stripe,
+                  logo: <StripeLogo />,
+                  accent: "from-[#1a2440] via-[#172554] to-[#0b1120]",
+                  border: "border-[#635bff]/40",
+                },
+                {
+                  id: "airwallex" as const,
+                  description: t.providerDescriptions.airwallex,
+                  logo: <AirwallexLogo />,
+                  accent: "from-[#102a28] via-[#0f3c35] to-[#0b1114]",
+                  border: "border-teal-400/30",
+                },
+              ]).map((provider) => {
+                const isActive = selectedProvider === provider.id;
+                const chosenMethod = t.paymentOptions[provider.id].find((item) => item.id === providerSelections[provider.id]);
+
                 return (
                   <button
-                    key={pkg._id}
-                    onClick={() => setSelectedPkg(pkg._id)}
-                    aria-pressed={isSelected}
-                    className={`relative rounded-xl p-5 text-left transition-all duration-200 hover:-translate-y-1 ${
-                      isSelected
-                        ? "bg-gradient-to-b from-yellow-900/30 to-yellow-950/20 border-2 border-yellow-500/60 shadow-[0_0_20px_rgba(255,215,0,0.15)]"
-                        : "bg-zinc-900/60 border border-white/10 hover:border-white/20"
+                    key={provider.id}
+                    onClick={() => openProviderModal(provider.id)}
+                    className={`group rounded-3xl border p-5 text-left transition duration-200 hover:-translate-y-1 ${
+                      isActive
+                        ? `${provider.border} bg-gradient-to-br ${provider.accent} shadow-[0_0_26px_rgba(255,215,0,0.08)]`
+                        : "border-white/10 bg-black/30 hover:border-white/20"
                     }`}
                   >
-                    {pkg.tag && (
-                      <span className={`absolute -top-2.5 right-3 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                        pkg.tag === "Popular" ? "bg-blue-500 text-white" : "bg-green-500 text-white"
-                      }`}>{tagText}</span>
-                    )}
-                    <div className="flex items-center gap-2 mb-3">
-                      <svg className="w-7 h-7 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="url(#coinGrad2)" /><text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text><defs><linearGradient id="coinGrad2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFD700" /><stop offset="100%" stopColor="#F59E0B" /></linearGradient></defs></svg>
-                      <span className={`text-2xl font-bold ${isSelected ? "text-yellow-300" : "text-white"}`}>{pkg.coins.toLocaleString()}</span>
-                    </div>
-                    {pkg.bonus > 0 && (
-                      <p className="text-xs text-red-400 font-medium mb-2">+{pkg.bonus.toLocaleString()} {t.bonus}</p>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold text-white">{formatUsd(pkg.price)}</span>
-                      {pkg.originalPrice && (
-                        <span className="text-xs text-gray-500 line-through">{formatUsd(pkg.originalPrice)}</span>
-                      )}
-                    </div>
-                    {isSelected && (
-                      <div className="absolute top-3 left-3">
-                        <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className={`inline-flex rounded-2xl border px-3 py-2 ${isActive ? provider.border : "border-white/10"} text-white`}>
+                        {provider.logo}
                       </div>
-                    )}
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                        isActive ? "bg-yellow-500/15 text-yellow-200" : "bg-white/5 text-gray-400"
+                      }`}>
+                        {t.providerLabels[provider.id]}
+                      </span>
+                    </div>
+
+                    <p className="mt-5 text-sm leading-6 text-gray-300">{provider.description}</p>
+
+                    <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 p-4">
+                      <p className="text-xs uppercase tracking-[0.2em] text-gray-500">{t.selectedMethod}</p>
+                      <p className="mt-2 text-sm font-semibold text-white">{chosenMethod?.label || t.chooseMethod}</p>
+                      <p className="mt-1 text-xs text-gray-500">{chosenMethod?.description || t.modalSubtitle}</p>
+                    </div>
                   </button>
                 );
               })}
             </div>
 
-            <div className="mt-8 p-5 bg-zinc-900/40 rounded-xl border border-white/5">
-              <div className="flex items-start gap-3">
-                <svg className="w-5 h-5 text-yellow-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
-                <div className="text-sm text-gray-400 space-y-1">
-                  {t.notes.map((note) => <p key={note}>{note}</p>)}
-                  {pricingContext && (
-                    <p>
-                      {checkoutContextHint(pricingContext.countryCode, pricingContext.currencyCode)}
-                    </p>
-                  )}
+            <div className="mt-6 rounded-3xl border border-yellow-500/15 bg-[linear-gradient(135deg,rgba(250,204,21,0.12),rgba(12,10,9,0.6))] p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-yellow-200/70">{t.paymentMethod}</p>
+                  <p className="mt-2 text-lg font-semibold text-white">
+                    {t.providerLabels[selectedProvider]}
+                    {selectedMethodDefinition ? ` · ${selectedMethodDefinition.label}` : ""}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-300">
+                    {selectedMethodDefinition?.description || t.modalSubtitle}
+                  </p>
                 </div>
+
+                <button
+                  onClick={continueWithMethod}
+                  disabled={!selected || paying}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-yellow-600 to-yellow-500 px-6 py-3.5 text-sm font-bold text-black transition hover:from-yellow-500 hover:to-yellow-400 disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto"
+                >
+                  {paying ? (
+                    <div className="h-5 w-5 rounded-full border-2 border-black border-t-transparent animate-spin" />
+                  ) : (
+                    <>
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                      </svg>
+                      {t.continueToCheckout} {selected ? formatUsd(selected.price) : ""}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
+          <div className="rounded-2xl border border-white/5 bg-zinc-900/40 p-5">
+            <div className="flex items-start gap-3">
+              <svg className="mt-0.5 h-5 w-5 shrink-0 text-yellow-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+              </svg>
+              <div className="space-y-1 text-sm text-gray-400">
+                {t.notes.map((note) => <p key={note}>{note}</p>)}
+                {pricingContext && <p>{checkoutContextHint(pricingContext.countryCode, pricingContext.currencyCode)}</p>}
               </div>
             </div>
           </div>
 
-          <aside className="w-full lg:w-80 shrink-0">
-            <div className="sticky top-24 space-y-5">
-              <div className="bg-zinc-900/60 rounded-xl border border-yellow-500/20 p-6 relative shadow-[inset_0_1px_0_rgba(255,215,0,0.15)]">
-                <h3 className="text-lg font-semibold mb-5">{t.orderSummary}</h3>
-                {selected ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between py-3 border-b border-white/10">
-                      <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-yellow-400" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10" fill="url(#coinGrad3)" /><text x="12" y="16" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#92400e">G</text><defs><linearGradient id="coinGrad3" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#FFD700" /><stop offset="100%" stopColor="#F59E0B" /></linearGradient></defs></svg>
-                        <span className="text-sm">{t.selectedCoins(selected.coins)}</span>
-                      </div>
-                      <span className="text-sm font-medium">{formatUsd(selected.price)}</span>
-                    </div>
-                    {selected.bonus > 0 && (
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-green-400">{t.bonusCoins}</span>
-                        <span className="text-green-400">+{selected.bonus.toLocaleString()}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                      <span className="font-semibold">{t.total}</span>
-                      <span className="text-xl font-bold text-yellow-400">{formatUsd(selected.price)}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-gray-500">{t.selectPackageHint}</p>
-                )}
-              </div>
-
-              <div className="bg-zinc-900/60 rounded-xl border border-white/10 p-6">
-                <h3 className="text-sm font-semibold mb-4 text-gray-300">{t.paymentMethod}</h3>
-                <div className="space-y-2.5">
-                  {([
-                    ["stripe", t.paymentMethodLabels.stripe, <svg key="s" className="w-6 h-6" viewBox="0 0 24 24" fill="none"><rect x="1" y="4" width="22" height="16" rx="3" stroke="currentColor" strokeWidth="1.5" /><path d="M1 10h22" stroke="currentColor" strokeWidth="1.5" /><path d="M5 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>],
-                    ["airwallex", t.paymentMethodLabels.airwallex, <svg key="aw" className="w-6 h-6" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="2.5" width="19" height="19" rx="5" stroke="currentColor" strokeWidth="1.5" /><path d="M8 16l4-8 4 8m-6.75-2h5.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>],
-                  ] as [PaymentMethod, string, React.ReactNode][]).map(([id, label, icon]) => (
-                    <button
-                      key={id}
-                      onClick={() => setPaymentMethod(id)}
-                      aria-pressed={paymentMethod === id}
-                      className={`w-full flex items-center gap-3 p-3.5 rounded-lg border transition ${
-                        paymentMethod === id
-                          ? "border-yellow-500/60 bg-yellow-500/10"
-                          : "border-white/10 bg-zinc-800/50 hover:border-white/20"
-                      }`}
-                    >
-                      <span className={paymentMethod === id ? "text-yellow-400" : "text-gray-400"}>{icon}</span>
-                      <div className="min-w-0 text-left">
-                        <p className="text-sm font-medium">{label}</p>
-                        <p className="text-xs text-gray-500">{t.paymentMethodDescriptions[id]}</p>
-                      </div>
-                      <div className={`ml-auto w-4 h-4 rounded-full border-2 flex items-center justify-center ${paymentMethod === id ? "border-yellow-500" : "border-gray-600"}`}>
-                        {paymentMethod === id && <div className="w-2 h-2 rounded-full bg-yellow-500" />}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+          <div className="rounded-2xl border border-white/10 bg-zinc-900/50 p-5">
+            <div className="text-center">
               <button
-                onClick={handlePay}
-                disabled={!selected || paying}
-                className="w-full py-3.5 bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black font-bold rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(255,215,0,0.2)]"
+                onClick={() => setShowRedeem(!showRedeem)}
+                className="inline-flex items-center gap-1 text-sm text-yellow-400/70 transition hover:text-yellow-300"
               >
-                {paying ? (
-                  <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
-                    {t.continueToCheckout} {selected ? formatUsd(selected.price) : ""}
-                  </>
-                )}
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                </svg>
+                {t.haveRedeemCode}
               </button>
 
-              <div className="text-center">
-                <button onClick={() => setShowRedeem(!showRedeem)} className="text-sm text-yellow-400/70 hover:text-yellow-300 transition inline-flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A2.625 2.625 0 109.375 7.5H12m0-2.625V7.5m0-2.625A2.625 2.625 0 1114.625 7.5H12m0 0V21m-8.625-9.75h18c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125h-18c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
-                  {t.haveRedeemCode}
-                </button>
-                {showRedeem && (
-                  <div className="mt-3 flex gap-2">
-                    <input
-                      type="text"
-                      value={redeemCode}
-                      onChange={(e) => setRedeemCode(e.target.value.toUpperCase())}
-                      placeholder={t.enterCode}
-                      aria-label={t.enterCode}
-                      className="flex-1 bg-zinc-800/50 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-yellow-500 focus:outline-none"
-                    />
-                    <button onClick={handleRedeem} disabled={!redeemCode.trim()} className="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-black text-sm font-medium rounded-lg transition disabled:opacity-50">{t.redeem}</button>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
-                {t.securedBy}
-              </div>
+              {showRedeem && (
+                <div className="mt-4 flex gap-2">
+                  <input
+                    type="text"
+                    value={redeemCode}
+                    onChange={(event) => setRedeemCode(event.target.value.toUpperCase())}
+                    placeholder={t.enterCode}
+                    aria-label={t.enterCode}
+                    className="flex-1 rounded-lg border border-white/10 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:border-yellow-500 focus:outline-none"
+                  />
+                  <button
+                    onClick={handleRedeem}
+                    disabled={!redeemCode.trim()}
+                    className="rounded-lg bg-yellow-600 px-4 py-2 text-sm font-medium text-black transition hover:bg-yellow-500 disabled:opacity-50"
+                  >
+                    {t.redeem}
+                  </button>
+                </div>
+              )}
             </div>
-          </aside>
-        </div>
+
+            <div className="mt-5 flex items-center justify-center gap-2 text-xs text-gray-500">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
+              {t.securedBy}
+            </div>
+          </div>
+        </section>
       </div>
+
+      {modalProvider && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-[30px] border border-white/10 bg-[#111114] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-yellow-300/75">{t.paymentMethod}</p>
+                <h3 className="mt-3 text-2xl font-semibold">{t.modalTitle(t.providerLabels[modalProvider])}</h3>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-gray-400">{t.modalSubtitle}</p>
+              </div>
+              <button
+                onClick={() => setModalProvider(null)}
+                className="rounded-full border border-white/10 p-2 text-gray-400 transition hover:border-white/20 hover:text-white"
+                aria-label={t.actions.cancel}
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4">
+              {activeMethods.map((method) => {
+                const isSelected = modalSelection === method.id;
+                return (
+                  <button
+                    key={method.id}
+                    onClick={() => setModalSelection(method.id)}
+                    className={`rounded-2xl border p-5 text-left transition ${
+                      isSelected
+                        ? "border-yellow-500/60 bg-gradient-to-r from-yellow-900/20 to-zinc-900"
+                        : "border-white/10 bg-zinc-900/70 hover:border-white/20"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <p className="text-base font-semibold text-white">{method.label}</p>
+                          <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                            isSelected ? "bg-yellow-500/15 text-yellow-200" : "bg-white/5 text-gray-400"
+                          }`}>
+                            {method.pill}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm leading-6 text-gray-400">{method.description}</p>
+                      </div>
+                      <div className={`mt-1 flex h-5 w-5 items-center justify-center rounded-full border-2 ${isSelected ? "border-yellow-500" : "border-gray-600"}`}>
+                        {isSelected && <div className="h-2.5 w-2.5 rounded-full bg-yellow-500" />}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-gray-400">
+              {t.modalNotice}
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                onClick={() => setModalProvider(null)}
+                className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-medium text-gray-200 transition hover:border-white/20 hover:bg-white/5"
+              >
+                {t.actions.cancel}
+              </button>
+              <button
+                onClick={confirmModalSelection}
+                className="rounded-2xl bg-gradient-to-r from-yellow-600 to-yellow-500 px-5 py-3 text-sm font-bold text-black transition hover:from-yellow-500 hover:to-yellow-400"
+              >
+                {t.actions.continue}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

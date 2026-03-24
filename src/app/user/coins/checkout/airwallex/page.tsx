@@ -40,6 +40,8 @@ type AirwallexCheckoutCopy = {
   providerTitle: string;
   checkoutHint: string;
   httpsWarning: string;
+  methodLabel: string;
+  methodMap: Record<string, string>;
 };
 
 const COPY: FlexibleRecord<SupportedLocale, AirwallexCheckoutCopy> = {
@@ -56,6 +58,11 @@ const COPY: FlexibleRecord<SupportedLocale, AirwallexCheckoutCopy> = {
     providerTitle: "Powered by Airwallex",
     checkoutHint: "A hosted Airwallex payment page will open in the next step.",
     httpsWarning: "Airwallex hosted checkout requires an HTTPS success URL. Please set AIRWALLEX_SUCCESS_URL or FRONTEND_URL to an HTTPS page before testing this flow.",
+    methodLabel: "Chosen Method",
+    methodMap: {
+      cards: "Global Cards",
+      local: "Local Payment Methods",
+    },
   },
   zh: {
     title: "Airwallex 收银台",
@@ -70,6 +77,11 @@ const COPY: FlexibleRecord<SupportedLocale, AirwallexCheckoutCopy> = {
     providerTitle: "由 Airwallex 提供支持",
     checkoutHint: "下一步会跳转到 Airwallex 托管支付页完成支付。",
     httpsWarning: "Airwallex 托管收银台要求成功回跳地址必须为 HTTPS。测试前请先把 AIRWALLEX_SUCCESS_URL 或 FRONTEND_URL 配置成 HTTPS 页面。",
+    methodLabel: "已选方式",
+    methodMap: {
+      cards: "全球银行卡",
+      local: "本地支付方式",
+    },
   },
 };
 
@@ -87,6 +99,7 @@ export default function AirwallexCheckoutPage() {
   const coins = Number(searchParams.get("coins") || 0);
   const bonus = Number(searchParams.get("bonus") || 0);
   const price = Number(searchParams.get("price") || 0);
+  const paymentOption = searchParams.get("paymentOption") || "cards";
 
   const amountLocale = ({
     en: "en-US",
@@ -199,9 +212,13 @@ export default function AirwallexCheckoutPage() {
 
             <div className="rounded-2xl border border-teal-400/20 bg-teal-500/10 p-6">
               <div className="inline-flex rounded-full border border-teal-300/30 bg-teal-500/10 px-3 py-1 text-xs font-medium text-teal-100">
-                Hosted payment page
+                {t.methodMap[paymentOption] || t.methodMap.cards}
               </div>
               <p className="mt-5 text-sm leading-6 text-gray-300">{t.checkoutHint}</p>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-teal-100/70">{t.methodLabel}</p>
+                <p className="mt-2 text-sm font-semibold text-white">{t.methodMap[paymentOption] || t.methodMap.cards}</p>
+              </div>
               <p className="mt-4 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
                 {t.httpsWarning}
               </p>

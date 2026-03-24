@@ -26,6 +26,8 @@ type StripeCheckoutCopy = {
   bonus: string;
   total: string;
   providerTitle: string;
+  methodLabel: string;
+  methodMap: Record<string, string>;
 };
 
 const COPY: FlexibleRecord<SupportedLocale, StripeCheckoutCopy> = {
@@ -41,6 +43,11 @@ const COPY: FlexibleRecord<SupportedLocale, StripeCheckoutCopy> = {
     bonus: "Bonus",
     total: "Total",
     providerTitle: "Powered by Stripe",
+    methodLabel: "Chosen Method",
+    methodMap: {
+      card: "Credit / Debit Card",
+      wallet: "Apple Pay / Google Pay / Link",
+    },
   },
   zh: {
     title: "Stripe 收银台",
@@ -54,6 +61,11 @@ const COPY: FlexibleRecord<SupportedLocale, StripeCheckoutCopy> = {
     bonus: "赠送",
     total: "合计",
     providerTitle: "由 Stripe 提供支持",
+    methodLabel: "已选方式",
+    methodMap: {
+      card: "信用卡 / 借记卡",
+      wallet: "Apple Pay / Google Pay / Link",
+    },
   },
 };
 
@@ -70,6 +82,7 @@ export default function StripeCheckoutPage() {
   const coins = Number(searchParams.get("coins") || 0);
   const bonus = Number(searchParams.get("bonus") || 0);
   const price = Number(searchParams.get("price") || 0);
+  const paymentOption = searchParams.get("paymentOption") || "card";
 
   const amountLocale = ({
     en: "en-US",
@@ -151,9 +164,13 @@ export default function StripeCheckoutPage() {
 
             <div className="rounded-2xl border border-blue-400/20 bg-blue-500/10 p-6">
               <div className="inline-flex rounded-full border border-blue-300/30 bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-100">
-                Card payment
+                {t.methodMap[paymentOption] || t.methodMap.card}
               </div>
               <p className="mt-5 text-sm leading-6 text-gray-300">{t.checkoutHint}</p>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-blue-100/70">{t.methodLabel}</p>
+                <p className="mt-2 text-sm font-semibold text-white">{t.methodMap[paymentOption] || t.methodMap.card}</p>
+              </div>
               <button
                 onClick={handleContinue}
                 disabled={!token || !packageId || submitting}
