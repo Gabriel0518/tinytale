@@ -34,7 +34,7 @@ export default function PlayControls({
 
   return (
     <div
-      className={`absolute inset-0 z-10 flex items-center justify-center transition-opacity duration-300 ${
+      className={`pointer-events-auto absolute inset-0 z-10 flex items-center justify-center transition-opacity duration-300 ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
       onMouseMove={onUserActivity}

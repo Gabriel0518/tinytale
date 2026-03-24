@@ -131,7 +131,7 @@ export default function ControlBar({
     >
       {/* Title overlay (fullscreen only) */}
       {isFullscreen && title && (
-        <div className={`absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/60 to-transparent px-4 pb-8 pt-4 transition-opacity duration-200 ${controlsVisibilityClass}`}>
+        <div className={`pointer-events-none absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-black/60 to-transparent px-4 pb-8 pt-4 transition-opacity duration-200 ${controlsVisibilityClass}`}>
           <p className="text-sm font-medium text-white/90">{title}</p>
         </div>
       )}
@@ -151,7 +151,7 @@ export default function ControlBar({
       />
 
       {/* Bottom control bar */}
-      <div className={`absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 px-3 pb-2 transition-opacity duration-200 ${controlsVisibilityClass}`}>
+      <div className={`pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 px-3 pb-2 transition-opacity duration-200 ${controlsVisibilityClass}`}>
         {/* Progress bar */}
         <ProgressBar
           currentTime={playerState.currentTime}

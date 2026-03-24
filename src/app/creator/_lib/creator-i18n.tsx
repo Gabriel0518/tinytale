@@ -743,10 +743,14 @@ export function translateCreatorText(
   locale: SupportedLocale,
   args: Array<string | number> = []
 ) {
-  if (locale === "en" || !value) return value;
+  if (!value) return value;
 
   const trimmed = value.trim();
   if (!trimmed) return value;
+
+  if (locale === "en") {
+    return preserveWhitespace(value, interpolateTemplate(trimmed, args));
+  }
 
   const exact = translateExact(trimmed, locale);
   if (exact !== trimmed) {

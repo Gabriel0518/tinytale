@@ -53,7 +53,7 @@ export default function SettingsMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full right-0 mb-2 w-56 rounded-lg bg-black/90 p-3 shadow-xl backdrop-blur-sm">
+        <div className="absolute bottom-full right-0 z-30 mb-2 w-56 rounded-lg bg-black/90 p-3 shadow-xl backdrop-blur-sm">
           {/* Playback speed */}
           <div className="mb-3">
             <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/50">

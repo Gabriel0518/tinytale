@@ -712,6 +712,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
   const [autoSliceSubtitleReminderOpen, setAutoSliceSubtitleReminderOpen] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewEpisode, setPreviewEpisode] = useState<PreviewEpisodeState | null>(null);
+  const [previewPlayerHeight, setPreviewPlayerHeight] = useState<number>(0);
 
   const aliveRef = useRef(true);
   const draftCreationPromiseRef = useRef<Promise<string> | null>(null);
@@ -720,6 +721,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
   const pollingTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const bulkCancelRequestedRef = useRef(false);
   const individualGridRef = useRef<HTMLDivElement | null>(null);
+  const previewPlayerFrameRef = useRef<HTMLDivElement | null>(null);
 
   const progress = useMemo(() => computeProgress(episodes), [episodes]);
   const revisionEpisodes = useMemo(
@@ -956,6 +958,37 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
       document.body.style.overflow = previousOverflow;
     };
   }, [autoSliceSubtitleReminderOpen, coverPreviewOpen, previewEpisode]);
+
+  useEffect(() => {
+    if (!previewEpisode || typeof window === "undefined") {
+      setPreviewPlayerHeight(0);
+      return;
+    }
+
+    const frame = previewPlayerFrameRef.current;
+    if (!frame) return;
+
+    const syncHeight = () => {
+      const nextHeight = Math.round(frame.getBoundingClientRect().height);
+      setPreviewPlayerHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+    };
+
+    syncHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", syncHeight);
+      return () => window.removeEventListener("resize", syncHeight);
+    }
+
+    const observer = new ResizeObserver(() => syncHeight());
+    observer.observe(frame);
+    window.addEventListener("resize", syncHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", syncHeight);
+    };
+  }, [previewEpisode]);
 
   const refreshEpisodes = useCallback(async () => {
     if (!dramaId) return;
@@ -3295,10 +3328,11 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
             {t("Close")}
           </button>
 
-          <div className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[24px] bg-black shadow-[0px_24px_60px_rgba(15,23,42,0.55)]">
-            <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="relative flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-[24px] bg-black shadow-[0px_24px_60px_rgba(15,23,42,0.55)] lg:max-w-[min(96vw,1500px)]">
+            <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
               <div className="bg-[#05070d] p-4 lg:p-5">
                 <div
+                  ref={previewPlayerFrameRef}
                   className={`mx-auto overflow-hidden rounded-[24px] bg-black ${
                     (previewEpisode.videoWidth || 0) > (previewEpisode.videoHeight || 0) && (previewEpisode.videoHeight || 0) > 0
                       ? "aspect-video max-w-6xl"
@@ -3309,56 +3343,64 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
                 </div>
               </div>
 
-              <div className="space-y-4 border-t border-white/10 bg-white p-5 lg:border-l lg:border-t-0">
-                <div className="rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Current preview")}</p>
-                  <p className="mt-2 text-lg font-bold text-[#0f172a]">{previewEpisode.title}</p>
-                  <p className="mt-1 text-sm text-[#64748b]">
-                    {t("Episode __ARG_0__", previewEpisode.episodeNumber)} · {Math.max(0, previewEpisode.subtitleTracks?.length || 0)} {t("subtitle tracks")}
-                  </p>
-                  {previewEpisode.reviewStatus === "rejected" && (previewEpisode.rejectionReason || previewEpisode.reviewNote) ? (
-                    <div className="mt-3 rounded-[16px] border border-[#fecdd3] bg-[#fff1f2] p-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#be123c]">{t("Review note")}</p>
-                      <p className="mt-1 text-[12px] leading-5 text-[#9f1239]">
-                        {previewEpisode.rejectionReason || previewEpisode.reviewNote}
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
+              <div className="border-t border-white/10 bg-white p-5 lg:border-l lg:border-t-0 lg:min-h-0">
+                <div
+                  className="flex flex-col gap-4 lg:min-h-0"
+                  style={previewPlayerHeight > 0 ? { height: `${previewPlayerHeight}px` } : undefined}
+                >
+                  <div className="flex-shrink-0 rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Current preview")}</p>
+                    <p className="mt-2 text-lg font-bold text-[#0f172a]">{previewEpisode.title}</p>
+                    <p className="mt-1 text-sm text-[#64748b]">
+                      {t("Episode __ARG_0__", previewEpisode.episodeNumber)} · {Math.max(0, previewEpisode.subtitleTracks?.length || 0)} {t("subtitle tracks")}
+                    </p>
+                    {previewEpisode.reviewStatus === "rejected" && (previewEpisode.rejectionReason || previewEpisode.reviewNote) ? (
+                      <div className="mt-3 rounded-[16px] border border-[#fecdd3] bg-[#fff1f2] p-3">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#be123c]">{t("Review note")}</p>
+                        <p className="mt-1 text-[12px] leading-5 text-[#9f1239]">
+                          {previewEpisode.rejectionReason || previewEpisode.reviewNote}
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
 
-                <div className="space-y-2 overflow-y-auto">
-                  {sortEpisodesByNumber(episodes).map((episode) => (
-                    <button
-                      key={episode._id}
-                      type="button"
-                      onClick={() => openEpisodePreview(episode)}
-                      className={`flex w-full items-start gap-3 rounded-[18px] border px-3 py-3 text-left transition ${
-                        previewEpisode.id === episode._id
-                          ? "border-[#1876f2] bg-[#eff6ff]"
-                          : "border-[#e2e8f0] bg-white hover:border-[#94a3b8]"
-                      }`}
-                    >
-                      <div className="h-[72px] w-[54px] flex-shrink-0 overflow-hidden rounded-[12px] border border-[#dbe4f0] bg-[#f8fafc]">
-                        {episode.thumbnail ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={episode.thumbnail} alt={episode.title} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[#94a3b8]">
-                            <PlayCircle className="h-4 w-4" />
+                  <div className="min-h-0 flex-1 overflow-hidden">
+                    <div className="h-full space-y-2 overflow-y-auto overscroll-contain pr-1">
+                      {sortEpisodesByNumber(episodes).map((episode) => (
+                        <button
+                          key={episode._id}
+                          type="button"
+                          onClick={() => openEpisodePreview(episode)}
+                          title={episode.title}
+                          className={`flex w-full items-start gap-3 rounded-[18px] border px-3 py-3 text-left transition ${
+                            previewEpisode.id === episode._id
+                              ? "border-[#1876f2] bg-[#eff6ff]"
+                              : "border-[#e2e8f0] bg-white hover:border-[#94a3b8]"
+                          }`}
+                        >
+                          <div className="h-[72px] w-[54px] flex-shrink-0 overflow-hidden rounded-[12px] border border-[#dbe4f0] bg-[#f8fafc]">
+                            {episode.thumbnail ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={episode.thumbnail} alt={episode.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-[#94a3b8]">
+                                <PlayCircle className="h-4 w-4" />
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-[#0f172a]">{t("Episode __ARG_0__", episode.episodeNumber)}</p>
-                          {episode.reviewStatus === "rejected" ? (
-                            <span className="rounded-full bg-[#fff1f2] px-2 py-0.5 text-[10px] font-bold text-[#be123c]">{t("Changes Requested")}</span>
-                          ) : null}
-                        </div>
-                        <p className="mt-1 truncate text-xs text-[#64748b]">{episode.title}</p>
-                      </div>
-                    </button>
-                  ))}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-sm font-semibold text-[#0f172a]">{t("Episode __ARG_0__", episode.episodeNumber)}</p>
+                              {episode.reviewStatus === "rejected" ? (
+                                <span className="rounded-full bg-[#fff1f2] px-2 py-0.5 text-[10px] font-bold text-[#be123c]">{t("Changes Requested")}</span>
+                              ) : null}
+                            </div>
+                            <p className="mt-1 truncate text-xs text-[#64748b]">{episode.title}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
