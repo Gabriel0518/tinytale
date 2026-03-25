@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { creatorApi } from "@/lib/api";
 import { CreatorAirwallexBeneficiaryForm } from "@/components/features/CreatorAirwallexBeneficiaryForm";
+import { getAirwallexVerificationDetail } from "@/lib/airwallex";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
 import { localizePath } from "@/lib/i18n";
@@ -155,6 +156,18 @@ export default function CreatorSettlementsPage() {
   const manageBankAccountLabel = useMemo(
     () => getAirwallexManageLabel(overview?.bankAccount.verificationStatus || "missing"),
     [overview?.bankAccount.verificationStatus],
+  );
+  const airwallexVerificationDetail = useMemo(
+    () => getAirwallexVerificationDetail({
+      code: overview?.bankAccount.airwallexBeneficiary?.verificationCode,
+      message: overview?.bankAccount.airwallexBeneficiary?.verificationMessage,
+      accountNameMatchResult: overview?.bankAccount.airwallexBeneficiary?.verificationAccountNameMatchResult,
+    }),
+    [
+      overview?.bankAccount.airwallexBeneficiary?.verificationAccountNameMatchResult,
+      overview?.bankAccount.airwallexBeneficiary?.verificationCode,
+      overview?.bankAccount.airwallexBeneficiary?.verificationMessage,
+    ],
   );
 
   const handleExportData = () => {
@@ -379,12 +392,9 @@ export default function CreatorSettlementsPage() {
                   ? `Last updated ${formatDate(overview.bankAccount.updatedAt)}`
                   : "No bank account information added yet"}
               </p>
-              {overview?.bankAccount.airwallexBeneficiary?.verificationCode ? (
+              {airwallexVerificationDetail ? (
                 <p className="mt-3 text-[13px] text-[#b45309]">
-                  {overview.bankAccount.airwallexBeneficiary.verificationCode}
-                  {overview.bankAccount.airwallexBeneficiary.verificationAccountNameMatchResult
-                    ? ` · ${overview.bankAccount.airwallexBeneficiary.verificationAccountNameMatchResult}`
-                    : ""}
+                  {airwallexVerificationDetail}
                 </p>
               ) : null}
 
