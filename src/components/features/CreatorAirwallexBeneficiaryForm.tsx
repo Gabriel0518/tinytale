@@ -38,6 +38,7 @@ export function CreatorAirwallexBeneficiaryForm({
   const elementRef = useRef<BeneficiaryElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fallbackReadyTimerRef = useRef<number | null>(null);
+  const containerIdRef = useRef(`airwallex-beneficiary-form-${Math.random().toString(36).slice(2, 10)}`);
   const [booting, setBooting] = useState(true);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -70,7 +71,7 @@ export function CreatorAirwallexBeneficiaryForm({
         await init({
           env: authResponse.data.env,
           locale: "en",
-          enabledElements: ["beneficiaryForm"],
+          enabledElements: ["payouts"],
           authCode: authResponse.data.authCode,
           clientId: authResponse.data.clientId,
           codeVerifier: authResponse.data.codeVerifier,
@@ -93,6 +94,10 @@ export function CreatorAirwallexBeneficiaryForm({
           },
         })) as unknown as BeneficiaryElement;
 
+        if (!element) {
+          throw new Error("Airwallex beneficiary component was not created.");
+        }
+
         if (cancelled) {
           element.destroy();
           return;
@@ -112,7 +117,12 @@ export function CreatorAirwallexBeneficiaryForm({
           }
         });
 
-        element.mount(containerRef.current);
+        const mountTarget = containerIdRef.current;
+        if (!document.getElementById(mountTarget)) {
+          throw new Error("Airwallex beneficiary container is missing.");
+        }
+
+        element.mount(mountTarget);
         elementRef.current = element;
         setReady(true);
 
@@ -202,7 +212,11 @@ export function CreatorAirwallexBeneficiaryForm({
                 Preparing beneficiary fields...
               </div>
             ) : null}
-            <div ref={containerRef} className="min-h-[640px]" />
+            <div
+              id={containerIdRef.current}
+              ref={containerRef}
+              className="min-h-[640px]"
+            />
           </div>
         )}
       </div>
