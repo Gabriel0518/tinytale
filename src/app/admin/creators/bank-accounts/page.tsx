@@ -34,6 +34,22 @@ function buildDraft(item: CreatorAdminBankAccountItem): BankDecisionDraft {
   };
 }
 
+function decisionButtonClass(active: boolean, tone: "approve" | "reject" | "freeze") {
+  if (tone === "approve") {
+    return active
+      ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-200"
+      : "border-gray-700/60 bg-[#13131d] text-gray-300 hover:border-emerald-500/40 hover:text-emerald-200";
+  }
+  if (tone === "reject") {
+    return active
+      ? "border-rose-500/60 bg-rose-500/15 text-rose-200"
+      : "border-gray-700/60 bg-[#13131d] text-gray-300 hover:border-rose-500/40 hover:text-rose-200";
+  }
+  return active
+    ? "border-amber-500/60 bg-amber-500/15 text-amber-200"
+    : "border-gray-700/60 bg-[#13131d] text-gray-300 hover:border-amber-500/40 hover:text-amber-200";
+}
+
 export default function CreatorBankAccountsPage() {
   const { toast } = useToast();
   const [items, setItems] = useState<CreatorAdminBankAccountItem[]>(mockCreatorBankAccounts);
@@ -411,15 +427,40 @@ export default function CreatorBankAccountsPage() {
 
                     <div>
                       <label className="mb-2 block text-sm font-medium text-gray-300">Decision</label>
-                      <select
-                        value={draft.decision}
-                        onChange={(event) => setDrafts((current) => ({ ...current, [activeModalItem.creatorId]: { ...draft, decision: event.target.value as BankDecision } }))}
-                        className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#13131d] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500"
-                      >
-                        <option value="verified">{activeModalItem.bankProvider === "airwallex" || activeModalItem.bankProvider === "stripe" ? `Clear finance hold / use ${managedProvider} status` : "Approve bank account"}</option>
-                        <option value="rejected">{activeModalItem.bankProvider === "airwallex" || activeModalItem.bankProvider === "stripe" ? "Mark creator follow-up required" : "Reject and request resubmission"}</option>
-                        <option value="frozen">Freeze payout release</option>
-                      </select>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <button
+                          type="button"
+                          onClick={() => setDrafts((current) => ({ ...current, [activeModalItem.creatorId]: { ...draft, decision: "verified" } }))}
+                          className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${decisionButtonClass(draft.decision === "verified", "approve")}`}
+                        >
+                          <div>Approve</div>
+                          <div className="mt-1 text-xs opacity-80">
+                            {activeModalItem.bankProvider === "airwallex" || activeModalItem.bankProvider === "stripe"
+                              ? `Approve this payout account and clear manual finance hold.`
+                              : "Approve this bank account for payouts."}
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDrafts((current) => ({ ...current, [activeModalItem.creatorId]: { ...draft, decision: "rejected" } }))}
+                          className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${decisionButtonClass(draft.decision === "rejected", "reject")}`}
+                        >
+                          <div>Reject</div>
+                          <div className="mt-1 text-xs opacity-80">
+                            Mark creator follow-up required before payout can continue.
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDrafts((current) => ({ ...current, [activeModalItem.creatorId]: { ...draft, decision: "frozen" } }))}
+                          className={`rounded-xl border px-4 py-3 text-left text-sm font-medium transition ${decisionButtonClass(draft.decision === "frozen", "freeze")}`}
+                        >
+                          <div>Freeze</div>
+                          <div className="mt-1 text-xs opacity-80">
+                            Stop payout release because compliance or finance has blocked it.
+                          </div>
+                        </button>
+                      </div>
                     </div>
 
                     <div>
