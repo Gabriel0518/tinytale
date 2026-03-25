@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { creatorApi } from "@/lib/api";
 import { useToast } from "@/components/ui/Toast";
@@ -26,6 +26,28 @@ type Props = {
   onClose: () => void;
 };
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); },
+    );
+  });
+}
+
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const obj = error as Record<string, unknown>;
+    if (typeof obj.message === "string") return obj.message;
+    if (typeof obj.code === "string") return obj.code;
+    try { return JSON.stringify(error); } catch { /* ignore */ }
+  }
+  return "Unknown error";
+}
+
 export function CreatorAirwallexBeneficiaryForm({
   token,
   existingSummary,
@@ -40,6 +62,7 @@ export function CreatorAirwallexBeneficiaryForm({
   const fallbackReadyTimerRef = useRef<number | null>(null);
   const iframeProbeTimerRef = useRef<number | null>(null);
   const readyRef = useRef(false);
+  const bootstrapIdRef = useRef(0);
   const [booting, setBooting] = useState(true);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -55,50 +78,63 @@ export function CreatorAirwallexBeneficiaryForm({
     };
   }, [existingBeneficiary, existingTransferMethods]);
 
-  useEffect(() => {
-    let cancelled = false;
-    let mountedElement: BeneficiaryElement | null = null;
+  const runBootstrap = useCallback(async (
+    cancelled: () => boolean,
+    pushDebug: (msg: string) => void,
+    setMounted: (el: BeneficiaryElement) => void,
+  ) => {
+    setBooting(true);
+    setBootError("");
+    setReady(false);
+    readyRef.current = false;
+    setSdkState("Requesting embedded auth session...");
+    setSdkDebug([]);
 
-    const pushDebug = (message: string) => {
-      if (cancelled) return;
-      setSdkDebug((current) => [...current.slice(-4), message]);
-    };
+    try {
+      pushDebug("Requesting embedded auth session...");
 
-    async function bootstrap() {
-      setBooting(true);
-      setBootError("");
-      setReady(false);
-      readyRef.current = false;
-      setSdkState("Initializing Airwallex...");
-      setSdkDebug([]);
+      const authResponse = await withTimeout(
+        creatorApi.createAirwallexSettlementAuthCode(token),
+        15_000,
+        "Auth code request",
+      );
 
-      try {
-        pushDebug("Requesting embedded auth session...");
-        const [{ init, createElement }, authResponse] = await Promise.all([
-          import("@airwallex/components-sdk"),
-          creatorApi.createAirwallexSettlementAuthCode(token),
-        ]);
+      if (cancelled()) return;
 
-        if (cancelled || !containerRef.current) return;
+      const { env, authCode, clientId, codeVerifier, apiVersion } = authResponse.data;
+      pushDebug(`Auth code received (${env} environment).`);
+      setSdkState("Loading Airwallex SDK...");
 
-        const { env, authCode, clientId, codeVerifier, apiVersion } = authResponse.data;
-        pushDebug(`Auth ready in ${env} mode.`);
-        setSdkState("Initializing SDK...");
+      const sdk = await withTimeout(
+        import("@airwallex/components-sdk"),
+        20_000,
+        "SDK module import",
+      );
 
-        await init({
+      if (cancelled() || !containerRef.current) return;
+
+      pushDebug("SDK module loaded, initializing...");
+      setSdkState("Initializing SDK...");
+
+      await withTimeout(
+        sdk.init({
           env,
           locale: "en",
           enabledElements: ["payouts"],
           authCode,
           clientId,
           codeVerifier,
-        });
+        }),
+        30_000,
+        "SDK initialization",
+      );
 
-        if (cancelled) return;
-        pushDebug(`SDK initialized with API version ${apiVersion}.`);
-        setSdkState("Creating beneficiary form...");
+      if (cancelled()) return;
+      pushDebug(`SDK initialized (API ${apiVersion}).`);
+      setSdkState("Creating beneficiary form...");
 
-        const element = (await createElement("beneficiaryForm", {
+      const element = (await withTimeout(
+        sdk.createElement("beneficiaryForm", {
           locale: "en",
           apiVersion,
           defaultValues: defaultValues as never,
@@ -111,89 +147,100 @@ export function CreatorAirwallexBeneficiaryForm({
             },
             minHeight: 720,
           },
-        })) as unknown as BeneficiaryElement;
+        }),
+        20_000,
+        "Beneficiary form creation",
+      )) as unknown as BeneficiaryElement;
 
-        if (!element) {
-          throw new Error("Airwallex beneficiary component was not created.");
+      if (!element) {
+        throw new Error("Airwallex beneficiary component was not created.");
+      }
+
+      if (cancelled()) {
+        element.destroy();
+        return;
+      }
+
+      setMounted(element);
+      element.on("ready", () => {
+        if (cancelled()) return;
+        pushDebug("Beneficiary form reported ready.");
+        setSdkState("Beneficiary form ready.");
+        readyRef.current = true;
+        setReady(true);
+      });
+      element.on("error", (eventData) => {
+        if (cancelled()) return;
+        const nextError = extractErrorMessage(eventData);
+        pushDebug(`SDK error: ${nextError}`);
+        if (nextError && nextError !== "Unknown error") {
+          setBootError(nextError);
         }
+      });
+      element.on("formState", (eventData) => {
+        if (cancelled() || !eventData || typeof eventData !== "object") return;
+        const payload = eventData as { loading?: boolean; validation?: boolean; errors?: { message?: string } };
+        setSdkState(payload.loading ? "Loading beneficiary fields..." : "Beneficiary form mounted.");
+        if (payload.errors?.message) {
+          pushDebug(`Form state: ${payload.errors.message}`);
+        }
+      });
 
-        if (cancelled) {
-          element.destroy();
+      pushDebug("Mounting beneficiary form iframe...");
+      setSdkState("Mounting beneficiary form...");
+      element.mount(containerRef.current);
+      elementRef.current = element;
+
+      fallbackReadyTimerRef.current = window.setTimeout(() => {
+        if (!cancelled() && containerRef.current?.querySelector("iframe")) {
+          pushDebug("Iframe detected before ready event.");
+          readyRef.current = true;
+          setReady(true);
+          setSdkState("Beneficiary form mounted.");
+        }
+      }, 3_000);
+
+      iframeProbeTimerRef.current = window.setTimeout(() => {
+        if (cancelled() || readyRef.current) return;
+        const hasIframe = Boolean(containerRef.current?.querySelector("iframe"));
+        if (!hasIframe) {
+          setBootError(
+            "Airwallex beneficiary iframe did not appear. This may be caused by a network issue or browser extension blocking the embedded component.",
+          );
+          pushDebug("No iframe found in beneficiary container after mount.");
           return;
         }
 
-        mountedElement = element;
-        element.on("ready", () => {
-          if (cancelled) return;
-          pushDebug("Beneficiary form reported ready.");
-          setSdkState("Beneficiary form ready.");
-          readyRef.current = true;
-          setReady(true);
-        });
-        element.on("error", (eventData) => {
-          if (cancelled) return;
-          const nextError =
-            typeof eventData === "object" && eventData && "message" in (eventData as Record<string, unknown>)
-              ? String((eventData as Record<string, unknown>).message || "")
-              : "";
-          pushDebug(`SDK error: ${nextError || "UNKNOWN_ERROR"}`);
-          if (nextError) {
-            setBootError(nextError);
-          }
-        });
-        element.on("formState", (eventData) => {
-          if (cancelled || !eventData || typeof eventData !== "object") return;
-          const payload = eventData as { loading?: boolean; validation?: boolean; errors?: { message?: string } };
-          setSdkState(payload.loading ? "Loading beneficiary fields..." : "Beneficiary form mounted.");
-          if (payload.errors?.message) {
-            pushDebug(`Form state: ${payload.errors.message}`);
-          }
-        });
-
-        pushDebug("Mounting beneficiary form iframe...");
-        setSdkState("Mounting beneficiary form...");
-        element.mount(containerRef.current);
-        elementRef.current = element;
-
-        fallbackReadyTimerRef.current = window.setTimeout(() => {
-          if (!cancelled && containerRef.current?.querySelector("iframe")) {
-            pushDebug("Iframe detected before ready event.");
-            readyRef.current = true;
-            setReady(true);
-            setSdkState("Beneficiary form mounted.");
-          }
-        }, 2500);
-
-        iframeProbeTimerRef.current = window.setTimeout(() => {
-          if (cancelled || readyRef.current) return;
-          const hasIframe = Boolean(containerRef.current?.querySelector("iframe"));
-          if (!hasIframe) {
-            setBootError(
-              "Airwallex beneficiary iframe did not mount. Sandbox is supported, so this usually means the page integration or embedded component bootstrap did not complete.",
-            );
-            pushDebug("No iframe found in beneficiary container after mount.");
-            return;
-          }
-
-          pushDebug("Iframe exists but ready event has not fired yet.");
-          setSdkState("Waiting for Airwallex form to finish loading...");
-        }, 5000);
-      } catch (error) {
-        if (!cancelled) {
-          pushDebug(error instanceof Error ? error.message : "Failed to initialize Airwallex beneficiary form.");
-          setBootError(error instanceof Error ? error.message : "Failed to initialize Airwallex beneficiary form.");
-        }
-      } finally {
-        if (!cancelled) {
-          setBooting(false);
-        }
+        pushDebug("Iframe exists but ready event has not fired yet.");
+        setSdkState("Waiting for Airwallex form to finish loading...");
+      }, 6_000);
+    } catch (error) {
+      if (!cancelled()) {
+        const message = extractErrorMessage(error);
+        pushDebug(message);
+        setBootError(message);
+      }
+    } finally {
+      if (!cancelled()) {
+        setBooting(false);
       }
     }
+  }, [defaultValues, token]);
 
-    bootstrap();
+  useEffect(() => {
+    const runId = ++bootstrapIdRef.current;
+    let mountedElement: BeneficiaryElement | null = null;
+
+    const cancelled = () => runId !== bootstrapIdRef.current;
+    const pushDebug = (message: string) => {
+      if (cancelled()) return;
+      setSdkDebug((current) => [...current.slice(-9), message]);
+    };
+
+    runBootstrap(cancelled, pushDebug, (el) => { mountedElement = el; });
 
     return () => {
-      cancelled = true;
+      bootstrapIdRef.current++;
       if (fallbackReadyTimerRef.current) {
         window.clearTimeout(fallbackReadyTimerRef.current);
       }
@@ -203,7 +250,7 @@ export function CreatorAirwallexBeneficiaryForm({
       mountedElement?.destroy();
       elementRef.current = null;
     };
-  }, [defaultValues, token]);
+  }, [runBootstrap]);
 
   async function handleSave() {
     if (!elementRef.current) {
@@ -270,7 +317,7 @@ export function CreatorAirwallexBeneficiaryForm({
                 {sdkState}
               </div>
             ) : null}
-            {sdkDebug.length && !ready ? (
+            {sdkDebug.length > 0 && !ready ? (
               <div className="mb-4 rounded-2xl border border-[#dbe3ec] bg-[#f8fafc] px-3 py-3 text-[12px] leading-5 text-[#475569]">
                 {sdkDebug.map((item) => (
                   <div key={item}>{item}</div>
