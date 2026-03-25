@@ -694,6 +694,7 @@ export const creatorApi = {
         codeVerifier: string;
         clientId: string;
         env: "demo" | "prod";
+        apiVersion: string;
         scope: string[];
       };
     }>(

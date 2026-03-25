@@ -38,11 +38,14 @@ export function CreatorAirwallexBeneficiaryForm({
   const elementRef = useRef<BeneficiaryElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fallbackReadyTimerRef = useRef<number | null>(null);
-  const containerIdRef = useRef(`airwallex-beneficiary-form-${Math.random().toString(36).slice(2, 10)}`);
+  const iframeProbeTimerRef = useRef<number | null>(null);
+  const readyRef = useRef(false);
   const [booting, setBooting] = useState(true);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bootError, setBootError] = useState<string>("");
+  const [sdkState, setSdkState] = useState("Initializing Airwallex...");
+  const [sdkDebug, setSdkDebug] = useState<string[]>([]);
 
   const defaultValues = useMemo(() => {
     if (!existingBeneficiary) return undefined;
@@ -54,13 +57,23 @@ export function CreatorAirwallexBeneficiaryForm({
 
   useEffect(() => {
     let cancelled = false;
+    let mountedElement: BeneficiaryElement | null = null;
+
+    const pushDebug = (message: string) => {
+      if (cancelled) return;
+      setSdkDebug((current) => [...current.slice(-4), message]);
+    };
 
     async function bootstrap() {
       setBooting(true);
       setBootError("");
       setReady(false);
+      readyRef.current = false;
+      setSdkState("Initializing Airwallex...");
+      setSdkDebug([]);
 
       try {
+        pushDebug("Requesting embedded auth session...");
         const [{ init, createElement }, authResponse] = await Promise.all([
           import("@airwallex/components-sdk"),
           creatorApi.createAirwallexSettlementAuthCode(token),
@@ -68,20 +81,26 @@ export function CreatorAirwallexBeneficiaryForm({
 
         if (cancelled || !containerRef.current) return;
 
+        const { env, authCode, clientId, codeVerifier, apiVersion } = authResponse.data;
+        pushDebug(`Auth ready in ${env} mode.`);
+        setSdkState("Initializing SDK...");
+
         await init({
-          env: authResponse.data.env,
+          env,
           locale: "en",
           enabledElements: ["payouts"],
-          authCode: authResponse.data.authCode,
-          clientId: authResponse.data.clientId,
-          codeVerifier: authResponse.data.codeVerifier,
+          authCode,
+          clientId,
+          codeVerifier,
         });
 
         if (cancelled) return;
+        pushDebug(`SDK initialized with API version ${apiVersion}.`);
+        setSdkState("Creating beneficiary form...");
 
         const element = (await createElement("beneficiaryForm", {
           locale: "en",
-          apiVersion: "2024-09-27",
+          apiVersion,
           defaultValues: defaultValues as never,
           customizations: {
             fields: {
@@ -103,8 +122,13 @@ export function CreatorAirwallexBeneficiaryForm({
           return;
         }
 
+        mountedElement = element;
         element.on("ready", () => {
-          if (!cancelled) setReady(true);
+          if (cancelled) return;
+          pushDebug("Beneficiary form reported ready.");
+          setSdkState("Beneficiary form ready.");
+          readyRef.current = true;
+          setReady(true);
         });
         element.on("error", (eventData) => {
           if (cancelled) return;
@@ -112,27 +136,51 @@ export function CreatorAirwallexBeneficiaryForm({
             typeof eventData === "object" && eventData && "message" in (eventData as Record<string, unknown>)
               ? String((eventData as Record<string, unknown>).message || "")
               : "";
+          pushDebug(`SDK error: ${nextError || "UNKNOWN_ERROR"}`);
           if (nextError) {
             setBootError(nextError);
           }
         });
+        element.on("formState", (eventData) => {
+          if (cancelled || !eventData || typeof eventData !== "object") return;
+          const payload = eventData as { loading?: boolean; validation?: boolean; errors?: { message?: string } };
+          setSdkState(payload.loading ? "Loading beneficiary fields..." : "Beneficiary form mounted.");
+          if (payload.errors?.message) {
+            pushDebug(`Form state: ${payload.errors.message}`);
+          }
+        });
 
-        const mountTarget = containerIdRef.current;
-        if (!document.getElementById(mountTarget)) {
-          throw new Error("Airwallex beneficiary container is missing.");
-        }
-
-        element.mount(mountTarget);
+        pushDebug("Mounting beneficiary form iframe...");
+        setSdkState("Mounting beneficiary form...");
+        element.mount(containerRef.current);
         elementRef.current = element;
-        setReady(true);
 
         fallbackReadyTimerRef.current = window.setTimeout(() => {
-          if (!cancelled) {
+          if (!cancelled && containerRef.current?.querySelector("iframe")) {
+            pushDebug("Iframe detected before ready event.");
+            readyRef.current = true;
             setReady(true);
+            setSdkState("Beneficiary form mounted.");
           }
         }, 2500);
+
+        iframeProbeTimerRef.current = window.setTimeout(() => {
+          if (cancelled || readyRef.current) return;
+          const hasIframe = Boolean(containerRef.current?.querySelector("iframe"));
+          if (!hasIframe) {
+            setBootError(
+              "Airwallex beneficiary iframe did not mount. Sandbox is supported, so this usually means the page integration or embedded component bootstrap did not complete.",
+            );
+            pushDebug("No iframe found in beneficiary container after mount.");
+            return;
+          }
+
+          pushDebug("Iframe exists but ready event has not fired yet.");
+          setSdkState("Waiting for Airwallex form to finish loading...");
+        }, 5000);
       } catch (error) {
         if (!cancelled) {
+          pushDebug(error instanceof Error ? error.message : "Failed to initialize Airwallex beneficiary form.");
           setBootError(error instanceof Error ? error.message : "Failed to initialize Airwallex beneficiary form.");
         }
       } finally {
@@ -149,7 +197,10 @@ export function CreatorAirwallexBeneficiaryForm({
       if (fallbackReadyTimerRef.current) {
         window.clearTimeout(fallbackReadyTimerRef.current);
       }
-      elementRef.current?.destroy();
+      if (iframeProbeTimerRef.current) {
+        window.clearTimeout(iframeProbeTimerRef.current);
+      }
+      mountedElement?.destroy();
       elementRef.current = null;
     };
   }, [defaultValues, token]);
@@ -198,25 +249,35 @@ export function CreatorAirwallexBeneficiaryForm({
         {booting ? (
           <div className="flex min-h-[360px] items-center justify-center gap-3 text-sm font-semibold text-[#475569]">
             <Loader2 className="h-4 w-4 animate-spin text-[#1876f2]" />
-            Loading Airwallex beneficiary form...
+            {sdkState}
           </div>
         ) : bootError ? (
-          <div className="rounded-[18px] border border-[#fecaca] bg-[#fff1f2] px-4 py-4 text-sm text-[#9f1239]">
-            {bootError}
+          <div className="space-y-3 rounded-[18px] border border-[#fecaca] bg-[#fff1f2] px-4 py-4 text-sm text-[#9f1239]">
+            <p>{bootError}</p>
+            {sdkDebug.length ? (
+              <div className="rounded-2xl bg-white/80 px-3 py-3 text-[12px] leading-5 text-[#7f1d1d]">
+                {sdkDebug.map((item) => (
+                  <div key={item}>{item}</div>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div>
             {!ready ? (
               <div className="mb-4 flex items-center gap-2 text-sm text-[#64748b]">
                 <Loader2 className="h-4 w-4 animate-spin text-[#1876f2]" />
-                Preparing beneficiary fields...
+                {sdkState}
               </div>
             ) : null}
-            <div
-              id={containerIdRef.current}
-              ref={containerRef}
-              className="min-h-[640px]"
-            />
+            {sdkDebug.length && !ready ? (
+              <div className="mb-4 rounded-2xl border border-[#dbe3ec] bg-[#f8fafc] px-3 py-3 text-[12px] leading-5 text-[#475569]">
+                {sdkDebug.map((item) => (
+                  <div key={item}>{item}</div>
+                ))}
+              </div>
+            ) : null}
+            <div ref={containerRef} className="min-h-[640px]" />
           </div>
         )}
       </div>
