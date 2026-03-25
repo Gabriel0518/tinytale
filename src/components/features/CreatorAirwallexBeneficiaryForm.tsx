@@ -59,6 +59,7 @@ export function CreatorAirwallexBeneficiaryForm({
   const { toast } = useToast();
   const elementRef = useRef<BeneficiaryElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerIdRef = useRef(`airwallex-beneficiary-form-${Math.random().toString(36).slice(2, 10)}`);
   const fallbackReadyTimerRef = useRef<number | null>(null);
   const iframeProbeTimerRef = useRef<number | null>(null);
   const readyRef = useRef(false);
@@ -111,7 +112,7 @@ export function CreatorAirwallexBeneficiaryForm({
         "SDK module import",
       );
 
-      if (cancelled() || !containerRef.current) return;
+      if (cancelled()) return;
 
       pushDebug("SDK module loaded, initializing...");
       setSdkState("Initializing SDK...");
@@ -186,9 +187,13 @@ export function CreatorAirwallexBeneficiaryForm({
         }
       });
 
+      if (!containerRef.current || !document.getElementById(containerIdRef.current)) {
+        throw new Error("Airwallex beneficiary container is not mounted.");
+      }
+
       pushDebug("Mounting beneficiary form iframe...");
       setSdkState("Mounting beneficiary form...");
-      element.mount(containerRef.current);
+      element.mount(`#${containerIdRef.current}`);
       elementRef.current = element;
 
       fallbackReadyTimerRef.current = window.setTimeout(() => {
@@ -240,7 +245,9 @@ export function CreatorAirwallexBeneficiaryForm({
     runBootstrap(cancelled, pushDebug, (el) => { mountedElement = el; });
 
     return () => {
-      bootstrapIdRef.current++;
+      if (bootstrapIdRef.current === runId) {
+        bootstrapIdRef.current++;
+      }
       if (fallbackReadyTimerRef.current) {
         window.clearTimeout(fallbackReadyTimerRef.current);
       }
@@ -293,40 +300,41 @@ export function CreatorAirwallexBeneficiaryForm({
       </div>
 
       <div className="mt-5 rounded-[20px] border border-[#dbe3ec] bg-white p-4">
-        {booting ? (
-          <div className="flex min-h-[360px] items-center justify-center gap-3 text-sm font-semibold text-[#475569]">
-            <Loader2 className="h-4 w-4 animate-spin text-[#1876f2]" />
-            {sdkState}
-          </div>
-        ) : bootError ? (
-          <div className="space-y-3 rounded-[18px] border border-[#fecaca] bg-[#fff1f2] px-4 py-4 text-sm text-[#9f1239]">
-            <p>{bootError}</p>
-            {sdkDebug.length ? (
-              <div className="rounded-2xl bg-white/80 px-3 py-3 text-[12px] leading-5 text-[#7f1d1d]">
-                {sdkDebug.map((item) => (
-                  <div key={item}>{item}</div>
-                ))}
+        {!ready ? (
+          <div className="mb-4">
+            {bootError ? (
+              <div className="space-y-3 rounded-[18px] border border-[#fecaca] bg-[#fff1f2] px-4 py-4 text-sm text-[#9f1239]">
+                <p>{bootError}</p>
+                {sdkDebug.length ? (
+                  <div className="rounded-2xl bg-white/80 px-3 py-3 text-[12px] leading-5 text-[#7f1d1d]">
+                    {sdkDebug.map((item) => (
+                      <div key={item}>{item}</div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-          </div>
-        ) : (
-          <div>
-            {!ready ? (
-              <div className="mb-4 flex items-center gap-2 text-sm text-[#64748b]">
-                <Loader2 className="h-4 w-4 animate-spin text-[#1876f2]" />
-                {sdkState}
+            ) : (
+              <div className="space-y-3">
+                <div className="flex min-h-[48px] items-center gap-2 text-sm font-semibold text-[#475569]">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#1876f2]" />
+                  {sdkState}
+                </div>
+                {sdkDebug.length > 0 ? (
+                  <div className="rounded-2xl border border-[#dbe3ec] bg-[#f8fafc] px-3 py-3 text-[12px] leading-5 text-[#475569]">
+                    {sdkDebug.map((item) => (
+                      <div key={item}>{item}</div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-            ) : null}
-            {sdkDebug.length > 0 && !ready ? (
-              <div className="mb-4 rounded-2xl border border-[#dbe3ec] bg-[#f8fafc] px-3 py-3 text-[12px] leading-5 text-[#475569]">
-                {sdkDebug.map((item) => (
-                  <div key={item}>{item}</div>
-                ))}
-              </div>
-            ) : null}
-            <div ref={containerRef} className="min-h-[640px]" />
+            )}
           </div>
-        )}
+        ) : null}
+        <div
+          id={containerIdRef.current}
+          ref={containerRef}
+          className="min-h-[640px]"
+        />
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3">
