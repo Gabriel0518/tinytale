@@ -620,6 +620,8 @@ export interface CreatorSettlementOverview {
     payoutMethodLabel: string;
     bankStatus: CreatorSettlementBankStatus;
     bankStatusLabel: string;
+    bankAccountChangeLocked: boolean;
+    bankAccountChangeBlockedReason: string;
   };
   bankAccount: CreatorSettlementBankAccount;
   taxInfo: CreatorSettlementTaxInfo;

@@ -21,7 +21,6 @@ import { useToast } from "@/components/ui/Toast";
 import { localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import type {
-  CreatorSettlementBankStatus,
   CreatorSettlementOverview,
   CreatorSettlementStatement,
 } from "@/types/creator";
@@ -64,17 +63,8 @@ function mapStatementFilter(status: CreatorSettlementStatement["status"]): State
   return "pending";
 }
 
-function getAirwallexManageLabel(status: CreatorSettlementBankStatus) {
-  switch (status) {
-    case "verified":
-      return "Manage account";
-    case "pending_review":
-      return "Continue setup";
-    case "rejected":
-      return "Update account";
-    default:
-      return "Add bank account";
-  }
+function getAirwallexManageLabel(hasBankAccount: boolean) {
+  return hasBankAccount ? "Change bank account" : "Add bank account";
 }
 
 export default function CreatorSettlementsPage() {
@@ -154,9 +144,11 @@ export default function CreatorSettlementsPage() {
   }, [overview]);
 
   const manageBankAccountLabel = useMemo(
-    () => getAirwallexManageLabel(overview?.bankAccount.verificationStatus || "missing"),
-    [overview?.bankAccount.verificationStatus],
+    () => getAirwallexManageLabel(Boolean(overview?.bankAccount.airwallexBeneficiary?.beneficiaryId)),
+    [overview?.bankAccount.airwallexBeneficiary?.beneficiaryId],
   );
+  const bankAccountChangeLocked = Boolean(overview?.summary.bankAccountChangeLocked && overview?.bankAccount.airwallexBeneficiary?.beneficiaryId);
+  const bankAccountChangeBlockedReason = overview?.summary.bankAccountChangeBlockedReason || "";
   const airwallexVerificationDetail = useMemo(
     () => getAirwallexVerificationDetail({
       code: overview?.bankAccount.airwallexBeneficiary?.verificationCode,
@@ -197,6 +189,10 @@ export default function CreatorSettlementsPage() {
   const handleOpenAirwallexForm = async () => {
     if (!token) {
       toast(t("Please sign in again to manage your payout account."), "error");
+      return;
+    }
+    if (bankAccountChangeLocked) {
+      toast(bankAccountChangeBlockedReason || t("Finish or cancel the current payout before changing this bank account."), "info");
       return;
     }
 
@@ -320,7 +316,7 @@ export default function CreatorSettlementsPage() {
             type="button"
             onClick={handleOpenAirwallexForm}
             disabled={payoutActionLoading}
-            className="inline-flex h-11 items-center rounded-2xl bg-[#1876f2] px-5 text-[14px] font-bold text-white transition hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+            className={`inline-flex h-11 items-center rounded-2xl px-5 text-[14px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${bankAccountChangeLocked ? "bg-[#94a3b8] hover:bg-[#94a3b8]" : "bg-[#1876f2] hover:bg-[#1669da]"}`}
           >
             {payoutActionLoading ? (
               <>
@@ -385,10 +381,12 @@ export default function CreatorSettlementsPage() {
             <div className="rounded-[20px] bg-white p-5 shadow-[inset_0_0_0_1px_#edf2f7]">
               <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Account Management</p>
               <p className="mt-3 text-[18px] font-bold text-[#0f172a]">
-                {overview?.bankAccount.airwallexBeneficiary?.beneficiaryId ? "Beneficiary connected" : "Add your payout bank account"}
+                {overview?.bankAccount.airwallexBeneficiary?.beneficiaryId ? "Bank account connected" : "Add your payout bank account"}
               </p>
               <p className="mt-2 text-[14px] text-[#64748b]">
-                {overview?.bankAccount.updatedAt
+                {bankAccountChangeLocked
+                  ? bankAccountChangeBlockedReason
+                  : overview?.bankAccount.updatedAt
                   ? `Last updated ${formatDate(overview.bankAccount.updatedAt)}`
                   : "No bank account information added yet"}
               </p>
@@ -403,7 +401,7 @@ export default function CreatorSettlementsPage() {
                   type="button"
                   onClick={handleOpenAirwallexForm}
                   disabled={payoutActionLoading}
-                  className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-[#1876f2] px-5 text-[14px] font-bold text-white transition hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={`inline-flex h-11 w-full items-center justify-center rounded-2xl px-5 text-[14px] font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${bankAccountChangeLocked ? "bg-[#94a3b8] hover:bg-[#94a3b8]" : "bg-[#1876f2] hover:bg-[#1669da]"}`}
                 >
                   {payoutActionLoading ? (
                     <>
