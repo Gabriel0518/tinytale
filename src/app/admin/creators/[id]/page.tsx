@@ -17,6 +17,24 @@ import type { CreatorAdminCreatorDetail } from "@/types/creator";
 
 const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";
 
+function resolveActivePayoutProvider(bankAccount: CreatorAdminCreatorDetail["bankAccount"]) {
+  if (bankAccount.provider) return bankAccount.provider;
+  if (bankAccount.bankProvider) return bankAccount.bankProvider;
+  if (bankAccount.airwallexBeneficiaryId) return "airwallex";
+  if (bankAccount.stripeAccountId || bankAccount.stripeEmail) return "stripe";
+  return "airwallex";
+}
+
+function getActivePayoutIdentifier(bankAccount: CreatorAdminCreatorDetail["bankAccount"], provider: string) {
+  if (provider === "airwallex") {
+    return bankAccount.airwallexBeneficiaryId || "Not available";
+  }
+  if (provider === "stripe") {
+    return bankAccount.stripeAccountId || "Not available";
+  }
+  return bankAccount.maskedAccountNumber || "No external bank account attached";
+}
+
 export default function CreatorDetailPage() {
   const params = useParams();
   const { toast } = useToast();
@@ -61,6 +79,24 @@ export default function CreatorDetailPage() {
 
   const statusMeta = useMemo(() => getCreatorLifecycleMeta((data?.status || "active") as any), [data?.status]);
   const bankMeta = useMemo(() => getCreatorBankStatusMeta((data?.bankStatus || "missing") as any), [data?.bankStatus]);
+  const activePayoutProvider = useMemo(
+    () => (data ? resolveActivePayoutProvider(data.bankAccount) : "airwallex"),
+    [data],
+  );
+  const hasLegacyStripeRecord = useMemo(
+    () => Boolean(
+      data?.bankAccount.stripeAccountId
+      && activePayoutProvider !== "stripe",
+    ),
+    [activePayoutProvider, data],
+  );
+  const hasLegacyAirwallexRecord = useMemo(
+    () => Boolean(
+      data?.bankAccount.airwallexBeneficiaryId
+      && activePayoutProvider !== "airwallex",
+    ),
+    [activePayoutProvider, data],
+  );
 
   async function handleSave() {
     if (!data) return;
@@ -332,7 +368,11 @@ export default function CreatorDetailPage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="font-medium text-white">{data.bankAccount.bankName || "Beneficiary setup not finished"}</p>
-                  <p className="mt-1 text-sm text-gray-400">{data.bankAccount.accountHolderName || data.bankAccount.airwallexVerificationResolvedAccountName || data.bankAccount.stripeEmail || "Missing payout owner"} · {data.bankAccount.maskedAccountNumber || data.bankAccount.airwallexBeneficiaryId || data.bankAccount.stripeAccountId || "No external bank account attached"}</p>
+                  <p className="mt-1 text-sm text-gray-400">
+                    {data.bankAccount.accountHolderName || data.bankAccount.airwallexVerificationResolvedAccountName || data.bankAccount.stripeEmail || "Missing payout owner"}
+                    {" · "}
+                    {data.bankAccount.maskedAccountNumber || "No external bank account attached"}
+                  </p>
                 </div>
                 <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${bankMeta.className}`}>{bankMeta.label}</span>
               </div>
@@ -340,20 +380,36 @@ export default function CreatorDetailPage() {
               {data.bankAccount.providerLabel || data.bankAccount.verificationLabel ? (
                 <p className="mt-2 text-sm text-indigo-300">{data.bankAccount.providerLabel || "Airwallex Beneficiary"}{data.bankAccount.verificationLabel ? ` · ${data.bankAccount.verificationLabel}` : ""}</p>
               ) : null}
-              {data.bankAccount.airwallexBeneficiaryId || data.bankAccount.stripeAccountId || data.bankAccount.stripeEmail ? (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-                  <div className="rounded-xl border border-gray-700/50 bg-[#13131d] p-3">
-                    <p className="text-xs uppercase tracking-[0.12em] text-gray-500">{data.bankAccount.bankProvider === "airwallex" ? "Airwallex beneficiary" : "Stripe account"}</p>
-                    <p className="mt-1 text-sm text-white">{data.bankAccount.airwallexBeneficiaryId || data.bankAccount.stripeAccountId || "Not available"}</p>
-                    <p className="mt-1 text-xs text-gray-400">
-                      {data.bankAccount.bankProvider === "airwallex"
-                        ? `${data.bankAccount.airwallexVerificationCode || "Not verified"}${data.bankAccount.airwallexVerificationAccountNameMatchResult ? ` · ${data.bankAccount.airwallexVerificationAccountNameMatchResult}` : ""}`
-                        : data.bankAccount.stripeEmail || "No Stripe email available"}
+              <div className="mt-4 rounded-xl border border-gray-700/50 bg-[#13131d] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.12em] text-gray-500">
+                      {activePayoutProvider === "airwallex" ? "Active payout rail" : activePayoutProvider === "stripe" ? "Stripe payout rail" : "Payout record"}
+                    </p>
+                    <p className="mt-2 text-base font-semibold text-white">
+                      {activePayoutProvider === "airwallex" ? "Airwallex beneficiary" : activePayoutProvider === "stripe" ? "Stripe Connect account" : "Manual payout record"}
                     </p>
                   </div>
+                  <span className="rounded-full bg-white/5 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-gray-300">
+                    {activePayoutProvider}
+                  </span>
                 </div>
-              ) : null}
-              {data.bankAccount.airwallexVerificationResolvedBankName ? (
+                <p className="mt-3 text-sm text-white">{getActivePayoutIdentifier(data.bankAccount, activePayoutProvider)}</p>
+                <p className="mt-2 text-xs text-gray-400">
+                  {activePayoutProvider === "airwallex"
+                    ? `${data.bankAccount.airwallexVerificationCode || "Not verified"}${data.bankAccount.airwallexVerificationAccountNameMatchResult ? ` · ${data.bankAccount.airwallexVerificationAccountNameMatchResult}` : ""}`
+                    : activePayoutProvider === "stripe"
+                      ? data.bankAccount.stripeEmail || "No Stripe email available"
+                      : data.bankAccount.verificationLabel || "Manual review"}
+                </p>
+                {activePayoutProvider === "airwallex" && data.bankAccount.airwallexTransferMethods?.length ? (
+                  <p className="mt-2 text-xs text-gray-500">
+                    Transfer method: {data.bankAccount.airwallexTransferMethods.join(", ")}
+                    {data.bankAccount.airwallexEntityType ? ` · ${data.bankAccount.airwallexEntityType}` : ""}
+                  </p>
+                ) : null}
+              </div>
+              {activePayoutProvider === "airwallex" && data.bankAccount.airwallexVerificationResolvedBankName ? (
                 <div className="mt-4 rounded-xl border border-sky-500/20 bg-sky-500/10 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-sky-200">Airwallex resolved details</p>
                   <p className="mt-2 text-sm leading-6 text-sky-100">
@@ -362,16 +418,32 @@ export default function CreatorDetailPage() {
                   </p>
                 </div>
               ) : null}
-              {data.bankAccount.stripeRequirementsCurrentlyDue?.length ? (
+              {activePayoutProvider === "stripe" && data.bankAccount.stripeRequirementsCurrentlyDue?.length ? (
                 <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-amber-200">Currently due in Stripe</p>
                   <p className="mt-2 text-sm leading-6 text-amber-100">{data.bankAccount.stripeRequirementsCurrentlyDue.join(", ")}</p>
                 </div>
               ) : null}
-              {data.bankAccount.stripeDisabledReason ? (
+              {activePayoutProvider === "stripe" && data.bankAccount.stripeDisabledReason ? (
                 <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-rose-200">Stripe disabled reason</p>
                   <p className="mt-2 text-sm leading-6 text-rose-100">{data.bankAccount.stripeDisabledReason}</p>
+                </div>
+              ) : null}
+              {hasLegacyStripeRecord ? (
+                <div className="mt-4 rounded-xl border border-gray-700/50 bg-[#10101a] p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Legacy Stripe record</p>
+                  <p className="mt-2 text-sm text-gray-300">
+                    Stripe account {data.bankAccount.stripeAccountId} is still stored historically, but payouts now follow the active Airwallex beneficiary above.
+                  </p>
+                </div>
+              ) : null}
+              {hasLegacyAirwallexRecord ? (
+                <div className="mt-4 rounded-xl border border-gray-700/50 bg-[#10101a] p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-gray-500">Legacy Airwallex record</p>
+                  <p className="mt-2 text-sm text-gray-300">
+                    Airwallex beneficiary {data.bankAccount.airwallexBeneficiaryId} remains on file historically, but the current payout rail is Stripe.
+                  </p>
                 </div>
               ) : null}
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
