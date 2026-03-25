@@ -538,6 +538,7 @@ export default function CreatorSettlementsPage() {
             </div>
             <CreatorAirwallexBeneficiaryForm
               token={token || ""}
+              locale={locale}
               existingSummary={overview?.bankAccount.airwallexBeneficiary || null}
               existingBeneficiary={beneficiaryDefaults}
               existingTransferMethods={beneficiaryTransferMethods}

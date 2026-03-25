@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { creatorApi } from "@/lib/api";
+import { resolveAirwallexLocale } from "@/lib/airwallex";
 import { useToast } from "@/components/ui/Toast";
+import type { SupportedLocale } from "@/lib/i18n";
 import type { CreatorSettlementAirwallexBeneficiarySummary } from "@/types/creator";
 
 type BeneficiaryElement = {
@@ -19,6 +21,7 @@ type BeneficiaryElement = {
 
 type Props = {
   token: string;
+  locale: SupportedLocale;
   existingSummary?: CreatorSettlementAirwallexBeneficiarySummary | null;
   existingBeneficiary?: Record<string, unknown> | null;
   existingTransferMethods?: string[];
@@ -50,6 +53,7 @@ function extractErrorMessage(error: unknown): string {
 
 export function CreatorAirwallexBeneficiaryForm({
   token,
+  locale,
   existingSummary,
   existingBeneficiary,
   existingTransferMethods,
@@ -70,6 +74,7 @@ export function CreatorAirwallexBeneficiaryForm({
   const [bootError, setBootError] = useState<string>("");
   const [sdkState, setSdkState] = useState("Initializing Airwallex...");
   const [sdkDebug, setSdkDebug] = useState<string[]>([]);
+  const airwallexLocale = useMemo(() => resolveAirwallexLocale(locale), [locale]);
 
   const defaultValues = useMemo(() => {
     if (!existingBeneficiary) return undefined;
@@ -103,7 +108,7 @@ export function CreatorAirwallexBeneficiaryForm({
       if (cancelled()) return;
 
       const { env, authCode, clientId, codeVerifier, apiVersion } = authResponse.data;
-      pushDebug(`Auth code received (${env} environment).`);
+      pushDebug(`Auth code received (${env} environment, locale ${airwallexLocale}).`);
       setSdkState("Loading Airwallex SDK...");
 
       const sdk = await withTimeout(
@@ -120,7 +125,7 @@ export function CreatorAirwallexBeneficiaryForm({
       await withTimeout(
         sdk.init({
           env,
-          locale: "en",
+          locale: airwallexLocale,
           enabledElements: ["payouts"],
           authCode,
           clientId,
@@ -131,12 +136,12 @@ export function CreatorAirwallexBeneficiaryForm({
       );
 
       if (cancelled()) return;
-      pushDebug(`SDK initialized (API ${apiVersion}).`);
+      pushDebug(`SDK initialized (API ${apiVersion}, locale ${airwallexLocale}).`);
       setSdkState("Creating beneficiary form...");
 
       const element = (await withTimeout(
         sdk.createElement("beneficiaryForm", {
-          locale: "en",
+          locale: airwallexLocale,
           apiVersion,
           defaultValues: defaultValues as never,
           customizations: {
@@ -230,10 +235,11 @@ export function CreatorAirwallexBeneficiaryForm({
         setBooting(false);
       }
     }
-  }, [defaultValues, token]);
+  }, [airwallexLocale, defaultValues, token]);
 
   useEffect(() => {
     const runId = ++bootstrapIdRef.current;
+    const currentBootstrapId = runId;
     let mountedElement: BeneficiaryElement | null = null;
 
     const cancelled = () => runId !== bootstrapIdRef.current;
@@ -245,7 +251,7 @@ export function CreatorAirwallexBeneficiaryForm({
     runBootstrap(cancelled, pushDebug, (el) => { mountedElement = el; });
 
     return () => {
-      if (bootstrapIdRef.current === runId) {
+      if (bootstrapIdRef.current === currentBootstrapId) {
         bootstrapIdRef.current++;
       }
       if (fallbackReadyTimerRef.current) {
@@ -300,6 +306,11 @@ export function CreatorAirwallexBeneficiaryForm({
       </div>
 
       <div className="mt-5 rounded-[20px] border border-[#dbe3ec] bg-white p-4">
+        {locale !== airwallexLocale ? (
+          <div className="mb-4 rounded-2xl border border-[#dbe3ec] bg-[#f8fafc] px-3 py-3 text-[12px] leading-5 text-[#64748b]">
+            Airwallex currently displays this payout form in English for the selected page language.
+          </div>
+        ) : null}
         {!ready ? (
           <div className="mb-4">
             {bootError ? (
