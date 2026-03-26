@@ -274,11 +274,14 @@ function NewPasswordContent() {
 }
 
 export default function NewPasswordPage() {
+  const locale = useLocale();
+  const t = resolveLocaleCopy(VERIFY_RESET_TEXT, locale);
+
   return (
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-[#0F1014]">
-          <div className="text-gray-400">Loading...</div>
+          <div className="text-gray-400">{t.loading}</div>
         </div>
       }
     >
@@ -311,7 +314,8 @@ const VERIFY_RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>>
     passwordMin: "Password must be at least 8 characters.",
     passwordMismatch: "Passwords do not match.",
     resetFailed: "Failed to reset password. Please try again.",
-    genericError: "An error occurred" },
+    genericError: "An error occurred",
+    loading: "Loading..." },
   zh: {
     title: "设置新密码",
     subtitle: "新密码必须和之前使用过的密码不同。",
@@ -335,7 +339,8 @@ const VERIFY_RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>>
     passwordMin: "密码至少需要 8 位。",
     passwordMismatch: "两次输入的密码不一致。",
     resetFailed: "重置密码失败，请重试。",
-    genericError: "发生错误" },
+    genericError: "发生错误",
+    loading: "加载中..." },
   ja: {
     title: "新しいパスワードを作成",
     subtitle: "以前使用したパスワードとは異なる必要があります。",
@@ -359,7 +364,8 @@ const VERIFY_RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>>
     passwordMin: "パスワードは8文字以上必要です。",
     passwordMismatch: "パスワードが一致しません。",
     resetFailed: "パスワードリセットに失敗しました。",
-    genericError: "エラーが発生しました" },
+    genericError: "エラーが発生しました",
+    loading: "読み込み中..." },
   es: {
     title: "Crear nueva contraseña",
     subtitle: "Tu nueva contraseña debe ser distinta a las anteriores.",
@@ -383,7 +389,8 @@ const VERIFY_RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>>
     passwordMin: "La contraseña debe tener al menos 8 caracteres.",
     passwordMismatch: "Las contraseñas no coinciden.",
     resetFailed: "No se pudo restablecer la contraseña.",
-    genericError: "Ocurrió un error" },
+    genericError: "Ocurrió un error",
+    loading: "Cargando..." },
   pt: {
     title: "Criar nova senha",
     subtitle: "Sua nova senha deve ser diferente das anteriores.",
@@ -407,7 +414,8 @@ const VERIFY_RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>>
     passwordMin: "A senha deve ter pelo menos 8 caracteres.",
     passwordMismatch: "As senhas não coincidem.",
     resetFailed: "Falha ao redefinir a senha.",
-    genericError: "Ocorreu um erro" },
+    genericError: "Ocorreu um erro",
+    loading: "Carregando..." },
   hi: {
     title: "नया पासवर्ड बनाएँ",
     subtitle: "नया पासवर्ड पहले वाले पासवर्ड से अलग होना चाहिए।",
@@ -431,7 +439,8 @@ const VERIFY_RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>>
     passwordMin: "पासवर्ड कम से कम 8 अक्षर का होना चाहिए।",
     passwordMismatch: "पासवर्ड मेल नहीं खाते।",
     resetFailed: "पासवर्ड रीसेट विफल रहा।",
-    genericError: "त्रुटि हुई" },
+    genericError: "त्रुटि हुई",
+    loading: "लोड हो रहा है..." },
   id: {
     title: "Buat kata sandi baru",
     subtitle: "Kata sandi baru harus berbeda dari yang sebelumnya.",
@@ -455,4 +464,5 @@ const VERIFY_RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>>
     passwordMin: "Kata sandi minimal 8 karakter.",
     passwordMismatch: "Kata sandi tidak cocok.",
     resetFailed: "Gagal reset kata sandi.",
-    genericError: "Terjadi kesalahan" } };
+    genericError: "Terjadi kesalahan",
+    loading: "Memuat..." } };

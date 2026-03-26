@@ -1091,7 +1091,7 @@ function StepBasic({
               },
             }))
           }
-          placeholder={draft.basicInformation.creatorType === "company" ? t("TinyTale Studio LLC") : "Alex Morgan"}
+          placeholder={draft.basicInformation.creatorType === "company" ? t("TinyTale Studio LLC") : t("Alex Morgan")}
           icon={draft.basicInformation.creatorType === "company" ? <Building2 className="h-4 w-4" /> : <User className="h-4 w-4" />}
         />
 
@@ -1119,7 +1119,7 @@ function StepBasic({
                 basicInformation: { ...current.basicInformation, age: value },
               }))
             }
-            placeholder="28"
+            placeholder={t("28")}
             icon={<BadgeCheck className="h-4 w-4" />}
           />
         )}
@@ -1136,7 +1136,7 @@ function StepBasic({
                 basicInformation: { ...current.basicInformation, registrationId: value },
               }))
             }
-            placeholder="US-12345678"
+            placeholder={t("US-12345678")}
             icon={<FileText className="h-4 w-4" />}
           />
         ) : (
@@ -1149,7 +1149,7 @@ function StepBasic({
                 basicInformation: { ...current.basicInformation, idNumber: value },
               }))
             }
-            placeholder="A123456789"
+            placeholder={t("A123456789")}
             icon={<ShieldCheck className="h-4 w-4" />}
           />
         )}
@@ -1166,7 +1166,7 @@ function StepBasic({
               },
             }))
           }
-          placeholder={draft.basicInformation.creatorType === "company" ? "350 Fifth Avenue, New York, NY" : "creator@studio.com"}
+          placeholder={draft.basicInformation.creatorType === "company" ? t("350 Fifth Avenue, New York, NY") : t("creator@studio.com")}
           icon={draft.basicInformation.creatorType === "company" ? <Building2 className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
         />
       </div>
@@ -1183,7 +1183,7 @@ function StepBasic({
                 basicInformation: { ...current.basicInformation, email: value },
               }))
             }
-            placeholder="creator@studio.com"
+            placeholder={t("creator@studio.com")}
             icon={<Mail className="h-4 w-4" />}
           />
           <InputField
@@ -1195,7 +1195,7 @@ function StepBasic({
                 basicInformation: { ...current.basicInformation, phone: value },
               }))
             }
-            placeholder="+1 555 010 3000"
+            placeholder={t("+1 555 010 3000")}
             icon={<Phone className="h-4 w-4" />}
           />
         </div>
@@ -1210,7 +1210,7 @@ function StepBasic({
                 basicInformation: { ...current.basicInformation, phone: value },
               }))
             }
-            placeholder="+1 555 010 3000"
+            placeholder={t("+1 555 010 3000")}
             icon={<Phone className="h-4 w-4" />}
           />
           <div />
@@ -1228,7 +1228,7 @@ function StepBasic({
                 basicInformation: { ...current.basicInformation, region: value },
               }))
             }
-            placeholder="California"
+            placeholder={t("California")}
             icon={<Globe2 className="h-4 w-4" />}
           />
           <div />

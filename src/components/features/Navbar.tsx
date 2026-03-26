@@ -31,13 +31,13 @@ const navLinks = [
 ];
 
 const NAV_LABELS: FlexibleRecord<SupportedLocale, Record<string, string>> = {
-  en: { home: "Home", browse: "Browse", rankings: "Rankings", myList: "My List", creator: "Creator", affiliate: "Affiliate", signIn: "Sign In", getStarted: "Get Started" },
-  es: { home: "Inicio", browse: "Explorar", rankings: "Ranking", myList: "Mi lista", creator: "Creator", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Comenzar" },
-  pt: { home: "Início", browse: "Explorar", rankings: "Ranking", myList: "Minha Lista", creator: "Creator", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Começar" },
-  id: { home: "Beranda", browse: "Jelajahi", rankings: "Peringkat", myList: "Daftar Saya", creator: "Kreator", affiliate: "Afiliasi", signIn: "Masuk", getStarted: "Mulai" },
-  zh: { home: "首页", browse: "浏览", rankings: "排行", myList: "我的收藏", creator: "创作者", affiliate: "推广", signIn: "登录", getStarted: "开始使用" },
-  ja: { home: "ホーム", browse: "閲覧", rankings: "ランキング", myList: "マイリスト", creator: "クリエイター", affiliate: "アフィリエイト", signIn: "ログイン", getStarted: "はじめる" },
-  hi: { home: "होम", browse: "ब्राउज़", rankings: "रैंकिंग", myList: "मेरी सूची", creator: "क्रिएटर", affiliate: "अफिलिएट", signIn: "साइन इन", getStarted: "शुरू करें" } };
+  en: { home: "Home", browse: "Browse", rankings: "Rankings", myList: "My List", creator: "Creator", affiliate: "Affiliate", signIn: "Sign In", getStarted: "Get Started", search: "Search", notifications: "Notifications", add: "Add", openMenu: "Open menu", closeMenu: "Close menu" },
+  es: { home: "Inicio", browse: "Explorar", rankings: "Ranking", myList: "Mi lista", creator: "Creator", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Comenzar", search: "Buscar", notifications: "Notificaciones", add: "Recargar", openMenu: "Abrir menú", closeMenu: "Cerrar menú" },
+  pt: { home: "Início", browse: "Explorar", rankings: "Ranking", myList: "Minha Lista", creator: "Creator", affiliate: "Afiliados", signIn: "Entrar", getStarted: "Começar", search: "Buscar", notifications: "Notificações", add: "Adicionar", openMenu: "Abrir menu", closeMenu: "Fechar menu" },
+  id: { home: "Beranda", browse: "Jelajahi", rankings: "Peringkat", myList: "Daftar Saya", creator: "Kreator", affiliate: "Afiliasi", signIn: "Masuk", getStarted: "Mulai", search: "Cari", notifications: "Notifikasi", add: "Isi ulang", openMenu: "Buka menu", closeMenu: "Tutup menu" },
+  zh: { home: "首页", browse: "浏览", rankings: "排行", myList: "我的收藏", creator: "创作者", affiliate: "推广", signIn: "登录", getStarted: "开始使用", search: "搜索", notifications: "通知", add: "充值", openMenu: "打开菜单", closeMenu: "关闭菜单" },
+  ja: { home: "ホーム", browse: "閲覧", rankings: "ランキング", myList: "マイリスト", creator: "クリエイター", affiliate: "アフィリエイト", signIn: "ログイン", getStarted: "はじめる", search: "検索", notifications: "通知", add: "追加", openMenu: "メニューを開く", closeMenu: "メニューを閉じる" },
+  hi: { home: "होम", browse: "ब्राउज़", rankings: "रैंकिंग", myList: "मेरी सूची", creator: "क्रिएटर", affiliate: "अफिलिएट", signIn: "साइन इन", getStarted: "शुरू करें", search: "खोजें", notifications: "सूचनाएं", add: "रिचार्ज", openMenu: "मेनू खोलें", closeMenu: "मेनू बंद करें" } };
 
 export function Navbar({
   activePath,
@@ -126,7 +126,7 @@ export function Navbar({
           {renderSearch ? (
             <div className="hidden flex-1 justify-center px-4 md:flex">{renderSearch}</div>
           ) : showSearch ? (
-            <Link href={toLocalePath("/search")} className="text-gray-300 hover:text-white" aria-label="Search">
+            <Link href={toLocalePath("/search")} className="text-gray-300 hover:text-white" aria-label={navText.search}>
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -144,9 +144,9 @@ export function Navbar({
                   <circle cx="12" cy="12" r="10" />
                 </svg>
                 <span className="font-medium">{Number(user.coins || 0).toFixed(2)}</span>
-                <span className="text-xs font-semibold text-yellow-400">ADD</span>
+                <span className="text-xs font-semibold text-yellow-400">{navText.add}</span>
               </Link>
-              <Link href={toLocalePath("/user/notifications")} className="relative text-gray-300 transition hover:text-white" aria-label="Notifications">
+              <Link href={toLocalePath("/user/notifications")} className="relative text-gray-300 transition hover:text-white" aria-label={navText.notifications}>
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
@@ -187,7 +187,7 @@ export function Navbar({
           <button
             className="md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+            aria-label={isMenuOpen ? navText.closeMenu : navText.openMenu}
             aria-expanded={isMenuOpen}
           >
             <svg

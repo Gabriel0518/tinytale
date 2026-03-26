@@ -28,6 +28,33 @@ type StripeCheckoutCopy = {
   providerTitle: string;
   methodLabel: string;
   methodMap: Record<string, string>;
+  checkoutUrlMissing: string;
+  createCheckoutFailed: string;
+  loading: string;
+};
+
+const STRIPE_PROVIDER_TITLES: FlexibleRecord<SupportedLocale, string> = {
+  en: "Powered by Stripe",
+  zh: "由 Stripe 提供支持",
+  ja: "Stripe 提供",
+  es: "Con tecnología de Stripe",
+  pt: "Tecnologia Stripe",
+  hi: "Stripe द्वारा संचालित",
+  id: "Didukung oleh Stripe",
+  ko: "Stripe 제공",
+  fr: "Propulsé par Stripe",
+};
+
+const STRIPE_WALLET_LABELS: FlexibleRecord<SupportedLocale, string> = {
+  en: "Apple Pay / Google Pay / Link",
+  zh: "Apple Pay、Google Pay、Link 钱包",
+  ja: "Apple Pay・Google Pay・Link ウォレット",
+  es: "Billeteras Apple Pay, Google Pay y Link",
+  pt: "Carteiras Apple Pay, Google Pay e Link",
+  hi: "Apple Pay, Google Pay और Link वॉलेट",
+  id: "Dompet Apple Pay, Google Pay, dan Link",
+  ko: "Apple Pay, Google Pay, Link 지갑",
+  fr: "Portefeuilles Apple Pay, Google Pay et Link",
 };
 
 const COPY: FlexibleRecord<SupportedLocale, StripeCheckoutCopy> = {
@@ -42,11 +69,14 @@ const COPY: FlexibleRecord<SupportedLocale, StripeCheckoutCopy> = {
     coins: "Coins",
     bonus: "Bonus",
     total: "Total",
-    providerTitle: "Powered by Stripe",
+    providerTitle: STRIPE_PROVIDER_TITLES.en,
     methodLabel: "Chosen Method",
+    checkoutUrlMissing: "Stripe checkout URL was not returned.",
+    createCheckoutFailed: "Failed to create Stripe checkout.",
+    loading: "Loading...",
     methodMap: {
       card: "Credit / Debit Card",
-      wallet: "Apple Pay / Google Pay / Link",
+      wallet: STRIPE_WALLET_LABELS.en,
     },
   },
   zh: {
@@ -60,11 +90,161 @@ const COPY: FlexibleRecord<SupportedLocale, StripeCheckoutCopy> = {
     coins: "金币",
     bonus: "赠送",
     total: "合计",
-    providerTitle: "由 Stripe 提供支持",
+    providerTitle: STRIPE_PROVIDER_TITLES.zh,
     methodLabel: "已选方式",
+    checkoutUrlMissing: "未返回 Stripe 收银台链接。",
+    createCheckoutFailed: "创建 Stripe 支付失败。",
+    loading: "加载中...",
     methodMap: {
       card: "信用卡 / 借记卡",
-      wallet: "Apple Pay / Google Pay / Link",
+      wallet: STRIPE_WALLET_LABELS.zh,
+    },
+  },
+  ja: {
+    title: "Stripe チェックアウト",
+    subtitle: "Stripe の安全なホスト型チェックアウトでカード決済を完了します。",
+    summary: "チャージ概要",
+    checkoutHint: "支払い完了のため Stripe にリダイレクトされます。",
+    continue: "Stripe に進む",
+    back: "チャージページへ戻る",
+    missingPackage: "チャージパッケージが選択されていません。",
+    coins: "コイン",
+    bonus: "ボーナス",
+    total: "合計",
+    providerTitle: STRIPE_PROVIDER_TITLES.ja,
+    methodLabel: "選択中の方法",
+    checkoutUrlMissing: "Stripe のチェックアウト URL が返されませんでした。",
+    createCheckoutFailed: "Stripe チェックアウトの作成に失敗しました。",
+    loading: "読み込み中...",
+    methodMap: {
+      card: "クレジット / デビットカード",
+      wallet: STRIPE_WALLET_LABELS.ja,
+    },
+  },
+  es: {
+    title: "Checkout de Stripe",
+    subtitle: "Paga con tarjeta en el checkout seguro alojado por Stripe.",
+    summary: "Resumen de recarga",
+    checkoutHint: "Serás redirigido a Stripe para completar el pago.",
+    continue: "Continuar con Stripe",
+    back: "Volver a Recargas",
+    missingPackage: "No se seleccionó ningún paquete de recarga.",
+    coins: "Monedas",
+    bonus: "Bonificación",
+    total: "Total",
+    providerTitle: STRIPE_PROVIDER_TITLES.es,
+    methodLabel: "Método elegido",
+    checkoutUrlMissing: "No se devolvió la URL de checkout de Stripe.",
+    createCheckoutFailed: "No se pudo crear el checkout de Stripe.",
+    loading: "Cargando...",
+    methodMap: {
+      card: "Tarjeta de crédito / débito",
+      wallet: STRIPE_WALLET_LABELS.es,
+    },
+  },
+  pt: {
+    title: "Checkout Stripe",
+    subtitle: "Pague com cartão no checkout seguro hospedado pela Stripe.",
+    summary: "Resumo da recarga",
+    checkoutHint: "Você será redirecionado para a Stripe para concluir o pagamento.",
+    continue: "Continuar para Stripe",
+    back: "Voltar para Recarga",
+    missingPackage: "Nenhum pacote de recarga foi selecionado.",
+    coins: "Moedas",
+    bonus: "Bônus",
+    total: "Total",
+    providerTitle: STRIPE_PROVIDER_TITLES.pt,
+    methodLabel: "Método escolhido",
+    checkoutUrlMissing: "A URL do checkout da Stripe não foi retornada.",
+    createCheckoutFailed: "Falha ao criar o checkout da Stripe.",
+    loading: "Carregando...",
+    methodMap: {
+      card: "Cartão de crédito / débito",
+      wallet: STRIPE_WALLET_LABELS.pt,
+    },
+  },
+  hi: {
+    title: "Stripe चेकआउट",
+    subtitle: "Stripe के सुरक्षित होस्टेड checkout में कार्ड से भुगतान करें।",
+    summary: "रिचार्ज सारांश",
+    checkoutHint: "भुगतान पूरा करने के लिए आपको Stripe पर भेजा जाएगा।",
+    continue: "Stripe पर जाएं",
+    back: "रिचार्ज पर वापस जाएं",
+    missingPackage: "कोई रिचार्ज पैकेज चयनित नहीं है।",
+    coins: "कॉइन",
+    bonus: "बोनस",
+    total: "कुल",
+    providerTitle: STRIPE_PROVIDER_TITLES.hi,
+    methodLabel: "चुना गया तरीका",
+    checkoutUrlMissing: "Stripe checkout URL वापस नहीं मिला।",
+    createCheckoutFailed: "Stripe checkout बनाने में विफल।",
+    loading: "लोड हो रहा है...",
+    methodMap: {
+      card: "क्रेडिट / डेबिट कार्ड",
+      wallet: STRIPE_WALLET_LABELS.hi,
+    },
+  },
+  id: {
+    title: "Checkout Stripe",
+    subtitle: "Bayar dengan kartu melalui checkout aman yang dihosting Stripe.",
+    summary: "Ringkasan isi ulang",
+    checkoutHint: "Kamu akan diarahkan ke Stripe untuk menyelesaikan pembayaran.",
+    continue: "Lanjut ke Stripe",
+    back: "Kembali ke Isi Ulang",
+    missingPackage: "Belum ada paket isi ulang yang dipilih.",
+    coins: "Koin",
+    bonus: "Bonus",
+    total: "Total",
+    providerTitle: STRIPE_PROVIDER_TITLES.id,
+    methodLabel: "Metode terpilih",
+    checkoutUrlMissing: "URL checkout Stripe tidak dikembalikan.",
+    createCheckoutFailed: "Gagal membuat checkout Stripe.",
+    loading: "Memuat...",
+    methodMap: {
+      card: "Kartu kredit / debit",
+      wallet: STRIPE_WALLET_LABELS.id,
+    },
+  },
+  ko: {
+    title: "Stripe 결제",
+    subtitle: "Stripe의 안전한 호스팅 결제 페이지에서 카드로 결제하세요.",
+    summary: "충전 요약",
+    checkoutHint: "결제 완료를 위해 Stripe로 이동합니다.",
+    continue: "Stripe로 계속",
+    back: "충전 페이지로 돌아가기",
+    missingPackage: "선택한 충전 패키지가 없습니다.",
+    coins: "코인",
+    bonus: "보너스",
+    total: "합계",
+    providerTitle: STRIPE_PROVIDER_TITLES.ko,
+    methodLabel: "선택한 결제수단",
+    checkoutUrlMissing: "Stripe 체크아웃 URL이 반환되지 않았습니다.",
+    createCheckoutFailed: "Stripe 체크아웃을 생성하지 못했습니다.",
+    loading: "로딩 중...",
+    methodMap: {
+      card: "신용 / 체크카드",
+      wallet: STRIPE_WALLET_LABELS.ko,
+    },
+  },
+  fr: {
+    title: "Checkout Stripe",
+    subtitle: "Payez par carte via le checkout sécurisé hébergé par Stripe.",
+    summary: "Récapitulatif de recharge",
+    checkoutHint: "Vous serez redirigé vers Stripe pour finaliser le paiement.",
+    continue: "Continuer vers Stripe",
+    back: "Retour à la recharge",
+    missingPackage: "Aucun forfait de recharge sélectionné.",
+    coins: "Pièces",
+    bonus: "Bonus",
+    total: "Total",
+    providerTitle: STRIPE_PROVIDER_TITLES.fr,
+    methodLabel: "Méthode choisie",
+    checkoutUrlMissing: "L’URL de checkout Stripe n’a pas été renvoyée.",
+    createCheckoutFailed: "Impossible de créer le checkout Stripe.",
+    loading: "Chargement...",
+    methodMap: {
+      card: "Carte bancaire",
+      wallet: STRIPE_WALLET_LABELS.fr,
     },
   },
 };
@@ -77,6 +257,12 @@ export default function StripeCheckoutPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
+  const getRuntimeErrorMessage = (error: unknown, fallback: string) => {
+    if (locale === "en" && error instanceof Error && error.message) {
+      return error.message;
+    }
+    return fallback;
+  };
 
   const packageId = searchParams.get("packageId") || "";
   const coins = Number(searchParams.get("coins") || 0);
@@ -114,9 +300,9 @@ export default function StripeCheckoutPage() {
         window.location.href = res.data.checkoutUrl;
         return;
       }
-      toast("Stripe checkout URL was not returned", "error");
+      toast(t.checkoutUrlMissing, "error");
     } catch (error: unknown) {
-      toast(error instanceof Error ? error.message : "Failed to create Stripe checkout", "error");
+      toast(getRuntimeErrorMessage(error, t.createCheckoutFailed), "error");
     } finally {
       setSubmitting(false);
     }
@@ -176,7 +362,7 @@ export default function StripeCheckoutPage() {
                 disabled={!token || !packageId || submitting}
                 className="mt-8 w-full rounded-2xl bg-white px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitting ? "Loading..." : t.continue}
+                {submitting ? t.loading : t.continue}
               </button>
               <Link
                 href={localizePath("/user/coins", locale)}

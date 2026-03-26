@@ -230,10 +230,13 @@ function VerifyOTPContent() {
 }
 
 export default function VerifyOTPPage() {
+  const locale = useLocale();
+  const t = resolveLocaleCopy(VERIFY_OTP_TEXT, locale);
+
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0F1014' }}>
-          <div className="text-primary">Loading...</div>
+          <div className="text-primary">{t.loading}</div>
         </div>
       }>
       <VerifyOTPContent />
@@ -257,7 +260,8 @@ const VERIFY_OTP_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> =
     emailVerifiedMessage: "Email verified successfully!",
     invalidCode: "Invalid verification code",
     codeResent: "Code resent successfully!",
-    resendFailed: "Failed to resend code" },
+    resendFailed: "Failed to resend code",
+    loading: "Loading..." },
   zh: {
     title: "安全验证",
     subtitle: "我们已向你的设备发送 6 位验证码，请在下方输入。",
@@ -273,7 +277,8 @@ const VERIFY_OTP_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> =
     emailVerifiedMessage: "邮箱验证成功！",
     invalidCode: "验证码无效",
     codeResent: "验证码已重新发送！",
-    resendFailed: "重新发送失败" },
+    resendFailed: "重新发送失败",
+    loading: "加载中..." },
   ja: {
     title: "セキュリティ認証",
     subtitle: "6桁の認証コードを送信しました。下に入力してください。",
@@ -289,7 +294,8 @@ const VERIFY_OTP_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> =
     emailVerifiedMessage: "メール認証が完了しました！",
     invalidCode: "認証コードが無効です",
     codeResent: "コードを再送しました！",
-    resendFailed: "再送に失敗しました" },
+    resendFailed: "再送に失敗しました",
+    loading: "読み込み中..." },
   es: {
     title: "Verificación de seguridad",
     subtitle: "Enviamos un código de 6 dígitos. Introdúcelo abajo.",
@@ -305,7 +311,8 @@ const VERIFY_OTP_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> =
     emailVerifiedMessage: "¡Correo verificado con éxito!",
     invalidCode: "Código de verificación inválido",
     codeResent: "¡Código reenviado con éxito!",
-    resendFailed: "No se pudo reenviar el código" },
+    resendFailed: "No se pudo reenviar el código",
+    loading: "Cargando..." },
   pt: {
     title: "Verificação de segurança",
     subtitle: "Enviamos um código de 6 dígitos. Digite abaixo.",
@@ -321,7 +328,8 @@ const VERIFY_OTP_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> =
     emailVerifiedMessage: "E-mail verificado com sucesso!",
     invalidCode: "Código de verificação inválido",
     codeResent: "Código reenviado com sucesso!",
-    resendFailed: "Falha ao reenviar código" },
+    resendFailed: "Falha ao reenviar código",
+    loading: "Carregando..." },
   hi: {
     title: "सुरक्षा सत्यापन",
     subtitle: "हमने 6-अंकों का कोड भेजा है। कृपया नीचे दर्ज करें।",
@@ -337,7 +345,8 @@ const VERIFY_OTP_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> =
     emailVerifiedMessage: "ईमेल सफलतापूर्वक सत्यापित हुआ!",
     invalidCode: "अमान्य सत्यापन कोड",
     codeResent: "कोड फिर से भेज दिया गया!",
-    resendFailed: "कोड दोबारा भेजने में विफल" },
+    resendFailed: "कोड दोबारा भेजने में विफल",
+    loading: "लोड हो रहा है..." },
   id: {
     title: "Verifikasi keamanan",
     subtitle: "Kami telah mengirim kode 6 digit. Masukkan di bawah.",
@@ -353,4 +362,5 @@ const VERIFY_OTP_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> =
     emailVerifiedMessage: "Email berhasil diverifikasi!",
     invalidCode: "Kode verifikasi tidak valid",
     codeResent: "Kode berhasil dikirim ulang!",
-    resendFailed: "Gagal mengirim ulang kode" } };
+    resendFailed: "Gagal mengirim ulang kode",
+    loading: "Memuat..." } };

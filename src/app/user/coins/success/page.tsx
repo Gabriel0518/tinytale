@@ -21,6 +21,7 @@ type SuccessCopy = {
   issueTitle: string;
   issueDesc: string;
   backToCoins: string;
+  coinsUnit: string;
 };
 
 const COPY: FlexibleRecord<SupportedLocale, SuccessCopy> = {
@@ -32,7 +33,8 @@ const COPY: FlexibleRecord<SupportedLocale, SuccessCopy> = {
     startWatching: "Start Watching",
     issueTitle: "Payment Issue",
     issueDesc: "We couldn't verify your payment. If you were charged, your coins will be credited shortly.",
-    backToCoins: "Back to Coins" },
+    backToCoins: "Back to Coins",
+    coinsUnit: "coins" },
   zh: {
     paymentSuccess: "支付成功",
     paidOk: (amountLabel) => `已成功支付 ${amountLabel}`,
@@ -41,7 +43,8 @@ const COPY: FlexibleRecord<SupportedLocale, SuccessCopy> = {
     startWatching: "开始观看",
     issueTitle: "支付异常",
     issueDesc: "我们暂时无法验证该笔支付，如已扣款，金币将很快到账。",
-    backToCoins: "返回金币页" },
+    backToCoins: "返回金币页",
+    coinsUnit: "金币" },
   ja: {
     paymentSuccess: "支払い完了",
     paidOk: (amountLabel) => `${amountLabel} の支払いが完了しました`,
@@ -50,7 +53,8 @@ const COPY: FlexibleRecord<SupportedLocale, SuccessCopy> = {
     startWatching: "視聴を開始",
     issueTitle: "支払いエラー",
     issueDesc: "お支払いを確認できませんでした。引き落とし済みの場合、コインはまもなく反映されます。",
-    backToCoins: "コインページへ戻る" },
+    backToCoins: "コインページへ戻る",
+    coinsUnit: "コイン" },
   es: {
     paymentSuccess: "Pago exitoso",
     paidOk: (amountLabel) => `Pago de ${amountLabel} completado`,
@@ -59,7 +63,8 @@ const COPY: FlexibleRecord<SupportedLocale, SuccessCopy> = {
     startWatching: "Comenzar a ver",
     issueTitle: "Problema de pago",
     issueDesc: "No pudimos verificar tu pago. Si ya se cobró, tus monedas se acreditarán pronto.",
-    backToCoins: "Volver a Monedas" },
+    backToCoins: "Volver a Monedas",
+    coinsUnit: "monedas" },
   pt: {
     paymentSuccess: "Pagamento concluído",
     paidOk: (amountLabel) => `Pagamento de ${amountLabel} concluído`,
@@ -68,7 +73,8 @@ const COPY: FlexibleRecord<SupportedLocale, SuccessCopy> = {
     startWatching: "Começar a assistir",
     issueTitle: "Problema no pagamento",
     issueDesc: "Não conseguimos verificar seu pagamento. Se houve cobrança, suas moedas serão creditadas em breve.",
-    backToCoins: "Voltar para Moedas" },
+    backToCoins: "Voltar para Moedas",
+    coinsUnit: "moedas" },
   hi: {
     paymentSuccess: "भुगतान सफल",
     paidOk: (amountLabel) => `${amountLabel} का भुगतान सफल रहा`,
@@ -77,7 +83,8 @@ const COPY: FlexibleRecord<SupportedLocale, SuccessCopy> = {
     startWatching: "देखना शुरू करें",
     issueTitle: "भुगतान समस्या",
     issueDesc: "भुगतान सत्यापित नहीं हो सका। यदि राशि कट गई है, कॉइन्स जल्द जोड़ दिए जाएंगे।",
-    backToCoins: "कॉइन्स पर वापस जाएँ" },
+    backToCoins: "कॉइन्स पर वापस जाएँ",
+    coinsUnit: "कॉइन्स" },
   id: {
     paymentSuccess: "Pembayaran berhasil",
     paidOk: (amountLabel) => `Pembayaran ${amountLabel} berhasil`,
@@ -86,7 +93,8 @@ const COPY: FlexibleRecord<SupportedLocale, SuccessCopy> = {
     startWatching: "Mulai menonton",
     issueTitle: "Masalah pembayaran",
     issueDesc: "Kami tidak dapat memverifikasi pembayaranmu. Jika sudah terpotong, koin akan segera masuk.",
-    backToCoins: "Kembali ke Koin" } };
+    backToCoins: "Kembali ke Koin",
+    coinsUnit: "koin" } };
 
 function PaymentSuccessContent() {
   const locale = useLocale();
@@ -176,7 +184,7 @@ function PaymentSuccessContent() {
           <div className="bg-zinc-900/60 rounded-xl border border-yellow-500/20 p-6 mb-8">
             <div className="flex items-center justify-center gap-2 text-2xl font-bold text-yellow-400">
               <span>+{coins.toLocaleString()}</span>
-              <span className="text-base text-gray-400">coins</span>
+              <span className="text-base text-gray-400">{t.coinsUnit}</span>
             </div>
             {bonus > 0 && (
               <p className="text-green-400 text-sm mt-2">{t.bonusCoins(bonus)}</p>

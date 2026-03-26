@@ -469,7 +469,7 @@ function CreatorRegionPicker({
                 type="text"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search regions"
+                placeholder={t("Search regions")}
                 className="w-full bg-transparent text-sm text-[#0f172a] outline-none placeholder:text-[#94a3b8]"
                 autoFocus
               />
@@ -509,7 +509,7 @@ function CreatorRegionPicker({
             })}
 
             {filteredOptions.length === 0 ? (
-              <div className="px-3 py-6 text-center text-sm text-[#94a3b8]">No matching regions</div>
+              <div className="px-3 py-6 text-center text-sm text-[#94a3b8]">{t("No matching regions")}</div>
             ) : null}
           </div>
         </div>
@@ -663,7 +663,7 @@ function CreatorPreviewPlayerInner({ episode }: { episode: PreviewEpisodeState }
         onToggleFullscreen={toggleFullscreen}
         qualityOptions={qualityOptions}
         isFullscreen={isFullscreen}
-        title={`Ep ${episode.episodeNumber} - ${episode.title}`}
+        title={t("Ep __ARG_0__: __ARG_1__", episode.episodeNumber, episode.title)}
       />
     </>
   );
@@ -681,6 +681,17 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
   const router = useRouter();
   const locale = useLocale();
   const { t } = useCreatorI18n();
+  const subtitleLanguageNames = useMemo(() => {
+    if (typeof Intl === "undefined" || typeof Intl.DisplayNames === "undefined") {
+      return null;
+    }
+
+    try {
+      return new Intl.DisplayNames([locale === "en" ? "en-US" : locale], { type: "language" });
+    } catch {
+      return null;
+    }
+  }, [locale]);
   const { token } = useAuth();
   const { options: countryOptions } = useCountryCatalog(locale);
 
@@ -2556,7 +2567,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
                       >
                         {SUBTITLE_LANGUAGE_OPTIONS.map((option) => (
                           <option key={option.code} value={option.code}>
-                            {option.label}
+                            {subtitleLanguageNames?.of(option.code) || t(option.label)}
                           </option>
                         ))}
                       </select>
@@ -2644,7 +2655,7 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
                               onClick={() => removeBulkItem(item.id)}
                               disabled={bulkRunning}
                               className="rounded-lg p-1 text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#475569] disabled:cursor-not-allowed disabled:opacity-50"
-                              aria-label={`Remove ${item.file.name}`}
+                              aria-label={t("Remove __ARG_0__", item.file.name)}
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>

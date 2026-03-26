@@ -510,7 +510,7 @@ export default function CreatorLandingPage() {
         </section>
 
         <section className="rounded-[28px] border border-[#e2e8f0] bg-white px-5 py-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] md:px-7 md:py-7">
-          <SectionIntro eyebrow="FAQ" title={t("Answers before you apply.")} />
+          <SectionIntro eyebrow={t("FAQ")} title={t("Answers before you apply.")} />
           <div className="mt-6 grid gap-4 lg:grid-cols-2">
             {faqs.map((item) => (
               <details key={item.question} className="group rounded-[20px] border border-[#e2e8f0] bg-[#f8fafc] p-5 open:bg-white">

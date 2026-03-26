@@ -49,6 +49,11 @@ type CoinsCopy = {
   title: string;
   subtitle: string;
   currentBalance: string;
+  paymentMethodsTitle: string;
+  serviceFee: string;
+  supportedMethodsHint: string;
+  standardPack: string;
+  silverCoins: string;
   coinsUnit: string;
   transactionHistory: string;
   selectPackage: string;
@@ -66,6 +71,7 @@ type CoinsCopy = {
   providerLabels: Record<PaymentProvider, string>;
   selectedProvider: string;
   selectedMethod: string;
+  selectedPackageLabel: string;
   noPaymentChannels: string;
   noPaymentMethods: string;
   continueToCheckout: string;
@@ -78,6 +84,7 @@ type CoinsCopy = {
   modalNotice: string;
   availableInRegion: (countryCode: string) => string;
   chooseMethodHint: string;
+  securedByProvider: (provider: string) => string;
   actions: {
     cancel: string;
     continue: string;
@@ -103,11 +110,28 @@ type CoinsCopy = {
   };
 };
 
+const EXPRESS_WALLET_LABELS: FlexibleRecord<SupportedLocale, string> = {
+  en: "Apple Pay / Google Pay / Link",
+  zh: "Apple Pay、Google Pay、Link 钱包",
+  ja: "Apple Pay・Google Pay・Link ウォレット",
+  es: "Billeteras Apple Pay, Google Pay y Link",
+  pt: "Carteiras Apple Pay, Google Pay e Link",
+  hi: "Apple Pay, Google Pay और Link वॉलेट",
+  id: "Dompet Apple Pay, Google Pay, dan Link",
+  ko: "Apple Pay, Google Pay, Link 지갑",
+  fr: "Portefeuilles Apple Pay, Google Pay et Link",
+};
+
 const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
   en: {
     title: "Gold Recharge",
     subtitle: "Choose your package, then pick a payment channel and the checkout method available in your region.",
     currentBalance: "Current Balance",
+    paymentMethodsTitle: "Payment Methods",
+    serviceFee: "Service Fee",
+    supportedMethodsHint: "Supported checkout methods depend on your billing region.",
+    standardPack: "Standard Pack",
+    silverCoins: "Silver Coins",
     coinsUnit: "coins",
     transactionHistory: "Transaction History",
     selectPackage: "Select a Package",
@@ -132,6 +156,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     },
     selectedProvider: "Selected Channel",
     selectedMethod: "Selected Method",
+    selectedPackageLabel: "Selected Package",
     noPaymentChannels: "No payment channels are currently available for your region.",
     noPaymentMethods: "No payment methods are available for this channel right now.",
     continueToCheckout: "Continue to checkout",
@@ -144,6 +169,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     modalNotice: "Provider-side availability can still change based on browser, device, risk checks, and merchant configuration.",
     availableInRegion: (countryCode) => `Available for your current region: ${countryCode}.`,
     chooseMethodHint: "Choose a payment method",
+    securedByProvider: (provider) => `Secured by ${provider}`,
     actions: {
       cancel: "Cancel",
       continue: "Continue",
@@ -163,7 +189,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
         description: "Visa, Mastercard, Amex, and other supported cards in hosted checkout.",
       },
       wallet: {
-        label: "Apple Pay / Google Pay / Link",
+        label: EXPRESS_WALLET_LABELS.en,
         description: "Express wallet methods shown when your browser and device support them.",
       },
       paynow: {
@@ -241,6 +267,11 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     title: "金币充值",
     subtitle: "先选择套餐，再选择支付渠道，最后按你当前地区支持的支付方式进入托管收银台完成支付。",
     currentBalance: "当前余额",
+    paymentMethodsTitle: "支付方式",
+    serviceFee: "服务费",
+    supportedMethodsHint: "支持的结账方式取决于你的账单地区。",
+    standardPack: "标准套餐",
+    silverCoins: "银币",
     coinsUnit: "金币",
     transactionHistory: "交易记录",
     selectPackage: "选择套餐",
@@ -265,6 +296,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     },
     selectedProvider: "已选渠道",
     selectedMethod: "已选方式",
+    selectedPackageLabel: "已选套餐",
     noPaymentChannels: "当前地区暂时没有可用的支付渠道。",
     noPaymentMethods: "该支付渠道当前没有可用的支付方式。",
     continueToCheckout: "继续支付",
@@ -277,6 +309,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
     modalNotice: "实际可用方式仍会受浏览器、设备、风控校验以及支付渠道配置影响。",
     availableInRegion: (countryCode) => `当前根据你的地区 ${countryCode} 提供以下支付方式。`,
     chooseMethodHint: "请选择支付方式",
+    securedByProvider: (provider) => `由 ${provider} 安全托管结账`,
     actions: {
       cancel: "取消",
       continue: "继续",
@@ -296,7 +329,7 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
         description: "在托管收银台中使用 Visa、Mastercard、Amex 等银行卡完成支付。",
       },
       wallet: {
-        label: "Apple Pay / Google Pay / Link",
+        label: EXPRESS_WALLET_LABELS.zh,
         description: "当你的浏览器和设备支持时，会展示快捷钱包支付方式。",
       },
       paynow: {
@@ -372,9 +405,392 @@ const COPY: FlexibleRecord<SupportedLocale, CoinsCopy> = {
   },
 };
 
+const EN_CATALOG = COPY.en.paymentOptionCatalog;
+
+COPY.ja = {
+  ...COPY.en,
+  title: "コインチャージ",
+  subtitle: "パッケージを選択し、支払いチャネルとお住まいの地域で利用できる決済方法を選んでください。",
+  currentBalance: "現在の残高",
+  paymentMethodsTitle: "支払い方法",
+  serviceFee: "手数料",
+  supportedMethodsHint: "利用可能な決済方法は請求先の地域によって異なります。",
+  standardPack: "標準パック",
+  silverCoins: "シルバーコイン",
+  coinsUnit: "コイン",
+  transactionHistory: "取引履歴",
+  selectPackage: "パッケージを選択",
+  tagPopular: "人気",
+  tagBestValue: "おすすめ",
+  notes: [
+    "購入したコインは返金できません。",
+    "ボーナスコインは購入日から30日間有効です。",
+    "最終的な決済方法と表示通貨は、チェックアウト時の提供会社の条件によって異なります。",
+  ],
+  orderSummary: "注文概要",
+  selectedCoins: (coins) => `${coins.toLocaleString()} コイン`,
+  bonusCoins: "ボーナスコイン",
+  total: "合計",
+  selectPackageHint: "続行するにはパッケージを選択してください",
+  selectedPackageLabel: "選択中のパッケージ",
+  noPaymentChannels: "現在の地域では利用可能な支払いチャネルがありません。",
+  noPaymentMethods: "このチャネルでは現在利用可能な支払い方法がありません。",
+  continueToCheckout: "チェックアウトへ進む",
+  haveRedeemCode: "交換コードがありますか？",
+  enterCode: "コードを入力",
+  redeem: "交換",
+  securedBy: "決済プロバイダーのホスト型チェックアウトと 256-bit SSL で保護されています",
+  securedByProvider: (provider) => `${provider} による安全なホスト型チェックアウト`,
+  paymentOptionCatalog: {
+    ...EN_CATALOG,
+    card: { ...EN_CATALOG.card, label: "クレジット / デビットカード" },
+    wallet: { ...EN_CATALOG.wallet, label: EXPRESS_WALLET_LABELS.ja },
+    fpx: { ...EN_CATALOG.fpx, label: "FPX オンラインバンキング" },
+    local_bank: { ...EN_CATALOG.local_bank, label: "現地銀行振込" },
+    konbini: { ...EN_CATALOG.konbini, label: "コンビニ決済" },
+    sofort: { ...EN_CATALOG.sofort, label: "Sofort / 銀行リダイレクト" },
+  },
+  toasts: {
+    selectPackageFirst: "先にチャージパッケージを選択してください",
+    selectProviderFirst: "先に支払いチャネルを選択してください",
+    selectPaymentMethod: "先に支払い方法を選択してください",
+    paymentFailed: "支払いに失敗しました",
+    redeemSuccess: (coins) => `${coins} コインを交換しました！`,
+    invalidCode: "コードが無効か有効期限切れです",
+    genericError: "エラーが発生しました",
+  },
+};
+
+COPY.es = {
+  ...COPY.en,
+  title: "Recarga de monedas",
+  subtitle: "Elige tu paquete, luego el canal de pago y el método disponible en tu región.",
+  currentBalance: "Saldo actual",
+  paymentMethodsTitle: "Métodos de pago",
+  serviceFee: "Tarifa de servicio",
+  supportedMethodsHint: "Los métodos de checkout disponibles dependen de tu región de facturación.",
+  standardPack: "Paquete estándar",
+  silverCoins: "Monedas de plata",
+  coinsUnit: "monedas",
+  transactionHistory: "Historial de transacciones",
+  selectPackage: "Selecciona un paquete",
+  tagPopular: "Más popular",
+  tagBestValue: "Mejor valor",
+  notes: [
+    "Las monedas no son reembolsables una vez compradas.",
+    "Las monedas de bonificación son válidas durante 30 días desde la compra.",
+    "Los métodos de pago y la moneda final dependen de la elegibilidad del proveedor en el checkout.",
+  ],
+  orderSummary: "Resumen del pedido",
+  selectedCoins: (coins) => `${coins.toLocaleString()} monedas`,
+  bonusCoins: "Monedas de bonificación",
+  total: "Total",
+  selectPackageHint: "Selecciona un paquete para continuar",
+  selectedPackageLabel: "Paquete seleccionado",
+  noPaymentChannels: "No hay canales de pago disponibles para tu región.",
+  noPaymentMethods: "No hay métodos de pago disponibles para este canal en este momento.",
+  continueToCheckout: "Continuar al checkout",
+  haveRedeemCode: "¿Tienes un código de canje?",
+  enterCode: "Ingresa el código",
+  redeem: "Canjear",
+  securedBy: "Protegido por checkout alojado por el proveedor y cifrado SSL de 256 bits",
+  securedByProvider: (provider) => `Checkout seguro alojado por ${provider}`,
+  paymentOptionCatalog: {
+    ...EN_CATALOG,
+    card: { ...EN_CATALOG.card, label: "Tarjeta de crédito / débito" },
+    wallet: { ...EN_CATALOG.wallet, label: EXPRESS_WALLET_LABELS.es },
+    fpx: { ...EN_CATALOG.fpx, label: "FPX banca en línea" },
+    local_bank: { ...EN_CATALOG.local_bank, label: "Transferencia bancaria local" },
+    konbini: { ...EN_CATALOG.konbini, label: "Konbini" },
+    sofort: { ...EN_CATALOG.sofort, label: "Sofort / Redirección bancaria" },
+  },
+  toasts: {
+    selectPackageFirst: "Primero selecciona un paquete de recarga",
+    selectProviderFirst: "Primero elige un canal de pago",
+    selectPaymentMethod: "Primero elige un método de pago",
+    paymentFailed: "Pago fallido",
+    redeemSuccess: (coins) => `¡Canjeaste ${coins} monedas!`,
+    invalidCode: "Código inválido o vencido",
+    genericError: "Ocurrió un error",
+  },
+};
+
+COPY.pt = {
+  ...COPY.en,
+  title: "Recarga de moedas",
+  subtitle: "Escolha seu pacote, depois o canal de pagamento e o método disponível na sua região.",
+  currentBalance: "Saldo atual",
+  paymentMethodsTitle: "Métodos de pagamento",
+  serviceFee: "Taxa de serviço",
+  supportedMethodsHint: "Os métodos de checkout disponíveis dependem da sua região de cobrança.",
+  standardPack: "Pacote padrão",
+  silverCoins: "Moedas de prata",
+  coinsUnit: "moedas",
+  transactionHistory: "Histórico de transações",
+  selectPackage: "Selecione um pacote",
+  tagPopular: "Mais popular",
+  tagBestValue: "Melhor valor",
+  notes: [
+    "As moedas não são reembolsáveis após a compra.",
+    "As moedas bônus valem por 30 dias a partir da data da compra.",
+    "Os métodos de pagamento e a moeda final ainda dependem da elegibilidade do provedor no checkout.",
+  ],
+  orderSummary: "Resumo do pedido",
+  selectedCoins: (coins) => `${coins.toLocaleString()} moedas`,
+  bonusCoins: "Moedas bônus",
+  total: "Total",
+  selectPackageHint: "Selecione um pacote para continuar",
+  selectedPackageLabel: "Pacote selecionado",
+  noPaymentChannels: "No momento não há canais de pagamento disponíveis para sua região.",
+  noPaymentMethods: "Não há métodos de pagamento disponíveis para este canal agora.",
+  continueToCheckout: "Continuar para o checkout",
+  haveRedeemCode: "Tem um código de resgate?",
+  enterCode: "Digite o código",
+  redeem: "Resgatar",
+  securedBy: "Protegido por checkout hospedado pelo provedor e criptografia SSL de 256 bits",
+  securedByProvider: (provider) => `Checkout seguro hospedado por ${provider}`,
+  paymentOptionCatalog: {
+    ...EN_CATALOG,
+    card: { ...EN_CATALOG.card, label: "Cartão de crédito / débito" },
+    wallet: { ...EN_CATALOG.wallet, label: EXPRESS_WALLET_LABELS.pt },
+    fpx: { ...EN_CATALOG.fpx, label: "FPX Internet Banking" },
+    local_bank: { ...EN_CATALOG.local_bank, label: "Transferência bancária local" },
+    sofort: { ...EN_CATALOG.sofort, label: "Sofort / Redirecionamento bancário" },
+  },
+  toasts: {
+    selectPackageFirst: "Selecione primeiro um pacote de recarga",
+    selectProviderFirst: "Escolha primeiro um canal de pagamento",
+    selectPaymentMethod: "Escolha primeiro um método de pagamento",
+    paymentFailed: "Falha no pagamento",
+    redeemSuccess: (coins) => `Você resgatou ${coins} moedas!`,
+    invalidCode: "Código inválido ou expirado",
+    genericError: "Ocorreu um erro",
+  },
+};
+
+COPY.hi = {
+  ...COPY.en,
+  title: "कॉइन रिचार्ज",
+  subtitle: "पहले पैकेज चुनें, फिर पेमेंट चैनल और अपने क्षेत्र में उपलब्ध checkout तरीका चुनें।",
+  currentBalance: "वर्तमान बैलेंस",
+  paymentMethodsTitle: "भुगतान तरीके",
+  serviceFee: "सेवा शुल्क",
+  supportedMethodsHint: "उपलब्ध checkout तरीके आपके बिलिंग क्षेत्र पर निर्भर करते हैं।",
+  standardPack: "मानक पैक",
+  silverCoins: "सिल्वर कॉइन",
+  coinsUnit: "कॉइन",
+  transactionHistory: "लेनदेन इतिहास",
+  selectPackage: "पैकेज चुनें",
+  tagPopular: "सबसे लोकप्रिय",
+  tagBestValue: "सबसे बेहतर मूल्य",
+  notes: [
+    "खरीदे गए कॉइन वापस नहीं किए जा सकते।",
+    "बोनस कॉइन खरीद की तारीख से 30 दिनों तक मान्य रहते हैं।",
+    "अंतिम भुगतान तरीके और मुद्रा checkout पर प्रदाता की उपलब्धता पर निर्भर करते हैं।",
+  ],
+  orderSummary: "ऑर्डर सारांश",
+  selectedCoins: (coins) => `${coins.toLocaleString()} कॉइन`,
+  bonusCoins: "बोनस कॉइन",
+  total: "कुल",
+  selectPackageHint: "जारी रखने के लिए पैकेज चुनें",
+  selectedPackageLabel: "चुना गया पैकेज",
+  noPaymentChannels: "आपके क्षेत्र के लिए अभी कोई भुगतान चैनल उपलब्ध नहीं है।",
+  noPaymentMethods: "इस चैनल के लिए अभी कोई भुगतान तरीका उपलब्ध नहीं है।",
+  continueToCheckout: "Checkout पर जाएँ",
+  haveRedeemCode: "क्या आपके पास रिडीम कोड है?",
+  enterCode: "कोड दर्ज करें",
+  redeem: "रिडीम करें",
+  securedBy: "प्रदाता-होस्टेड checkout और 256-bit SSL एन्क्रिप्शन द्वारा सुरक्षित",
+  securedByProvider: (provider) => `${provider} द्वारा सुरक्षित hosted checkout`,
+  paymentOptionCatalog: {
+    ...EN_CATALOG,
+    card: { ...EN_CATALOG.card, label: "क्रेडिट / डेबिट कार्ड" },
+    wallet: { ...EN_CATALOG.wallet, label: EXPRESS_WALLET_LABELS.hi },
+    fpx: { ...EN_CATALOG.fpx, label: "FPX ऑनलाइन बैंकिंग" },
+    local_bank: { ...EN_CATALOG.local_bank, label: "स्थानीय बैंक ट्रांसफर" },
+    sofort: { ...EN_CATALOG.sofort, label: "Sofort / बैंक रीडायरेक्ट" },
+  },
+  toasts: {
+    selectPackageFirst: "पहले रिचार्ज पैकेज चुनें",
+    selectProviderFirst: "पहले भुगतान चैनल चुनें",
+    selectPaymentMethod: "पहले भुगतान तरीका चुनें",
+    paymentFailed: "भुगतान विफल",
+    redeemSuccess: (coins) => `${coins} कॉइन सफलतापूर्वक रिडीम हुए!`,
+    invalidCode: "कोड अमान्य है या समाप्त हो चुका है",
+    genericError: "एक त्रुटि हुई",
+  },
+};
+
+COPY.id = {
+  ...COPY.en,
+  title: "Isi ulang koin",
+  subtitle: "Pilih paketmu, lalu pilih channel pembayaran dan metode checkout yang tersedia di wilayahmu.",
+  currentBalance: "Saldo saat ini",
+  paymentMethodsTitle: "Metode pembayaran",
+  serviceFee: "Biaya layanan",
+  supportedMethodsHint: "Metode checkout yang didukung bergantung pada wilayah penagihanmu.",
+  standardPack: "Paket standar",
+  silverCoins: "Koin perak",
+  coinsUnit: "koin",
+  transactionHistory: "Riwayat transaksi",
+  selectPackage: "Pilih paket",
+  tagPopular: "Paling populer",
+  tagBestValue: "Paling hemat",
+  notes: [
+    "Koin tidak dapat dikembalikan setelah dibeli.",
+    "Koin bonus berlaku selama 30 hari sejak tanggal pembelian.",
+    "Metode pembayaran dan mata uang akhir tetap bergantung pada kelayakan provider saat checkout.",
+  ],
+  orderSummary: "Ringkasan pesanan",
+  selectedCoins: (coins) => `${coins.toLocaleString()} koin`,
+  bonusCoins: "Koin bonus",
+  total: "Total",
+  selectPackageHint: "Pilih paket untuk melanjutkan",
+  selectedPackageLabel: "Paket terpilih",
+  noPaymentChannels: "Tidak ada channel pembayaran yang tersedia untuk wilayahmu saat ini.",
+  noPaymentMethods: "Tidak ada metode pembayaran yang tersedia untuk channel ini saat ini.",
+  continueToCheckout: "Lanjut ke checkout",
+  haveRedeemCode: "Punya kode redeem?",
+  enterCode: "Masukkan kode",
+  redeem: "Redeem",
+  securedBy: "Diamankan oleh checkout yang dihosting provider dan enkripsi SSL 256-bit",
+  securedByProvider: (provider) => `Checkout aman yang dihosting oleh ${provider}`,
+  paymentOptionCatalog: {
+    ...EN_CATALOG,
+    card: { ...EN_CATALOG.card, label: "Kartu kredit / debit" },
+    wallet: { ...EN_CATALOG.wallet, label: EXPRESS_WALLET_LABELS.id },
+    fpx: { ...EN_CATALOG.fpx, label: "FPX Perbankan Online" },
+    local_bank: { ...EN_CATALOG.local_bank, label: "Transfer bank lokal" },
+    sofort: { ...EN_CATALOG.sofort, label: "Sofort / Pengalihan bank" },
+  },
+  toasts: {
+    selectPackageFirst: "Silakan pilih paket isi ulang terlebih dahulu",
+    selectProviderFirst: "Silakan pilih channel pembayaran terlebih dahulu",
+    selectPaymentMethod: "Silakan pilih metode pembayaran terlebih dahulu",
+    paymentFailed: "Pembayaran gagal",
+    redeemSuccess: (coins) => `Berhasil menukarkan ${coins} koin!`,
+    invalidCode: "Kode tidak valid atau sudah kedaluwarsa",
+    genericError: "Terjadi kesalahan",
+  },
+};
+
+COPY.ko = {
+  ...COPY.en,
+  title: "코인 충전",
+  subtitle: "패키지를 선택한 뒤 결제 채널과 현재 지역에서 사용할 수 있는 결제 방법을 선택하세요.",
+  currentBalance: "현재 잔액",
+  paymentMethodsTitle: "결제 수단",
+  serviceFee: "서비스 수수료",
+  supportedMethodsHint: "지원되는 체크아웃 방식은 청구 지역에 따라 달라집니다.",
+  standardPack: "기본 패키지",
+  silverCoins: "실버 코인",
+  coinsUnit: "코인",
+  transactionHistory: "거래 내역",
+  selectPackage: "패키지 선택",
+  tagPopular: "가장 인기",
+  tagBestValue: "가성비 추천",
+  notes: [
+    "구매한 코인은 환불되지 않습니다.",
+    "보너스 코인은 구매일로부터 30일 동안 유효합니다.",
+    "최종 결제 수단과 표시 통화는 체크아웃 시 프로바이더 조건에 따라 달라질 수 있습니다.",
+  ],
+  orderSummary: "주문 요약",
+  selectedCoins: (coins) => `${coins.toLocaleString()} 코인`,
+  bonusCoins: "보너스 코인",
+  total: "합계",
+  selectPackageHint: "계속하려면 패키지를 선택하세요",
+  selectedPackageLabel: "선택한 패키지",
+  noPaymentChannels: "현재 지역에서는 이용 가능한 결제 채널이 없습니다.",
+  noPaymentMethods: "이 채널에서 현재 이용 가능한 결제 방식이 없습니다.",
+  continueToCheckout: "체크아웃으로 계속",
+  haveRedeemCode: "리딤 코드가 있나요?",
+  enterCode: "코드 입력",
+  redeem: "리딤",
+  securedBy: "프로바이더 호스팅 체크아웃과 256-bit SSL 암호화로 보호됩니다",
+  securedByProvider: (provider) => `${provider} 보안 호스팅 체크아웃`,
+  paymentOptionCatalog: {
+    ...EN_CATALOG,
+    card: { ...EN_CATALOG.card, label: "신용 / 체크카드" },
+    wallet: { ...EN_CATALOG.wallet, label: EXPRESS_WALLET_LABELS.ko },
+    fpx: { ...EN_CATALOG.fpx, label: "FPX 온라인 뱅킹" },
+    local_bank: { ...EN_CATALOG.local_bank, label: "현지 은행 송금" },
+    konbini: { ...EN_CATALOG.konbini, label: "편의점 결제" },
+    sofort: { ...EN_CATALOG.sofort, label: "Sofort / 은행 리디렉션" },
+  },
+  toasts: {
+    selectPackageFirst: "먼저 충전 패키지를 선택하세요",
+    selectProviderFirst: "먼저 결제 채널을 선택하세요",
+    selectPaymentMethod: "먼저 결제 방식을 선택하세요",
+    paymentFailed: "결제에 실패했습니다",
+    redeemSuccess: (coins) => `${coins} 코인을 교환했습니다!`,
+    invalidCode: "코드가 유효하지 않거나 만료되었습니다",
+    genericError: "오류가 발생했습니다",
+  },
+};
+
+COPY.fr = {
+  ...COPY.en,
+  title: "Recharge de pièces",
+  subtitle: "Choisissez votre forfait, puis le canal de paiement et la méthode de checkout disponible dans votre région.",
+  currentBalance: "Solde actuel",
+  paymentMethodsTitle: "Méthodes de paiement",
+  serviceFee: "Frais de service",
+  supportedMethodsHint: "Les méthodes de checkout prises en charge dépendent de votre région de facturation.",
+  standardPack: "Pack standard",
+  silverCoins: "Pièces d'argent",
+  coinsUnit: "pièces",
+  transactionHistory: "Historique des transactions",
+  selectPackage: "Choisir un forfait",
+  tagPopular: "Le plus populaire",
+  tagBestValue: "Meilleur rapport",
+  notes: [
+    "Les pièces achetées ne sont pas remboursables.",
+    "Les pièces bonus sont valables 30 jours à partir de la date d'achat.",
+    "Les méthodes de paiement et la devise finale dépendent toujours de l'éligibilité du prestataire au checkout.",
+  ],
+  orderSummary: "Récapitulatif de la commande",
+  selectedCoins: (coins) => `${coins.toLocaleString()} pièces`,
+  bonusCoins: "Pièces bonus",
+  total: "Total",
+  selectPackageHint: "Choisissez un forfait pour continuer",
+  selectedPackageLabel: "Forfait sélectionné",
+  noPaymentChannels: "Aucun canal de paiement n'est actuellement disponible pour votre région.",
+  noPaymentMethods: "Aucune méthode de paiement n'est disponible pour ce canal pour le moment.",
+  continueToCheckout: "Continuer vers le checkout",
+  haveRedeemCode: "Vous avez un code d'échange ?",
+  enterCode: "Entrer le code",
+  redeem: "Échanger",
+  securedBy: "Sécurisé par un checkout hébergé par le prestataire et un chiffrement SSL 256-bit",
+  securedByProvider: (provider) => `Checkout sécurisé hébergé par ${provider}`,
+  paymentOptionCatalog: {
+    ...EN_CATALOG,
+    card: { ...EN_CATALOG.card, label: "Carte bancaire" },
+    wallet: { ...EN_CATALOG.wallet, label: EXPRESS_WALLET_LABELS.fr },
+    fpx: { ...EN_CATALOG.fpx, label: "FPX banque en ligne" },
+    local_bank: { ...EN_CATALOG.local_bank, label: "Virement bancaire local" },
+    sofort: { ...EN_CATALOG.sofort, label: "Sofort / Redirection bancaire" },
+  },
+  toasts: {
+    selectPackageFirst: "Veuillez d'abord sélectionner un forfait de recharge",
+    selectProviderFirst: "Veuillez d'abord choisir un canal de paiement",
+    selectPaymentMethod: "Veuillez d'abord choisir une méthode de paiement",
+    paymentFailed: "Le paiement a échoué",
+    redeemSuccess: (coins) => `${coins} pièces échangées !`,
+    invalidCode: "Code invalide ou expiré",
+    genericError: "Une erreur s'est produite",
+  },
+};
+
 const CHECKOUT_CONTEXT_COPY: FlexibleRecord<SupportedLocale, (countryCode: string, currencyCode: string) => string> = {
   en: (countryCode, currencyCode) => `Checkout region: ${countryCode}, settlement display currency may be ${currencyCode}.`,
   zh: (countryCode, currencyCode) => `结账地区：${countryCode}，最终展示货币可能为 ${currencyCode}。`,
+  ja: (countryCode, currencyCode) => `チェックアウト地域：${countryCode}。表示通貨は ${currencyCode} になる場合があります。`,
+  es: (countryCode, currencyCode) => `Región de checkout: ${countryCode}; la moneda mostrada puede ser ${currencyCode}.`,
+  pt: (countryCode, currencyCode) => `Região do checkout: ${countryCode}; a moeda exibida pode ser ${currencyCode}.`,
+  hi: (countryCode, currencyCode) => `Checkout क्षेत्र: ${countryCode}; प्रदर्शित मुद्रा ${currencyCode} हो सकती है।`,
+  id: (countryCode, currencyCode) => `Wilayah checkout: ${countryCode}; mata uang yang ditampilkan bisa berupa ${currencyCode}.`,
+  ko: (countryCode, currencyCode) => `체크아웃 지역: ${countryCode}, 표시 통화는 ${currencyCode} 일 수 있습니다.`,
+  fr: (countryCode, currencyCode) => `Région de checkout : ${countryCode} ; la devise affichée peut être ${currencyCode}.`,
 };
 
 function CoinBadge() {
@@ -462,26 +878,6 @@ const PROVIDER_TOGGLE_META: Record<PaymentProvider, { label: string; border: str
   },
 };
 
-const PAYMENT_METHOD_BUTTON_LABELS: Partial<Record<PaymentOption, string>> = {
-  card: "Cards",
-  wallet: "Apple Pay / Google Pay",
-  paynow: "PayNow",
-  grabpay: "GrabPay",
-  fpx: "FPX",
-  tng: "Touch 'n Go",
-  qris: "QRIS",
-  local_bank: "Bank Transfer",
-  promptpay: "PromptPay",
-  truemoney: "TrueMoney",
-  fps: "FPS",
-  alipayhk: "AlipayHK",
-  wechatpayhk: "WeChat Pay HK",
-  konbini: "Konbini",
-  ideal: "iDEAL",
-  blik: "BLIK",
-  sofort: "Sofort",
-};
-
 function PaymentMethodText({
   label,
   compact = false,
@@ -517,6 +913,12 @@ export default function CoinsPage() {
     ko: "ko-KR",
     fr: "fr-FR",
   } as const)[locale] || "en-US";
+  const getRuntimeErrorMessage = useCallback((error: unknown, fallback: string) => {
+    if (locale === "en" && error instanceof Error && error.message) {
+      return error.message;
+    }
+    return fallback;
+  }, [locale]);
 
   const formatUsd = useCallback(
     (value: number) =>
@@ -632,14 +1034,7 @@ export default function CoinsPage() {
   const selectedMethodId = providerSelections[effectiveSelectedProvider] || null;
   const selectedProviderMeta = PROVIDER_TOGGLE_META[effectiveSelectedProvider];
   const pricingCountryCode = pricingContext?.countryCode || "US";
-  const paymentMethodsTitle = locale === "zh" ? "支付方式" : "Payment Methods";
-  const serviceFeeLabel = locale === "zh" ? "服务费" : "Service Fee";
-  const supportedMethodsHint = locale === "zh"
-    ? "支持的结账方式取决于你的账单地区。"
-    : "Supported checkout methods depend on your billing region.";
-  const securedByProviderLabel = locale === "zh"
-    ? `由 ${selectedProviderMeta.label} 安全托管结账`
-    : `Secured by ${selectedProviderMeta.label}`;
+  const securedByProviderLabel = t.securedByProvider(selectedProviderMeta.label);
 
   const startCheckout = async (provider: PaymentProvider, paymentOption: PaymentOption) => {
     if (!selected || !token) return;
@@ -654,7 +1049,7 @@ export default function CoinsPage() {
       });
       window.location.href = localizePath(`/user/coins/checkout/${provider}?${query.toString()}`, locale);
     } catch (error: unknown) {
-      toast(error instanceof Error ? error.message : t.toasts.paymentFailed, "error");
+      toast(getRuntimeErrorMessage(error, t.toasts.paymentFailed), "error");
     } finally {
       setPaying(false);
     }
@@ -681,13 +1076,16 @@ export default function CoinsPage() {
     try {
       const res = await coinsApi.redeem(token, redeemCode.trim());
       const data = res.data;
-      toast(data.message || t.toasts.redeemSuccess(data.coins), "success");
+      toast(t.toasts.redeemSuccess(data.coins), "success");
       setRedeemCode("");
       setShowRedeem(false);
       await refreshUser();
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : t.toasts.genericError;
-      toast(message || t.toasts.invalidCode, "error");
+      const rawMessage = error instanceof Error ? error.message.toLowerCase() : "";
+      const fallback = rawMessage.includes("invalid") || rawMessage.includes("expired")
+        ? t.toasts.invalidCode
+        : t.toasts.genericError;
+      toast(getRuntimeErrorMessage(error, fallback), "error");
     }
   };
 
@@ -746,7 +1144,7 @@ export default function CoinsPage() {
                   </defs>
                 </svg>
                 <span className="text-lg font-semibold text-gray-100">{silverBalance.toLocaleString()}</span>
-                <span className="text-sm text-gray-400">Silver Coins</span>
+                <span className="text-sm text-gray-400">{t.silverCoins}</span>
               </div>
             </div>
 
@@ -805,9 +1203,9 @@ export default function CoinsPage() {
                       <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-yellow-400/12 text-yellow-300">
                         <CoinBadge />
                       </div>
-                      <h3 className="text-2xl font-bold text-white">{pkg.coins.toLocaleString()} Coins</h3>
+                      <h3 className="text-2xl font-bold text-white">{t.selectedCoins(pkg.coins)}</h3>
                       <p className="mt-2 text-sm font-medium text-zinc-400">
-                        {pkg.bonus > 0 ? `+${pkg.bonus.toLocaleString()} ${t.bonus}` : "Standard Pack"}
+                        {pkg.bonus > 0 ? `+${pkg.bonus.toLocaleString()} ${t.coinsUnit}` : t.standardPack}
                       </p>
                     </div>
 
@@ -832,7 +1230,7 @@ export default function CoinsPage() {
                   <div className="space-y-6">
                     <div className="flex items-center justify-between border-b border-white/5 pb-6">
                       <div>
-                        <p className="text-sm font-medium text-zinc-400">Selected Package</p>
+                        <p className="text-sm font-medium text-zinc-400">{t.selectedPackageLabel}</p>
                         <p className="mt-1 text-lg font-bold text-white">{t.selectedCoins(selected.coins)}</p>
                       </div>
                       <span className="text-sm text-zinc-400">{formatUsd(selected.price)}</span>
@@ -840,11 +1238,11 @@ export default function CoinsPage() {
 
                     <div className="flex items-center justify-between text-sm text-zinc-400">
                       <span className="font-medium">{t.bonusCoins}</span>
-                      <span className="font-medium text-yellow-300">+{selected.bonus.toLocaleString()} Coins</span>
+                      <span className="font-medium text-yellow-300">+{selected.bonus.toLocaleString()} {t.coinsUnit}</span>
                     </div>
 
                     <div className="flex items-center justify-between text-sm text-zinc-400">
-                      <span className="font-medium">{serviceFeeLabel}</span>
+                      <span className="font-medium">{t.serviceFee}</span>
                       <span className="font-medium">$0.00</span>
                     </div>
                   </div>
@@ -883,7 +1281,7 @@ export default function CoinsPage() {
 
           <section className="xl:col-span-8 space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <h2 className="text-2xl font-bold text-white">{paymentMethodsTitle}</h2>
+              <h2 className="text-2xl font-bold text-white">{t.paymentMethodsTitle}</h2>
 
               <div className="inline-flex rounded-xl border border-white/5 bg-zinc-900 p-1">
                 {availableProviders.map((providerId) => {
@@ -925,9 +1323,7 @@ export default function CoinsPage() {
                             : "border-white/10 bg-zinc-900 hover:border-white/20"
                         }`}
                       >
-                        <PaymentMethodText
-                          label={PAYMENT_METHOD_BUTTON_LABELS[method.id] || method.label}
-                        />
+                        <PaymentMethodText label={method.label} />
                         {isSelected && (
                           <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full border-2 border-zinc-900 bg-yellow-400 text-[#3a3000]">
                             <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
@@ -949,7 +1345,7 @@ export default function CoinsPage() {
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                {supportedMethodsHint}
+                {t.supportedMethodsHint}
                 <span className="uppercase tracking-[0.16em]">{pricingCountryCode}</span>
               </p>
             </div>

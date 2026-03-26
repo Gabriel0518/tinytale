@@ -120,7 +120,7 @@ export default function CreatorSettlementDetailPage() {
         if (!response.success || cancelled) return;
         setDetail(response.data);
       } catch (error) {
-        if (!cancelled) toast(error instanceof Error ? error.message : "Failed to load settlement detail.", "error");
+        if (!cancelled) toast(error instanceof Error ? error.message : t("Failed to load settlement detail."), "error");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -130,14 +130,14 @@ export default function CreatorSettlementDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [statementId, token, toast]);
+  }, [statementId, t, token, toast]);
 
   const readyLabel = useMemo(() => {
-    if (!detail) return "Pending";
-    if (detail.statement.readyForPayout) return "Ready for Payout";
-    if (detail.statement.status === "disputed") return "Dispute in Review";
-    return detail.statement.statusLabel;
-  }, [detail]);
+    if (!detail) return t("Pending");
+    if (detail.statement.readyForPayout) return t("Ready for Payout");
+    if (detail.statement.status === "disputed") return t("Dispute in Review");
+    return t(detail.statement.statusLabel);
+  }, [detail, t]);
 
   const handleConfirmStatement = async () => {
     if (!token || !detail || !detail.confirmation.canConfirm) return;
@@ -156,9 +156,9 @@ export default function CreatorSettlementDetailPage() {
             confirmation: response.data,
           }
         : current);
-      toast("Statement confirmed. Finance can now schedule payout.", "success");
+      toast(t("Statement confirmed. Finance can now schedule payout."), "success");
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Failed to confirm statement.", "error");
+      toast(error instanceof Error ? error.message : t("Failed to confirm statement."), "error");
     } finally {
       setConfirming(false);
     }
@@ -176,7 +176,7 @@ export default function CreatorSettlementDetailPage() {
       anchor.click();
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Failed to download settlement PDF.", "error");
+      toast(error instanceof Error ? error.message : t("Failed to download statement PDF."), "error");
     } finally {
       setDownloading(false);
     }
@@ -187,7 +187,7 @@ export default function CreatorSettlementDetailPage() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex items-center gap-3 rounded-2xl border border-[#e2e8f0] bg-white px-5 py-4 text-sm font-semibold text-[#475569] shadow-[0_1px_2px_rgba(15,23,42,0.05)]">
           <Loader2 className="h-4 w-4 animate-spin text-[#1876f2]" />
-          Loading settlement detail...
+          {t("Loading settlement detail...")}
         </div>
       </div>
     );
@@ -196,7 +196,7 @@ export default function CreatorSettlementDetailPage() {
   if (!detail) {
     return (
       <div className={`${cardClassName} p-8 text-center`}>
-        <p className="text-[18px] font-bold text-[#0f172a]">Settlement detail not found</p>
+        <p className="text-[18px] font-bold text-[#0f172a]">{t("Settlement detail not found")}</p>
       </div>
     );
   }
@@ -209,13 +209,13 @@ export default function CreatorSettlementDetailPage() {
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <div>
-            <p className="text-[15px] font-semibold text-[#64748b]">Settlement Details</p>
-            <h1 className="text-[30px] font-black tracking-[-0.04em] text-[#0f172a]">Statement #{detail.statement.statementNo}</h1>
+            <p className="text-[15px] font-semibold text-[#64748b]">{t("Settlement Details")}</p>
+            <h1 className="text-[30px] font-black tracking-[-0.04em] text-[#0f172a]">{t("Statement #__ARG_0__", detail.statement.statementNo)}</h1>
           </div>
         </div>
         <button type="button" onClick={handleDownloadPdf} disabled={downloading} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-[#1876f2] px-5 text-[15px] font-bold text-white transition hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60">
           {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          Download PDF
+          {t("Download PDF")}
         </button>
       </div>
 
@@ -226,44 +226,44 @@ export default function CreatorSettlementDetailPage() {
           </span>
           <p className="mt-4 text-[18px] text-[#64748b]">
             <CalendarDays className="mr-2 inline h-4 w-4" />
-            Period: {detail.statement.periodLabel}
+            {t("Period: __ARG_0__", detail.statement.periodLabel)}
           </p>
         </div>
         <div className="min-w-[280px] rounded-[28px] border border-[#dbe7f6] bg-white px-6 py-5 text-center shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-          <p className="text-[14px] font-semibold uppercase tracking-[0.08em] text-[#64748b]">Net Payout Amount</p>
+          <p className="text-[14px] font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Net Payout Amount")}</p>
           <p className="mt-2 text-[46px] font-black tracking-[-0.05em] text-[#1876f2]">{formatUsd(detail.statement.netPayoutUsd, locale)}</p>
         </div>
       </section>
 
       <section className={`${cardClassName} overflow-hidden`}>
         <div className="border-b border-[#edf2f7] px-6 py-5 md:px-7">
-          <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">Financial Breakdown</h2>
+          <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">{t("Financial Breakdown")}</h2>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-5 px-6 py-10 md:px-10">
-          <BreakdownCard title="Gross Revenue" amount={formatUsd(detail.financialBreakdown.grossRevenueUsd, locale)} helper="Total ads & subs" />
+          <BreakdownCard title={t("Gross Revenue")} amount={formatUsd(detail.financialBreakdown.grossRevenueUsd, locale)} helper={t("Total ads & subs")} />
           <div className="text-[32px] font-black text-[#cbd5e1]">-</div>
-          <BreakdownCard title="Platform Fees" amount={`-${formatUsd(detail.financialBreakdown.platformFeesUsd, locale)}`} helper={`${Math.round(detail.financialBreakdown.platformFeeRate * 100)}% standard rate`} tone="negative" />
+          <BreakdownCard title={t("Platform Fees")} amount={`-${formatUsd(detail.financialBreakdown.platformFeesUsd, locale)}`} helper={t("__ARG_0__% standard rate", Math.round(detail.financialBreakdown.platformFeeRate * 100))} tone="negative" />
           <div className="text-[32px] font-black text-[#cbd5e1]">-</div>
-          <BreakdownCard title="Withholding Tax" amount={`-${formatUsd(detail.financialBreakdown.withholdingTaxUsd, locale)}`} helper={`${Math.round(detail.financialBreakdown.withholdingTaxRate * 100)}% local withholding`} tone="negative" />
+          <BreakdownCard title={t("Withholding Tax")} amount={`-${formatUsd(detail.financialBreakdown.withholdingTaxUsd, locale)}`} helper={t("__ARG_0__% local withholding", Math.round(detail.financialBreakdown.withholdingTaxRate * 100))} tone="negative" />
           <Equal className="h-7 w-7 text-[#cbd5e1]" />
-          <BreakdownCard title="Net Payout" amount={formatUsd(detail.financialBreakdown.netPayoutUsd, locale)} helper="Final amount" tone="positive" />
+          <BreakdownCard title={t("Net Payout")} amount={formatUsd(detail.financialBreakdown.netPayoutUsd, locale)} helper={t("Final amount")} tone="positive" />
         </div>
       </section>
 
       <section className={`${cardClassName} overflow-hidden`}>
         <div className="flex items-center justify-between gap-4 border-b border-[#edf2f7] px-6 py-5 md:px-7">
-          <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">Episode Breakdown</h2>
-          <p className="text-[14px] font-medium text-[#64748b]">Sorted by Earnings</p>
+          <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">{t("Episode Breakdown")}</h2>
+          <p className="text-[14px] font-medium text-[#64748b]">{t("Sorted by Earnings")}</p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>
               <tr className="bg-[#fbfdff] text-left text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">
-                <th className="px-6 py-4 md:px-7">Series & Episode</th>
-                <th className="px-6 py-4">Views</th>
-                <th className="px-6 py-4">Gross Rev.</th>
-                <th className="px-6 py-4">Fees</th>
-                <th className="px-6 py-4 text-right">Net Earning</th>
+                <th className="px-6 py-4 md:px-7">{t("Series & Episode")}</th>
+                <th className="px-6 py-4">{t("Views")}</th>
+                <th className="px-6 py-4">{t("Gross Rev.")}</th>
+                <th className="px-6 py-4">{t("Fees")}</th>
+                <th className="px-6 py-4 text-right">{t("Net Earning")}</th>
               </tr>
             </thead>
             <tbody>
@@ -292,9 +292,9 @@ export default function CreatorSettlementDetailPage() {
       <section className="rounded-[24px] border border-[#bfd8ff] bg-[linear-gradient(180deg,#edf5ff,#f7fbff)] px-6 py-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] md:px-8">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <h2 className="text-[20px] font-bold tracking-[-0.02em] text-[#0f172a]">Statement Confirmation</h2>
+            <h2 className="text-[20px] font-bold tracking-[-0.02em] text-[#0f172a]">{t("Statement Confirmation")}</h2>
             <p className="mt-2 max-w-[720px] text-[15px] leading-7 text-[#475569]">
-              Please review your financial breakdown. By confirming, you agree to the calculation and payment will be scheduled for the next payout cycle.
+              {t("Please review your financial breakdown. By confirming, you agree to the calculation and payment will be scheduled for the next payout cycle.")}
             </p>
             {detail.confirmation.confirmedAt ? (
               <p className="mt-3 text-[13px] font-medium text-[#1d4ed8]">{t("Confirmed on")} {formatDate(detail.confirmation.confirmedAt, locale)}</p>
@@ -303,18 +303,18 @@ export default function CreatorSettlementDetailPage() {
           <div className="flex flex-wrap items-center gap-3">
             <Link href={localizePath("/creator/tickets/new", locale)} className="inline-flex h-12 items-center gap-2 rounded-2xl border border-[#dbe3ec] bg-white px-5 text-[15px] font-semibold text-[#334155] transition hover:bg-[#f8fafc]">
               <AlertTriangle className="h-4 w-4" />
-              Open Dispute
+              {t("Open Dispute")}
             </Link>
             <button type="button" disabled={!detail.confirmation.canConfirm || confirming} onClick={handleConfirmStatement} className="inline-flex h-12 items-center gap-2 rounded-2xl bg-[#1876f2] px-6 text-[15px] font-bold text-white transition hover:bg-[#1669da] disabled:cursor-not-allowed disabled:opacity-60">
               {confirming ? <Loader2 className="h-4 w-4 animate-spin" /> : <CircleCheck className="h-4 w-4" />}
-              {detail.confirmation.confirmedAt ? "Statement Confirmed" : "Confirm Statement"}
+              {detail.confirmation.confirmedAt ? t("Statement Confirmed") : t("Confirm Statement")}
             </button>
           </div>
         </div>
       </section>
 
       <footer className="pb-2 text-center text-[14px] leading-7 text-[#94a3b8]">
-        Having issues with your statement? Contact our <Link href={localizePath("/creator/tickets", locale)} className="font-semibold text-[#1876f2]">Creator Support</Link> team or check our <Link href={localizePath("/creator/settlements", locale)} className="font-semibold text-[#1876f2]">Settlement Guide</Link>.
+        {t("Having issues with your statement? Contact our")} <Link href={localizePath("/creator/tickets", locale)} className="font-semibold text-[#1876f2]">{t("Creator Support")}</Link> {t("team or check our")} <Link href={localizePath("/creator/settlements", locale)} className="font-semibold text-[#1876f2]">{t("Settlement Guide")}</Link>.
       </footer>
     </div>
   );

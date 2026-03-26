@@ -114,7 +114,7 @@ export default function ResetPasswordPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="john@example.com"
+                placeholder={t.emailExample}
                 className="w-full rounded-lg border border-white/10 bg-[#1a1c23] py-3 pl-10 pr-4 text-white placeholder-gray-600 focus:border-amber-500 focus:outline-none"
                 required
               />
@@ -194,7 +194,8 @@ const RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "Failed to send verification code.",
     enterEmailAndCode: "Please enter both email and verification code.",
     verifyFailed: "Verification failed. Please try again.",
-    genericError: "An error occurred" },
+    genericError: "An error occurred",
+    emailExample: "john@example.com" },
   zh: {
     title: "重置密码",
     subtitle: "输入邮箱和验证码以重置你的密码。",
@@ -210,7 +211,8 @@ const RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "验证码发送失败。",
     enterEmailAndCode: "请输入邮箱和验证码。",
     verifyFailed: "验证失败，请重试。",
-    genericError: "发生错误" },
+    genericError: "发生错误",
+    emailExample: "john@example.com" },
   ja: {
     title: "パスワード再設定",
     subtitle: "メールアドレスと認証コードを入力してください。",
@@ -226,7 +228,8 @@ const RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "認証コード送信に失敗しました。",
     enterEmailAndCode: "メールと認証コードを入力してください。",
     verifyFailed: "認証に失敗しました。",
-    genericError: "エラーが発生しました" },
+    genericError: "エラーが発生しました",
+    emailExample: "john@example.com" },
   es: {
     title: "Restablecer contraseña",
     subtitle: "Ingresa tu correo y código para restablecer tu contraseña.",
@@ -242,7 +245,8 @@ const RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "No se pudo enviar el código.",
     enterEmailAndCode: "Ingresa correo y código.",
     verifyFailed: "La verificación falló.",
-    genericError: "Ocurrió un error" },
+    genericError: "Ocurrió un error",
+    emailExample: "john@example.com" },
   pt: {
     title: "Redefinir senha",
     subtitle: "Informe e-mail e código para redefinir sua senha.",
@@ -258,7 +262,8 @@ const RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "Falha ao enviar código.",
     enterEmailAndCode: "Digite e-mail e código.",
     verifyFailed: "Falha na verificação.",
-    genericError: "Ocorreu um erro" },
+    genericError: "Ocorreu um erro",
+    emailExample: "john@example.com" },
   hi: {
     title: "पासवर्ड रीसेट",
     subtitle: "पासवर्ड रीसेट करने के लिए ईमेल और कोड दर्ज करें।",
@@ -274,7 +279,8 @@ const RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "कोड भेजने में विफल।",
     enterEmailAndCode: "ईमेल और कोड दर्ज करें।",
     verifyFailed: "सत्यापन विफल रहा।",
-    genericError: "त्रुटि हुई" },
+    genericError: "त्रुटि हुई",
+    emailExample: "john@example.com" },
   id: {
     title: "Reset kata sandi",
     subtitle: "Masukkan email dan kode verifikasi untuk reset kata sandi.",
@@ -290,4 +296,5 @@ const RESET_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     sendCodeFailed: "Gagal mengirim kode.",
     enterEmailAndCode: "Masukkan email dan kode.",
     verifyFailed: "Verifikasi gagal.",
-    genericError: "Terjadi kesalahan" } };
+    genericError: "Terjadi kesalahan",
+    emailExample: "john@example.com" } };

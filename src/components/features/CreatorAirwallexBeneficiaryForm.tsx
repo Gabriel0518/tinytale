@@ -7,6 +7,7 @@ import { resolveAirwallexLocale } from "@/lib/airwallex";
 import { useToast } from "@/components/ui/Toast";
 import type { SupportedLocale } from "@/lib/i18n";
 import type { CreatorSettlementAirwallexBeneficiarySummary } from "@/types/creator";
+import { translateCreatorText } from "@/app/creator/_lib/creator-i18n";
 
 type BeneficiaryElement = {
   mount: (target: string | HTMLElement) => void;
@@ -29,9 +30,9 @@ type Props = {
   onClose: () => void;
 };
 
-function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, ms: number, timeoutMessage: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms);
+    const timer = setTimeout(() => reject(new Error(timeoutMessage)), ms);
     promise.then(
       (value) => { clearTimeout(timer); resolve(value); },
       (error) => { clearTimeout(timer); reject(error); },
@@ -72,8 +73,15 @@ export function CreatorAirwallexBeneficiaryForm({
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [bootError, setBootError] = useState<string>("");
-  const [sdkState, setSdkState] = useState("Initializing Airwallex...");
+  const [sdkState, setSdkState] = useState("");
   const airwallexLocale = useMemo(() => resolveAirwallexLocale(locale), [locale]);
+  const t = useCallback((value: string, ...args: Array<string | number>) => (
+    translateCreatorText(value, locale, args)
+  ), [locale]);
+
+  useEffect(() => {
+    setSdkState(t("Initializing Airwallex..."));
+  }, [t]);
 
   const defaultValues = useMemo(() => {
     if (!existingBeneficiary) return undefined;
@@ -91,29 +99,29 @@ export function CreatorAirwallexBeneficiaryForm({
     setBootError("");
     setReady(false);
     readyRef.current = false;
-    setSdkState("Requesting embedded auth session...");
+    setSdkState(t("Requesting embedded auth session..."));
 
     try {
       const authResponse = await withTimeout(
         creatorApi.createAirwallexSettlementAuthCode(token),
         15_000,
-        "Auth code request",
+        t("Auth code request timed out after __ARG_0__s", Math.round(15_000 / 1000)),
       );
 
       if (cancelled()) return;
 
       const { env, authCode, clientId, codeVerifier, apiVersion } = authResponse.data;
-      setSdkState("Loading Airwallex SDK...");
+      setSdkState(t("Loading Airwallex SDK..."));
 
       const sdk = await withTimeout(
         import("@airwallex/components-sdk"),
         20_000,
-        "SDK module import",
+        t("SDK module import timed out after __ARG_0__s", Math.round(20_000 / 1000)),
       );
 
       if (cancelled()) return;
 
-      setSdkState("Initializing SDK...");
+      setSdkState(t("Initializing SDK..."));
 
       await withTimeout(
         sdk.init({
@@ -125,11 +133,11 @@ export function CreatorAirwallexBeneficiaryForm({
           codeVerifier,
         }),
         30_000,
-        "SDK initialization",
+        t("SDK initialization timed out after __ARG_0__s", Math.round(30_000 / 1000)),
       );
 
       if (cancelled()) return;
-      setSdkState("Creating beneficiary form...");
+      setSdkState(t("Creating beneficiary form..."));
 
       const element = (await withTimeout(
         sdk.createElement("beneficiaryForm", {
@@ -147,11 +155,11 @@ export function CreatorAirwallexBeneficiaryForm({
           },
         }),
         20_000,
-        "Beneficiary form creation",
+        t("Beneficiary form creation timed out after __ARG_0__s", Math.round(20_000 / 1000)),
       )) as unknown as BeneficiaryElement;
 
       if (!element) {
-        throw new Error("Airwallex beneficiary component was not created.");
+        throw new Error(t("Airwallex beneficiary component was not created."));
       }
 
       if (cancelled()) {
@@ -162,7 +170,7 @@ export function CreatorAirwallexBeneficiaryForm({
       setMounted(element);
       element.on("ready", () => {
         if (cancelled()) return;
-        setSdkState("Beneficiary form ready.");
+        setSdkState(t("Beneficiary form ready."));
         readyRef.current = true;
         setReady(true);
       });
@@ -176,14 +184,14 @@ export function CreatorAirwallexBeneficiaryForm({
       element.on("formState", (eventData) => {
         if (cancelled() || !eventData || typeof eventData !== "object") return;
         const payload = eventData as { loading?: boolean; validation?: boolean; errors?: { message?: string } };
-        setSdkState(payload.loading ? "Loading beneficiary fields..." : "Beneficiary form mounted.");
+        setSdkState(payload.loading ? t("Loading beneficiary fields...") : t("Beneficiary form mounted."));
       });
 
       if (!containerRef.current || !document.getElementById(containerIdRef.current)) {
-        throw new Error("Airwallex beneficiary container is not mounted.");
+        throw new Error(t("Airwallex beneficiary container is not mounted."));
       }
 
-      setSdkState("Mounting beneficiary form...");
+      setSdkState(t("Mounting beneficiary form..."));
       element.mount(`#${containerIdRef.current}`);
       elementRef.current = element;
 
@@ -191,7 +199,7 @@ export function CreatorAirwallexBeneficiaryForm({
         if (!cancelled() && containerRef.current?.querySelector("iframe")) {
           readyRef.current = true;
           setReady(true);
-          setSdkState("Beneficiary form mounted.");
+          setSdkState(t("Beneficiary form mounted."));
         }
       }, 3_000);
 
@@ -200,12 +208,12 @@ export function CreatorAirwallexBeneficiaryForm({
         const hasIframe = Boolean(containerRef.current?.querySelector("iframe"));
         if (!hasIframe) {
           setBootError(
-            "Airwallex beneficiary iframe did not appear. This may be caused by a network issue or browser extension blocking the embedded component.",
+            t("Airwallex beneficiary iframe did not appear. This may be caused by a network issue or browser extension blocking the embedded component."),
           );
           return;
         }
 
-        setSdkState("Waiting for Airwallex form to finish loading...");
+        setSdkState(t("Waiting for Airwallex form to finish loading..."));
       }, 6_000);
     } catch (error) {
       if (!cancelled()) {
@@ -244,7 +252,7 @@ export function CreatorAirwallexBeneficiaryForm({
 
   async function handleSave() {
     if (!elementRef.current) {
-      toast("Airwallex beneficiary form is not ready yet.", "info");
+      toast(t("Airwallex beneficiary form is not ready yet."), "info");
       return;
     }
 
@@ -255,7 +263,7 @@ export function CreatorAirwallexBeneficiaryForm({
         throw new Error(result.errors.message || result.errors.code);
       }
       if (!result.values) {
-        throw new Error("Airwallex did not return beneficiary values.");
+        throw new Error(t("Airwallex did not return beneficiary values."));
       }
 
       const response = existingSummary?.beneficiaryId
@@ -263,9 +271,9 @@ export function CreatorAirwallexBeneficiaryForm({
         : await creatorApi.createAirwallexSettlementBeneficiary(token, result.values);
 
       onSaved(response.data.summary);
-      toast("Airwallex payout account saved.", "success");
+      toast(t("Airwallex payout account saved."), "success");
     } catch (error) {
-      toast(error instanceof Error ? error.message : "Failed to save Airwallex payout account.", "error");
+      toast(error instanceof Error ? error.message : t("Failed to save Airwallex payout account."), "error");
     } finally {
       setSaving(false);
     }
@@ -277,7 +285,7 @@ export function CreatorAirwallexBeneficiaryForm({
         <div>
           <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#1876f2]">Airwallex</p>
           <h3 className="mt-2 text-[20px] font-bold tracking-[-0.02em] text-[#0f172a]">
-            {existingSummary?.beneficiaryId ? "Change bank account" : "Add bank account"}
+            {existingSummary?.beneficiaryId ? t("Change bank account") : t("Add bank account")}
           </h3>
         </div>
       </div>
@@ -285,7 +293,7 @@ export function CreatorAirwallexBeneficiaryForm({
       <div className="mt-5 rounded-[20px] border border-[#dbe3ec] bg-white p-4">
         {locale !== airwallexLocale ? (
           <div className="mb-4 rounded-2xl border border-[#dbe3ec] bg-[#f8fafc] px-3 py-3 text-[12px] leading-5 text-[#64748b]">
-            Airwallex currently displays this payout form in English for the selected page language.
+            {t("Airwallex currently displays this payout form in English for the selected page language.")}
           </div>
         ) : null}
         {!ready ? (
@@ -322,12 +330,12 @@ export function CreatorAirwallexBeneficiaryForm({
           {saving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Saving...
+              {t("Saving...")}
             </>
           ) : existingSummary?.beneficiaryId ? (
-            "Save bank account changes"
+            t("Save bank account changes")
           ) : (
-            "Save bank account"
+            t("Save bank account")
           )}
         </button>
         <button
@@ -335,7 +343,7 @@ export function CreatorAirwallexBeneficiaryForm({
           onClick={onClose}
           className="inline-flex h-11 items-center rounded-2xl border border-[#dbe3ec] bg-white px-5 text-[14px] font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
         >
-          Close form
+          {t("Close form")}
         </button>
       </div>
     </div>

@@ -1,6 +1,101 @@
 "use client";
 
 import React, { useState } from "react";
+import { SupportedLocale } from "@/lib/i18n";
+import { useLocale } from "@/hooks/useLocale";
+import { resolveLocaleCopy } from "@/lib/locale-copy";
+
+type PaymentFailedCopy = {
+  closeDialog: string;
+  title: string;
+  fallbackError: string;
+  errorReference: string;
+  copyToClipboard: string;
+  copyErrorReference: string;
+  cancel: string;
+  tryAgain: string;
+  contactSupport: string;
+};
+
+const COPY: FlexibleRecord<SupportedLocale, PaymentFailedCopy> = {
+  en: {
+    closeDialog: "Close dialog",
+    title: "Payment Failed",
+    fallbackError: "Something went wrong with your payment. Please check your payment details and try again.",
+    errorReference: "Error Reference",
+    copyToClipboard: "Copy to clipboard",
+    copyErrorReference: "Copy error reference to clipboard",
+    cancel: "Cancel",
+    tryAgain: "Try Again",
+    contactSupport: "Contact Support",
+  },
+  zh: {
+    closeDialog: "关闭弹窗",
+    title: "支付失败",
+    fallbackError: "支付过程中出现问题，请检查支付信息后重试。",
+    errorReference: "错误编号",
+    copyToClipboard: "复制到剪贴板",
+    copyErrorReference: "复制错误编号",
+    cancel: "取消",
+    tryAgain: "重新尝试",
+    contactSupport: "联系支持",
+  },
+  ja: {
+    closeDialog: "ダイアログを閉じる",
+    title: "支払いに失敗しました",
+    fallbackError: "お支払い中に問題が発生しました。支払い情報を確認して再度お試しください。",
+    errorReference: "エラー参照番号",
+    copyToClipboard: "クリップボードにコピー",
+    copyErrorReference: "エラー参照番号をコピー",
+    cancel: "キャンセル",
+    tryAgain: "もう一度試す",
+    contactSupport: "サポートに連絡",
+  },
+  es: {
+    closeDialog: "Cerrar diálogo",
+    title: "Pago fallido",
+    fallbackError: "Algo salió mal con tu pago. Revisa los datos e inténtalo de nuevo.",
+    errorReference: "Referencia de error",
+    copyToClipboard: "Copiar al portapapeles",
+    copyErrorReference: "Copiar referencia de error",
+    cancel: "Cancelar",
+    tryAgain: "Intentar de nuevo",
+    contactSupport: "Contactar soporte",
+  },
+  pt: {
+    closeDialog: "Fechar diálogo",
+    title: "Falha no pagamento",
+    fallbackError: "Algo deu errado com seu pagamento. Verifique os dados e tente novamente.",
+    errorReference: "Referência do erro",
+    copyToClipboard: "Copiar para a área de transferência",
+    copyErrorReference: "Copiar referência do erro",
+    cancel: "Cancelar",
+    tryAgain: "Tentar novamente",
+    contactSupport: "Falar com o suporte",
+  },
+  hi: {
+    closeDialog: "डायलॉग बंद करें",
+    title: "भुगतान विफल",
+    fallbackError: "भुगतान में समस्या आई। कृपया विवरण जांचकर फिर से प्रयास करें।",
+    errorReference: "त्रुटि संदर्भ",
+    copyToClipboard: "क्लिपबोर्ड पर कॉपी करें",
+    copyErrorReference: "त्रुटि संदर्भ कॉपी करें",
+    cancel: "रद्द करें",
+    tryAgain: "फिर से कोशिश करें",
+    contactSupport: "सहायता से संपर्क करें",
+  },
+  id: {
+    closeDialog: "Tutup dialog",
+    title: "Pembayaran gagal",
+    fallbackError: "Terjadi masalah saat pembayaran. Periksa detail pembayaranmu lalu coba lagi.",
+    errorReference: "Referensi error",
+    copyToClipboard: "Salin ke clipboard",
+    copyErrorReference: "Salin referensi error",
+    cancel: "Batal",
+    tryAgain: "Coba lagi",
+    contactSupport: "Hubungi dukungan",
+  },
+};
 
 interface PaymentFailedModalProps {
   open: boolean;
@@ -20,6 +115,8 @@ export function PaymentFailedModal({
   onContactSupport,
 }: PaymentFailedModalProps) {
   const [copied, setCopied] = useState(false);
+  const locale = useLocale();
+  const t = resolveLocaleCopy(COPY, locale);
 
   if (!open) return null;
 
@@ -48,7 +145,7 @@ export function PaymentFailedModal({
         `}</style>
 
         {/* Close Button */}
-        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 backdrop-blur flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition" aria-label="Close dialog">
+        <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 backdrop-blur flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition" aria-label={t.closeDialog}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
 
@@ -61,25 +158,25 @@ export function PaymentFailedModal({
           </div>
 
           {/* Title */}
-          <h2 className="text-2xl font-bold text-white mb-2">Payment Failed</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">{t.title}</h2>
 
           {/* Error Message */}
           <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
-            {errorMessage || "Something went wrong with your payment. Please check your payment details and try again."}
+            {errorMessage || t.fallbackError}
           </p>
 
           {/* Transaction ID with Copy */}
           {transactionId && (
             <div className="mt-4 w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-red-950/30 border border-red-500/10">
               <div className="text-left min-w-0">
-                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Error Reference</p>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider">{t.errorReference}</p>
                 <p className="font-mono text-sm text-gray-300 truncate select-all">{transactionId}</p>
               </div>
               <button
                 onClick={handleCopy}
                 className="shrink-0 w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition"
-                title="Copy to clipboard"
-                aria-label="Copy error reference to clipboard"
+                title={t.copyToClipboard}
+                aria-label={t.copyErrorReference}
               >
                 {copied ? (
                   <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
@@ -96,7 +193,7 @@ export function PaymentFailedModal({
               onClick={onClose}
               className="flex-1 py-3 rounded-xl border border-white/10 bg-transparent text-sm font-medium text-white hover:bg-white/5 transition"
             >
-              Cancel
+              {t.cancel}
             </button>
             {onRetry && (
               <button
@@ -104,7 +201,7 @@ export function PaymentFailedModal({
                 className="group flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-sm font-bold text-white transition flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4 transition-transform duration-300 group-hover:rotate-180" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" /></svg>
-                Try Again
+                {t.tryAgain}
               </button>
             )}
           </div>
@@ -116,7 +213,7 @@ export function PaymentFailedModal({
               className="mt-3 w-full py-2.5 rounded-xl border border-white/5 text-sm text-gray-500 hover:text-white hover:bg-white/5 transition flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" /></svg>
-              Contact Support
+              {t.contactSupport}
             </button>
           )}
         </div>

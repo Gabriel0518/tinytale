@@ -447,35 +447,35 @@ export default function CreatorDashboardPage() {
 
     return [
       {
-        title: "Total Plays",
+        title: t("Total Plays"),
         value: formatNumber(overview.kpis.totalReads.value, locale),
-        helper: "All published creator titles combined.",
+        helper: t("All published creator titles combined."),
         icon: <Eye className="h-[18px] w-[18px]" />,
         change: overview.kpis.totalReads.changePercent,
       },
       {
-        title: "Avg. Watch Time",
+        title: t("Avg. Watch Time"),
         value: overview.kpis.avgReadTime.display,
-        helper: "Average engagement depth across recent viewers.",
+        helper: t("Average engagement depth across recent viewers."),
         icon: <Clock3 className="h-[18px] w-[18px]" />,
         change: overview.kpis.avgReadTime.changePercent,
       },
       {
-        title: "New Followers",
+        title: t("New Followers"),
         value: formatNumber(overview.kpis.newFollowers.value, locale),
-        helper: "Recent follower growth tied to active titles.",
+        helper: t("Recent follower growth tied to active titles."),
         icon: <Users className="h-[18px] w-[18px]" />,
         change: overview.kpis.newFollowers.changePercent,
       },
       {
-        title: "Monthly Revenue",
+        title: t("Monthly Revenue"),
         value: formatUsd(overview.kpis.monthlyRevenue.valueUsd, locale),
-        helper: "Current month earnings shown in USD.",
+        helper: t("Current month earnings shown in USD."),
         icon: <ReceiptText className="h-[18px] w-[18px]" />,
         change: overview.kpis.monthlyRevenue.changePercent,
       },
     ];
-  }, [overview, locale]);
+  }, [overview, locale, t]);
 
   if (loading) {
     return <DashboardSkeleton />;

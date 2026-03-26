@@ -20,6 +20,16 @@ interface LanguageSwitcherProps {
   variant?: "dark" | "light";
 }
 
+const A11Y_TEXT: FlexibleRecord<SupportedLocale, { trigger: string; list: string }> = {
+  en: { trigger: "Language", list: "Language options" },
+  zh: { trigger: "语言", list: "语言选项" },
+  ja: { trigger: "言語", list: "言語オプション" },
+  es: { trigger: "Idioma", list: "Opciones de idioma" },
+  pt: { trigger: "Idioma", list: "Opções de idioma" },
+  hi: { trigger: "भाषा", list: "भाषा विकल्प" },
+  id: { trigger: "Bahasa", list: "Opsi bahasa" },
+};
+
 export function LanguageSwitcher({ className, variant = "dark" }: LanguageSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -31,6 +41,7 @@ export function LanguageSwitcher({ className, variant = "dark" }: LanguageSwitch
     () => LANGUAGE_OPTIONS.find((language) => language.code === currentLocale) || LANGUAGE_OPTIONS[0],
     [currentLocale]
   );
+  const a11y = resolveLocaleCopy(A11Y_TEXT, currentLocale);
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -89,7 +100,7 @@ export function LanguageSwitcher({ className, variant = "dark" }: LanguageSwitch
     <div ref={containerRef} className={cn("relative inline-block text-left", className)}>
       <button
         type="button"
-        aria-label="Language"
+        aria-label={a11y.trigger}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((prev) => !prev)}
@@ -124,7 +135,7 @@ export function LanguageSwitcher({ className, variant = "dark" }: LanguageSwitch
       {isOpen && (
         <div
           role="listbox"
-          aria-label="Language options"
+          aria-label={a11y.list}
           className={cn(
             "absolute left-0 top-full z-50 mt-2 w-full min-w-[188px] overflow-hidden rounded-xl border backdrop-blur-xl",
             variant === "dark"

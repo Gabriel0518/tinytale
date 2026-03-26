@@ -63,10 +63,6 @@ function mapStatementFilter(status: CreatorSettlementStatement["status"]): State
   return "pending";
 }
 
-function getAirwallexManageLabel(hasBankAccount: boolean) {
-  return hasBankAccount ? "Change bank account" : "Add bank account";
-}
-
 export default function CreatorSettlementsPage() {
   const locale = useLocale();
   const { t, formatCurrency, formatDate } = useCreatorI18n();
@@ -144,8 +140,8 @@ export default function CreatorSettlementsPage() {
   }, [overview]);
 
   const manageBankAccountLabel = useMemo(
-    () => getAirwallexManageLabel(Boolean(overview?.bankAccount.airwallexBeneficiary?.beneficiaryId)),
-    [overview?.bankAccount.airwallexBeneficiary?.beneficiaryId],
+    () => (overview?.bankAccount.airwallexBeneficiary?.beneficiaryId ? t("Change bank account") : t("Add bank account")),
+    [overview?.bankAccount.airwallexBeneficiary?.beneficiaryId, t],
   );
   const bankAccountChangeLocked = Boolean(overview?.summary.bankAccountChangeLocked && overview?.bankAccount.airwallexBeneficiary?.beneficiaryId);
   const bankAccountChangeBlockedReason = overview?.summary.bankAccountChangeBlockedReason || "";
@@ -264,7 +260,7 @@ export default function CreatorSettlementsPage() {
           className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#dbe3ec] bg-white px-4 text-[14px] font-semibold text-[#0f172a] transition hover:bg-[#f8fafc]"
         >
           <Download className="h-4 w-4" />
-          Export Data
+          {t("Export Data")}
         </button>
       </div>
 
@@ -272,16 +268,16 @@ export default function CreatorSettlementsPage() {
         <div className="absolute right-0 top-0 h-full w-[240px] bg-[linear-gradient(135deg,rgba(24,118,242,0.15),rgba(24,118,242,0.04))] [clip-path:polygon(30%_0,100%_0,100%_65%,10%_45%)]" />
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-[14px] font-semibold uppercase tracking-[0.08em] text-[#64748b]">Current Balance</p>
+            <p className="text-[14px] font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Current Balance")}</p>
             <p className="mt-2 text-[46px] font-black tracking-[-0.05em] text-[#0f172a]">{formatCurrency(overview?.summary.availableBalanceUsd || 0)}</p>
             <div className="mt-5 flex flex-wrap items-center gap-6 text-[15px] text-[#64748b]">
               <div>
-                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Next Payout</p>
+                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Next Payout")}</p>
                 <p className="mt-1 text-[18px] font-bold text-[#0f172a]">{formatDate(overview?.summary.nextSettlementDate)}</p>
               </div>
               <div className="h-10 w-px bg-[#e2e8f0]" />
               <div>
-                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Estimated</p>
+                <p className="text-[13px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Estimated")}</p>
                 <p className="mt-1 text-[18px] font-bold text-[#0f172a]">{formatCurrency(estimatedPayout)}</p>
               </div>
             </div>
@@ -290,13 +286,13 @@ export default function CreatorSettlementsPage() {
                 href="#monthly-statements"
                 className="inline-flex h-11 items-center rounded-2xl bg-[#1876f2] px-6 text-[15px] font-bold text-white transition hover:bg-[#1669da]"
               >
-                Withdraw Funds
+                {t("Withdraw Funds")}
               </Link>
               <Link
                 href="#monthly-statements"
                 className="inline-flex h-11 items-center rounded-2xl bg-[#e8f1ff] px-6 text-[15px] font-bold text-[#1876f2] transition hover:bg-[#dbeafe]"
               >
-                View Payout History
+                {t("View Payout History")}
               </Link>
             </div>
           </div>
@@ -311,7 +307,7 @@ export default function CreatorSettlementsPage() {
 
       <section className={`${cardClassName} p-6 md:p-7`}>
         <div className="flex items-center justify-between gap-4">
-          <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">Bank Account</h2>
+          <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">{t("Bank Account")}</h2>
           <button
             type="button"
             onClick={handleOpenAirwallexForm}
@@ -338,35 +334,35 @@ export default function CreatorSettlementsPage() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-3">
                   <p className="text-[18px] font-bold text-[#0f172a]">
-                    {overview?.bankAccount.bankName || "No bank account connected"}
+                    {overview?.bankAccount.bankName || t("No bank account connected")}
                   </p>
                   <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${statusBadgeClass(overview?.bankAccount.verificationStatus || "missing")}`}>
-                    {overview?.bankAccount.verificationLabel || "Missing"}
+                    {overview?.bankAccount.verificationLabel ? t(overview.bankAccount.verificationLabel) : t("Missing")}
                   </span>
                 </div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Account holder</p>
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Account holder")}</p>
                     <p className="mt-2 text-[15px] font-semibold text-[#0f172a]">
-                      {overview?.bankAccount.accountHolderName || "Not added yet"}
+                      {overview?.bankAccount.accountHolderName || t("Not added yet")}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Account number</p>
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Account number")}</p>
                     <p className="mt-2 text-[15px] font-semibold text-[#0f172a]">
-                      {overview?.bankAccount.accountNumberMasked || "Not added yet"}
+                      {overview?.bankAccount.accountNumberMasked || t("Not added yet")}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Country</p>
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Country")}</p>
                     <p className="mt-2 text-[15px] font-semibold text-[#0f172a]">
-                      {overview?.bankAccount.country || "Not added yet"}
+                      {overview?.bankAccount.country || t("Not added yet")}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Currency</p>
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Currency")}</p>
                     <p className="mt-2 text-[15px] font-semibold text-[#0f172a]">
-                      {overview?.bankAccount.currency || "Not added yet"}
+                      {overview?.bankAccount.currency || t("Not added yet")}
                     </p>
                   </div>
                 </div>
@@ -379,16 +375,16 @@ export default function CreatorSettlementsPage() {
 
           <div className="rounded-[24px] bg-[#f8fafc] p-4">
             <div className="rounded-[20px] bg-white p-5 shadow-[inset_0_0_0_1px_#edf2f7]">
-              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">Account Management</p>
+              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">{t("Account Management")}</p>
               <p className="mt-3 text-[18px] font-bold text-[#0f172a]">
-                {overview?.bankAccount.airwallexBeneficiary?.beneficiaryId ? "Bank account connected" : "Add your payout bank account"}
+                {overview?.bankAccount.airwallexBeneficiary?.beneficiaryId ? t("Bank account connected") : t("Add your payout bank account")}
               </p>
               <p className="mt-2 text-[14px] text-[#64748b]">
                 {bankAccountChangeLocked
                   ? bankAccountChangeBlockedReason
                   : overview?.bankAccount.updatedAt
-                  ? `Last updated ${formatDate(overview.bankAccount.updatedAt)}`
-                  : "No bank account information added yet"}
+                  ? t("Last updated __ARG_0__", formatDate(overview.bankAccount.updatedAt))
+                  : t("No bank account information added yet")}
               </p>
               {airwallexVerificationDetail ? (
                 <p className="mt-3 text-[13px] text-[#b45309]">
@@ -420,7 +416,7 @@ export default function CreatorSettlementsPage() {
 
       <section id="monthly-statements" className={`${cardClassName} overflow-hidden`}>
         <div className="border-b border-[#edf2f7] px-6 py-5 md:px-7">
-          <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">Monthly Settlement Statements</h2>
+          <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">{t("Monthly Settlement Statements")}</h2>
           <div className="mt-5 inline-flex rounded-full bg-[#f1f5f9] p-1">
             {([
               ["all", "All"],
@@ -437,7 +433,7 @@ export default function CreatorSettlementsPage() {
                 onClick={() => setFilter(value)}
                 className={`rounded-full px-5 py-2 text-[14px] font-semibold transition ${filter === value ? "bg-white text-[#0f172a] shadow-[0_1px_2px_rgba(15,23,42,0.06)]" : "text-[#64748b] hover:text-[#0f172a]"}`}
               >
-                {label}
+                {t(label)}
               </button>
             ))}
           </div>
@@ -447,11 +443,11 @@ export default function CreatorSettlementsPage() {
           <table className="min-w-full">
             <thead>
               <tr className="bg-[#fbfdff] text-left text-[12px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">
-                <th className="px-6 py-4 md:px-7">Settlement Period</th>
-                <th className="px-6 py-4">Statement ID</th>
-                <th className="px-6 py-4">Total Earnings</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Action</th>
+                <th className="px-6 py-4 md:px-7">{t("Settlement Period")}</th>
+                <th className="px-6 py-4">{t("Statement ID")}</th>
+                <th className="px-6 py-4">{t("Total Earnings")}</th>
+                <th className="px-6 py-4">{t("Status")}</th>
+                <th className="px-6 py-4 text-right">{t("Action")}</th>
               </tr>
             </thead>
             <tbody>
@@ -471,7 +467,7 @@ export default function CreatorSettlementsPage() {
                   <td className="px-6 py-5 text-right">
                     {statement.status === "disputed" ? (
                       <Link href={localizePath(`/creator/settlements/${statement.id}`, locale)} className="text-[16px] font-semibold text-[#1876f2] hover:text-[#1669da]">
-                        Review
+                        {t("Review")}
                       </Link>
                     ) : (
                       <button
@@ -480,7 +476,7 @@ export default function CreatorSettlementsPage() {
                         disabled={downloadingId === statement.id}
                         className="text-[16px] font-semibold text-[#1876f2] hover:text-[#1669da] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {downloadingId === statement.id ? "Downloading..." : "Download"}
+                        {downloadingId === statement.id ? t("Downloading...") : t("Download")}
                       </button>
                     )}
                   </td>
@@ -489,7 +485,7 @@ export default function CreatorSettlementsPage() {
               {!filteredStatements.length ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-[14px] text-[#64748b]">
-                    No statements found for this filter.
+                    {t("No statements found for this filter.")}
                   </td>
                 </tr>
               ) : null}
@@ -498,7 +494,7 @@ export default function CreatorSettlementsPage() {
         </div>
 
         <div className="flex items-center justify-between px-6 py-5 text-[14px] text-[#64748b] md:px-7">
-          <span>Showing {filteredStatements.length} of {overview?.statements.length || 0} statements</span>
+          <span>{t("Showing __ARG_0__ of __ARG_1__ statements", filteredStatements.length, overview?.statements.length || 0)}</span>
           <div className="flex items-center gap-2">
             <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dbe3ec] bg-white text-[#94a3b8]">‹</button>
             <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dbe3ec] bg-white text-[#475569]">›</button>
@@ -513,12 +509,12 @@ export default function CreatorSettlementsPage() {
               <CircleHelp className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-[18px] font-bold text-[#0f172a]">Payment Inquiry?</h3>
+              <h3 className="text-[18px] font-bold text-[#0f172a]">{t("Payment Inquiry?")}</h3>
               <p className="mt-2 max-w-[460px] text-[15px] leading-7 text-[#64748b]">
-                If you notice any discrepancies in your settlement, our finance support team is here to help.
+                {t("If you notice any discrepancies in your settlement, our finance support team is here to help.")}
               </p>
               <Link href={localizePath("/creator/tickets/new", locale)} className="mt-5 inline-flex items-center gap-2 text-[15px] font-bold text-[#0f172a] hover:text-[#1876f2]">
-                Contact Finance Support
+                {t("Contact Finance Support")}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -539,7 +535,7 @@ export default function CreatorSettlementsPage() {
                 type="button"
                 onClick={() => setShowBeneficiaryForm(false)}
                 className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#0f172a] shadow-[0_12px_30px_rgba(15,23,42,0.12)] transition hover:bg-white"
-                aria-label="Close bank account form"
+                aria-label={t("Close bank account form")}
               >
                 <X className="h-5 w-5" />
               </button>

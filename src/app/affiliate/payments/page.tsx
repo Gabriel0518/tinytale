@@ -126,7 +126,10 @@ type PaymentsCopy = {
     setDefault: string;
     edit: string;
     delete: string;
+    deleteTitle: string;
+    deleteAction: string;
     deleteConfirm: string;
+    amountPlaceholder: string;
   };
 };
 
@@ -198,7 +201,10 @@ const COPY: FlexibleRecord<SupportedLocale, PaymentsCopy> = {
       setDefault: "Set Default",
       edit: "Edit",
       delete: "Delete",
-      deleteConfirm: "Delete this payment method?" } },
+      deleteTitle: "Delete Payment Method",
+      deleteAction: "Delete",
+      deleteConfirm: "Delete this payment method?",
+      amountPlaceholder: "0.00" } },
   zh: {
     typeLabels: { paypal: "PayPal", bankTransfer: "银行转账", usdt: "USDT", default: "默认" },
     statusLabels: { paid: "已打款", approved: "已通过", pending: "待处理", rejected: "已拒绝" },
@@ -266,7 +272,10 @@ const COPY: FlexibleRecord<SupportedLocale, PaymentsCopy> = {
       setDefault: "设为默认",
       edit: "编辑",
       delete: "删除",
-      deleteConfirm: "确认删除该收款方式？" } },
+      deleteTitle: "删除收款方式",
+      deleteAction: "删除",
+      deleteConfirm: "确认删除该收款方式？",
+      amountPlaceholder: "0.00" } },
   ja: {
     typeLabels: { paypal: "PayPal", bankTransfer: "銀行振込", usdt: "USDT", default: "デフォルト" },
     statusLabels: { paid: "支払済み", approved: "承認済み", pending: "保留中", rejected: "却下" },
@@ -334,7 +343,10 @@ const COPY: FlexibleRecord<SupportedLocale, PaymentsCopy> = {
       setDefault: "デフォルトに設定",
       edit: "編集",
       delete: "削除",
-      deleteConfirm: "この受取方法を削除しますか？" } },
+      deleteTitle: "受取方法を削除",
+      deleteAction: "削除",
+      deleteConfirm: "この受取方法を削除しますか？",
+      amountPlaceholder: "0.00" } },
   es: {
     typeLabels: { paypal: "PayPal", bankTransfer: "Transferencia bancaria", usdt: "USDT", default: "Predeterminado" },
     statusLabels: { paid: "Pagado", approved: "Aprobado", pending: "Pendiente", rejected: "Rechazado" },
@@ -402,7 +414,10 @@ const COPY: FlexibleRecord<SupportedLocale, PaymentsCopy> = {
       setDefault: "Predeterminar",
       edit: "Editar",
       delete: "Eliminar",
-      deleteConfirm: "¿Eliminar este método de pago?" } },
+      deleteTitle: "Eliminar método de pago",
+      deleteAction: "Eliminar",
+      deleteConfirm: "¿Eliminar este método de pago?",
+      amountPlaceholder: "0.00" } },
   pt: {
     typeLabels: { paypal: "PayPal", bankTransfer: "Transferência bancária", usdt: "USDT", default: "Padrão" },
     statusLabels: { paid: "Pago", approved: "Aprovado", pending: "Pendente", rejected: "Rejeitado" },
@@ -470,7 +485,10 @@ const COPY: FlexibleRecord<SupportedLocale, PaymentsCopy> = {
       setDefault: "Definir padrão",
       edit: "Editar",
       delete: "Excluir",
-      deleteConfirm: "Excluir este método de pagamento?" } },
+      deleteTitle: "Excluir método de pagamento",
+      deleteAction: "Excluir",
+      deleteConfirm: "Excluir este método de pagamento?",
+      amountPlaceholder: "0.00" } },
   hi: {
     typeLabels: { paypal: "PayPal", bankTransfer: "बैंक ट्रांसफर", usdt: "USDT", default: "डिफॉल्ट" },
     statusLabels: { paid: "भुगतान हो चुका", approved: "स्वीकृत", pending: "लंबित", rejected: "अस्वीकृत" },
@@ -538,7 +556,10 @@ const COPY: FlexibleRecord<SupportedLocale, PaymentsCopy> = {
       setDefault: "डिफॉल्ट सेट करें",
       edit: "संपादित करें",
       delete: "हटाएं",
-      deleteConfirm: "क्या यह भुगतान विधि हटानी है?" } },
+      deleteTitle: "भुगतान विधि हटाएँ",
+      deleteAction: "हटाएँ",
+      deleteConfirm: "क्या यह भुगतान विधि हटानी है?",
+      amountPlaceholder: "0.00" } },
   id: {
     typeLabels: { paypal: "PayPal", bankTransfer: "Transfer bank", usdt: "USDT", default: "Default" },
     statusLabels: { paid: "Dibayar", approved: "Disetujui", pending: "Menunggu", rejected: "Ditolak" },
@@ -606,7 +627,10 @@ const COPY: FlexibleRecord<SupportedLocale, PaymentsCopy> = {
       setDefault: "Jadikan default",
       edit: "Ubah",
       delete: "Hapus",
-      deleteConfirm: "Hapus metode pembayaran ini?" } } };
+      deleteTitle: "Hapus metode pembayaran",
+      deleteAction: "Hapus",
+      deleteConfirm: "Hapus metode pembayaran ini?",
+      amountPlaceholder: "0.00" } } };
 
 const DATE_LOCALE_MAP: FlexibleRecord<SupportedLocale, string> = {
   en: "en-US",
@@ -728,7 +752,7 @@ function WithdrawModal({
             step="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder="0.00"
+            placeholder={t.page.amountPlaceholder}
             className="w-full bg-[#0f0f17] border border-gray-700/50 rounded-lg pl-7 pr-16 py-2.5 text-white text-sm outline-none focus:border-purple-500"
           />
           <button
@@ -977,9 +1001,9 @@ export default function PaymentsPage() {
   const handleDelete = async (id: string) => {
     if (!token) return;
     const confirmed = await confirmDialog({
-      title: "Delete Payment Method",
+      title: t.page.deleteTitle,
       message: t.page.deleteConfirm,
-      confirmText: "Delete",
+      confirmText: t.page.deleteAction,
       tone: "danger",
     });
     if (!confirmed) return;
