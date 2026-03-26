@@ -7,6 +7,7 @@ import {
   Search,
 } from "lucide-react";
 import { adminApi } from "@/lib/adminApi";
+import { translateAdminText, useAdminLocale } from "@/lib/admin-i18n";
 import {
   formatAdminDate,
   getCreatorApplicationStatusMeta,
@@ -76,6 +77,7 @@ function matchesStatusFilter(itemStatus: string, selectedStatus: string) {
 }
 
 export default function CreatorApplicationsPage() {
+  const { locale } = useAdminLocale();
   const [items, setItems] = useState<CreatorAdminApplicationListItem[]>(mockCreatorApplications);
   const [summary, setSummary] = useState<CreatorAdminApplicationSummary>(defaultSummary);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -165,15 +167,17 @@ export default function CreatorApplicationsPage() {
     [items, risk, search, status],
   );
 
+  const t = (value: string) => translateAdminText(value, locale);
+
   return (
-    <div className="space-y-6 text-gray-200">
+    <div data-admin-i18n-controlled="true" className="space-y-6 text-gray-200">
       <section className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-white">Creator Applications</h1>
+        <h1 className="text-2xl font-semibold text-white">{t("Creator Applications")}</h1>
         <Link
           href="/admin/creators/dashboard"
           className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-gray-100 transition hover:border-white/20 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70"
         >
-          Dashboard
+          {t("Dashboard")}
         </Link>
       </section>
 
@@ -188,7 +192,7 @@ export default function CreatorApplicationsPage() {
         ].map(([label, value, lineClass, valueClass]) => (
           <article key={String(label)} className={`${panelClassName} relative overflow-hidden`}>
             <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r ${lineClass}`} />
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">{label}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">{t(String(label))}</p>
             <p className={`mt-4 text-3xl font-black tracking-[-0.04em] ${valueClass}`}>{summaryLoading ? "..." : Number(value).toLocaleString()}</p>
           </article>
         ))}
@@ -197,7 +201,7 @@ export default function CreatorApplicationsPage() {
       <section className={panelClassName}>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
           <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-gray-300">
-            {listLoading ? "Loading..." : listError ? "Load failed" : `${filtered.length} visible`}
+            {listLoading ? t("Loading...") : listError ? t("Load failed") : `${filtered.length} ${t("visible")}`}
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px_190px]">
@@ -206,37 +210,37 @@ export default function CreatorApplicationsPage() {
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by applicant, creator name, email, company, or country"
+              placeholder={t("Search by applicant, creator name, email, company, or country")}
               className="h-12 w-full rounded-2xl border border-white/10 bg-[#0c0c13] pl-11 pr-4 text-sm text-gray-200 outline-none placeholder:text-gray-500 focus:border-indigo-400 focus-visible:ring-2 focus-visible:ring-indigo-400/60"
             />
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Status</span>
+            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">{t("Status")}</span>
             <select
               value={status}
               onChange={(event) => setStatus(event.target.value)}
               className="h-12 w-full rounded-2xl border border-white/10 bg-[#0c0c13] px-4 text-sm text-gray-200 outline-none focus:border-indigo-400 focus-visible:ring-2 focus-visible:ring-indigo-400/60"
             >
-              <option value="all">All statuses</option>
-              <option value="under_review">Under review</option>
-              <option value="need_more_info">Need more info</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
+              <option value="all">{t("All statuses")}</option>
+              <option value="under_review">{t("Under review")}</option>
+              <option value="need_more_info">{t("Need info")}</option>
+              <option value="approved">{t("Approved")}</option>
+              <option value="rejected">{t("Rejected")}</option>
             </select>
           </label>
 
           <label className="block">
-            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Risk</span>
+            <span className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">{t("Risk")}</span>
             <select
               value={risk}
               onChange={(event) => setRisk(event.target.value)}
               className="h-12 w-full rounded-2xl border border-white/10 bg-[#0c0c13] px-4 text-sm text-gray-200 outline-none focus:border-indigo-400 focus-visible:ring-2 focus-visible:ring-indigo-400/60"
             >
-              <option value="all">All risk levels</option>
-              <option value="low">Low risk</option>
-              <option value="medium">Medium risk</option>
-              <option value="high">High risk</option>
+              <option value="all">{t("All risk levels")}</option>
+              <option value="low">{t("Low risk")}</option>
+              <option value="medium">{t("Medium risk")}</option>
+              <option value="high">{t("High risk")}</option>
             </select>
           </label>
         </div>
@@ -245,33 +249,33 @@ export default function CreatorApplicationsPage() {
           <table className="w-full min-w-[1200px] text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-[0.16em] text-gray-500">
-                <th className="pb-3 pr-4 font-medium">Applicant</th>
-                <th className="pb-3 pr-4 font-medium">Profile</th>
-                <th className="pb-3 pr-4 font-medium">Verification</th>
-                <th className="pb-3 pr-4 font-medium">Status</th>
-                <th className="pb-3 pr-4 font-medium">Risk</th>
-                <th className="pb-3 pr-4 font-medium">Reviewer</th>
-                <th className="pb-3 pr-4 font-medium">Timeline</th>
-                <th className="pb-3 font-medium text-right">Action</th>
+                <th className="pb-3 pr-4 font-medium">{t("Applicant")}</th>
+                <th className="pb-3 pr-4 font-medium">{t("Profile")}</th>
+                <th className="pb-3 pr-4 font-medium">{t("Verification")}</th>
+                <th className="pb-3 pr-4 font-medium">{t("Status")}</th>
+                <th className="pb-3 pr-4 font-medium">{t("Risk")}</th>
+                <th className="pb-3 pr-4 font-medium">{t("Reviewer")}</th>
+                <th className="pb-3 pr-4 font-medium">{t("Timeline")}</th>
+                <th className="pb-3 font-medium text-right">{t("Action")}</th>
               </tr>
             </thead>
             <tbody>
               {listLoading ? (
                 <tr>
                   <td colSpan={8} className="py-12">
-                    <EmptyState title="Loading" />
+                    <EmptyState title={t("Loading")} />
                   </td>
                 </tr>
               ) : listError ? (
                 <tr>
                   <td colSpan={8} className="py-12">
-                    <EmptyState title="Unable to load applications" />
+                    <EmptyState title={t("Unable to load applications")} />
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-12">
-                    <EmptyState title="No applications" />
+                    <EmptyState title={t("No applications")} />
                   </td>
                 </tr>
               ) : (
@@ -357,7 +361,7 @@ export default function CreatorApplicationsPage() {
                           href={`/admin/creators/applications/${item.id}`}
                           className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-rose-500 px-4 py-2 text-xs font-semibold text-white shadow-[0_10px_24px_rgba(99,102,241,0.24)] transition hover:scale-[1.01] hover:shadow-[0_16px_30px_rgba(236,72,153,0.20)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300/70"
                         >
-                          Review
+                          {t("Review")}
                           <ArrowRight className="h-3.5 w-3.5" />
                         </Link>
                       </td>
