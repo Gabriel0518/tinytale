@@ -16,6 +16,7 @@ import {
 import type {
   CreatorAdminApplicationListItem,
   CreatorAdminApplicationSummary,
+  CreatorAdminApplicationSummaryResponse,
   CreatorAdminApplicationsResponse,
 } from "@/types/creator";
 
@@ -48,10 +49,38 @@ const defaultSummary: CreatorAdminApplicationSummary = {
   company: 0,
 };
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    promise
+      .then((value) => {
+        window.clearTimeout(timeoutId);
+        resolve(value);
+      })
+      .catch((error) => {
+        window.clearTimeout(timeoutId);
+        reject(error);
+      });
+  });
+}
+
+function matchesStatusFilter(itemStatus: string, selectedStatus: string) {
+  if (selectedStatus === "all") return true;
+  if (selectedStatus === "under_review") {
+    return itemStatus === "under_review" || itemStatus === "pending";
+  }
+  return itemStatus === selectedStatus;
+}
+
 export default function CreatorApplicationsPage() {
   const [items, setItems] = useState<CreatorAdminApplicationListItem[]>(mockCreatorApplications);
   const [summary, setSummary] = useState<CreatorAdminApplicationSummary>(defaultSummary);
-  const [loading, setLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState(false);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [risk, setRisk] = useState("all");
@@ -59,30 +88,56 @@ export default function CreatorApplicationsPage() {
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
+    async function loadSummary() {
       try {
-        const response = await adminApi.getCreatorApplications() as { data?: CreatorAdminApplicationsResponse } | CreatorAdminApplicationsResponse;
-        const payload = "applications" in response
-          ? response
-          : response?.data;
-        const next = payload?.applications || [];
-        if (!cancelled && Array.isArray(next) && next.length > 0) {
-          setItems(next);
-        }
+        const response = await withTimeout(
+          adminApi.getCreatorApplicationSummary() as Promise<{ data?: CreatorAdminApplicationSummaryResponse } | CreatorAdminApplicationSummaryResponse>,
+          8000,
+          "Timed out while loading creator application summary",
+        );
+        const payload = response && typeof response === "object" && "data" in response
+          ? response.data
+          : response;
         if (!cancelled) {
           setSummary(payload?.summary || defaultSummary);
         }
       } catch {
         if (!cancelled) {
-          setItems(mockCreatorApplications);
           setSummary(defaultSummary);
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setSummaryLoading(false);
       }
     }
 
-    load();
+    async function loadList() {
+      try {
+        const response = await withTimeout(
+          adminApi.getCreatorApplications() as Promise<{ data?: CreatorAdminApplicationsResponse } | CreatorAdminApplicationsResponse>,
+          15000,
+          "Timed out while loading creator applications",
+        );
+        const payload = response && typeof response === "object" && "data" in response
+          ? response.data
+          : response;
+        const next = Array.isArray(payload?.applications) ? payload.applications : [];
+        if (!cancelled) {
+          setItems(next);
+          setListError(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setItems(mockCreatorApplications);
+          setListError(true);
+        }
+      } finally {
+        if (!cancelled) setListLoading(false);
+      }
+    }
+
+    void loadSummary();
+    void loadList();
+
     return () => {
       cancelled = true;
     };
@@ -105,7 +160,7 @@ export default function CreatorApplicationsPage() {
             .toLowerCase();
           if (!haystack.includes(query)) return false;
         }
-        if (status !== "all" && item.status !== status) return false;
+        if (!matchesStatusFilter(item.status, status)) return false;
         if (risk !== "all" && item.riskLevel !== risk) return false;
         return true;
       }),
@@ -136,7 +191,7 @@ export default function CreatorApplicationsPage() {
           <article key={String(label)} className={`${panelClassName} relative overflow-hidden`}>
             <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r ${lineClass}`} />
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">{label}</p>
-            <p className={`mt-4 text-3xl font-black tracking-[-0.04em] ${valueClass}`}>{loading ? "..." : Number(value).toLocaleString()}</p>
+            <p className={`mt-4 text-3xl font-black tracking-[-0.04em] ${valueClass}`}>{summaryLoading ? "..." : Number(value).toLocaleString()}</p>
           </article>
         ))}
       </section>
@@ -144,7 +199,7 @@ export default function CreatorApplicationsPage() {
       <section className={panelClassName}>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
           <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-gray-300">
-            {loading ? "Loading..." : `${filtered.length} visible`}
+            {listLoading ? "Loading..." : listError ? "Load failed" : `${filtered.length} visible`}
           </div>
         </div>
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_190px_190px]">
@@ -203,10 +258,16 @@ export default function CreatorApplicationsPage() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {listLoading ? (
                 <tr>
                   <td colSpan={8} className="py-12">
                     <EmptyState title="Loading" />
+                  </td>
+                </tr>
+              ) : listError ? (
+                <tr>
+                  <td colSpan={8} className="py-12">
+                    <EmptyState title="Unable to load applications" />
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (

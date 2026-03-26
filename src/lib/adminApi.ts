@@ -585,6 +585,9 @@ export const adminApi = {
     return api.get(`/api/admin/applications${query ? `?${query}` : ''}`, { token });
   },
 
+  getCreatorApplicationSummary: (token = getAdminToken()) =>
+    api.get('/api/admin/applications/summary', { token }),
+
   getCreatorApplication: (id: string, token = getAdminToken()) =>
     api.get(`/api/admin/applications/${id}`, { token }),
 

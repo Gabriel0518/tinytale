@@ -852,6 +852,10 @@ export interface CreatorAdminApplicationsResponse {
   summary: CreatorAdminApplicationSummary;
 }
 
+export interface CreatorAdminApplicationSummaryResponse {
+  summary: CreatorAdminApplicationSummary;
+}
+
 export interface CreatorAdminApplicationDetail extends CreatorAdminApplicationListItem {
   creatorId: string;
   draft: CreatorApplicationDraft;
