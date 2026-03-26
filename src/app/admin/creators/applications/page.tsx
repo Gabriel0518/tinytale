@@ -13,7 +13,11 @@ import {
   getCreatorRiskMeta,
   mockCreatorApplications,
 } from "../_lib/mockData";
-import type { CreatorAdminApplicationListItem } from "@/types/creator";
+import type {
+  CreatorAdminApplicationListItem,
+  CreatorAdminApplicationSummary,
+  CreatorAdminApplicationsResponse,
+} from "@/types/creator";
 
 const panelClassName =
   "rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(19,19,29,0.96),rgba(10,10,16,0.98))] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur";
@@ -35,8 +39,18 @@ function EmptyState({
   );
 }
 
+const defaultSummary: CreatorAdminApplicationSummary = {
+  underReview: 0,
+  needMoreInfo: 0,
+  approved: 0,
+  highRisk: 0,
+  unassigned: 0,
+  company: 0,
+};
+
 export default function CreatorApplicationsPage() {
   const [items, setItems] = useState<CreatorAdminApplicationListItem[]>(mockCreatorApplications);
+  const [summary, setSummary] = useState<CreatorAdminApplicationSummary>(defaultSummary);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -47,13 +61,22 @@ export default function CreatorApplicationsPage() {
 
     async function load() {
       try {
-        const response: any = await adminApi.getCreatorApplications();
-        const next = response?.data?.applications || response?.data?.items || response?.data || [];
+        const response = await adminApi.getCreatorApplications() as { data?: CreatorAdminApplicationsResponse } | CreatorAdminApplicationsResponse;
+        const payload = "applications" in response
+          ? response
+          : response?.data;
+        const next = payload?.applications || [];
         if (!cancelled && Array.isArray(next) && next.length > 0) {
           setItems(next);
         }
+        if (!cancelled) {
+          setSummary(payload?.summary || defaultSummary);
+        }
       } catch {
-        if (!cancelled) setItems(mockCreatorApplications);
+        if (!cancelled) {
+          setItems(mockCreatorApplications);
+          setSummary(defaultSummary);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -87,18 +110,6 @@ export default function CreatorApplicationsPage() {
         return true;
       }),
     [items, risk, search, status],
-  );
-
-  const summary = useMemo(
-    () => ({
-      underReview: items.filter((item) => item.status === "under_review").length,
-      needMoreInfo: items.filter((item) => item.status === "need_more_info").length,
-      approved: items.filter((item) => item.status === "approved").length,
-      highRisk: items.filter((item) => item.riskLevel === "high").length,
-      unassigned: items.filter((item) => !item.assignedReviewer).length,
-      company: items.filter((item) => item.creatorType === "company").length,
-    }),
-    [items],
   );
 
   return (

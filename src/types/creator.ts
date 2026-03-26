@@ -837,6 +837,21 @@ export interface CreatorAdminApplicationListItem {
   };
 }
 
+export interface CreatorAdminApplicationSummary {
+  underReview: number;
+  needMoreInfo: number;
+  approved: number;
+  highRisk: number;
+  unassigned: number;
+  company: number;
+}
+
+export interface CreatorAdminApplicationsResponse {
+  applications: CreatorAdminApplicationListItem[];
+  total: number;
+  summary: CreatorAdminApplicationSummary;
+}
+
 export interface CreatorAdminApplicationDetail extends CreatorAdminApplicationListItem {
   creatorId: string;
   draft: CreatorApplicationDraft;
