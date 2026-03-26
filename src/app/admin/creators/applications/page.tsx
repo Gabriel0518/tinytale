@@ -95,9 +95,8 @@ export default function CreatorApplicationsPage() {
           8000,
           "Timed out while loading creator application summary",
         );
-        const payload = response && typeof response === "object" && "data" in response
-          ? response.data
-          : response;
+        const payload = (response as { data?: CreatorAdminApplicationSummaryResponse })?.data
+          ?? (response as CreatorAdminApplicationSummaryResponse);
         if (!cancelled) {
           setSummary(payload?.summary || defaultSummary);
         }
@@ -117,9 +116,8 @@ export default function CreatorApplicationsPage() {
           15000,
           "Timed out while loading creator applications",
         );
-        const payload = response && typeof response === "object" && "data" in response
-          ? response.data
-          : response;
+        const payload = (response as { data?: CreatorAdminApplicationsResponse })?.data
+          ?? (response as CreatorAdminApplicationsResponse);
         const next = Array.isArray(payload?.applications) ? payload.applications : [];
         if (!cancelled) {
           setItems(next);
