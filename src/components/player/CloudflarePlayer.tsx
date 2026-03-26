@@ -75,6 +75,15 @@ function applyQualityParam(url: string, quality?: string): string {
   }
 }
 
+function canUseNativeHls(): boolean {
+  if (typeof document === 'undefined') return false;
+  const probe = document.createElement('video');
+  return Boolean(
+    probe.canPlayType('application/vnd.apple.mpegurl') ||
+    probe.canPlayType('application/x-mpegURL')
+  );
+}
+
 const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProps>(
   function CloudflarePlayer(
     {
@@ -252,6 +261,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         const videojs = (await import('video.js')).default;
 
         if (disposed || !videoRef.current) return;
+        const useNativeHls = source.type === 'application/x-mpegURL' && canUseNativeHls();
 
         // Create a fresh video element inside the container div
         const videoElement = document.createElement('video-js');
@@ -270,11 +280,11 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
           crossorigin: 'anonymous',
           playsinline: true,
           html5: {
-            nativeAudioTracks: false,
-            nativeTextTracks: false,
-            nativeVideoTracks: false,
+            nativeAudioTracks: useNativeHls,
+            nativeTextTracks: useNativeHls,
+            nativeVideoTracks: useNativeHls,
             vhs: {
-              overrideNative: true,
+              overrideNative: !useNativeHls,
             },
           },
           poster: poster || undefined,

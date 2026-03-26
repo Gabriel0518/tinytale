@@ -25,13 +25,52 @@ import { serializeCreatorApplicationDraft } from '@/lib/creator';
 import type { CountryCatalogItem } from '@/lib/countries';
 import { detectClientLocale } from '@/lib/i18n';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL
+const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL
   || (process.env.NODE_ENV === 'production' ? 'https://api.tinytale.top' : 'http://localhost:7002');
 
 // Cloudflare Turnstile site key (get from Cloudflare Dashboard)
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';
 
-export { API_URL, TURNSTILE_SITE_KEY };
+function isLoopbackHostname(hostname: string): boolean {
+  const value = hostname.trim().toLowerCase();
+  return value === 'localhost' || value === '127.0.0.1' || value === '::1';
+}
+
+function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/+$/, '');
+}
+
+function resolveClientAccessibleBaseUrl(baseUrl: string): string {
+  if (typeof window === 'undefined') {
+    return normalizeBaseUrl(baseUrl);
+  }
+
+  try {
+    const parsed = new URL(baseUrl, window.location.origin);
+    if (!isLoopbackHostname(parsed.hostname)) {
+      return normalizeBaseUrl(parsed.toString());
+    }
+
+    const currentHostname = window.location.hostname;
+    if (isLoopbackHostname(currentHostname)) {
+      return normalizeBaseUrl(parsed.toString());
+    }
+
+    parsed.hostname = currentHostname;
+    parsed.protocol = window.location.protocol;
+    return normalizeBaseUrl(parsed.toString());
+  } catch {
+    return normalizeBaseUrl(baseUrl);
+  }
+}
+
+function getApiBaseUrl(): string {
+  return resolveClientAccessibleBaseUrl(DEFAULT_API_URL);
+}
+
+const API_URL = DEFAULT_API_URL;
+
+export { API_URL, TURNSTILE_SITE_KEY, getApiBaseUrl };
 
 interface FetchOptions extends RequestInit {
   token?: string;
@@ -80,6 +119,10 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
+  private getBaseUrl(): string {
+    return resolveClientAccessibleBaseUrl(this.baseUrl);
+  }
+
   private getHeaders(options: FetchOptions = {}): HeadersInit {
     const language = getClientLanguageHint();
     const headers: Record<string, string> = {
@@ -99,7 +142,7 @@ class ApiClient {
 
   async get<T = any>(endpoint: string, options: FetchOptions = {}): Promise<T> {
     const { token, ...requestOptions } = options;
-    const response = await fetch(`${this.baseUrl}${appendLanguageQuery(endpoint, getClientLanguageHint())}`, {
+    const response = await fetch(`${this.getBaseUrl()}${appendLanguageQuery(endpoint, getClientLanguageHint())}`, {
       method: 'GET',
       ...requestOptions,
       headers: this.getHeaders({ ...requestOptions, token }),
@@ -114,7 +157,7 @@ class ApiClient {
 
   async post<T = any>(endpoint: string, body?: any, options: FetchOptions = {}): Promise<T> {
     const { token, ...requestOptions } = options;
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
       method: 'POST',
       ...requestOptions,
       headers: this.getHeaders({ ...requestOptions, token }),
@@ -130,7 +173,7 @@ class ApiClient {
 
   async put<T = any>(endpoint: string, body?: any, options: FetchOptions = {}): Promise<T> {
     const { token, ...requestOptions } = options;
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
       method: 'PUT',
       ...requestOptions,
       headers: this.getHeaders({ ...requestOptions, token }),
@@ -146,7 +189,7 @@ class ApiClient {
 
   async delete<T = any>(endpoint: string, options: FetchOptions = {}): Promise<T> {
     const { token, ...requestOptions } = options;
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+    const response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
       method: 'DELETE',
       ...requestOptions,
       headers: this.getHeaders({ ...requestOptions, token }),

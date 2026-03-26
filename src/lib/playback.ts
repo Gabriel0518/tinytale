@@ -1,4 +1,4 @@
-import { API_URL } from '@/lib/api';
+import { getApiBaseUrl } from '@/lib/api';
 import type { StreamPlaybackInfo } from '@/types';
 
 function joinOriginAndPath(origin: string, path: string): string {
@@ -31,10 +31,10 @@ export function resolvePlaybackSource(
   fallbackUrl?: string
 ): string | undefined {
   let source = fallbackUrl;
-  if (streamInfo?.playbackPath) {
-    source = joinOriginAndPath(API_URL, streamInfo.playbackPath);
-  } else if (streamInfo?.playbackUrl) {
+  if (streamInfo?.playbackUrl) {
     source = streamInfo.playbackUrl;
+  } else if (streamInfo?.playbackPath) {
+    source = joinOriginAndPath(getApiBaseUrl(), streamInfo.playbackPath);
   }
 
   if (!source) return source;
