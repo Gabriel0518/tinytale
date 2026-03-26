@@ -375,6 +375,8 @@ function CreatorRegionPicker({
   onChange,
   globalLabel,
   placeholder,
+  searchPlaceholder,
+  emptyStateLabel,
 }: {
   title: string;
   description?: string;
@@ -383,6 +385,8 @@ function CreatorRegionPicker({
   onChange: (next: string[]) => void;
   globalLabel: string;
   placeholder: string;
+  searchPlaceholder: string;
+  emptyStateLabel: string;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -469,7 +473,7 @@ function CreatorRegionPicker({
                 type="text"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder={t("Search regions")}
+                placeholder={searchPlaceholder}
                 className="w-full bg-transparent text-sm text-[#0f172a] outline-none placeholder:text-[#94a3b8]"
                 autoFocus
               />
@@ -509,7 +513,7 @@ function CreatorRegionPicker({
             })}
 
             {filteredOptions.length === 0 ? (
-              <div className="px-3 py-6 text-center text-sm text-[#94a3b8]">{t("No matching regions")}</div>
+              <div className="px-3 py-6 text-center text-sm text-[#94a3b8]">{emptyStateLabel}</div>
             ) : null}
           </div>
         </div>
@@ -543,7 +547,7 @@ function resolvePreviewDefaultSubtitle(
   return tracks[0]?.language || null;
 }
 
-function CreatorPreviewPlayerInner({ episode }: { episode: PreviewEpisodeState }) {
+function CreatorPreviewPlayerInner({ episode, title }: { episode: PreviewEpisodeState; title: string }) {
   const { state, actions, playerRef, isFullscreen, toggleFullscreen } = usePlayerContext();
   const subtitleTracks = useMemo(
     () => (episode.subtitles || []) as SubtitleTrack[],
@@ -663,16 +667,16 @@ function CreatorPreviewPlayerInner({ episode }: { episode: PreviewEpisodeState }
         onToggleFullscreen={toggleFullscreen}
         qualityOptions={qualityOptions}
         isFullscreen={isFullscreen}
-        title={t("Ep __ARG_0__: __ARG_1__", episode.episodeNumber, episode.title)}
+        title={title}
       />
     </>
   );
 }
 
-function CreatorPreviewPlayer({ episode }: { episode: PreviewEpisodeState }) {
+function CreatorPreviewPlayer({ episode, title }: { episode: PreviewEpisodeState; title: string }) {
   return (
     <PlayerRoot className="h-full w-full">
-      <CreatorPreviewPlayerInner episode={episode} />
+      <CreatorPreviewPlayerInner episode={episode} title={title} />
     </PlayerRoot>
   );
 }
@@ -2285,6 +2289,8 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
                       onChange={(next) => updateDramaFormField("regions", next)}
                       globalLabel={t("Global release")}
                       placeholder={t("Add region...")}
+                      searchPlaceholder={t("Search regions")}
+                      emptyStateLabel={t("No matching regions")}
                     />
                   </div>
                 </div>
@@ -3362,7 +3368,10 @@ export default function CreatorEpisodeUploadWorkspace({ initialDramaId, revision
                       : "aspect-[9/16] max-w-[430px]"
                   }`}
                 >
-                  <CreatorPreviewPlayer episode={previewEpisode} />
+                  <CreatorPreviewPlayer
+                    episode={previewEpisode}
+                    title={t("Ep __ARG_0__: __ARG_1__", previewEpisode.episodeNumber, previewEpisode.title)}
+                  />
                 </div>
               </div>
 

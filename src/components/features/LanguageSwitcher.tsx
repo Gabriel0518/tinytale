@@ -6,6 +6,7 @@ import { LOCALE_DISPLAY_NAMES, LOCALE_SHORT_LABELS, SUPPORTED_LOCALES, Supported
 import { useAuth } from '@/lib/authContext';
 import { settingsApi } from '@/lib/api';
 import { useLocale } from '@/hooks/useLocale';
+import { resolveLocaleCopy } from '@/lib/locale-copy';
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
