@@ -834,4 +834,33 @@ export const adminApi = {
     const query = params ? new URLSearchParams(params as any).toString() : '';
     return api.get(`/api/admin/users/${userId}/operation-logs${query ? `?${query}` : ''}`, { token });
   },
+
+  // ─── Airwallex Fee Config ────────────────────────────────────────────────
+  getAirwallexFeeConfigs: (token = getAdminToken()) =>
+    api.get('/api/admin/airwallex-fee-config', { token }),
+
+  createAirwallexFeeConfig: (data: any, token = getAdminToken()) =>
+    api.post('/api/admin/airwallex-fee-config', data, { token }),
+
+  updateAirwallexFeeConfig: (id: string, data: any, token = getAdminToken()) =>
+    api.put(`/api/admin/airwallex-fee-config/${id}`, data, { token }),
+
+  deleteAirwallexFeeConfig: (id: string, token = getAdminToken()) =>
+    api.delete(`/api/admin/airwallex-fee-config/${id}`, { token }),
+
+  // ─── Creator Withdrawals ─────────────────────────────────────────────────
+  getCreatorWithdrawals: (params?: { page?: number; limit?: number; status?: string; search?: string }, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(params as any).toString() : '';
+    return api.get(`/api/admin/creator-withdrawals${query ? `?${query}` : ''}`, { token });
+  },
+
+  approveCreatorWithdrawal: (id: string, data?: { note?: string }, token = getAdminToken()) =>
+    api.post(`/api/admin/creator-withdrawals/${id}/approve`, data || {}, { token }),
+
+  rejectCreatorWithdrawal: (id: string, data?: { note?: string }, token = getAdminToken()) =>
+    api.post(`/api/admin/creator-withdrawals/${id}/reject`, data || {}, { token }),
+
+  // ─── Monthly Settlement Generation ───────────────────────────────────────
+  generateMonthlySettlements: (data?: { year?: number; month?: number }, token = getAdminToken()) =>
+    api.post('/api/admin/settlement/generate-monthly', data || {}, { token }),
 };

@@ -77,6 +77,7 @@ const navigation: NavBlock[] = [
           { href: "/admin/creators/bank-accounts", label: "Bank Accounts" },
           { href: "/admin/creators/payout-requests", label: "Payout Requests" },
           { href: "/admin/creators/settlements", label: "Settlements" },
+          { href: "/admin/creators/fee-config", label: "Fee Config" },
           { href: "/admin/creators/policies", label: "Policies" },
           { href: "/admin/creators/tickets", label: "Tickets" },
         ],

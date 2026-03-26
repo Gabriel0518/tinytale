@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { HandCoins, Search, X } from "lucide-react";
+import { HandCoins, Search, X, Wallet, CheckCircle, XCircle } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { adminApi } from "@/lib/adminApi";
-import type { CreatorAdminPayoutRequestItem, CreatorAdminSettlementStatus } from "@/types/creator";
+import type { CreatorAdminPayoutRequestItem, CreatorAdminSettlementStatus, CreatorWithdrawalItem } from "@/types/creator";
 import {
   formatAdminDate,
   formatUsd,
@@ -228,6 +228,55 @@ export default function CreatorPayoutRequestsPage() {
     rejected: rejectedItems.length,
   }), [items, rejectedItems]);
 
+  // ─── Creator Withdrawals (New System) ──────────────────────────────────
+  const [withdrawals, setWithdrawals] = useState<CreatorWithdrawalItem[]>([]);
+  const [withdrawalLoading, setWithdrawalLoading] = useState(true);
+  const [withdrawalAction, setWithdrawalAction] = useState<string | null>(null);
+
+  useEffect(() => {
+    adminApi.getCreatorWithdrawals({ limit: 100 })
+      .then((res: any) => {
+        if (res?.success && Array.isArray(res.data?.items)) setWithdrawals(res.data.items);
+      })
+      .catch(() => {})
+      .finally(() => setWithdrawalLoading(false));
+  }, []);
+
+  const handleWithdrawalApprove = async (id: string) => {
+    if (!confirm("Approve this withdrawal and execute Airwallex transfer?")) return;
+    setWithdrawalAction(id);
+    try {
+      const res: any = await adminApi.approveCreatorWithdrawal(id);
+      if (res?.success) {
+        toast("Withdrawal approved and transfer executed", "info");
+        setWithdrawals((prev) => prev.map((w) => w._id === id ? { ...w, ...res.data } : w));
+      } else {
+        toast(res?.error?.message || "Failed to approve", "error");
+      }
+    } catch (err: any) {
+      toast(err?.message || "Transfer failed", "error");
+    } finally {
+      setWithdrawalAction(null);
+    }
+  };
+
+  const handleWithdrawalReject = async (id: string) => {
+    const reason = prompt("Rejection reason:");
+    if (reason === null) return;
+    setWithdrawalAction(id);
+    try {
+      const res: any = await adminApi.rejectCreatorWithdrawal(id, { note: reason });
+      if (res?.success) {
+        toast("Withdrawal rejected, balance refunded", "info");
+        setWithdrawals((prev) => prev.map((w) => w._id === id ? { ...w, ...res.data } : w));
+      }
+    } catch (err: any) {
+      toast(err?.message || "Failed to reject", "error");
+    } finally {
+      setWithdrawalAction(null);
+    }
+  };
+
   return (
     <div className="space-y-6 text-gray-200">
       <section className="rounded-2xl border border-gray-700/50 bg-[#13131d] p-6">
@@ -258,6 +307,116 @@ export default function CreatorPayoutRequestsPage() {
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Held</p><p className="mt-3 text-3xl font-bold text-red-300">{stats.held}</p></article>
         <article className={panelClassName}><p className="text-xs uppercase tracking-[0.12em] text-gray-500">Rejected</p><p className="mt-3 text-3xl font-bold text-slate-300">{stats.rejected}</p></article>
       </section>
+
+      {/* ─── Creator Withdrawals (New Airwallex System) ─────────────────── */}
+      <section className={panelClassName}>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Wallet className="h-5 w-5 text-indigo-400" />
+            <h2 className="text-lg font-bold text-gray-100">Creator Withdrawal Requests</h2>
+            <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-medium text-indigo-300">
+              {withdrawals.filter((w) => w.status === "pending").length} pending
+            </span>
+          </div>
+          <Link
+            href="/admin/creators/fee-config"
+            className="text-xs text-indigo-400 hover:text-indigo-300"
+          >
+            Manage Fee Rates →
+          </Link>
+        </div>
+
+        {withdrawalLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+          </div>
+        ) : withdrawals.length === 0 ? (
+          <p className="py-6 text-center text-sm text-gray-500">No withdrawal requests yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-700/50 text-left text-xs uppercase text-gray-500">
+                  <th className="px-3 py-2">Creator</th>
+                  <th className="px-3 py-2">Amount</th>
+                  <th className="px-3 py-2">Fee</th>
+                  <th className="px-3 py-2">Net</th>
+                  <th className="px-3 py-2">Currency</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Date</th>
+                  <th className="px-3 py-2 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {withdrawals.map((w) => (
+                  <tr key={w._id} className="border-b border-gray-800/50 hover:bg-[#1a1a2e]/50">
+                    <td className="px-3 py-3">
+                      <p className="font-medium text-gray-200">{w.creatorName || "—"}</p>
+                      <p className="text-xs text-gray-500">{w.creatorEmail || ""}</p>
+                    </td>
+                    <td className="px-3 py-3 font-medium text-gray-200">${w.amount.toFixed(2)}</td>
+                    <td className="px-3 py-3 text-red-400">
+                      -${w.airwallexFeeAmount.toFixed(2)}
+                      <span className="ml-1 text-xs text-gray-500">({(w.airwallexFeeRate * 100).toFixed(1)}%)</span>
+                    </td>
+                    <td className="px-3 py-3 font-medium text-green-400">${w.netAmount.toFixed(2)}</td>
+                    <td className="px-3 py-3 text-gray-400">{w.currency}</td>
+                    <td className="px-3 py-3">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        w.status === "paid" ? "bg-green-500/20 text-green-300" :
+                        w.status === "pending" ? "bg-amber-500/20 text-amber-300" :
+                        w.status === "processing" ? "bg-sky-500/20 text-sky-300" :
+                        w.status === "failed" ? "bg-red-500/20 text-red-300" :
+                        w.status === "rejected" ? "bg-red-500/20 text-red-300" :
+                        "bg-gray-500/20 text-gray-400"
+                      }`}>
+                        {w.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-xs text-gray-500">
+                      {new Date(w.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </td>
+                    <td className="px-3 py-3 text-right">
+                      {w.status === "pending" ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleWithdrawalApprove(w._id)}
+                            disabled={withdrawalAction === w._id}
+                            className="flex items-center gap-1 rounded-lg bg-green-600/80 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-600 disabled:opacity-50"
+                          >
+                            <CheckCircle className="h-3.5 w-3.5" />
+                            {withdrawalAction === w._id ? "..." : "Approve"}
+                          </button>
+                          <button
+                            onClick={() => handleWithdrawalReject(w._id)}
+                            disabled={withdrawalAction === w._id}
+                            className="flex items-center gap-1 rounded-lg bg-red-600/80 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-50"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                            Reject
+                          </button>
+                        </div>
+                      ) : w.status === "paid" ? (
+                        <span className="text-xs text-gray-500" title={w.airwallexTransferId || ""}>
+                          Ref: {w.airwallexTransferRef || w.airwallexTransferId?.slice(0, 12) || "—"}
+                        </span>
+                      ) : w.status === "failed" ? (
+                        <span className="text-xs text-red-400" title={w.failureReason}>{w.failureReason?.slice(0, 30) || "Failed"}</span>
+                      ) : w.status === "rejected" ? (
+                        <span className="text-xs text-gray-500">{w.adminNote || "Rejected"}</span>
+                      ) : (
+                        <span className="text-xs text-gray-500">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* ─── Legacy Settlement-based Payout Queue ──────────────────────── */}
 
       <section className={panelClassName}>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">

@@ -815,6 +815,23 @@ export const creatorApi = {
     return { blob, filename };
   },
 
+  // ─── Creator Withdrawal ──────────────────────────────────────────────────
+  getWithdrawalBalance: (token: string) =>
+    api.get<{ success: boolean; data: any }>(`/api/creator/withdrawal/balance`, { token }),
+
+  requestWithdrawal: (token: string, amount: number) =>
+    api.post<{ success: boolean; data: any }>(`/api/creator/withdrawal/request`, { amount }, { token }),
+
+  getWithdrawalHistory: (token: string, params?: { page?: number; limit?: number }) => {
+    const query = params ? new URLSearchParams(params as any).toString() : '';
+    return api.get<{ success: boolean; data: any }>(`/api/creator/withdrawal/history${query ? `?${query}` : ''}`, { token });
+  },
+
+  getSettlementRecords: (token: string, params?: { page?: number; limit?: number; status?: string }) => {
+    const query = params ? new URLSearchParams(params as any).toString() : '';
+    return api.get<{ success: boolean; data: any }>(`/api/creator/settlements/list${query ? `?${query}` : ''}`, { token });
+  },
+
   getDramas: (
     token: string,
     params?: {

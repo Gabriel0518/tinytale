@@ -1288,3 +1288,92 @@ export interface CreatorAdminPolicyOverview {
   notes: string[];
   lastUpdatedAt: string | null;
 }
+
+// ─── Creator Withdrawal & Fee Types ──────────────────────────────────────────
+
+export type CreatorWithdrawalStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "processing"
+  | "paid"
+  | "failed";
+
+export interface CreatorWithdrawalItem {
+  _id: string;
+  creatorId: string;
+  amount: number;
+  airwallexFeeRate: number;
+  airwallexFixedFee: number;
+  airwallexFeeAmount: number;
+  netAmount: number;
+  currency: string;
+  status: CreatorWithdrawalStatus;
+  airwallexTransferId: string;
+  airwallexTransferRef: string;
+  airwallexTransferStatus: string;
+  beneficiaryId: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  adminNote: string;
+  paidAt: string | null;
+  failedAt: string | null;
+  failureReason: string;
+  createdAt: string;
+  updatedAt: string;
+  // Admin enriched fields
+  creatorName?: string;
+  creatorEmail?: string;
+}
+
+export interface CreatorWithdrawalBalance {
+  withdrawableBalanceUsd: number;
+  pendingWithdrawalUsd: number;
+  totalPaidUsd: number;
+  minimumWithdrawalUsd: number;
+  feeConfig: {
+    feeRate: number;
+    fixedFee: number;
+    minFee: number;
+    maxFee: number;
+  };
+  hasBeneficiary: boolean;
+}
+
+export interface AirwallexFeeConfigItem {
+  _id: string;
+  countryCode: string;
+  currency: string;
+  transferMethod: "LOCAL" | "SWIFT";
+  feeRate: number;
+  fixedFee: number;
+  minFee: number;
+  maxFee: number;
+  isActive: boolean;
+  note: string;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreatorSettlementRecord {
+  _id: string;
+  creatorId: string;
+  statementNo: string;
+  periodStart: string;
+  periodEnd: string;
+  grossRevenueUsd: number;
+  platformFeesUsd: number;
+  platformFeeRate: number;
+  withholdingTaxUsd: number;
+  withholdingTaxRate: number;
+  creatorShareUsd: number;
+  unlockCount: number;
+  status: "generated" | "confirmed" | "disputed" | "held" | "rejected";
+  confirmedAt: string | null;
+  disputedAt: string | null;
+  pdfUrl: string;
+  emailSentAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
