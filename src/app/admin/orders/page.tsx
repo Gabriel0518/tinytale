@@ -130,7 +130,7 @@ export default function OrdersPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const params: any = { page: currentPage, limit: PAGE_SIZE };
+        const params: any = { page: currentPage, limit: PAGE_SIZE, scope: "order", type: "recharge" };
         const f = appliedFilters;
         if (f.status && f.status !== "All") params.status = f.status.toLowerCase();
         if (f.userSearch) params.search = f.userSearch;

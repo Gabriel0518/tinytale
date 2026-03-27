@@ -554,8 +554,10 @@ export const adminApi = {
   },
 
   // Single Transaction
-  getTransaction: (id: string, token = getAdminToken()) =>
-    api.get(`/api/admin/transactions/${id}`, { token }),
+  getTransaction: (id: string, params?: Record<string, any>, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(params as any).toString() : '';
+    return api.get(`/api/admin/transactions/${id}${query ? `?${query}` : ''}`, { token });
+  },
 
   // Promoter management
   getPromoters: (params?: Record<string, any>, token = getAdminToken()) => {

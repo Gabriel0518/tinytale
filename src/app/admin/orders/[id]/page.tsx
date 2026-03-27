@@ -61,9 +61,9 @@ export default function OrderDetailPage() {
   useEffect(() => {
     const fetchOrder = async () => {
       try {
-        const res: any = await adminApi.getTransaction(id as string);
+        const res: any = await adminApi.getTransaction(id as string, { scope: "order" });
         const txn = res?.data || res;
-        if (txn) {
+        if (txn && txn.type === "recharge") {
           setOrder({
             orderId: txn.orderId || txn._id || (id as string),
             status: txn.status || "Unknown",
