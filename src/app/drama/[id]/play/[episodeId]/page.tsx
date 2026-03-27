@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { dramasApi, episodesApi, userApi } from "@/lib/api";
@@ -142,6 +142,7 @@ export default function PlayEpisodePage() {
   const [loading, setLoading] = useState(true);
   const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
   const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
+  const lastProgressReportAtRef = useRef<number>(0);
 
   // 加载短剧和剧集信息
   useEffect(() => {
@@ -254,6 +255,9 @@ export default function PlayEpisodePage() {
   // 播放进度上报
   const handleTimeUpdate = (time: number, duration: number) => {
     if (token && currentEpisode) {
+      const now = Date.now();
+      if (now - lastProgressReportAtRef.current < 5000) return;
+      lastProgressReportAtRef.current = now;
       episodesApi.reportProgress(currentEpisode._id, token, time, duration).catch(() => {});
     }
   };

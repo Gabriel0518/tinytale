@@ -29,7 +29,7 @@ import { useCreatorI18n } from "../_lib/creator-i18n";
 const cardClassName =
   "rounded-[24px] border border-[#e2e8f0] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.05)]";
 
-type StatementFilter = "all" | "paid" | "pending" | "processing" | "disputed" | "held" | "rejected";
+type StatementFilter = "all" | "paid" | "pending" | "generated" | "confirmed" | "processing" | "disputed" | "held" | "rejected";
 function statusBadgeClass(status: CreatorSettlementStatement["status"] | CreatorSettlementOverview["summary"]["bankStatus"]) {
   switch (status) {
     case "paid":
@@ -56,6 +56,8 @@ function statusBadgeClass(status: CreatorSettlementStatement["status"] | Creator
 
 function mapStatementFilter(status: CreatorSettlementStatement["status"]): StatementFilter {
   if (status === "paid") return "paid";
+  if (status === "generated") return "generated";
+  if (status === "confirmed") return "confirmed";
   if (status === "processing") return "processing";
   if (status === "disputed") return "disputed";
   if (status === "held") return "held";
@@ -130,13 +132,16 @@ export default function CreatorSettlementsPage() {
 
   const estimatedPayout = useMemo(() => {
     if (!overview) return 0;
-    const candidate = overview.statements.find(
-      (statement) =>
+    return overview.statements.reduce((sum, statement) => {
+      if (
         statement.status === "confirmed"
         || statement.status === "generated"
-        || statement.status === "processing",
-    );
-    return candidate?.creatorShareUsd || 0;
+        || statement.status === "processing"
+      ) {
+        return sum + statement.creatorShareUsd;
+      }
+      return sum;
+    }, 0);
   }, [overview]);
 
   const manageBankAccountLabel = useMemo(
@@ -422,6 +427,8 @@ export default function CreatorSettlementsPage() {
               ["all", "All"],
               ["paid", "Paid"],
               ["pending", "Pending"],
+              ["generated", "Generated"],
+              ["confirmed", "Confirmed"],
               ["processing", "Processing"],
               ["held", "Held"],
               ["disputed", "Disputed"],
