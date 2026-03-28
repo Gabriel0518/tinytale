@@ -650,7 +650,7 @@ function DramaDetailContent() {
 
   const handleShareDrama = useCallback(async () => {
     const currentUrl = typeof window !== "undefined" ? window.location.href : "";
-    if (!currentUrl) return;
+    if (!currentUrl || !drama) return;
 
     try {
       const shared = await shareContent({
