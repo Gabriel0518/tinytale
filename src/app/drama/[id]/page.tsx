@@ -674,7 +674,7 @@ function DramaDetailContent() {
         toast(t.copyFail, "error");
       }
     }
-  }, [drama.description, drama.title, t.copyFail, t.linkCopied, toast]);
+  }, [drama?.description, drama?.title, t.copyFail, t.linkCopied, toast]);
 
   // Auth check for review (P1-18) + toast errors (P1-22)
   const handleSubmitReview = async () => {

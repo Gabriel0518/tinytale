@@ -9,6 +9,10 @@ type CachedStreamEntry = {
   data: StreamPlaybackInfo;
 };
 
+function normalizeAuthToken(token?: string | null) {
+  return token ?? undefined;
+}
+
 function readPrefetchStore() {
   if (typeof window === "undefined") return {};
 
@@ -28,11 +32,11 @@ function writePrefetchStore(store: Record<string, CachedStreamEntry>) {
   window.sessionStorage.setItem(STREAM_PREFETCH_CACHE_KEY, JSON.stringify(store));
 }
 
-function getPrefetchKey(episodeId: string, token?: string) {
-  return `${token ? "auth" : "guest"}:${episodeId}`;
+function getPrefetchKey(episodeId: string, token?: string | null) {
+  return `${normalizeAuthToken(token) ? "auth" : "guest"}:${episodeId}`;
 }
 
-export function readPrefetchedStream(episodeId: string, token?: string) {
+export function readPrefetchedStream(episodeId: string, token?: string | null) {
   const store = readPrefetchStore();
   const entry = store[getPrefetchKey(episodeId, token)];
   if (!entry) return null;
@@ -44,7 +48,7 @@ export function readPrefetchedStream(episodeId: string, token?: string) {
   return entry.data;
 }
 
-export function writePrefetchedStream(episodeId: string, data: StreamPlaybackInfo, token?: string) {
+export function writePrefetchedStream(episodeId: string, data: StreamPlaybackInfo, token?: string | null) {
   const store = readPrefetchStore();
   store[getPrefetchKey(episodeId, token)] = {
     cachedAt: Date.now(),
@@ -53,11 +57,11 @@ export function writePrefetchedStream(episodeId: string, data: StreamPlaybackInf
   writePrefetchStore(store);
 }
 
-export async function prefetchEpisodeStream(episodeId: string, token?: string) {
+export async function prefetchEpisodeStream(episodeId: string, token?: string | null) {
   const cached = readPrefetchedStream(episodeId, token);
   if (cached) return cached;
 
-  const response = await episodesApi.getStream(episodeId, token);
+  const response = await episodesApi.getStream(episodeId, normalizeAuthToken(token));
   const data = (response as any)?.data ?? (response as StreamPlaybackInfo);
   writePrefetchedStream(episodeId, data, token);
   return data;

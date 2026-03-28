@@ -197,7 +197,7 @@ export function AppRuntime() {
     if (!isApp) return;
     if (runtimeSettings?.notifications?.push.enabled === false) return;
 
-    let remove = () => undefined;
+    let remove: () => void = () => undefined;
     let cancelled = false;
     const syncPushToken = async (pushToken: string) => {
       if (cancelled || !pushToken || !token) return;
