@@ -13,6 +13,7 @@ import { Footer } from "@/components/features/Footer";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { usePlatform } from "@/hooks/usePlatform";
 
 type Tab = "library" | "wallet";
 
@@ -428,10 +429,104 @@ const DATE_LOCALE_MAP: FlexibleRecord<SupportedLocale, string> = {
   ko: "ko-KR",
   fr: "fr-FR" };
 
+function ProfileAvatar({
+  user,
+  isVip,
+  size,
+  showVipPill = true,
+  vipLabel,
+}: {
+  user: User;
+  isVip: boolean;
+  size: "mobile" | "desktop";
+  showVipPill?: boolean;
+  vipLabel: string;
+}) {
+  const wrapperClass = size === "mobile" ? "h-20 w-20 text-3xl" : "h-28 w-28 text-4xl";
+  const vipOffsetClass = size === "mobile" ? "-bottom-1 text-[8px]" : "-bottom-1 text-[9px]";
+
+  return (
+    <div className="relative">
+      <div
+        className={`relative flex items-center justify-center rounded-full font-bold text-white ${wrapperClass} ${
+          isVip ? "ring-2 ring-yellow-500 ring-offset-2 ring-offset-[#141519]" : "bg-gray-700"
+        }`}
+        style={{ background: "linear-gradient(135deg, #374151, #1f2937)" }}
+      >
+        {user.avatar ? (
+          <Image src={user.avatar} alt={user.nickname} fill className="rounded-full object-cover" />
+        ) : (
+          user.nickname?.charAt(0).toUpperCase() || "U"
+        )}
+      </div>
+      {isVip && showVipPill ? (
+        <div
+          className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-gradient-to-r from-yellow-500 to-yellow-600 px-2 py-0.5 font-bold text-black ${vipOffsetClass}`}
+        >
+          {vipLabel}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SupportLinks({
+  locale,
+  t,
+}: {
+  locale: SupportedLocale;
+  t: ProfileCopy;
+}) {
+  return (
+    <div className="space-y-2">
+      {[
+        { label: t.wallet.links.helpFaq, href: localizePath("/help", locale), icon: "M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" },
+        { label: t.wallet.links.contact, href: localizePath("/help", locale), icon: "M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" },
+        { label: t.wallet.links.coupons, href: localizePath("/user/purchases", locale), icon: "M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" },
+        { label: t.wallet.links.privacy, href: localizePath("/user/settings", locale), icon: "M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" },
+      ].map((item) => (
+        <Link
+          key={item.label}
+          href={item.href}
+          className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 transition hover:bg-white/[0.06]"
+        >
+          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+          </svg>
+          <span className="text-sm text-gray-300">{item.label}</span>
+          <svg className="ml-auto h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+          </svg>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function WalletEventCard({ t }: { t: ProfileCopy }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-yellow-500/20 bg-gradient-to-br from-yellow-900/10 to-transparent">
+      <div className="relative h-36 w-full bg-gradient-to-br from-[#2a1f0a] to-[#1a1519]">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-yellow-500/10">
+            <svg className="h-10 w-10 text-yellow-500/60" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <div className="p-4">
+        <p className="text-sm font-semibold text-yellow-500">{t.wallet.eventBanner}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const locale = useLocale();
   const t = resolveLocaleCopy(COPY, locale);
   const dateLocale = DATE_LOCALE_MAP[locale] || "en-US";
+  const { isMobile } = usePlatform();
 
   const { user, token } = useAuth();
   const { loading: authLoading } = useAuthGuard();
@@ -474,6 +569,138 @@ export default function ProfilePage() {
 
   const isVip = user.vipStatus === "active";
   const profileId = String(user._id || user.id || "");
+  const stats = [
+    { label: t.tabs.library, value: favorites.length },
+    { label: t.library.history, value: history.length },
+    { label: t.wallet.coins, value: user.coins || 0 },
+  ];
+  const quickLinks = [
+    { label: t.wallet.topUpNow, href: localizePath("/user/coins", locale), accent: "from-red-500/20 to-red-500/5 border-red-500/20" },
+    { label: isVip ? t.wallet.renewMembership : t.wallet.becomeMember, href: localizePath("/user/subscription", locale), accent: "from-yellow-500/20 to-yellow-500/5 border-yellow-500/20" },
+    { label: t.tabs.library, href: localizePath("/user/favorites", locale), accent: "from-white/10 to-white/5 border-white/10" },
+    { label: t.settings, href: localizePath("/user/settings", locale), accent: "from-cyan-500/15 to-cyan-500/5 border-cyan-500/20" },
+  ];
+  const latestHistoryItem = history[0];
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-[#0F1014]">
+        <Navbar />
+
+        <main className="space-y-4 px-4 pb-8 pt-[calc(56px+env(safe-area-inset-top)+12px)]">
+          <section className="overflow-hidden rounded-[28px] border border-white/8 bg-[radial-gradient(circle_at_top_right,_rgba(250,204,21,0.16),_transparent_34%),linear-gradient(180deg,#191B22_0%,#121318_100%)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.32)]">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <ProfileAvatar user={user} isVip={isVip} size="mobile" vipLabel={t.vipMember} />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h1 className="truncate text-xl font-bold text-white">{user.nickname}</h1>
+                    {isVip ? (
+                      <span className="rounded-full bg-yellow-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-yellow-300">
+                        {t.vipMember}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-white/35">
+                    ID {profileId ? profileId.slice(-6).toUpperCase() : "-"}
+                  </p>
+                  <p className="mt-2 text-sm leading-5 text-white/65">{t.profileTagline}</p>
+                </div>
+              </div>
+              <Link
+                href={localizePath("/user/settings", locale)}
+                className="rounded-2xl border border-white/10 bg-white/6 px-3 py-2 text-xs font-medium text-white/80"
+              >
+                {t.settings}
+              </Link>
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              {stats.map((item) => (
+                <div key={item.label} className="rounded-2xl border border-white/6 bg-black/20 px-3 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-white/35">{item.label}</p>
+                  <p className="mt-2 text-lg font-semibold text-white">{item.value.toLocaleString()}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {quickLinks.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className={`rounded-2xl border bg-gradient-to-br px-4 py-3 text-sm font-semibold text-white ${item.accent}`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          {latestHistoryItem ? (
+            <Link
+              href={localizePath(`/drama/${latestHistoryItem._id || latestHistoryItem.dramaId}`, locale)}
+              className="flex items-center gap-3 rounded-[24px] border border-white/8 bg-white/[0.03] p-3"
+            >
+              <Image
+                src={latestHistoryItem.cover || latestHistoryItem.drama?.cover || "https://picsum.photos/seed/drama/200/300"}
+                alt={latestHistoryItem.title || latestHistoryItem.drama?.title || t.library.unknownDrama}
+                width={72}
+                height={96}
+                className="h-24 w-[4.5rem] rounded-2xl object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-red-400">{t.library.continueWatching}</p>
+                <h2 className="mt-1 truncate text-base font-semibold text-white">
+                  {latestHistoryItem.title || latestHistoryItem.drama?.title || t.library.unknownDrama}
+                </h2>
+                <p className="mt-1 text-sm text-white/55">
+                  {t.library.episode} {latestHistoryItem.lastEpisode || latestHistoryItem.episode?.episodeNumber || "-"}
+                </p>
+              </div>
+              <span className="rounded-full bg-red-600 px-3 py-1.5 text-xs font-semibold text-white">
+                {t.library.continueWatching}
+              </span>
+            </Link>
+          ) : null}
+
+          <section className="sticky top-[calc(56px+env(safe-area-inset-top)+8px)] z-20 rounded-[24px] border border-white/8 bg-[#101116]/90 p-2 backdrop-blur-xl">
+            <div className="flex gap-2" role="tablist">
+              {(["library", "wallet"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  aria-selected={activeTab === tab}
+                  role="tab"
+                  className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                    activeTab === tab ? "bg-white text-black" : "text-white/65"
+                  }`}
+                >
+                  {tab === "library" ? t.tabs.library : t.tabs.wallet}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            {activeTab === "library" ? (
+              <LibraryTab favorites={favorites} history={history} locale={locale} t={t} isMobile />
+            ) : (
+              <WalletTab
+                user={user}
+                isVip={isVip}
+                token={token}
+                locale={locale}
+                t={t}
+                dateLocale={dateLocale}
+                isMobile
+              />
+            )}
+          </section>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0F1014]">
@@ -483,21 +710,7 @@ export default function ProfilePage() {
         <div className="border-b border-white/5 bg-[#141519] py-10">
           <div className="mx-auto max-w-7xl px-4">
             <div className="flex flex-col items-center gap-6 md:flex-row">
-              <div className="relative">
-                <div className={`flex h-28 w-28 items-center justify-center rounded-full text-4xl font-bold text-white ${isVip ? "ring-2 ring-yellow-500 ring-offset-2 ring-offset-[#141519]" : "bg-gray-700"}`}
-                  style={{ background: "linear-gradient(135deg, #374151, #1f2937)" }}>
-                  {user.avatar ? (
-                    <Image src={user.avatar} alt={user.nickname} fill className="rounded-full object-cover" />
-                  ) : (
-                    user.nickname?.charAt(0).toUpperCase() || "U"
-                  )}
-                </div>
-                {isVip && (
-                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-yellow-500 to-yellow-600 px-2 py-0.5 text-[9px] font-bold text-black whitespace-nowrap">
-                    {t.vipMember}
-                  </div>
-                )}
-              </div>
+              <ProfileAvatar user={user} isVip={isVip} size="desktop" vipLabel={t.vipMember} />
 
               <div className="flex-1 text-center md:text-left">
                 <div className="flex items-center justify-center gap-2 md:justify-start">
@@ -562,35 +775,37 @@ function LibraryTab({
   favorites,
   history,
   locale,
-  t }: {
+  t,
+  isMobile = false }: {
   favorites: Drama[];
   history: WatchHistoryItem[];
   locale: SupportedLocale;
   t: ProfileCopy;
+  isMobile?: boolean;
 }) {
   const [sub, setSub] = useState<"favorites" | "history">("favorites");
 
   return (
-    <div>
-      <div className="mb-6 flex gap-4">
-        <button onClick={() => setSub("favorites")} aria-pressed={sub === "favorites"} className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${sub === "favorites" ? "bg-red-600 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
+    <div className={isMobile ? "space-y-4" : ""}>
+      <div className={`flex gap-4 ${isMobile ? "rounded-[24px] border border-white/8 bg-white/[0.03] p-2" : "mb-6"}`}>
+        <button onClick={() => setSub("favorites")} aria-pressed={sub === "favorites"} className={`text-sm font-medium transition ${sub === "favorites" ? "bg-red-600 text-white" : "bg-white/5 text-gray-400 hover:text-white"} ${isMobile ? "flex-1 rounded-2xl px-4 py-3" : "rounded-full px-4 py-1.5"}`}>
           {t.library.favorites} ({favorites.length})
         </button>
-        <button onClick={() => setSub("history")} aria-pressed={sub === "history"} className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${sub === "history" ? "bg-red-600 text-white" : "bg-white/5 text-gray-400 hover:text-white"}`}>
+        <button onClick={() => setSub("history")} aria-pressed={sub === "history"} className={`text-sm font-medium transition ${sub === "history" ? "bg-red-600 text-white" : "bg-white/5 text-gray-400 hover:text-white"} ${isMobile ? "flex-1 rounded-2xl px-4 py-3" : "rounded-full px-4 py-1.5"}`}>
           {t.library.history} ({history.length})
         </button>
       </div>
 
       {sub === "favorites" && (
         favorites.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-5">
+          <div className={`grid grid-cols-2 ${isMobile ? "gap-3" : "gap-4 md:grid-cols-4 lg:grid-cols-5"}`}>
             {favorites.map((drama) => (
               <Link key={drama._id} href={localizePath(`/drama/${drama._id}`, locale)}>
-                <div className="group relative aspect-[2/3] overflow-hidden rounded-lg">
+                <div className={`group relative overflow-hidden ${isMobile ? "aspect-[0.76] rounded-[22px]" : "aspect-[2/3] rounded-lg"}`}>
                   <Image src={drama.cover} alt={drama.title} fill className="object-cover transition group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 transition group-hover:opacity-100" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3 opacity-0 transition group-hover:opacity-100">
-                    <p className="text-sm font-medium text-white truncate">{drama.title}</p>
+                  <div className={`absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent ${isMobile ? "opacity-100" : "opacity-0 transition group-hover:opacity-100"}`} />
+                  <div className={`absolute bottom-0 left-0 right-0 p-3 ${isMobile ? "opacity-100" : "opacity-0 transition group-hover:opacity-100"}`}>
+                    <p className="truncate text-sm font-medium text-white">{drama.title}</p>
                   </div>
                 </div>
               </Link>
@@ -608,12 +823,12 @@ function LibraryTab({
         history.length > 0 ? (
           <div className="space-y-3">
             {history.map((item, i) => (
-              <Link key={i} href={localizePath(`/drama/${item._id || item.dramaId}`, locale)} className="flex gap-4 rounded-xl bg-white/[0.03] border border-white/5 p-4 transition hover:bg-white/[0.06]">
-                <Image src={item.cover || item.drama?.cover || "https://picsum.photos/seed/drama/200/300"} alt={item.title || item.drama?.title || t.library.unknownDrama} width={56} height={80} className="h-20 w-14 rounded-lg object-cover" />
+              <Link key={i} href={localizePath(`/drama/${item._id || item.dramaId}`, locale)} className={`flex gap-4 border border-white/5 bg-white/[0.03] transition hover:bg-white/[0.06] ${isMobile ? "items-center rounded-[24px] p-3" : "rounded-xl p-4"}`}>
+                <Image src={item.cover || item.drama?.cover || "https://picsum.photos/seed/drama/200/300"} alt={item.title || item.drama?.title || t.library.unknownDrama} width={56} height={80} className={`${isMobile ? "h-24 w-[4.5rem] rounded-2xl" : "h-20 w-14 rounded-lg"} object-cover`} />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-medium text-white truncate">{item.title || item.drama?.title || t.library.unknownDrama}</h3>
                   <p className="mt-1 text-sm text-gray-500">{t.library.episode} {item.lastEpisode || item.episode?.episodeNumber || "-"}</p>
-                  <span className="mt-2 inline-block text-xs text-red-500">{t.library.continueWatching} →</span>
+                  <span className={`mt-2 inline-block text-xs ${isMobile ? "rounded-full bg-red-500/15 px-2.5 py-1 font-semibold text-red-300" : "text-red-500"}`}>{t.library.continueWatching} →</span>
                 </div>
               </Link>
             ))}
@@ -635,13 +850,15 @@ function WalletTab({
   token,
   locale,
   t,
-  dateLocale }: {
+  dateLocale,
+  isMobile = false }: {
   user: User;
   isVip: boolean;
   token: string | null;
   locale: SupportedLocale;
   t: ProfileCopy;
   dateLocale: string;
+  isMobile?: boolean;
 }) {
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
 
@@ -677,6 +894,109 @@ function WalletTab({
     ? Math.max(0, Math.ceil((new Date(user.vipExpireDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0;
   const vipProgress = user.vipExpireDate ? Math.min(100, Math.max(0, (vipDaysLeft / 30) * 100)) : 0;
+  const topUpHref = localizePath("/user/coins", locale);
+  const subscriptionHref = localizePath("/user/subscription", locale);
+  const purchasesHref = localizePath("/user/purchases", locale);
+
+  if (isMobile) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-[28px] border border-white/8 bg-gradient-to-br from-[#1a1c23] to-[#141519] p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">{t.wallet.totalBalance}</p>
+              <div className="mt-3 flex items-baseline gap-2">
+                <span className="text-4xl font-bold text-white">{(user.coins || 0).toLocaleString()}</span>
+                <span className="rounded-full bg-yellow-500/20 px-3 py-1 text-xs font-semibold text-yellow-400">
+                  {t.wallet.coins}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-green-500/30 bg-green-500/15 px-3 py-2 text-xs font-semibold text-green-300">
+              {isVip ? t.vipMember : t.wallet.vipMembership}
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <Link href={topUpHref} className="rounded-2xl bg-red-600 px-4 py-3 text-center text-sm font-semibold text-white">
+              {t.wallet.topUpNow}
+            </Link>
+            <button className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-medium text-white">
+              {t.wallet.redeemCode}
+            </button>
+          </div>
+        </div>
+
+        <div className="rounded-[28px] border border-yellow-500/25 bg-gradient-to-br from-yellow-900/25 to-[#18140d] p-5">
+          <div className="flex items-center gap-2">
+            <svg className="h-5 w-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14v1z"/>
+            </svg>
+            <span className="text-sm font-bold text-yellow-500">{t.wallet.vipMembership}</span>
+          </div>
+          <p className="mt-3 text-sm leading-6 text-white/70">
+            {isVip ? t.wallet.vipDescActive : t.wallet.vipDescInactive}
+          </p>
+          {isVip ? (
+            <div className="mt-4">
+              <div className="mb-2 flex items-center justify-between text-[11px] text-white/45">
+                <span>{t.wallet.currentPlan}</span>
+                <span>{t.wallet.expiresInDays(vipDaysLeft)}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-yellow-600" style={{ width: `${vipProgress}%` }} />
+              </div>
+            </div>
+          ) : null}
+          <Link
+            href={subscriptionHref}
+            className="mt-4 block rounded-2xl bg-gradient-to-r from-yellow-500 to-yellow-600 py-3 text-center text-sm font-bold text-black"
+          >
+            {isVip ? t.wallet.renewMembership : t.wallet.becomeMember}
+          </Link>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white">{t.wallet.transactionHistory}</h2>
+            <Link href={purchasesHref} className="text-xs text-yellow-500 transition hover:text-yellow-400">
+              {t.wallet.viewAll} →
+            </Link>
+          </div>
+          {transactions.length > 0 ? (
+            transactions.map((tx) => (
+              <div key={tx.id} className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">{tx.desc}</p>
+                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-white/35">{tx.date}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${tx.amount < 0 ? "bg-red-500/10 text-red-300" : "bg-emerald-500/10 text-emerald-300"}`}>
+                    {tx.amount > 0 ? t.wallet.bonusPositivePrefix : ""}{tx.amount}
+                  </span>
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-sm text-white/55">{t.wallet.coins}</span>
+                  <span className="rounded-full bg-white/6 px-2.5 py-1 text-xs text-white/70">{tx.status}</span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-[24px] border border-dashed border-white/8 bg-white/[0.02] px-4 py-8 text-center text-sm text-white/45">
+              {t.wallet.transactionHistory}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <h2 className="mb-3 text-lg font-bold text-white">{t.wallet.supportMore}</h2>
+          <SupportLinks locale={locale} t={t} />
+        </div>
+
+        <WalletEventCard t={t} />
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
@@ -693,7 +1013,7 @@ function WalletTab({
             </div>
           </div>
           <div className="mt-5 flex gap-3">
-            <Link href={localizePath("/user/coins", locale)} className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700">
+            <Link href={topUpHref} className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700">
               {t.wallet.topUpNow}
             </Link>
             <button className="rounded-lg border border-white/10 bg-white/5 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-white/10">
@@ -705,7 +1025,7 @@ function WalletTab({
         <div>
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-bold text-white">{t.wallet.transactionHistory}</h2>
-            <Link href={localizePath("/user/purchases", locale)} className="text-xs text-yellow-500 hover:text-yellow-400 transition">{t.wallet.viewAll} →</Link>
+            <Link href={purchasesHref} className="text-xs text-yellow-500 hover:text-yellow-400 transition">{t.wallet.viewAll} →</Link>
           </div>
           <div className="rounded-xl border border-white/5 overflow-hidden">
             <table className="w-full text-sm">
@@ -756,43 +1076,17 @@ function WalletTab({
               </div>
             </div>
           )}
-          <Link href={localizePath("/user/subscription", locale)} className="mt-4 block rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-600 py-2.5 text-center text-sm font-bold text-black transition hover:from-yellow-600 hover:to-yellow-700">
+          <Link href={subscriptionHref} className="mt-4 block rounded-lg bg-gradient-to-r from-yellow-500 to-yellow-600 py-2.5 text-center text-sm font-bold text-black transition hover:from-yellow-600 hover:to-yellow-700">
             {isVip ? t.wallet.renewMembership : t.wallet.becomeMember}
           </Link>
         </div>
 
         <div>
           <h2 className="mb-4 text-lg font-bold text-white">{t.wallet.supportMore}</h2>
-          <div className="space-y-2">
-            {[
-              { label: t.wallet.links.helpFaq, href: localizePath("/help", locale), icon: "M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" },
-              { label: t.wallet.links.contact, href: localizePath("/help", locale), icon: "M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" },
-              { label: t.wallet.links.coupons, href: localizePath("/user/purchases", locale), icon: "M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" },
-              { label: t.wallet.links.privacy, href: localizePath("/user/settings", locale), icon: "M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" },
-            ].map((item) => (
-              <Link key={item.label} href={item.href} className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3 transition hover:bg-white/[0.06]">
-                <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d={item.icon} /></svg>
-                <span className="text-sm text-gray-300">{item.label}</span>
-                <svg className="ml-auto h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
-              </Link>
-            ))}
-          </div>
+          <SupportLinks locale={locale} t={t} />
         </div>
 
-        <div className="rounded-xl border border-yellow-500/20 bg-gradient-to-br from-yellow-900/10 to-transparent overflow-hidden">
-          <div className="relative h-36 w-full bg-gradient-to-br from-[#2a1f0a] to-[#1a1519]">
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="h-20 w-20 rounded-full bg-yellow-500/10 flex items-center justify-center">
-                <svg className="h-10 w-10 text-yellow-500/60" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div className="p-4">
-            <p className="text-sm font-semibold text-yellow-500">{t.wallet.eventBanner}</p>
-          </div>
-        </div>
+        <WalletEventCard t={t} />
       </div>
     </div>
   );

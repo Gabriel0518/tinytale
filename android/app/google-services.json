@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "941933807449",
+    "project_id": "tinytale-b7062",
+    "storage_bucket": "tinytale-b7062.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:941933807449:android:7b194c234d04d3fcacee48",
+        "android_client_info": {
+          "package_name": "top.tinytale.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDbeMEnH8pCF72vxWT-4WGXLS8H2IbEmjk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

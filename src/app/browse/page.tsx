@@ -2,10 +2,10 @@
 
 export const dynamic = 'force-dynamic';
 
-import { Suspense, useEffect, useState, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { dramasApi, categoriesApi } from '@/lib/api';
 import { Drama, Category } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
@@ -14,8 +14,11 @@ import { getDramaBadge, resolveDramaMode } from '@/lib/utils';
 import { mockDramas, mockCategories } from '@/lib/mockData';
 import { localizePath, SupportedLocale } from '@/lib/i18n';
 import { localizeCategoryLabel, normalizeCategoryKey } from '@/lib/categoryI18n';
+import { usePlatform } from '@/hooks/usePlatform';
 import { useLocale } from '@/hooks/useLocale';
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { MobileBrowseGridSkeleton, MobilePillRowSkeleton } from '@/components/mobile/MobileSkeletons';
+import { MobileScrollTabs } from '@/components/mobile/MobileScrollTabs';
 
 type ViewMode = 'grid' | 'list';
 type StatusFilter = 'all' | 'ongoing' | 'completed' | 'upcoming';
@@ -38,8 +41,11 @@ const BROWSE_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
 function BrowseContent() {
   const locale = useLocale();
   const t = resolveLocaleCopy(BROWSE_TEXT, locale);
+  const { isMobile } = usePlatform();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
+  const loaderRef = useRef<HTMLDivElement | null>(null);
 
   const [dramas, setDramas] = useState<Drama[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -77,6 +83,12 @@ function BrowseContent() {
     if (categoryParam) setSelectedCategory(categoryParam);
   }, [categoryParam]);
 
+  useEffect(() => {
+    if (isMobile) {
+      setViewMode('grid');
+    }
+  }, [isMobile]);
+
   // Scroll to top when filters change
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -113,6 +125,32 @@ function BrowseContent() {
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
 
+  useEffect(() => {
+    const prefetchCount = isMobile ? 8 : 6;
+    visible.slice(0, prefetchCount).forEach((drama) => {
+      router.prefetch(localizePath(`/drama/${drama._id}`, locale));
+    });
+  }, [visible, isMobile, router, locale]);
+
+  useEffect(() => {
+    if (!isMobile || !hasMore || loading) return undefined;
+    const node = loaderRef.current;
+    if (!node) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry?.isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + 8, filtered.length));
+        }
+      },
+      { rootMargin: '200px 0px' }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [filtered.length, hasMore, isMobile, loading]);
+
   const genrePills = [
     { key: 'all', label: t.all },
     ...categories.map((c) => ({ key: c.slug, label: localizeCategoryLabel(c.name, locale, c.slug) })),
@@ -135,86 +173,70 @@ function BrowseContent() {
     <div className="min-h-screen bg-[#141414]">
       <Navbar activePath="/browse" />
 
-      <div className="pt-20">
+      <div className="pt-[calc(56px+env(safe-area-inset-top))] md:pt-20">
         <div className="mx-auto max-w-7xl px-4 py-8">
           {/* Page Header */}
-          <h1 className="text-3xl font-bold uppercase tracking-wide text-white md:text-4xl">
+          <h1 className="text-2xl font-bold uppercase tracking-wide text-white md:text-4xl">
             {t.title}
           </h1>
-          <p className="mt-2 text-sm text-gray-400 md:text-base">
+          <p className="mt-2 max-w-2xl text-sm text-gray-400 md:text-base">
             {t.subtitle}
           </p>
 
           {/* Filter Section */}
-          <div className="mt-8 space-y-5">
+          {loading && isMobile ? (
+            <div className="mt-6 -mx-4 border-y border-white/6 bg-[#141414]/95 px-4 py-4">
+              <MobilePillRowSkeleton />
+            </div>
+          ) : (
+          <div className={`mt-6 space-y-5 ${isMobile ? 'sticky top-[calc(56px+env(safe-area-inset-top))] z-20 -mx-4 border-y border-white/6 bg-[#141414]/95 px-4 py-4 backdrop-blur-xl' : ''}`}>
             {/* Genre Row */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-start gap-3">
               <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-500">{t.genre}</span>
-              <div className="flex flex-wrap gap-2">
-                {genrePills.map((pill) => (
-                  <button
-                    key={pill.key}
-                    onClick={() => { setSelectedCategory(pill.key); setVisibleCount(12); }}
-                    aria-pressed={selectedCategory === pill.key}
-                    className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                      selectedCategory === pill.key
-                        ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black'
-                        : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a] hover:text-white'
-                    }`}
-                  >
-                    {pill.label}
-                  </button>
-                ))}
-              </div>
+              <MobileScrollTabs
+                className="flex-1"
+                items={genrePills}
+                value={selectedCategory}
+                onChange={(key) => {
+                  setSelectedCategory(key);
+                  setVisibleCount(12);
+                }}
+              />
             </div>
 
             {/* Status Row */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-start gap-3">
               <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-500">{t.status}</span>
-              <div className="flex flex-wrap gap-2">
-                {statusOptions.map((opt) => (
-                  <button
-                    key={opt.key}
-                    onClick={() => { setStatusFilter(opt.key); setVisibleCount(12); }}
-                    aria-pressed={statusFilter === opt.key}
-                    className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
-                      statusFilter === opt.key
-                        ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black'
-                        : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a] hover:text-white'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+              <MobileScrollTabs
+                className="flex-1"
+                items={statusOptions}
+                value={statusFilter}
+                onChange={(key) => {
+                  setStatusFilter(key as StatusFilter);
+                  setVisibleCount(12);
+                }}
+              />
             </div>
 
             {/* Sort Row */}
             <div className="flex flex-wrap items-center justify-between gap-4 border-t border-gray-800 pt-4">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wider text-gray-500">{t.sortBy}</span>
-                <div className="flex gap-4">
-                  {sortOptions.map((opt) => (
-                    <button
-                      key={opt.key}
-                      onClick={() => setSortBy(opt.key)}
-                      aria-pressed={sortBy === opt.key}
-                      className={`text-sm font-medium transition ${
-                        sortBy === opt.key
-                          ? 'text-white underline underline-offset-4 decoration-amber-500 decoration-2'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+                <MobileScrollTabs
+                  className="flex-1 gap-4"
+                  items={sortOptions}
+                  value={sortBy}
+                  onChange={(key) => setSortBy(key as SortOption)}
+                  tabClassName="rounded-none bg-transparent px-0 py-0 text-sm font-medium"
+                  activeTabClassName="bg-transparent text-white underline underline-offset-4 decoration-amber-500 decoration-2"
+                  inactiveTabClassName="bg-transparent text-gray-400 hover:text-white"
+                />
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-sm text-gray-500">
                   {t.showing} {filtered.length} {t.results}
                 </span>
-                <div className="flex gap-1">
+                <div className="hidden gap-1 md:flex">
                   <button
                     onClick={() => setViewMode('grid')}
                     className={`rounded p-1.5 transition ${viewMode === 'grid' ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-white'}`}
@@ -239,10 +261,13 @@ function BrowseContent() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Drama Grid / List */}
           <div className="mt-8">
-            {loading ? (
+            {loading && isMobile ? (
+              <MobileBrowseGridSkeleton />
+            ) : loading ? (
               <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                 {[...Array(12)].map((_, i) => (
                   <div key={i}>
@@ -270,6 +295,7 @@ function BrowseContent() {
                           alt={drama.title}
                           fill
                           className="object-cover transition duration-300 group-hover:scale-105"
+                          sizes="(max-width: 768px) 46vw, (max-width: 1200px) 30vw, 16vw"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition group-hover:opacity-100" />
                         {/* Status Badge */}
@@ -307,7 +333,13 @@ function BrowseContent() {
                   return (
                     <Link key={drama._id} href={localizePath(`/drama/${drama._id}`, locale)} className="group flex gap-4 rounded-lg bg-[#1f1f1f] p-4 transition hover:bg-[#2a2a2a]">
                       <div className="relative h-32 w-20 shrink-0 overflow-hidden rounded-lg">
-                        <Image src={drama.cover} alt={drama.title} fill className="object-cover" />
+                        <Image
+                          src={drama.cover}
+                          alt={drama.title}
+                          fill
+                          className="object-cover"
+                          sizes="80px"
+                        />
                         {badge && badgeStyles[badge] && (
                           <span className={`absolute left-1 top-1 rounded px-1.5 py-0.5 text-[8px] font-bold uppercase ${badgeStyles[badge].className}`}>
                             {badgeStyles[badge].label}
@@ -336,7 +368,7 @@ function BrowseContent() {
             <div className="mt-10 flex justify-center">
               <button
                 onClick={() => setVisibleCount(prev => prev + 12)}
-                className="flex items-center gap-2 rounded-full border border-amber-500/60 px-8 py-3 text-sm font-semibold uppercase tracking-wider text-amber-400 transition hover:border-amber-400 hover:bg-amber-400/10"
+                className="hidden items-center gap-2 rounded-full border border-amber-500/60 px-8 py-3 text-sm font-semibold uppercase tracking-wider text-amber-400 transition hover:border-amber-400 hover:bg-amber-400/10 md:flex"
               >
                 {t.loadMore}
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -345,6 +377,7 @@ function BrowseContent() {
               </button>
             </div>
           )}
+          {isMobile && hasMore ? <div ref={loaderRef} className="h-10 w-full" aria-hidden="true" /> : null}
         </div>
       </div>
 

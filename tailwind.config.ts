@@ -59,6 +59,15 @@ const config: Config = {
         display: ["Playfair Display", "serif"],
         modern: ["Spline Sans", "system-ui", "sans-serif"],
       },
+      spacing: {
+        "safe-top": "env(safe-area-inset-top)",
+        "safe-bottom": "env(safe-area-inset-bottom)",
+        "safe-left": "env(safe-area-inset-left)",
+        "safe-right": "env(safe-area-inset-right)",
+      },
+      height: {
+        "screen-safe": "calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))",
+      },
       boxShadow: {
         "gold-glow": "0 0 15px rgba(212, 175, 55, 0.3)",
         "error-glow": "0 0 15px rgba(220, 38, 38, 0.3)",

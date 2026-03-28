@@ -19,10 +19,12 @@ import { CloudflarePlayer, PlayerRoot, usePlayerContext } from "@/components/pla
 import type { CloudflarePlayerHandle } from "@/components/player";
 import { ControlBar } from "@/components/player/Controls";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { usePlatform } from "@/hooks/usePlatform";
 import { useLocale } from "@/hooks/useLocale";
 import { resolvePlaybackSource } from "@/lib/playback";
 import { getQualityMenuOptions, resolveDefaultQuality } from "@/lib/playerQuality";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { copyText, shareContent } from "@/lib/capacitor-bridge";
 
 const DRAMA_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
@@ -73,7 +75,13 @@ const DRAMA_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     likes: "likes",
     showLess: "Show Less",
     showMoreReviews: "Show More Reviews",
-    moreLikeThis: "More Like This" },
+    moreLikeThis: "More Like This",
+    watchNow: "Watch Now",
+    aboutDrama: "About this drama",
+    descriptionMore: "More",
+    descriptionLess: "Less",
+    tabReviews: "Reviews",
+    tabRelated: "Related" },
   zh: {
     loading: "加载中...",
     dramaNotFound: "未找到短剧",
@@ -122,12 +130,18 @@ const DRAMA_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     likes: "点赞",
     showLess: "收起",
     showMoreReviews: "查看更多评论",
-    moreLikeThis: "你可能也喜欢" },
-  ja: { loading: "読み込み中...", dramaNotFound: "作品が見つかりません", failedLoadDrama: "読み込みに失敗しました", signInUnlock: "解放するにはログインしてください", signInFavorite: "マイリスト追加にはログインしてください", signInReview: "レビュー投稿にはログインしてください", unlockSuccess: "解放しました！", unlockFail: "解放に失敗しました", unlockAllNone: "すべて解放済みです", unlockAllFail: "一括解放に失敗しました", unlockAllSuccessSuffix: "話を解放しました", insufficientCoins: "コイン不足です。", removedFromList: "マイリストから削除しました", addedToList: "マイリストに追加しました", updateFavoriteFail: "更新に失敗しました", reviewSubmitted: "レビューを投稿しました", reviewFail: "レビュー投稿に失敗しました", home: "ホーム", episodes: "エピソード", updatedToEp: "更新", free: "無料", unlocked: "解放済み", coins: "コイン", vip: "VIP", unlockAll: "一括解放", allUnlocked: "全エピソード解放済み", trending: "トレンド", episodesCount: "話", completed: "完結", inMyList: "マイリスト済み", myList: "マイリスト", linkCopied: "リンクをコピーしました", copyFail: "コピーに失敗しました", share: "共有", cast: "キャスト", lead: "主演", supporting: "助演", reviews: "レビュー", writeReview: "レビューを書く", yourRating: "あなたの評価:", reviewPlaceholder: "この作品の感想を共有してください...", cancel: "キャンセル", submitReview: "投稿", noReviews: "まだレビューがありません", likes: "いいね", showLess: "閉じる", showMoreReviews: "レビューをもっと見る", moreLikeThis: "おすすめ作品" },
-  es: { loading: "Cargando...", dramaNotFound: "Drama no encontrado", failedLoadDrama: "No se pudieron cargar los detalles", signInUnlock: "Inicia sesión para desbloquear episodios", signInFavorite: "Inicia sesión para guardar favoritos", signInReview: "Inicia sesión para escribir reseñas", unlockSuccess: "¡Episodio desbloqueado!", unlockFail: "No se pudo desbloquear", unlockAllNone: "¡Todos los episodios ya están desbloqueados!", unlockAllFail: "Error al desbloquear episodios", unlockAllSuccessSuffix: "episodios desbloqueados", insufficientCoins: "Monedas insuficientes", removedFromList: "Eliminado de Mi lista", addedToList: "Añadido a Mi lista", updateFavoriteFail: "No se pudo actualizar favoritos", reviewSubmitted: "¡Reseña enviada!", reviewFail: "No se pudo enviar la reseña", home: "Inicio", episodes: "Episodios", updatedToEp: "Actualizado al Ep", free: "GRATIS", unlocked: "Desbloqueado", coins: "monedas", vip: "VIP", unlockAll: "Desbloquear todo", allUnlocked: "Todos los episodios desbloqueados", trending: "Tendencia", episodesCount: "Episodios", completed: "Completado", inMyList: "En Mi lista", myList: "Mi lista", linkCopied: "¡Enlace copiado!", copyFail: "No se pudo copiar el enlace", share: "Compartir", cast: "Reparto", lead: "Principal", supporting: "Secundario", reviews: "Reseñas", writeReview: "Escribir reseña", yourRating: "Tu puntuación:", reviewPlaceholder: "Comparte tu opinión sobre este drama...", cancel: "Cancelar", submitReview: "Enviar reseña", noReviews: "Aún no hay reseñas", likes: "me gusta", showLess: "Mostrar menos", showMoreReviews: "Mostrar más reseñas", moreLikeThis: "Más como esto" },
-  pt: { loading: "Carregando...", dramaNotFound: "Drama não encontrado", failedLoadDrama: "Falha ao carregar detalhes", signInUnlock: "Faça login para desbloquear episódios", signInFavorite: "Faça login para adicionar favoritos", signInReview: "Faça login para escrever avaliação", unlockSuccess: "Episódio desbloqueado!", unlockFail: "Falha ao desbloquear episódio", unlockAllNone: "Todos os episódios já estão desbloqueados!", unlockAllFail: "Falha ao desbloquear episódios", unlockAllSuccessSuffix: "episódios desbloqueados", insufficientCoins: "Moedas insuficientes", removedFromList: "Removido da Minha Lista", addedToList: "Adicionado à Minha Lista", updateFavoriteFail: "Falha ao atualizar favoritos", reviewSubmitted: "Avaliação enviada!", reviewFail: "Falha ao enviar avaliação", home: "Início", episodes: "Episódios", updatedToEp: "Atualizado até Ep", free: "GRÁTIS", unlocked: "Desbloqueado", coins: "moedas", vip: "VIP", unlockAll: "Desbloquear tudo", allUnlocked: "Todos episódios desbloqueados", trending: "Em alta", episodesCount: "Episódios", completed: "Concluído", inMyList: "Na Minha Lista", myList: "Minha Lista", linkCopied: "Link copiado!", copyFail: "Falha ao copiar link", share: "Compartilhar", cast: "Elenco", lead: "Principal", supporting: "Coadjuvante", reviews: "Avaliações", writeReview: "Escrever avaliação", yourRating: "Sua nota:", reviewPlaceholder: "Compartilhe sua opinião sobre este drama...", cancel: "Cancelar", submitReview: "Enviar avaliação", noReviews: "Ainda sem avaliações", likes: "curtidas", showLess: "Mostrar menos", showMoreReviews: "Mostrar mais avaliações", moreLikeThis: "Mais como este" },
-  hi: { loading: "लोड हो रहा है...", dramaNotFound: "ड्रामा नहीं मिला", failedLoadDrama: "ड्रामा विवरण लोड नहीं हुआ", signInUnlock: "एपिसोड अनलॉक करने के लिए लॉगिन करें", signInFavorite: "फेवरेट जोड़ने के लिए लॉगिन करें", signInReview: "रिव्यू लिखने के लिए लॉगिन करें", unlockSuccess: "एपिसोड अनलॉक हो गया!", unlockFail: "एपिसोड अनलॉक नहीं हुआ", unlockAllNone: "सभी एपिसोड पहले से अनलॉक हैं", unlockAllFail: "एपिसोड अनलॉक नहीं हो पाए", unlockAllSuccessSuffix: "एपिसोड अनलॉक हुए", insufficientCoins: "कॉइन्स अपर्याप्त हैं", removedFromList: "मेरी सूची से हटाया गया", addedToList: "मेरी सूची में जोड़ा गया", updateFavoriteFail: "फेवरेट अपडेट नहीं हुआ", reviewSubmitted: "रिव्यू जमा हो गया!", reviewFail: "रिव्यू जमा नहीं हुआ", home: "होम", episodes: "एपिसोड", updatedToEp: "अपडेटेड एप", free: "फ्री", unlocked: "अनलॉक", coins: "कॉइन्स", vip: "VIP", unlockAll: "सभी अनलॉक करें", allUnlocked: "सभी एपिसोड अनलॉक हैं", trending: "ट्रेंडिंग", episodesCount: "एपिसोड", completed: "पूर्ण", inMyList: "मेरी सूची में", myList: "मेरी सूची", linkCopied: "लिंक कॉपी हो गया!", copyFail: "लिंक कॉपी नहीं हुआ", share: "शेयर", cast: "कास्ट", lead: "मुख्य", supporting: "सहायक", reviews: "रिव्यू", writeReview: "रिव्यू लिखें", yourRating: "आपकी रेटिंग:", reviewPlaceholder: "इस ड्रामा पर अपनी राय लिखें...", cancel: "रद्द करें", submitReview: "रिव्यू सबमिट करें", noReviews: "अभी कोई रिव्यू नहीं है", likes: "लाइक्स", showLess: "कम दिखाएँ", showMoreReviews: "और रिव्यू दिखाएँ", moreLikeThis: "इसी तरह के और" },
-  id: { loading: "Memuat...", dramaNotFound: "Drama tidak ditemukan", failedLoadDrama: "Gagal memuat detail drama", signInUnlock: "Masuk untuk membuka episode", signInFavorite: "Masuk untuk menambah favorit", signInReview: "Masuk untuk menulis ulasan", unlockSuccess: "Episode berhasil dibuka!", unlockFail: "Gagal membuka episode", unlockAllNone: "Semua episode sudah terbuka!", unlockAllFail: "Gagal membuka semua episode", unlockAllSuccessSuffix: "episode dibuka", insufficientCoins: "Koin tidak cukup", removedFromList: "Dihapus dari Daftar Saya", addedToList: "Ditambahkan ke Daftar Saya", updateFavoriteFail: "Gagal memperbarui favorit", reviewSubmitted: "Ulasan berhasil dikirim!", reviewFail: "Gagal mengirim ulasan", home: "Beranda", episodes: "Episode", updatedToEp: "Update sampai Ep", free: "GRATIS", unlocked: "Terbuka", coins: "koin", vip: "VIP", unlockAll: "Buka semua", allUnlocked: "Semua episode terbuka", trending: "Trending", episodesCount: "Episode", completed: "Selesai", inMyList: "Di Daftar Saya", myList: "Daftar Saya", linkCopied: "Tautan disalin!", copyFail: "Gagal menyalin tautan", share: "Bagikan", cast: "Pemeran", lead: "Utama", supporting: "Pendukung", reviews: "Ulasan", writeReview: "Tulis ulasan", yourRating: "Nilai Anda:", reviewPlaceholder: "Bagikan pendapatmu tentang drama ini...", cancel: "Batal", submitReview: "Kirim ulasan", noReviews: "Belum ada ulasan", likes: "suka", showLess: "Tampilkan lebih sedikit", showMoreReviews: "Tampilkan lebih banyak ulasan", moreLikeThis: "Mirip dengan ini" } };
+    moreLikeThis: "你可能也喜欢",
+    watchNow: "立即观看",
+    aboutDrama: "剧情简介",
+    descriptionMore: "展开",
+    descriptionLess: "收起",
+    tabReviews: "评论",
+    tabRelated: "相关推荐" },
+  ja: { loading: "読み込み中...", dramaNotFound: "作品が見つかりません", failedLoadDrama: "読み込みに失敗しました", signInUnlock: "解放するにはログインしてください", signInFavorite: "マイリスト追加にはログインしてください", signInReview: "レビュー投稿にはログインしてください", unlockSuccess: "解放しました！", unlockFail: "解放に失敗しました", unlockAllNone: "すべて解放済みです", unlockAllFail: "一括解放に失敗しました", unlockAllSuccessSuffix: "話を解放しました", insufficientCoins: "コイン不足です。", removedFromList: "マイリストから削除しました", addedToList: "マイリストに追加しました", updateFavoriteFail: "更新に失敗しました", reviewSubmitted: "レビューを投稿しました", reviewFail: "レビュー投稿に失敗しました", home: "ホーム", episodes: "エピソード", updatedToEp: "更新", free: "無料", unlocked: "解放済み", coins: "コイン", vip: "VIP", unlockAll: "一括解放", allUnlocked: "全エピソード解放済み", trending: "トレンド", episodesCount: "話", completed: "完結", inMyList: "マイリスト済み", myList: "マイリスト", linkCopied: "リンクをコピーしました", copyFail: "コピーに失敗しました", share: "共有", cast: "キャスト", lead: "主演", supporting: "助演", reviews: "レビュー", writeReview: "レビューを書く", yourRating: "あなたの評価:", reviewPlaceholder: "この作品の感想を共有してください...", cancel: "キャンセル", submitReview: "投稿", noReviews: "まだレビューがありません", likes: "いいね", showLess: "閉じる", showMoreReviews: "レビューをもっと見る", moreLikeThis: "おすすめ作品", watchNow: "今すぐ見る", aboutDrama: "作品について", descriptionMore: "もっと見る", descriptionLess: "閉じる", tabReviews: "レビュー", tabRelated: "関連作品" },
+  es: { loading: "Cargando...", dramaNotFound: "Drama no encontrado", failedLoadDrama: "No se pudieron cargar los detalles", signInUnlock: "Inicia sesión para desbloquear episodios", signInFavorite: "Inicia sesión para guardar favoritos", signInReview: "Inicia sesión para escribir reseñas", unlockSuccess: "¡Episodio desbloqueado!", unlockFail: "No se pudo desbloquear", unlockAllNone: "¡Todos los episodios ya están desbloqueados!", unlockAllFail: "Error al desbloquear episodios", unlockAllSuccessSuffix: "episodios desbloqueados", insufficientCoins: "Monedas insuficientes", removedFromList: "Eliminado de Mi lista", addedToList: "Añadido a Mi lista", updateFavoriteFail: "No se pudo actualizar favoritos", reviewSubmitted: "¡Reseña enviada!", reviewFail: "No se pudo enviar la reseña", home: "Inicio", episodes: "Episodios", updatedToEp: "Actualizado al Ep", free: "GRATIS", unlocked: "Desbloqueado", coins: "monedas", vip: "VIP", unlockAll: "Desbloquear todo", allUnlocked: "Todos los episodios desbloqueados", trending: "Tendencia", episodesCount: "Episodios", completed: "Completado", inMyList: "En Mi lista", myList: "Mi lista", linkCopied: "¡Enlace copiado!", copyFail: "No se pudo copiar el enlace", share: "Compartir", cast: "Reparto", lead: "Principal", supporting: "Secundario", reviews: "Reseñas", writeReview: "Escribir reseña", yourRating: "Tu puntuación:", reviewPlaceholder: "Comparte tu opinión sobre este drama...", cancel: "Cancelar", submitReview: "Enviar reseña", noReviews: "Aún no hay reseñas", likes: "me gusta", showLess: "Mostrar menos", showMoreReviews: "Mostrar más reseñas", moreLikeThis: "Más como esto", watchNow: "Ver ahora", aboutDrama: "Sobre este drama", descriptionMore: "Más", descriptionLess: "Menos", tabReviews: "Reseñas", tabRelated: "Relacionado" },
+  pt: { loading: "Carregando...", dramaNotFound: "Drama não encontrado", failedLoadDrama: "Falha ao carregar detalhes", signInUnlock: "Faça login para desbloquear episódios", signInFavorite: "Faça login para adicionar favoritos", signInReview: "Faça login para escrever avaliação", unlockSuccess: "Episódio desbloqueado!", unlockFail: "Falha ao desbloquear episódio", unlockAllNone: "Todos os episódios já estão desbloqueados!", unlockAllFail: "Falha ao desbloquear episódios", unlockAllSuccessSuffix: "episódios desbloqueados", insufficientCoins: "Moedas insuficientes", removedFromList: "Removido da Minha Lista", addedToList: "Adicionado à Minha Lista", updateFavoriteFail: "Falha ao atualizar favoritos", reviewSubmitted: "Avaliação enviada!", reviewFail: "Falha ao enviar avaliação", home: "Início", episodes: "Episódios", updatedToEp: "Atualizado até Ep", free: "GRÁTIS", unlocked: "Desbloqueado", coins: "moedas", vip: "VIP", unlockAll: "Desbloquear tudo", allUnlocked: "Todos episódios desbloqueados", trending: "Em alta", episodesCount: "Episódios", completed: "Concluído", inMyList: "Na Minha Lista", myList: "Minha Lista", linkCopied: "Link copiado!", copyFail: "Falha ao copiar link", share: "Compartilhar", cast: "Elenco", lead: "Principal", supporting: "Coadjuvante", reviews: "Avaliações", writeReview: "Escrever avaliação", yourRating: "Sua nota:", reviewPlaceholder: "Compartilhe sua opinião sobre este drama...", cancel: "Cancelar", submitReview: "Enviar avaliação", noReviews: "Ainda sem avaliações", likes: "curtidas", showLess: "Mostrar menos", showMoreReviews: "Mostrar mais avaliações", moreLikeThis: "Mais como este", watchNow: "Assistir agora", aboutDrama: "Sobre este drama", descriptionMore: "Mais", descriptionLess: "Menos", tabReviews: "Avaliações", tabRelated: "Relacionados" },
+  hi: { loading: "लोड हो रहा है...", dramaNotFound: "ड्रामा नहीं मिला", failedLoadDrama: "ड्रामा विवरण लोड नहीं हुआ", signInUnlock: "एपिसोड अनलॉक करने के लिए लॉगिन करें", signInFavorite: "फेवरेट जोड़ने के लिए लॉगिन करें", signInReview: "रिव्यू लिखने के लिए लॉगिन करें", unlockSuccess: "एपिसोड अनलॉक हो गया!", unlockFail: "एपिसोड अनलॉक नहीं हुआ", unlockAllNone: "सभी एपिसोड पहले से अनलॉक हैं", unlockAllFail: "एपिसोड अनलॉक नहीं हो पाए", unlockAllSuccessSuffix: "एपिसोड अनलॉक हुए", insufficientCoins: "कॉइन्स अपर्याप्त हैं", removedFromList: "मेरी सूची से हटाया गया", addedToList: "मेरी सूची में जोड़ा गया", updateFavoriteFail: "फेवरेट अपडेट नहीं हुआ", reviewSubmitted: "रिव्यू जमा हो गया!", reviewFail: "रिव्यू जमा नहीं हुआ", home: "होम", episodes: "एपिसोड", updatedToEp: "अपडेटेड एप", free: "फ्री", unlocked: "अनलॉक", coins: "कॉइन्स", vip: "VIP", unlockAll: "सभी अनलॉक करें", allUnlocked: "सभी एपिसोड अनलॉक हैं", trending: "ट्रेंडिंग", episodesCount: "एपिसोड", completed: "पूर्ण", inMyList: "मेरी सूची में", myList: "मेरी सूची", linkCopied: "लिंक कॉपी हो गया!", copyFail: "लिंक कॉपी नहीं हुआ", share: "शेयर", cast: "कास्ट", lead: "मुख्य", supporting: "सहायक", reviews: "रिव्यू", writeReview: "रिव्यू लिखें", yourRating: "आपकी रेटिंग:", reviewPlaceholder: "इस ड्रामा पर अपनी राय लिखें...", cancel: "रद्द करें", submitReview: "रिव्यू सबमिट करें", noReviews: "अभी कोई रिव्यू नहीं है", likes: "लाइक्स", showLess: "कम दिखाएँ", showMoreReviews: "और रिव्यू दिखाएँ", moreLikeThis: "इसी तरह के और", watchNow: "अभी देखें", aboutDrama: "इस ड्रामा के बारे में", descriptionMore: "और", descriptionLess: "कम", tabReviews: "रिव्यू", tabRelated: "संबंधित" },
+  id: { loading: "Memuat...", dramaNotFound: "Drama tidak ditemukan", failedLoadDrama: "Gagal memuat detail drama", signInUnlock: "Masuk untuk membuka episode", signInFavorite: "Masuk untuk menambah favorit", signInReview: "Masuk untuk menulis ulasan", unlockSuccess: "Episode berhasil dibuka!", unlockFail: "Gagal membuka episode", unlockAllNone: "Semua episode sudah terbuka!", unlockAllFail: "Gagal membuka semua episode", unlockAllSuccessSuffix: "episode dibuka", insufficientCoins: "Koin tidak cukup", removedFromList: "Dihapus dari Daftar Saya", addedToList: "Ditambahkan ke Daftar Saya", updateFavoriteFail: "Gagal memperbarui favorit", reviewSubmitted: "Ulasan berhasil dikirim!", reviewFail: "Gagal mengirim ulasan", home: "Beranda", episodes: "Episode", updatedToEp: "Update sampai Ep", free: "GRATIS", unlocked: "Terbuka", coins: "koin", vip: "VIP", unlockAll: "Buka semua", allUnlocked: "Semua episode terbuka", trending: "Trending", episodesCount: "Episode", completed: "Selesai", inMyList: "Di Daftar Saya", myList: "Daftar Saya", linkCopied: "Tautan disalin!", copyFail: "Gagal menyalin tautan", share: "Bagikan", cast: "Pemeran", lead: "Utama", supporting: "Pendukung", reviews: "Ulasan", writeReview: "Tulis ulasan", yourRating: "Nilai Anda:", reviewPlaceholder: "Bagikan pendapatmu tentang drama ini...", cancel: "Batal", submitReview: "Kirim ulasan", noReviews: "Belum ada ulasan", likes: "suka", showLess: "Tampilkan lebih sedikit", showMoreReviews: "Tampilkan lebih banyak ulasan", moreLikeThis: "Mirip dengan ini", watchNow: "Tonton sekarang", aboutDrama: "Tentang drama ini", descriptionMore: "Lainnya", descriptionLess: "Lebih sedikit", tabReviews: "Ulasan", tabRelated: "Terkait" } };
 
 function StarRating({ rating, onRate, interactive = false }: { rating: number; onRate?: (r: number) => void; interactive?: boolean }) {
   const [hover, setHover] = useState(0);
@@ -331,6 +345,7 @@ function getEpisodeEffectiveUnlockPrice(episode: Episode, access?: EpisodeAccess
 function DramaDetailContent() {
   const locale = useLocale();
   const t = resolveLocaleCopy(DRAMA_TEXT, locale);
+  const { isMobile } = usePlatform();
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -355,6 +370,8 @@ function DramaDetailContent() {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState("");
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"episodes" | "reviews" | "related">("episodes");
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [unlockingAll, setUnlockingAll] = useState(false);
   const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
   const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
@@ -497,7 +514,7 @@ function DramaDetailContent() {
       if (!token) {
         toast(t.signInUnlock, "info");
         router.push(`${localizePath('/auth/login', locale)}?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`);
-        return;
+        return false;
       }
       const access = episodeAccessMap[episode._id];
       const effectivePrice = getEpisodeEffectiveUnlockPrice(episode, access);
@@ -517,7 +534,7 @@ function DramaDetailContent() {
         confirmText: t.unlockAll,
         cancelText: t.cancel,
       });
-      if (!confirmed) return;
+      if (!confirmed) return false;
       // Call unlock API (P1-19)
       try {
         const res = await coinsApi.unlock(token, episode._id);
@@ -535,13 +552,14 @@ function DramaDetailContent() {
         }
       } catch (err: unknown) {
         toast(err instanceof Error ? err.message : t.unlockFail, "error");
-        return;
+        return false;
       }
     }
     const player = playerRef.current?.getPlayer?.();
     const shouldAutoplayNext = player ? !player.paused() && !player.ended() : true;
     setEpisodeAutoplay(shouldAutoplayNext);
     setActiveEpisode(episode);
+    return true;
   }, [token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, confirmDialog, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.cancel, t.unlockSuccess, t.unlockFail, playerRef]);
 
   // Unlock all paid episodes
@@ -630,6 +648,34 @@ function DramaDetailContent() {
     }
   };
 
+  const handleShareDrama = useCallback(async () => {
+    const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+    if (!currentUrl) return;
+
+    try {
+      const shared = await shareContent({
+        title: drama.title,
+        text: drama.description,
+        url: currentUrl,
+      });
+
+      if (!shared) {
+        await copyText(currentUrl);
+        toast(t.linkCopied, "success");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (/cancel|abort/i.test(message)) return;
+
+      try {
+        await copyText(currentUrl);
+        toast(t.linkCopied, "success");
+      } catch {
+        toast(t.copyFail, "error");
+      }
+    }
+  }, [drama.description, drama.title, t.copyFail, t.linkCopied, toast]);
+
   // Auth check for review (P1-18) + toast errors (P1-22)
   const handleSubmitReview = async () => {
     if (!reviewRating || !reviewContent.trim()) return;
@@ -685,6 +731,337 @@ function DramaDetailContent() {
     if (hasNext) handleEpisodeClick(episodes[activeEpisodeIndex + 1]);
   };
   const isVip = user?.role === 'admin' || user?.vipStatus === 'active';
+  const watchEpisode = activeEpisode || episodes.find((episode) => episode.isFree) || episodes[0] || null;
+  const watchHref = watchEpisode ? localizePath(`/drama/${dramaId}/play/${watchEpisode._id}`, locale) : localizePath(`/drama/${dramaId}`, locale);
+  const mobileDescription = drama.description || "";
+  const shouldClampDescription = mobileDescription.length > 140;
+  const visibleMobileDescription = shouldClampDescription && !descriptionExpanded
+    ? `${mobileDescription.slice(0, 140).trim()}...`
+    : mobileDescription;
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-[#141414] pb-32">
+        <Navbar />
+
+        <main className="pt-[calc(56px+env(safe-area-inset-top))]">
+          <section className="relative overflow-hidden">
+            <div className="relative aspect-[4/5] w-full">
+              <Image
+                src={drama.horizontalCover || drama.cover || "/placeholder-cover.svg"}
+                alt={drama.title}
+                fill
+                className="object-cover"
+                unoptimized={Boolean((drama.horizontalCover || drama.cover)?.startsWith("blob:"))}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#141414]/55 to-black/10" />
+              <div className="absolute inset-x-0 bottom-0 p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  {drama.isFeatured ? (
+                    <span className="rounded-full bg-red-500 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white">
+                      {t.trending}
+                    </span>
+                  ) : null}
+                  {resolveDramaMode(drama) === "completed" ? (
+                    <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+                      {t.completed}
+                    </span>
+                  ) : null}
+                </div>
+                <h1 className="max-w-[85%] text-3xl font-bold text-white">{drama.title}</h1>
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-white/78">
+                  <span className="text-yellow-400">★ {drama.rating?.toFixed(1)}</span>
+                  {drama.year ? <span>{drama.year}</span> : null}
+                  <span>{episodes.length} {t.episodesCount}</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {drama.categories?.slice(0, 3).map((cat) => (
+                    <Link
+                      key={cat}
+                      href={localizePath(`/category?category=${encodeURIComponent(cat)}`, locale)}
+                      className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/85 backdrop-blur-sm"
+                    >
+                      {cat}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="px-4 py-5">
+            <div className="rounded-[28px] border border-white/8 bg-[#191919] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.25)]">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/40">{t.aboutDrama}</p>
+                  <p className="mt-2 text-sm leading-6 text-white/75">{visibleMobileDescription}</p>
+                </div>
+              </div>
+              {shouldClampDescription ? (
+                <button
+                  type="button"
+                  onClick={() => setDescriptionExpanded((prev) => !prev)}
+                  className="mt-3 text-sm font-medium text-red-400"
+                >
+                  {descriptionExpanded ? t.descriptionLess : t.descriptionMore}
+                </button>
+              ) : null}
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={toggleFavorite}
+                  className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-medium transition ${
+                    isFavorited ? "bg-red-600 text-white" : "bg-white/6 text-white hover:bg-white/10"
+                  }`}
+                >
+                  <span>{isFavorited ? t.inMyList : `+ ${t.myList}`}</span>
+                </button>
+                <button
+                  onClick={() => { void handleShareDrama(); }}
+                  className="flex min-h-[44px] items-center justify-center rounded-2xl bg-white/6 px-4 text-sm font-medium text-white hover:bg-white/10"
+                >
+                  {t.share}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="sticky top-[calc(56px+env(safe-area-inset-top))] z-20 border-y border-white/6 bg-[#141414]/92 px-4 py-3 backdrop-blur-xl">
+            <div className="flex gap-2">
+              {[
+                { key: "episodes" as const, label: t.episodes },
+                { key: "reviews" as const, label: t.tabReviews },
+                { key: "related" as const, label: t.tabRelated },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setMobileTab(tab.key)}
+                  className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${
+                    mobileTab === tab.key ? "bg-white text-black" : "bg-white/6 text-white/70"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="px-4 py-5">
+            {mobileTab === "episodes" ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">{t.episodes}</h2>
+                    <p className="text-sm text-white/45">{t.updatedToEp} {episodes.length}</p>
+                  </div>
+                  {lockedEpisodes.length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={handleUnlockAll}
+                      disabled={unlockingAll}
+                      className="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-black disabled:opacity-60"
+                    >
+                      {t.unlockAll}
+                    </button>
+                  ) : null}
+                </div>
+
+                {lockedEpisodes.length > 0 ? (
+                  <div className="rounded-[24px] border border-amber-400/15 bg-gradient-to-br from-amber-400/10 via-[#20160a] to-[#121212] p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.22em] text-amber-200/55">{t.unlockAll}</p>
+                        <p className="mt-2 text-sm font-semibold text-white">
+                          {lockedEpisodes.length} {t.episodes} · {totalUnlockCost} {t.coins}
+                        </p>
+                        {unlockAllDiscountCoins > 0 ? (
+                          <p className="mt-1 text-xs text-amber-200/70">
+                            VIP -{unlockAllDiscountCoins} {t.coins}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="rounded-full border border-amber-300/15 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold text-amber-200">
+                        {originalTotalUnlockCost > totalUnlockCost ? `${originalTotalUnlockCost} → ${totalUnlockCost}` : `${totalUnlockCost}`}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="flex gap-3 overflow-x-auto pb-2 mobile-scroll [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  {episodes.map((ep) => {
+                    const isCurrentEpisode = activeEpisode?._id === ep._id;
+                    const access = episodeAccessMap[ep._id];
+                    const isUnlocked = unlockedEpisodeIds.has(ep._id);
+                    const unlockPrice = getEpisodeEffectiveUnlockPrice(ep, access);
+                    const statusLabel = ep.isFree
+                      ? t.free
+                      : isUnlocked
+                        ? t.unlocked
+                        : access?.reason === "vip_monthly_free_available"
+                          ? `${t.vip} ${t.free}`
+                          : unlockPrice > 0
+                            ? `${unlockPrice} ${t.coins}`
+                            : t.vip;
+                    const statusClass = ep.isFree || isUnlocked
+                      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
+                      : access?.reason === "vip_monthly_free_available"
+                        ? "border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-200"
+                        : "border-amber-400/20 bg-amber-400/10 text-amber-200";
+
+                    return (
+                      <button
+                        key={ep._id}
+                        type="button"
+                        onClick={() => { void handleEpisodeClick(ep); }}
+                        className={`w-[76vw] shrink-0 rounded-[24px] border p-3 text-left transition ${
+                          isCurrentEpisode
+                            ? "border-red-500/60 bg-red-500/10 shadow-[0_18px_40px_rgba(127,29,29,0.28)]"
+                            : "border-white/8 bg-white/4"
+                        }`}
+                      >
+                        <div className="relative mb-3 aspect-video overflow-hidden rounded-2xl bg-black">
+                          <Image
+                            src={ep.thumbnail || drama.cover || "/placeholder-cover.svg"}
+                            alt={ep.title}
+                            fill
+                            className="object-cover"
+                            unoptimized={Boolean((ep.thumbnail || drama.cover)?.startsWith("blob:"))}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                          <div className="absolute left-3 top-3 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80 backdrop-blur-md">
+                            {isCurrentEpisode ? t.watchNow : `${t.episodes} ${ep.episodeNumber}`}
+                          </div>
+                          <div className="absolute bottom-3 right-3 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white/85 backdrop-blur-md">
+                            {formatDuration(ep.duration)}
+                          </div>
+                        </div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-white">{t.episodes} {ep.episodeNumber}</p>
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/65">{ep.title}</p>
+                            <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-white/35">
+                              {isCurrentEpisode ? t.watchNow : statusLabel}
+                            </p>
+                          </div>
+                          <div className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusClass}`}>
+                            {statusLabel}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            {mobileTab === "reviews" ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-white">{t.reviews}</h2>
+                  <button
+                    onClick={() => {
+                      if (!token) {
+                        toast(t.signInReview, "info");
+                        router.push(`${localizePath('/auth/login', locale)}?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+                        return;
+                      }
+                      setShowReviewForm(!showReviewForm);
+                    }}
+                    className="rounded-full bg-white/6 px-4 py-2 text-sm font-medium text-white"
+                  >
+                    {t.writeReview}
+                  </button>
+                </div>
+
+                {showReviewForm ? (
+                  <div className="rounded-[24px] border border-white/8 bg-white/4 p-4">
+                    <div className="mb-3 flex items-center gap-3">
+                      <span className="text-sm text-gray-300">{t.yourRating}</span>
+                      <StarRating rating={reviewRating} onRate={setReviewRating} interactive />
+                    </div>
+                    <textarea
+                      value={reviewContent}
+                      onChange={(e) => setReviewContent(e.target.value)}
+                      placeholder={t.reviewPlaceholder}
+                      className="w-full rounded-2xl bg-black/20 p-3 text-sm text-white placeholder-gray-500 outline-none focus:ring-1 focus:ring-red-600"
+                      rows={4}
+                    />
+                    <div className="mt-3 flex justify-end gap-2">
+                      <button
+                        onClick={() => { setShowReviewForm(false); setReviewRating(0); setReviewContent(""); }}
+                        className="rounded-full px-4 py-2 text-sm text-gray-400"
+                      >
+                        {t.cancel}
+                      </button>
+                      <button
+                        onClick={handleSubmitReview}
+                        disabled={!reviewRating || !reviewContent.trim()}
+                        className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                      >
+                        {t.submitReview}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {displayedReviews.length === 0 ? (
+                  <div className="rounded-[24px] border border-white/8 bg-white/4 px-4 py-10 text-center text-white/55">{t.noReviews}</div>
+                ) : (
+                  displayedReviews.map((review) => (
+                    <div key={review._id} className="rounded-[24px] border border-white/8 bg-white/4 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-red-600 to-pink-600">
+                          <span className="text-sm font-bold text-white">{review.userName?.charAt(0).toUpperCase() || "U"}</span>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium text-white">{review.userName}</span>
+                            <StarRating rating={review.rating} />
+                          </div>
+                          <p className="mt-2 text-sm text-white/75">{review.content}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            ) : null}
+
+            {mobileTab === "related" ? (
+              <div>
+                <h2 className="mb-4 text-lg font-semibold text-white">{t.moreLikeThis}</h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {relatedDramas.map((d) => (
+                    <DramaCard
+                      key={d._id}
+                      drama={d}
+                      onClick={() => router.push(localizePath(`/drama/${d._id}`, locale))}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
+        </main>
+
+        <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[calc(0.85rem+env(safe-area-inset-bottom))]">
+          <Link
+            href={watchHref}
+            className="flex min-h-[56px] items-center justify-between rounded-[24px] bg-red-600 px-5 py-3 text-white shadow-[0_18px_40px_rgba(229,9,20,0.35)]"
+          >
+            <div>
+              <p className="text-xs uppercase tracking-[0.22em] text-white/70">{t.watchNow}</p>
+              <p className="mt-1 text-sm font-semibold">
+                {watchEpisode ? `${t.episodes} ${watchEpisode.episodeNumber}` : drama.title}
+              </p>
+            </div>
+            <span className="text-sm font-semibold">{t.watchNow} →</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#141414]">
@@ -752,12 +1129,14 @@ function DramaDetailContent() {
                           ? "bg-red-600/20 border border-red-600/50"
                           : "bg-[#222] hover:bg-[#2a2a2a]"
                       }`}
-                    >
+                      >
                       <div className="relative h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-gray-800">
-                        <img
-                          src={ep.thumbnail || drama.cover}
+                        <Image
+                          src={ep.thumbnail || drama.cover || "/placeholder-cover.svg"}
                           alt={ep.title}
-                          className="h-full w-full object-cover"
+                          fill
+                          className="object-cover"
+                          unoptimized={Boolean((ep.thumbnail || drama.cover)?.startsWith("blob:"))}
                         />
                         {activeEpisode?._id === ep._id && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -879,12 +1258,7 @@ function DramaDetailContent() {
               {isFavorited ? t.inMyList : `+ ${t.myList}`}
             </button>
             <button
-              onClick={() => {
-                navigator.clipboard?.writeText(window.location.href).then(
-                  () => toast(t.linkCopied, "success"),
-                  () => toast(t.copyFail, "error")
-                );
-              }}
+              onClick={() => { void handleShareDrama(); }}
               className="flex items-center gap-2 rounded-lg bg-gray-800 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-gray-700"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

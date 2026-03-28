@@ -140,6 +140,7 @@ export function HomeCarousel({ title, dramas, className, getDramaHref, renderCar
                   alt={drama.title}
                   fill
                   className="object-cover transition group-hover:scale-105"
+                  sizes="(max-width: 768px) 44vw, (max-width: 1200px) 30vw, 20vw"
                   draggable={false}
                   unoptimized={!drama.cover || drama.cover.startsWith('blob:')}
                 />

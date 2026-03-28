@@ -5,12 +5,24 @@
 :root {
   --background: #141414;
   --foreground: #FFFFFF;
+  --tinytale-mobile-toast-offset: 1rem;
+}
+
+html {
+  background: var(--background);
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
   font-family: system-ui, -apple-system, sans-serif;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 @layer base {
@@ -19,6 +31,50 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+.has-bottom-bar {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  --tinytale-mobile-toast-offset: calc(88px + env(safe-area-inset-bottom));
+}
+
+.has-bottom-bar.has-mini-player {
+  padding-bottom: calc(158px + env(safe-area-inset-bottom));
+  --tinytale-mobile-toast-offset: calc(174px + env(safe-area-inset-bottom));
+}
+
+.has-mini-player:not(.has-bottom-bar) {
+  padding-bottom: calc(90px + env(safe-area-inset-bottom));
+  --tinytale-mobile-toast-offset: calc(106px + env(safe-area-inset-bottom));
+}
+
+.mobile-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+body.keyboard-open .mobile-bottom-tab,
+body.keyboard-open .mobile-mini-player {
+  transform: translateY(140%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bg-shimmer {
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0.06) 8%,
+    rgba(255, 255, 255, 0.12) 18%,
+    rgba(255, 255, 255, 0.06) 33%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-wave 1.35s linear infinite;
+}
+
+@keyframes shimmer-wave {
+  to {
+    background-position-x: -200%;
   }
 }
 

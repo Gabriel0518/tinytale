@@ -4,6 +4,9 @@ import { AuthProvider } from '@/lib/authContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { ToastProvider } from '@/components/ui/Toast';
 import { ConfirmProvider } from '@/components/ui/ConfirmDialog';
+import { AppRuntime } from '@/components/mobile/AppRuntime';
+import { MobileMiniPlayer } from '@/components/mobile/MobileMiniPlayer';
+import { PlaybackSessionProvider } from '@/components/mobile/PlaybackSession';
 
 const FALLBACK_GOOGLE_CLIENT_ID =
   '995123954885-eslkphffjblocspkukd7l2ms49sgcmv0.apps.googleusercontent.com';
@@ -19,11 +22,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
       <AuthProvider>
-        <ConfirmProvider>
-          <ToastProvider>
-            {children}
-          </ToastProvider>
-        </ConfirmProvider>
+        <PlaybackSessionProvider>
+          <ConfirmProvider>
+            <ToastProvider>
+              <AppRuntime />
+              {children}
+              <MobileMiniPlayer />
+            </ToastProvider>
+          </ConfirmProvider>
+        </PlaybackSessionProvider>
       </AuthProvider>
     </GoogleOAuthProvider>
   );

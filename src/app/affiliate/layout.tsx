@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/authContext";
 import { promoterApi } from "@/lib/api";
 import AffiliateSidebar from "@/components/affiliate/AffiliateSidebar";
 import AffiliateHeader from "@/components/affiliate/AffiliateHeader";
+import { usePlatform } from "@/hooks/usePlatform";
 import { localizePath, removeLocalePrefix, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { LanguageSwitcher } from "@/components/features/LanguageSwitcher";
@@ -33,9 +34,16 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
   const t = resolveLocaleCopy(COPY, locale);
   const router = useRouter();
   const { token, user, loading: authLoading } = useAuth();
+  const { isApp, isMobile } = usePlatform();
   const [checking, setChecking] = useState(true);
+  const isRestrictedPlatform = isApp || isMobile;
 
   useEffect(() => {
+    if (isRestrictedPlatform) {
+      router.replace(localizePath("/", locale));
+      return;
+    }
+
     if (authLoading) {
       return;
     }
@@ -99,9 +107,9 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
     }
 
     checkStatus();
-  }, [pathname, token, router, locale, authLoading]);
+  }, [pathname, token, router, locale, authLoading, isRestrictedPlatform]);
 
-  if ((authLoading || checking) && pathname !== "/affiliate") {
+  if (isRestrictedPlatform || ((authLoading || checking) && pathname !== "/affiliate")) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0a0a12]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />

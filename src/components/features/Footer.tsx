@@ -3,7 +3,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 import { localizePath, SupportedLocale } from '@/lib/i18n';
+import { usePlatform } from '@/hooks/usePlatform';
 import { useLocale } from '@/hooks/useLocale';
 import { resolveLocaleCopy } from '@/lib/locale-copy';
 
@@ -177,6 +179,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
 export function Footer() {
   const locale = useLocale();
   const t = resolveLocaleCopy(FOOTER_TEXT, locale);
+  const { isMobile } = usePlatform();
   const [socialLinks, setSocialLinks] = useState<{ key: string; url: string }[]>([]);
 
   const footerSections = useMemo(() => ([
@@ -218,18 +221,23 @@ export function Footer() {
   }, []);
 
   return (
-    <footer className="border-t border-gray-800 bg-[#0a0a0a] py-12 mt-12">
+    <footer
+      className={cn(
+        "mt-8 border-t border-gray-800 bg-[#0a0a0a] py-10 md:mt-12 md:py-12",
+        isMobile && "pb-[calc(2.5rem+env(safe-area-inset-bottom))]"
+      )}
+    >
       <div className="mx-auto max-w-7xl px-4">
         {/* Logo */}
         <div className="mb-8">
-          <Image src="/logo.png" alt="TinyTale" width={420} height={108} className="h-16 w-auto" />
+          <Image src="/logo.png" alt="TinyTale" width={420} height={108} className="h-12 w-auto md:h-16" />
           <p className="mt-3 text-sm text-gray-500">
             {t.tagline}
           </p>
         </div>
 
         {/* Grid sections */}
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-8">
           {footerSections.map((section) => (
             <div key={section.title}>
               <h4 className="mb-3 text-sm font-semibold uppercase tracking-wider text-gray-400">

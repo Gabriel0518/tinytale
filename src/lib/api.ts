@@ -548,6 +548,21 @@ export const settingsApi = {
   updateSettings: (token: string, data: any) =>
     api.put('/api/user/settings', data, { token }),
 
+  registerPushDevice: (
+    token: string,
+    data: { deviceToken: string; platform?: string; lastRegisteredAt?: string; appVersion?: string }
+  ) => api.post('/api/user/notifications/push/register', data, { token }),
+
+  unregisterPushDevice: (
+    token: string,
+    data: { deviceToken: string }
+  ) => api.post('/api/user/notifications/push/unregister', data, { token }),
+
+  sendTestPush: (
+    token: string,
+    data?: { title?: string; body?: string; path?: string }
+  ) => api.post('/api/user/notifications/push/test', data || {}, { token }),
+
   getSecurity: (token: string) =>
     api.get('/api/user/security', { token }),
 

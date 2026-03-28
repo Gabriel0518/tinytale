@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/authContext";
 import { creatorApi } from "@/lib/api";
 import { normalizeCreatorApplicationStatus } from "@/lib/creator";
+import { usePlatform } from "@/hooks/usePlatform";
 import { localizePath, removeLocalePrefix } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { translateCreatorText } from "./_lib/creator-i18n";
@@ -45,7 +46,9 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
   const locale = useLocale();
   const router = useRouter();
   const { token, loading: authLoading, user } = useAuth();
+  const { isApp, isMobile } = usePlatform();
   const [checking, setChecking] = useState(true);
+  const isRestrictedPlatform = isApp || isMobile;
 
   const isLanding = normalizedPath === "/creator";
   const isPendingPage = normalizedPath === "/creator/pending";
@@ -57,6 +60,11 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
   );
 
   useEffect(() => {
+    if (isRestrictedPlatform) {
+      router.replace(localizePath("/", locale));
+      return;
+    }
+
     if (authLoading) return;
 
     const redirectTarget = pathname || localizePath("/creator", locale);
@@ -130,6 +138,7 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
       cancelled = true;
     };
   }, [
+    isRestrictedPlatform,
     authLoading,
     token,
     router,
@@ -141,7 +150,7 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
     isApprovedOnlyPath,
   ]);
 
-  if (authLoading || checking) {
+  if (isRestrictedPlatform || authLoading || checking) {
     return (
       <CreatorI18nProvider locale={locale}>
         <div className="flex min-h-screen items-center justify-center bg-[#f5f7f8]">

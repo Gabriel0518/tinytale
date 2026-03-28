@@ -2,8 +2,9 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { dramasApi, categoriesApi, userApi } from '@/lib/api';
 import { Drama, Category } from '@/types';
@@ -15,8 +16,15 @@ import { Footer } from '@/components/features/Footer';
 import { mockDramas, mockCategories } from '@/lib/mockData';
 import { localizePath, SupportedLocale } from '@/lib/i18n';
 import { localizeCategoryLabel, normalizeCategoryKey } from '@/lib/categoryI18n';
+import { usePlatform } from '@/hooks/usePlatform';
 import { useLocale } from '@/hooks/useLocale';
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { PullToRefresh } from '@/components/mobile/PullToRefresh';
+import {
+  MobileHeroSkeleton,
+  MobilePillRowSkeleton,
+  MobileShelfSkeleton,
+} from '@/components/mobile/MobileSkeletons';
 
 function validCover(url?: string): string | undefined {
   if (!url || url.startsWith('blob:')) return undefined;
@@ -47,6 +55,11 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     recommendations: 'Recommendations',
     continueWatching: 'Continue Watching',
     editorsChoice: "Editor's Choice",
+    more: 'More',
+    episodesShort: 'eps',
+    pullToRefresh: 'PULL TO REFRESH',
+    releaseToRefresh: 'RELEASE TO REFRESH',
+    refreshing: 'REFRESHING',
     browseFallback: '/browse' },
   zh: {
     all: '全部',
@@ -60,6 +73,11 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     recommendations: '推荐内容',
     continueWatching: '继续观看',
     editorsChoice: '编辑精选',
+    more: '更多',
+    episodesShort: '集',
+    pullToRefresh: '下拉刷新',
+    releaseToRefresh: '松开刷新',
+    refreshing: '正在刷新',
     browseFallback: '/browse' },
   ja: {
     all: 'すべて',
@@ -73,6 +91,11 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     recommendations: 'おすすめ',
     continueWatching: '視聴を続ける',
     editorsChoice: '編集部のおすすめ',
+    more: 'もっと見る',
+    episodesShort: '話',
+    pullToRefresh: '引っ張って更新',
+    releaseToRefresh: '離して更新',
+    refreshing: '更新中',
     browseFallback: '/browse' },
   es: {
     all: 'Todo',
@@ -86,6 +109,11 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     recommendations: 'Recomendaciones',
     continueWatching: 'Seguir viendo',
     editorsChoice: 'Selección del editor',
+    more: 'Más',
+    episodesShort: 'eps',
+    pullToRefresh: 'DESLIZA PARA ACTUALIZAR',
+    releaseToRefresh: 'SUELTA PARA ACTUALIZAR',
+    refreshing: 'ACTUALIZANDO',
     browseFallback: '/browse' },
   pt: {
     all: 'Todos',
@@ -99,6 +127,11 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     recommendations: 'Recomendações',
     continueWatching: 'Continuar assistindo',
     editorsChoice: 'Escolha do editor',
+    more: 'Mais',
+    episodesShort: 'eps',
+    pullToRefresh: 'PUXE PARA ATUALIZAR',
+    releaseToRefresh: 'SOLTE PARA ATUALIZAR',
+    refreshing: 'ATUALIZANDO',
     browseFallback: '/browse' },
   hi: {
     all: 'सभी',
@@ -112,6 +145,11 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     recommendations: 'सिफ़ारिशें',
     continueWatching: 'देखना जारी रखें',
     editorsChoice: 'एडिटर की पसंद',
+    more: 'और',
+    episodesShort: 'एप',
+    pullToRefresh: 'रीफ्रेश करने के लिए खींचें',
+    releaseToRefresh: 'रीफ्रेश करने के लिए छोड़ें',
+    refreshing: 'रीफ्रेश हो रहा है',
     browseFallback: '/browse' },
   id: {
     all: 'Semua',
@@ -125,12 +163,70 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     recommendations: 'Rekomendasi',
     continueWatching: 'Lanjut menonton',
     editorsChoice: 'Pilihan editor',
+    more: 'Lainnya',
+    episodesShort: 'ep',
+    pullToRefresh: 'TARIK UNTUK MEMUAT ULANG',
+    releaseToRefresh: 'LEPAS UNTUK MEMUAT ULANG',
+    refreshing: 'MEMUAT ULANG',
     browseFallback: '/browse' } };
+
+function MobileShelfGrid({
+  title,
+  dramas,
+  locale,
+  moreLabel,
+  episodeShortLabel,
+}: {
+  title: string;
+  dramas: Drama[];
+  locale: SupportedLocale;
+  moreLabel: string;
+  episodeShortLabel: string;
+}) {
+  if (dramas.length === 0) return null;
+
+  return (
+    <section className="px-4 py-6 md:hidden">
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-white">{title}</h2>
+        <Link href={localizePath('/browse', locale)} className="text-sm font-medium text-red-400">
+          {moreLabel}
+        </Link>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {dramas.slice(0, 4).map((drama) => (
+          <Link key={drama._id} href={localizePath(`/drama/${drama._id}`, locale)} className="group">
+            <div className="relative aspect-[3/4] overflow-hidden rounded-[22px] bg-[#1f1f1f]">
+              <Image
+                src={validCover(drama.cover) || '/placeholder-cover.svg'}
+                alt={drama.title}
+                fill
+                className="object-cover transition duration-300 group-hover:scale-105"
+                sizes="(max-width: 768px) 46vw, 25vw"
+                unoptimized={Boolean(drama.cover?.startsWith('blob:'))}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent" />
+              <div className="absolute inset-x-0 bottom-0 p-3">
+                <p className="line-clamp-2 text-sm font-semibold text-white">{drama.title}</p>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-white/75">
+                  <span>{drama.totalEpisodes || 0} {episodeShortLabel}</span>
+                  <span className="text-yellow-400">★ {drama.rating?.toFixed(1)}</span>
+                </div>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function Home() {
   const locale = useLocale();
   const t = resolveLocaleCopy(HOME_TEXT, locale);
+  const { isMobile } = usePlatform();
   const router = useRouter();
+  const requestIdRef = useRef(0);
   const [dramas, setDramas] = useState<Drama[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [hotRankings, setHotRankings] = useState<Drama[]>([]);
@@ -162,149 +258,149 @@ export default function Home() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [heroIndex, setHeroIndex] = useState(0);
 
-  useEffect(() => {
-    let canceled = false;
+  const mergeLocalizedDrama = useCallback((drama: Drama, localizedMap: Map<string, Drama>) => {
+    const localized = localizedMap.get(drama._id);
+    if (!localized) return drama;
+    return {
+      ...drama,
+      title: localized.title || drama.title,
+      description: localized.description || drama.description,
+      categories: localized.categories?.length ? localized.categories : drama.categories };
+  }, []);
 
-    const mergeLocalizedDrama = (drama: Drama, localizedMap: Map<string, Drama>) => {
-      const localized = localizedMap.get(drama._id);
-      if (!localized) return drama;
-      return {
-        ...drama,
-        title: localized.title || drama.title,
-        description: localized.description || drama.description,
-        categories: localized.categories?.length ? localized.categories : drama.categories };
-    };
+  const fetchHomeData = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
 
-    const fetchData = async () => {
+    if (mode !== 'refresh') {
       setLoading(true);
-      try {
-        const [dramasRes, categoriesRes, rankingsRes, featuredRes, playlistsRes, bannersRes, heroBannersRes] = await Promise.all([
-          dramasApi.getAll({ limit: 200 }),
-          categoriesApi.getAll(),
-          dramasApi.getRankings('rating').catch(() => ({ data: [] })),
-          dramasApi.getFeatured().catch(() => ({ data: {} })),
-          dramasApi.getPlaylists().catch(() => ({ data: [] })),
-          dramasApi.getBanners().catch(() => ({ data: [] })),
-          dramasApi.getHeroBanners().catch(() => ({ data: [] })),
-        ]);
-        const fetchedDramas = dramasRes.data?.dramas || [];
-        const fetchedCategories = categoriesRes.data || [];
-        const localizedDramas = fetchedDramas.length > 0 ? fetchedDramas : mockDramas;
-        const localizedMap = new Map<string, Drama>(
-          localizedDramas.map((drama: Drama) => [drama._id, drama])
-        );
-        const localizedCategories = (fetchedCategories.length > 0 ? fetchedCategories : mockCategories).map((category: Category) => ({
-          ...category,
-          name: localizeCategoryLabel(category.name, locale, category.slug) }));
+    }
 
-        if (canceled) return;
-        setDramas(localizedDramas);
-        setCategories(localizedCategories);
+    try {
+      const [dramasRes, categoriesRes, rankingsRes, featuredRes, playlistsRes, bannersRes, heroBannersRes] = await Promise.all([
+        dramasApi.getAll({ limit: 200 }),
+        categoriesApi.getAll(),
+        dramasApi.getRankings('rating').catch(() => ({ data: [] })),
+        dramasApi.getFeatured().catch(() => ({ data: {} })),
+        dramasApi.getPlaylists().catch(() => ({ data: [] })),
+        dramasApi.getBanners().catch(() => ({ data: [] })),
+        dramasApi.getHeroBanners().catch(() => ({ data: [] })),
+      ]);
+      const fetchedDramas = dramasRes.data?.dramas || [];
+      const fetchedCategories = categoriesRes.data || [];
+      const localizedDramas = fetchedDramas.length > 0 ? fetchedDramas : mockDramas;
+      const localizedMap = new Map<string, Drama>(
+        localizedDramas.map((drama: Drama) => [drama._id, drama])
+      );
+      const localizedCategories = (fetchedCategories.length > 0 ? fetchedCategories : mockCategories).map((category: Category) => ({
+        ...category,
+        name: localizeCategoryLabel(category.name, locale, category.slug) }));
 
-        // Hot rankings for hero banner
-        const rankings = rankingsRes.data || [];
-        setHotRankings(
-          Array.isArray(rankings)
-            ? rankings.slice(0, 5).map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
-            : []
-        );
-        setHeroIndex(0);
+      if (requestId !== requestIdRef.current) return;
 
-        // Editor recommendations
-        const featuredData = featuredRes.data || {};
-        const recDramas = featuredData.featured || [];
-        setRecommendations(
-          Array.isArray(recDramas)
-            ? recDramas.map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
-            : []
-        );
+      setDramas(localizedDramas);
+      setCategories(localizedCategories);
 
-        // Custom playlists
-        const plData = playlistsRes.data || [];
-        setCustomPlaylists(
-          (Array.isArray(plData) ? plData : []).map((p: any) => ({
-            _id: p._id,
-            slug: p.slug || '',
-            name: p.name,
-            icon: p.icon || '',
-            dramas: Array.isArray(p.dramas)
-              ? p.dramas.map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
-              : [] }))
-        );
+      const rankings = rankingsRes.data || [];
+      setHotRankings(
+        Array.isArray(rankings)
+          ? rankings.slice(0, 5).map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
+          : []
+      );
+      setHeroIndex(0);
 
-        // Banners
-        const bnData = bannersRes.data || [];
-        setBanners(
-          (Array.isArray(bnData) ? bnData : []).map((b: any) => ({
-            _id: b._id, title: b.title || '', subtitle: b.subtitle || '',
-            image: b.image || '', linkType: b.linkType || 'drama', linkId: b.linkId || '',
-            slot: b.slot || 'standard', position: b.position ?? 0 }))
-        );
+      const featuredData = featuredRes.data || {};
+      const recDramas = featuredData.featured || [];
+      setRecommendations(
+        Array.isArray(recDramas)
+          ? recDramas.map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
+          : []
+      );
 
-        const hbData = heroBannersRes.data || [];
-        setHeroBanners(
-          (Array.isArray(hbData) ? hbData : []).map((item: any) => ({
-            _id: item._id,
-            coverImage: item.coverImage || '',
-            title: item.title || '',
-            subtitle: item.subtitle || '',
-            tag: item.tag || '',
-            dramaId: typeof item.dramaId === 'string' ? item.dramaId : item.dramaId?._id || '',
-            displayDurationSec: Number(item.displayDurationSec || 5),
-            position: Number(item.position ?? 0),
-          }))
-        );
-        setHeroIndex(0);
+      const plData = playlistsRes.data || [];
+      setCustomPlaylists(
+        (Array.isArray(plData) ? plData : []).map((p: any) => ({
+          _id: p._id,
+          slug: p.slug || '',
+          name: p.name,
+          icon: p.icon || '',
+          dramas: Array.isArray(p.dramas)
+            ? p.dramas.map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
+            : [] }))
+      );
 
-        if (typeof window !== 'undefined') {
-          const token = localStorage.getItem('token') || '';
-          if (token) {
-            const continueRes: any = await userApi.getContinueWatching(token, 50).catch(() => null);
-            const list = Array.isArray(continueRes?.data) ? continueRes.data : [];
-            setContinueWatching(
-              list.map((item: any) => {
-                const episodeDuration = Number(item.durationSeconds ?? item?.episode?.duration ?? 0);
-                const progressPercent = clampPercent(Number(item.progress || 0));
-                const fallbackResumeSeconds = episodeDuration > 0
-                  ? Math.round((episodeDuration * progressPercent) / 100)
-                  : 0;
-                const resumeSeconds = item.resumeSeconds ?? fallbackResumeSeconds ?? 0;
-                return {
-                  _id: String(item._id || `${item.dramaId}-${item.episodeId || ''}`),
-                  dramaId: String(item.dramaId || item.drama?._id || ''),
-                  episodeId: item.episodeId ? String(item.episodeId) : (item.episode?._id ? String(item.episode._id) : null),
-                  drama: item.drama || null,
-                  episode: item.episode || null,
-                  progress: progressPercent,
-                  resumeSeconds: Math.max(0, Number(resumeSeconds)),
-                  durationSeconds: Math.max(0, episodeDuration),
-                  updatedAt: item.updatedAt,
-                };
-              })
-            );
-          } else {
-            setContinueWatching([]);
-          }
-        }
-      } catch {
-        if (canceled) return;
-        setDramas(mockDramas);
-        setCategories(
-          mockCategories.map((category) => ({
-            ...category,
-            name: localizeCategoryLabel(category.name, locale, category.slug) }))
-        );
-      } finally {
-        if (!canceled) {
-          setLoading(false);
+      const bnData = bannersRes.data || [];
+      setBanners(
+        (Array.isArray(bnData) ? bnData : []).map((b: any) => ({
+          _id: b._id, title: b.title || '', subtitle: b.subtitle || '',
+          image: b.image || '', linkType: b.linkType || 'drama', linkId: b.linkId || '',
+          slot: b.slot || 'standard', position: b.position ?? 0 }))
+      );
+
+      const hbData = heroBannersRes.data || [];
+      setHeroBanners(
+        (Array.isArray(hbData) ? hbData : []).map((item: any) => ({
+          _id: item._id,
+          coverImage: item.coverImage || '',
+          title: item.title || '',
+          subtitle: item.subtitle || '',
+          tag: item.tag || '',
+          dramaId: typeof item.dramaId === 'string' ? item.dramaId : item.dramaId?._id || '',
+          displayDurationSec: Number(item.displayDurationSec || 5),
+          position: Number(item.position ?? 0),
+        }))
+      );
+      setHeroIndex(0);
+
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('token') || '';
+        if (token) {
+          const continueRes: any = await userApi.getContinueWatching(token, 50).catch(() => null);
+          if (requestId !== requestIdRef.current) return;
+          const list = Array.isArray(continueRes?.data) ? continueRes.data : [];
+          setContinueWatching(
+            list.map((item: any) => {
+              const episodeDuration = Number(item.durationSeconds ?? item?.episode?.duration ?? 0);
+              const progressPercent = clampPercent(Number(item.progress || 0));
+              const fallbackResumeSeconds = episodeDuration > 0
+                ? Math.round((episodeDuration * progressPercent) / 100)
+                : 0;
+              const resumeSeconds = item.resumeSeconds ?? fallbackResumeSeconds ?? 0;
+              return {
+                _id: String(item._id || `${item.dramaId}-${item.episodeId || ''}`),
+                dramaId: String(item.dramaId || item.drama?._id || ''),
+                episodeId: item.episodeId ? String(item.episodeId) : (item.episode?._id ? String(item.episode._id) : null),
+                drama: item.drama || null,
+                episode: item.episode || null,
+                progress: progressPercent,
+                resumeSeconds: Math.max(0, Number(resumeSeconds)),
+                durationSeconds: Math.max(0, episodeDuration),
+                updatedAt: item.updatedAt,
+              };
+            })
+          );
+        } else {
+          setContinueWatching([]);
         }
       }
-    };
-    fetchData();
-    return () => {
-      canceled = true;
-    };
-  }, [locale]);
+    } catch {
+      if (requestId !== requestIdRef.current) return;
+      setDramas(mockDramas);
+      setCategories(
+        mockCategories.map((category) => ({
+          ...category,
+          name: localizeCategoryLabel(category.name, locale, category.slug) }))
+      );
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [locale, mergeLocalizedDrama]);
+
+  useEffect(() => {
+    void fetchHomeData('initial');
+  }, [fetchHomeData]);
 
   useEffect(() => {
     setActiveCategory('all');
@@ -380,12 +476,55 @@ export default function Home() {
       label: localizeCategoryLabel(c.name, locale, c.slug) })),
   ];
 
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const routes = new Set<string>([localizePath('/browse', locale)]);
+
+    if (currentHeroBanner?.dramaId) {
+      routes.add(localizePath(`/drama/${currentHeroBanner.dramaId}`, locale));
+    }
+
+    if (heroDrama?._id) {
+      routes.add(localizePath(`/drama/${heroDrama._id}`, locale));
+    }
+
+    [
+      ...continueWatchingDramas.slice(0, 2),
+      ...trendingDramas.slice(0, 4),
+      ...newReleases.slice(0, 2),
+    ].forEach((drama) => {
+      if (drama?._id) {
+        routes.add(localizePath(`/drama/${drama._id}`, locale));
+      }
+    });
+
+    routes.forEach((route) => router.prefetch(route));
+  }, [
+    isMobile,
+    locale,
+    router,
+    currentHeroBanner?.dramaId,
+    heroDrama?._id,
+    continueWatchingDramas,
+    trendingDramas,
+    newReleases,
+  ]);
+
   return (
     <div className="min-h-screen bg-[#141414]">
       <Navbar activePath="/" variant="transparent" />
-
-      {/* Hero Banner */}
-      <section className="relative h-[70vh] w-full overflow-hidden md:h-[85vh]">
+      <PullToRefresh
+        disabled={!isMobile}
+        onRefresh={() => fetchHomeData('refresh')}
+        pullLabel={t.pullToRefresh}
+        releaseLabel={t.releaseToRefresh}
+        refreshingLabel={t.refreshing}
+      >
+      {loading && isMobile ? (
+        <MobileHeroSkeleton />
+      ) : (
+      <section className="relative h-[76vh] w-full overflow-hidden md:h-[85vh]">
         {isManagedHeroEnabled && currentHeroBanner ? (
           <>
             <div
@@ -397,13 +536,13 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-r from-[#141414] via-[#141414]/70 to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-[#141414]/30" />
 
-            <div className="absolute bottom-24 left-0 right-0 mx-auto max-w-7xl px-4 md:bottom-32">
+            <div className="absolute bottom-28 left-0 right-0 mx-auto max-w-7xl px-4 md:bottom-32">
               {(currentHeroBanner.tag || 'TinyTale') && (
                 <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1 text-xs font-semibold text-white">
                   {currentHeroBanner.tag || 'TinyTale'}
                 </span>
               )}
-              <h1 className="max-w-lg text-4xl font-bold leading-tight text-white md:text-6xl">
+              <h1 className="max-w-lg text-3xl font-bold leading-tight text-white md:text-6xl">
                 {currentHeroBanner.title}
               </h1>
               {currentHeroBanner.subtitle && (
@@ -412,10 +551,10 @@ export default function Home() {
                 </p>
               )}
 
-              <div className="mt-6 flex items-center gap-3">
+              <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Link
                   href={currentHeroBanner.dramaId ? localizePath(`/drama/${currentHeroBanner.dramaId}`, locale) : localizePath(t.browseFallback, locale)}
-                  className="flex items-center gap-2 rounded-full bg-red-600 px-8 py-3 font-semibold text-white transition hover:bg-red-700"
+                  className="flex min-h-[48px] items-center gap-2 rounded-full bg-red-600 px-6 py-3 font-semibold text-white transition hover:bg-red-700"
                 >
                   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z" />
@@ -432,7 +571,7 @@ export default function Home() {
                       router.push(`${localizePath('/auth/login', locale)}?redirect=${redirect}`);
                     }
                   }}
-                  className="flex items-center gap-2 rounded-full border border-gray-500 px-6 py-3 font-medium text-white transition hover:border-white hover:bg-white/10"
+                  className="flex min-h-[48px] items-center gap-2 rounded-full border border-gray-500 px-5 py-3 font-medium text-white transition hover:border-white hover:bg-white/10"
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -467,13 +606,13 @@ export default function Home() {
             <div className="absolute inset-0 bg-gradient-to-r from-[#141414] via-[#141414]/70 to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-[#141414]/30" />
 
-            <div className="absolute bottom-24 left-0 right-0 mx-auto max-w-7xl px-4 md:bottom-32">
+            <div className="absolute bottom-28 left-0 right-0 mx-auto max-w-7xl px-4 md:bottom-32">
               {hotRankings.length > 0 && (
                 <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-red-600/90 px-3 py-1 text-xs font-semibold text-white">
                   🔥 #{heroIndex + 1} {t.hotRanking}
                 </span>
               )}
-              <h1 className="max-w-lg text-4xl font-bold leading-tight text-white md:text-6xl">
+              <h1 className="max-w-lg text-3xl font-bold leading-tight text-white md:text-6xl">
                 {heroDrama.title}
               </h1>
 
@@ -500,10 +639,10 @@ export default function Home() {
                 {heroDrama.description}
               </p>
 
-              <div className="mt-6 flex items-center gap-3">
+              <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Link
                   href={localizePath(`/drama/${heroDrama._id}`, locale)}
-                  className="flex items-center gap-2 rounded-full bg-red-600 px-8 py-3 font-semibold text-white transition hover:bg-red-700"
+                  className="flex min-h-[48px] items-center gap-2 rounded-full bg-red-600 px-6 py-3 font-semibold text-white transition hover:bg-red-700"
                 >
                   <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z" />
@@ -520,7 +659,7 @@ export default function Home() {
                       router.push(`${localizePath('/auth/login', locale)}?redirect=${redirect}`);
                     }
                   }}
-                  className="flex items-center gap-2 rounded-full border border-gray-500 px-6 py-3 font-medium text-white transition hover:border-white hover:bg-white/10"
+                  className="flex min-h-[48px] items-center gap-2 rounded-full border border-gray-500 px-5 py-3 font-medium text-white transition hover:border-white hover:bg-white/10"
                 >
                   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -551,28 +690,51 @@ export default function Home() {
           </div>
         )}
       </section>
+      )}
 
       {/* Category Filter Pills */}
-      <section className="mx-auto max-w-7xl px-4 py-6">
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {categoryPills.map((pill) => (
-            <button
-              key={pill.key}
-              onClick={() => setActiveCategory(pill.key)}
-              aria-pressed={activeCategory === pill.key}
-              className={`whitespace-nowrap rounded-full px-5 py-2 text-sm font-medium transition ${
-                activeCategory === pill.key
-                  ? 'bg-white text-black'
-                  : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a] hover:text-white'
-              }`}
-            >
-              {pill.label}
-            </button>
-          ))}
-        </div>
-      </section>
+      {loading && isMobile ? (
+        <MobilePillRowSkeleton />
+      ) : (
+        <section className="mx-auto max-w-7xl px-4 py-6">
+          <div className="flex items-center gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {categoryPills.map((pill) => (
+              <button
+                key={pill.key}
+                onClick={() => setActiveCategory(pill.key)}
+                aria-pressed={activeCategory === pill.key}
+                className={`whitespace-nowrap rounded-full px-5 py-2 text-sm font-medium transition ${
+                  activeCategory === pill.key
+                    ? 'bg-white text-black'
+                    : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a] hover:text-white'
+                }`}
+              >
+                {pill.label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
 
+      {loading && isMobile ? (
+        <>
+          <MobileShelfSkeleton titleWidthClass="w-36" />
+          <MobileShelfSkeleton titleWidthClass="w-32" />
+          <MobileShelfSkeleton titleWidthClass="w-40" />
+        </>
+      ) : (
+        <>
       {/* Trending Now */}
+      {isMobile ? (
+        <MobileShelfGrid
+          title={`🔥 ${t.trendingNow}`}
+          dramas={trendingDramas}
+          locale={locale}
+          moreLabel={t.more}
+          episodeShortLabel={t.episodesShort}
+        />
+      ) : null}
+
       {!loading && continueWatchingDramas.length > 0 && (
         <HomeCarousel
           title={`⏯️ ${t.continueWatching}`}
@@ -623,15 +785,24 @@ export default function Home() {
             ))}
           </div>
         </section>
-      ) : (
+      ) : !isMobile ? (
         <HomeCarousel
           title={`🔥 ${t.trendingNow}`}
           dramas={trendingDramas}
         />
-      )}
+      ) : null}
 
       {/* New Releases */}
-      {!loading && (
+      {isMobile ? (
+        <MobileShelfGrid
+          title={`✨ ${t.newReleases}`}
+          dramas={newReleases}
+          locale={locale}
+          moreLabel={t.more}
+          episodeShortLabel={t.episodesShort}
+        />
+      ) : null}
+      {!loading && !isMobile && (
         <HomeCarousel
           title={`✨ ${t.newReleases}`}
           dramas={newReleases}
@@ -641,7 +812,16 @@ export default function Home() {
       {/* Editorial Banner — removed hardcoded, now dynamic from API */}
 
       {/* Recommendations (from admin featured) */}
-      {!loading && recommendations.length > 0 && (
+      {isMobile && recommendations.length > 0 ? (
+        <MobileShelfGrid
+          title={`💎 ${t.recommendations}`}
+          dramas={recommendations}
+          locale={locale}
+          moreLabel={t.more}
+          episodeShortLabel={t.episodesShort}
+        />
+      ) : null}
+      {!loading && !isMobile && recommendations.length > 0 && (
         <HomeCarousel
           title={`💎 ${t.recommendations}`}
           dramas={recommendations}
@@ -697,15 +877,27 @@ export default function Home() {
       })()}
 
       {/* Editor's Choice */}
-      {!loading && editorsChoice.length > 0 && (
+      {isMobile && editorsChoice.length > 0 ? (
+        <MobileShelfGrid
+          title={`⭐ ${t.editorsChoice}`}
+          dramas={editorsChoice}
+          locale={locale}
+          moreLabel={t.more}
+          episodeShortLabel={t.episodesShort}
+        />
+      ) : null}
+      {!loading && !isMobile && editorsChoice.length > 0 && (
         <HomeCarousel
           title={`⭐ ${t.editorsChoice}`}
           dramas={editorsChoice}
         />
       )}
+        </>
+      )}
 
       {/* Footer */}
       <Footer />
+      </PullToRefresh>
     </div>
   );
 }

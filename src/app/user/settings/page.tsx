@@ -6,12 +6,13 @@ import { useRouter} from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useToast } from "@/components/ui/Toast";
-import { profileApi } from "@/lib/api";
+import { profileApi, settingsApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import { localizePath, LOCALE_DISPLAY_NAMES, SupportedLocale, SUPPORTED_LOCALES } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { mergeRuntimeSettings, readRuntimeSettings } from "@/lib/runtime-settings";
 
 type Section = "profile" | "security" | "notifications" | "preferences";
 
@@ -963,6 +964,59 @@ const COPY: FlexibleRecord<SupportedLocale, SettingsCopy> = {
       cacheCleared: "Cache dibersihkan",
       generic: "Terjadi kesalahan" } } };
 
+type NotificationSettingsState = {
+  push: {
+    enabled: boolean;
+    newReleases: boolean;
+    recommendations: boolean;
+    accountActivity: boolean;
+    deviceToken?: string;
+    platform?: string;
+    lastRegisteredAt?: string;
+  };
+  email: {
+    newsletter: boolean;
+    promoOffers: boolean;
+    weeklyDigests: boolean;
+  };
+  inApp: {
+    systemMessages: boolean;
+  };
+};
+
+type PlaybackSettingsState = {
+  autoplayNextEpisode: boolean;
+  videoQuality: string;
+  audioLanguage: string;
+  subtitleLanguage: string;
+  dataSaver: boolean;
+};
+
+const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettingsState = {
+  push: {
+    enabled: true,
+    newReleases: true,
+    recommendations: true,
+    accountActivity: true,
+  },
+  email: {
+    newsletter: false,
+    promoOffers: true,
+    weeklyDigests: false,
+  },
+  inApp: {
+    systemMessages: true,
+  },
+};
+
+const DEFAULT_PLAYBACK_SETTINGS: PlaybackSettingsState = {
+  autoplayNextEpisode: true,
+  videoQuality: "auto",
+  audioLanguage: "en",
+  subtitleLanguage: "en",
+  dataSaver: false,
+};
+
 function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <button
@@ -1004,6 +1058,8 @@ export default function SettingsPage() {
   const [nickname, setNickname] = useState(user?.nickname || "");
   const [bio, setBio] = useState("");
   const [saving, setSaving] = useState(false);
+  const [notificationsSaving, setNotificationsSaving] = useState(false);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
 
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
@@ -1019,22 +1075,98 @@ export default function SettingsPage() {
   const [googleConnected] = useState("jane.c***@example.com");
   const [fbConnected] = useState("");
 
-  const [notifs, setNotifs] = useState({
-    push: { newReleases: true, recommendations: true, accountActivity: true },
-    email: { newsletter: false, promoOffers: true, weeklyDigests: false },
-    inApp: { systemMessages: true } });
+  const [notifs, setNotifs] = useState<NotificationSettingsState>(DEFAULT_NOTIFICATION_SETTINGS);
 
-  const [autoplay, setAutoplay] = useState(true);
-  const [videoQuality, setVideoQuality] = useState("auto");
-  const [audioLang, setAudioLang] = useState("en");
-  const [subtitleLang, setSubtitleLang] = useState("en");
-  const [dataSaver, setDataSaver] = useState(false);
+  const [autoplay, setAutoplay] = useState(DEFAULT_PLAYBACK_SETTINGS.autoplayNextEpisode);
+  const [videoQuality, setVideoQuality] = useState(DEFAULT_PLAYBACK_SETTINGS.videoQuality);
+  const [audioLang, setAudioLang] = useState(DEFAULT_PLAYBACK_SETTINGS.audioLanguage);
+  const [subtitleLang, setSubtitleLang] = useState(DEFAULT_PLAYBACK_SETTINGS.subtitleLanguage);
+  const [dataSaver, setDataSaver] = useState(DEFAULT_PLAYBACK_SETTINGS.dataSaver);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (user) setNickname(user.nickname || "");
   }, [user]);
+
+  useEffect(() => {
+    if (!token || !user) return;
+
+    let cancelled = false;
+
+    const hydrateSettings = async () => {
+      const runtimeSettings = readRuntimeSettings();
+
+      try {
+        const response: any = await settingsApi.getSettings(token);
+        const settings = response?.data || {};
+        const notificationSettings = settings.notifications || runtimeSettings?.notifications || {};
+        const playbackSettings = settings.playback || runtimeSettings?.playback || {};
+
+        if (cancelled) return;
+
+        const nextNotifications: NotificationSettingsState = {
+          push: {
+            enabled: Boolean(notificationSettings?.push?.enabled ?? runtimeSettings?.notifications?.push?.enabled ?? true),
+            newReleases: Boolean(notificationSettings?.push?.newReleases ?? runtimeSettings?.notifications?.push?.newReleases ?? true),
+            recommendations: Boolean(notificationSettings?.push?.recommendations ?? runtimeSettings?.notifications?.push?.recommendations ?? true),
+            accountActivity: Boolean(notificationSettings?.push?.accountActivity ?? runtimeSettings?.notifications?.push?.accountActivity ?? true),
+            deviceToken: notificationSettings?.push?.deviceToken ?? runtimeSettings?.notifications?.push?.deviceToken,
+            platform: notificationSettings?.push?.platform ?? runtimeSettings?.notifications?.push?.platform,
+            lastRegisteredAt: notificationSettings?.push?.lastRegisteredAt ?? runtimeSettings?.notifications?.push?.lastRegisteredAt,
+          },
+          email: {
+            newsletter: Boolean(notificationSettings?.email?.newsletter ?? runtimeSettings?.notifications?.email?.newsletter ?? false),
+            promoOffers: Boolean(notificationSettings?.email?.promoOffers ?? runtimeSettings?.notifications?.email?.promoOffers ?? true),
+            weeklyDigests: Boolean(notificationSettings?.email?.weeklyDigests ?? runtimeSettings?.notifications?.email?.weeklyDigests ?? false),
+          },
+          inApp: {
+            systemMessages: Boolean(notificationSettings?.inApp?.systemMessages ?? runtimeSettings?.notifications?.inApp?.systemMessages ?? true),
+          },
+        };
+
+        const nextPlayback: PlaybackSettingsState = {
+          autoplayNextEpisode: Boolean(playbackSettings?.autoplayNextEpisode ?? runtimeSettings?.playback?.autoplayNextEpisode ?? true),
+          videoQuality: String(playbackSettings?.videoQuality ?? runtimeSettings?.playback?.videoQuality ?? "auto"),
+          audioLanguage: String(playbackSettings?.audioLanguage ?? runtimeSettings?.playback?.audioLanguage ?? settings.language ?? locale),
+          subtitleLanguage: String(playbackSettings?.subtitleLanguage ?? runtimeSettings?.playback?.subtitleLanguage ?? settings.language ?? locale),
+          dataSaver: Boolean(playbackSettings?.dataSaver ?? runtimeSettings?.playback?.dataSaver ?? false),
+        };
+
+        setNotifs(nextNotifications);
+        setAutoplay(nextPlayback.autoplayNextEpisode);
+        setVideoQuality(nextPlayback.videoQuality);
+        setAudioLang(nextPlayback.audioLanguage);
+        setSubtitleLang(nextPlayback.subtitleLanguage);
+        setDataSaver(nextPlayback.dataSaver);
+
+        mergeRuntimeSettings({
+          notifications: nextNotifications,
+          playback: nextPlayback,
+        });
+      } catch {
+        if (cancelled || !runtimeSettings) return;
+
+        if (runtimeSettings.notifications) {
+          setNotifs(runtimeSettings.notifications);
+        }
+
+        if (runtimeSettings.playback) {
+          setAutoplay(runtimeSettings.playback.autoplayNextEpisode);
+          setVideoQuality(runtimeSettings.playback.videoQuality);
+          setAudioLang(runtimeSettings.playback.audioLanguage);
+          setSubtitleLang(runtimeSettings.playback.subtitleLanguage);
+          setDataSaver(runtimeSettings.playback.dataSaver);
+        }
+      }
+    };
+
+    void hydrateSettings();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [locale, token, user]);
 
   useEffect(() => {
     setSessions((prev) => prev.map((session) => {
@@ -1083,6 +1215,63 @@ export default function SettingsPage() {
       toast(message || copy.toasts.failedPassword, "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveNotifications = async () => {
+    if (!token) return;
+
+    setNotificationsSaving(true);
+    try {
+      const nextNotifications: NotificationSettingsState = {
+        ...notifs,
+        push: {
+          ...notifs.push,
+          deviceToken: notifs.push.deviceToken ?? readRuntimeSettings()?.notifications?.push?.deviceToken,
+          platform: notifs.push.platform ?? readRuntimeSettings()?.notifications?.push?.platform,
+          lastRegisteredAt: notifs.push.lastRegisteredAt ?? readRuntimeSettings()?.notifications?.push?.lastRegisteredAt,
+        },
+      };
+
+      await settingsApi.updateSettings(token, {
+        notifications: nextNotifications,
+      });
+
+      setNotifs(nextNotifications);
+      mergeRuntimeSettings({ notifications: nextNotifications });
+      toast(copy.toasts.notifSaved, "success");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : copy.toasts.generic;
+      toast(message, "error");
+    } finally {
+      setNotificationsSaving(false);
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    if (!token) return;
+
+    setPreferencesSaving(true);
+    try {
+      const nextPlayback: PlaybackSettingsState = {
+        autoplayNextEpisode: autoplay,
+        videoQuality,
+        audioLanguage: audioLang,
+        subtitleLanguage: subtitleLang,
+        dataSaver,
+      };
+
+      await settingsApi.updateSettings(token, {
+        playback: nextPlayback,
+      });
+
+      mergeRuntimeSettings({ playback: nextPlayback });
+      toast(copy.toasts.prefsSaved, "success");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : copy.toasts.generic;
+      toast(message, "error");
+    } finally {
+      setPreferencesSaving(false);
     }
   };
 
@@ -1305,9 +1494,17 @@ export default function SettingsPage() {
             {section === "notifications" && (
               <div className="space-y-6">
                 <div className="bg-zinc-900/60 rounded-xl border border-white/10 p-6">
-                  <h2 className="text-lg font-semibold mb-1">{copy.notifications.pushTitle}</h2>
-                  <p className="text-sm text-gray-400 mb-5">{copy.notifications.pushDesc}</p>
-                  <div className="space-y-4">
+                  <div className="mb-5 flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-semibold mb-1">{copy.notifications.pushTitle}</h2>
+                      <p className="text-sm text-gray-400">{copy.notifications.pushDesc}</p>
+                    </div>
+                    <Toggle
+                      checked={notifs.push.enabled}
+                      onChange={(value) => setNotifs((prev) => ({ ...prev, push: { ...prev.push, enabled: value } }))}
+                    />
+                  </div>
+                  <div className={`space-y-4 transition ${notifs.push.enabled ? "opacity-100" : "opacity-45"}`}>
                     {([
                       ["newReleases", copy.notifications.newReleases, copy.notifications.newReleasesDesc],
                       ["recommendations", copy.notifications.recommendations, copy.notifications.recommendationsDesc],
@@ -1315,7 +1512,11 @@ export default function SettingsPage() {
                     ] as const).map(([key, label, desc]) => (
                       <div key={key} className="flex items-center justify-between py-2">
                         <div><p className="text-sm font-medium">{label}</p><p className="text-xs text-gray-400">{desc}</p></div>
-                        <Toggle checked={notifs.push[key]} onChange={v => setNotifs(prev => ({ ...prev, push: { ...prev.push, [key]: v } }))} />
+                        <Toggle
+                          checked={notifs.push[key]}
+                          disabled={!notifs.push.enabled}
+                          onChange={v => setNotifs(prev => ({ ...prev, push: { ...prev.push, [key]: v } }))}
+                        />
                       </div>
                     ))}
                   </div>
@@ -1349,7 +1550,13 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="flex justify-end">
-                  <button onClick={() => toast(copy.toasts.notifSaved, "success")} className="px-5 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium transition">{copy.notifications.savePreferences}</button>
+                  <button
+                    onClick={handleSaveNotifications}
+                    disabled={notificationsSaving}
+                    className="px-5 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium transition disabled:opacity-50"
+                  >
+                    {copy.notifications.savePreferences}
+                  </button>
                 </div>
               </div>
             )}
@@ -1416,7 +1623,13 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="flex justify-end">
-                  <button onClick={() => toast(copy.toasts.prefsSaved, "success")} className="px-5 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium transition">{copy.preferences.savePreferences}</button>
+                  <button
+                    onClick={handleSavePreferences}
+                    disabled={preferencesSaving}
+                    className="px-5 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium transition disabled:opacity-50"
+                  >
+                    {copy.preferences.savePreferences}
+                  </button>
                 </div>
               </div>
             )}
