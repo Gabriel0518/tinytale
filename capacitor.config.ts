@@ -7,7 +7,6 @@ const config: CapacitorConfig = {
   appId: 'top.tinytale.app',
   appName: 'TinyTale',
   webDir: '.next',
-  bundledWebRuntime: false,
   server: {
     url: serverUrl,
     cleartext: serverUrl.startsWith('http://'),
