@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "surface-dim": "#0b0d10",
+              "secondary-fixed-dim": "#2C2F36",
+              "on-error-container": "#FFFFFF",
+              "on-surface": "#FFFFFF",
+              "surface-variant": "#1c1f26",
+              "secondary-dim": "#ef779f",
+              "surface-container-high": "#25282e",
+              "on-background": "#FFFFFF",
+              "background": "#0f1115",
+              "tertiary-fixed-dim": "#FFD700",
+              "on-secondary": "#FFFFFF",
+              "tertiary-fixed": "#FFD700",
+              "primary-container": "rgba(255, 59, 92, 0.2)",
+              "tertiary-container": "rgba(255, 215, 0, 0.2)",
+              "surface-container-lowest": "#050608",
+              "surface": "#0f1115",
+              "secondary": "#2C2F36",
+              "on-tertiary-fixed-variant": "#000000",
+              "secondary-container": "#1c1f26",
+              "on-tertiary": "#000000",
+              "tertiary": "#FFD700",
+              "inverse-primary": "#FF3B5C",
+              "surface-tint": "#FF3B5C",
+              "error": "#CF6679",
+              "tertiary-dim": "#b08af6",
+              "primary-dim": "#ff6f7c",
+              "on-secondary-fixed-variant": "#9CA3AF",
+              "outline-variant": "rgba(255, 255, 255, 0.1)",
+              "secondary-fixed": "#2C2F36",
+              "surface-container-low": "#15181e",
+              "on-secondary-container": "#9CA3AF",
+              "on-error": "#000000",
+              "on-secondary-fixed": "#FFFFFF",
+              "on-primary": "#FFFFFF",
+              "surface-container": "#1c1f26",
+              "surface-container-highest": "#2c2f36",
+              "primary-fixed-dim": "#FF3B5C",
+              "outline": "#414753",
+              "on-tertiary-container": "#FFD700",
+              "error-dim": "#d53d18",
+              "on-tertiary-fixed": "#000000",
+              "on-primary-fixed-variant": "#FFFFFF",
+              "primary": "#FF3B5C",
+              "on-primary-container": "#FF3B5C",
+              "on-primary-fixed": "#FFFFFF",
+              "surface-bright": "#2c2f36",
+              "primary-fixed": "#FF3B5C",
+              "error-container": "#B00020",
+              "inverse-surface": "#FFFFFF",
+              "inverse-on-surface": "#0f1115",
+              "on-surface-variant": "#9CA3AF"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Plus Jakarta Sans"],
+              "label": ["Plus Jakarta Sans"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0f1115; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+        body {
+          min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="text-on-surface select-none antialiased">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#0f1115]/85 backdrop-blur-xl bg-gradient-to-b from-[#0f1115] to-transparent shadow-2xl">
+<div class="flex items-center justify-between px-6 py-4 w-full">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#FF3B5C]" data-icon="movie_filter">movie_filter</span>
+<span class="text-2xl font-extrabold tracking-tighter text-[#FF3B5C] uppercase font-['Plus_Jakarta_Sans']">VELVET</span>
+</div>
+<div class="flex items-center gap-4">
+<button class="active:scale-95 transition-transform text-white/70 hover:text-white">
+<span class="material-symbols-outlined text-2xl" data-icon="search">search</span>
+</button>
+</div>
+</div>
+</header>
+<main class="pt-20 pb-24 px-4">
+<!-- Search Input Bar (Floating/High Surface) -->
+<section class="mb-6">
+<div class="relative group">
+<input class="w-full h-14 bg-surface-container-highest rounded-full border-none px-14 text-on-surface font-medium focus:ring-2 focus:ring-primary placeholder-on-surface-variant/50 transition-all shadow-lg" placeholder="Search movies, series..." type="text" value="Midnight"/>
+<span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="search">search</span>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-white/10 rounded-full text-on-surface-variant">
+<span class="material-symbols-outlined text-lg" data-icon="close">close</span>
+</button>
+</div>
+</section>
+<!-- Filters & Sorting (Pill Based) -->
+<section class="mb-8">
+<div class="flex gap-2 overflow-x-auto hide-scrollbar -mx-4 px-4">
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-white text-surface font-bold text-xs uppercase tracking-wider transition-all">All Results</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-surface-container-highest text-on-surface font-bold text-xs uppercase tracking-wider hover:bg-white/10 transition-all">Movies</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-surface-container-highest text-on-surface font-bold text-xs uppercase tracking-wider hover:bg-white/10 transition-all">Series</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-surface-container-highest text-on-surface font-bold text-xs uppercase tracking-wider hover:bg-white/10 transition-all flex items-center gap-2">
+                    Filters <span class="material-symbols-outlined text-sm" data-icon="tune">tune</span>
+</button>
+</div>
+</section>
+<!-- Search Results Grid (2-Column Bento) -->
+<section class="mb-10">
+<div class="flex items-baseline justify-between mb-4">
+<h2 class="text-xl font-bold font-headline tracking-tight">Results for 'Midnight'</h2>
+<span class="text-xs font-bold text-on-surface-variant uppercase tracking-widest">24 FOUND</span>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<!-- Result Card 1 -->
+<div class="group relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-container shadow-lg">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="dramatic cinematic shot of a neon-lit city street at midnight with heavy rain and reflection on asphalt" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDXXv_PaDX0FEBMisMi-VoNo5A0_3vj7rPIwZ_Vg20T_pl6I4VEMoVVLuVOCKwdntSuGqqZSg9JX79F0TLcgIGy_mNcP-DGzj00OGT8J9QPvv5mOBWk7Mrxq7H44EohFqtKyQPDSTG653Z9NoW5aRRg8pTqG0SYmos75pAxi2jGhklUgy0HNrgvB4SzN9dmb0uRmX_5-arXg0biaFnmvmUudxRRJeAfGJm8UD1HfvJdCQgF5myISRFDxpF_jQruCLIJL0qM_mleW-0"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+<div class="absolute bottom-0 p-3 w-full">
+<span class="inline-block px-2 py-0.5 rounded bg-primary text-[10px] font-extrabold text-white mb-2 uppercase">Movie</span>
+<h3 class="text-sm font-bold leading-tight">Midnight Pulse</h3>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[10px] text-tertiary" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[10px] font-bold text-on-surface-variant">8.9</span>
+</div>
+</div>
+</div>
+<!-- Result Card 2 -->
+<div class="group relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-container shadow-lg">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="moody portrait of a mysterious figure standing under a single street lamp in a foggy dark alleyway" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDmtXqsUQ7mMbHWM8sT7aZf6pZWAsVqqxxMjCOuPzJqhxGdISkCxknfVwIg_lgYRze47CJoOzD6MJIwIjfAAknQUhVPMqewwI2pBp96RzffR2BNUsVa2XGxE82KG1170RAJqo9fOJJid8LAcV1YNnZJzXwx6IzEUZV4lOpDO3K7i_agSZKpC1lNGkKfkRGhBvCwsweBWwYEV_eeJ0FEfnwUGczdrWgpJr728816axudie_Y6BQauy7yjYgQ2RMCMAzeOGdsI_V2iKk"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+<div class="absolute bottom-0 p-3 w-full">
+<span class="inline-block px-2 py-0.5 rounded bg-blue-600 text-[10px] font-extrabold text-white mb-2 uppercase">Series</span>
+<h3 class="text-sm font-bold leading-tight">The Midnight Club</h3>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[10px] text-tertiary" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[10px] font-bold text-on-surface-variant">7.4</span>
+</div>
+</div>
+</div>
+<!-- Result Card 3 -->
+<div class="group relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-container shadow-lg">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" data-alt="vintage analog camera lens with cinematic bokeh lights reflecting deep blue and purple hues" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAJmOMfEbdSP3fckn7JNqRaOwHSAtkhfWAY0FU2v8T5x5_SuYpJskmTXwieAbg7i941zhoJHdWirUtKvPFnopOJWC7K9kqXIZSONlEU-sA4bnJHbkbZXgy3wdc3r6EaoTrkGRkUkKDNxV6dZvq3nuxhCfEYRwM1IFYQ6Lum9MJuj-e-8Enq7psnbqLbj10_aVU3v2hwBiGU6P8C2-3N5tKi9fOjoqrlHlqVo6sqU8L69ExKLRmRqFYOWUi5ZVt9tbJFTQmA-dZ-4Dg"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+<div class="absolute bottom-0 p-3 w-full">
+<span class="inline-block px-2 py-0.5 rounded bg-primary text-[10px] font-extrabold text-white mb-2 uppercase">Movie</span>
+<h3 class="text-sm font-bold leading-tight">Midnight in Paris</h3>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-[10px] text-tertiary" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[10px] font-bold text-on-surface-variant">9.2</span>
+</div>
+</div>
+</div>
+<!-- Result Card 4 (Loading Placeholder) -->
+<div class="group relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-container shadow-lg">
+<div class="absolute inset-0 flex items-center justify-center p-4 bg-surface-container-highest">
+<div class="text-center">
+<span class="material-symbols-outlined text-4xl text-white/20 mb-2" data-icon="slow_motion_video">slow_motion_video</span>
+<p class="text-[10px] font-bold uppercase tracking-widest text-white/40">Loading More</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full h-16 flex justify-around items-center px-4 bg-[#0f1115]/85 backdrop-blur-xl border-t border-white/10 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-50 pb-safe">
+<button class="flex flex-col items-center justify-center text-white/40 hover:text-white/90 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-bold uppercase mt-1">home</span>
+</button>
+<button class="flex flex-col items-center justify-center text-[#FF3B5C] drop-shadow-[0_0_8px_rgba(255,59,92,0.6)] scale-110 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="explore" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-bold uppercase mt-1">explore</span>
+</button>
+<button class="flex flex-col items-center justify-center text-white/40 hover:text-white/90 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined text-3xl" data-icon="add_circle">add_circle</span>
+</button>
+<button class="flex flex-col items-center justify-center text-white/40 hover:text-white/90 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="subscriptions">subscriptions</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-bold uppercase mt-1">subs</span>
+</button>
+<button class="flex flex-col items-center justify-center text-white/40 hover:text-white/90 active:scale-90 transition-all duration-200">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-bold uppercase mt-1">profile</span>
+</button>
+</nav>
+</body></html>

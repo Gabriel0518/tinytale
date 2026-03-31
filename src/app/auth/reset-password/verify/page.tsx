@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, Suspense} from "react";
+import { useState, useEffect, Suspense, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams} from "next/navigation";
 import { AuthLayout } from "@/components/auth/AuthLayout";
@@ -10,6 +10,7 @@ import { passwordApi } from "@/lib/api";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { dismissActiveKeyboard } from "@/lib/capacitor-bridge";
 
 function getPasswordStrength(password: string): number {
   let score = 0;
@@ -85,6 +86,15 @@ function NewPasswordContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const handleClose = useCallback(() => {
+    const homePath = localizePath("/", locale);
+    void dismissActiveKeyboard();
+    if (typeof window !== "undefined") {
+      window.location.assign(homePath);
+      return;
+    }
+    router.replace(homePath);
+  }, [locale, router]);
 
   useEffect(() => {
     const storedCode = sessionStorage.getItem('resetCode') || '';
@@ -126,44 +136,52 @@ function NewPasswordContent() {
 
   return (
     <AuthLayout
+      mobileHeader={
+        <header className="flex items-center justify-end px-6 pb-2 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label={t.backSignIn}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/55 transition hover:border-white/20 hover:text-white"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </header>
+      }
       navRight={
-        <Link href={localizePath("/help", locale)} className="text-sm text-gray-400 hover:text-white transition">
+        <Link href={localizePath("/help", locale)} className="text-sm text-gray-400 transition hover:text-white">
           {t.helpCenter}
         </Link>
       }
+      contentClassName="items-start justify-start px-0 pb-0 pt-0 md:items-center md:justify-center md:px-4 md:py-8"
+      hideFooterOnMobile
     >
-      <div className="w-full max-w-md">
-        <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-8">
-          {/* Lock Icon */}
-          <div className="flex justify-center mb-6">
-            <div className="h-16 w-16 rounded-full bg-amber-500/20 flex items-center justify-center">
-              <LockIcon className="h-8 w-8 text-amber-500" />
-            </div>
+      <div className="keyboard-safe-scroll keyboard-safe-form relative flex min-h-0 w-full flex-1 flex-col bg-transparent px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 md:max-w-md md:flex-none md:overflow-visible md:rounded-[28px] md:border md:border-white/10 md:bg-[#12151d] md:p-8">
+        <div className="relative z-10 flex flex-1 flex-col">
+          <div className="mb-8 md:mb-6 md:text-center">
+            <h1 className="text-[2.05rem] font-semibold tracking-[-0.04em] text-white md:text-2xl md:font-bold md:tracking-normal">
+              {t.title}
+            </h1>
+            <p className="mt-2 max-w-[18rem] text-sm leading-6 text-white/55 md:mx-auto md:max-w-none md:text-gray-400">
+              {t.subtitle}
+            </p>
           </div>
 
-          {/* Title */}
-          <h1 className="text-2xl font-bold text-white text-center mb-2">
-            {t.title}
-          </h1>
-          <p className="text-sm text-gray-400 text-center mb-8">
-            {t.subtitle}
-          </p>
-
-          {/* Error */}
           {error && (
-            <div role="alert" className="mb-4 rounded-lg bg-red-900/50 border border-red-700 p-3 text-red-200 text-sm">
+            <div role="alert" className="mb-4 rounded-2xl border border-red-500/30 bg-red-950/40 px-4 py-3 text-sm text-red-100">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* New Password */}
-            <div>
-              <label htmlFor="verify-new-password" className="block uppercase text-xs tracking-wider text-gray-500 mb-2">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div className="space-y-2">
+              <label htmlFor="verify-new-password" className="block text-sm font-semibold text-white/92 md:text-xs md:uppercase md:tracking-[0.24em] md:text-gray-500">
                 {t.newPassword}
               </label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                <div className="absolute left-3 top-1/2 hidden -translate-y-1/2 text-gray-500 md:block">
                   <LockIcon className="h-4 w-4" />
                 </div>
                 <input
@@ -172,13 +190,13 @@ function NewPasswordContent() {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder={t.newPasswordPlaceholder}
-                  className="w-full bg-[#1a1c23] border border-white/10 rounded-lg py-3 pl-10 pr-10 text-white placeholder-gray-600 focus:border-amber-500 focus:outline-none transition"
+                  className="h-12 w-full rounded-xl border border-white/10 bg-transparent px-4 pr-12 text-sm text-white placeholder:text-white/28 transition focus:border-[#ff5f80] focus:outline-none md:rounded-lg md:bg-[#1a1c23] md:pl-10 md:placeholder:text-gray-500"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/35 transition hover:text-white/70 md:right-3 md:text-gray-500 md:hover:text-white"
                   aria-label={showNewPassword ? t.hideNewPassword : t.showNewPassword}
                 >
                   {showNewPassword ? (
@@ -189,10 +207,9 @@ function NewPasswordContent() {
                 </button>
               </div>
 
-              {/* Strength Indicator */}
               {newPassword.length > 0 && (
                 <div className="mt-3 flex items-center gap-3">
-                  <div className="flex gap-1.5 flex-1">
+                  <div className="flex flex-1 gap-1.5">
                     {[0, 1, 2, 3].map((i) => (
                       <div
                         key={i}
@@ -206,18 +223,17 @@ function NewPasswordContent() {
                 </div>
               )}
 
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-white/45 md:text-gray-500">
                 {t.passwordHint}
               </p>
             </div>
 
-            {/* Confirm Password */}
-            <div>
-              <label htmlFor="verify-confirm-password" className="block uppercase text-xs tracking-wider text-gray-500 mb-2">
+            <div className="space-y-2">
+              <label htmlFor="verify-confirm-password" className="block text-sm font-semibold text-white/92 md:text-xs md:uppercase md:tracking-[0.24em] md:text-gray-500">
                 {t.confirmNewPassword}
               </label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                <div className="absolute left-3 top-1/2 hidden -translate-y-1/2 text-gray-500 md:block">
                   <LockIcon className="h-4 w-4" />
                 </div>
                 <input
@@ -226,13 +242,13 @@ function NewPasswordContent() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder={t.confirmPasswordPlaceholder}
-                  className="w-full bg-[#1a1c23] border border-white/10 rounded-lg py-3 pl-10 pr-10 text-white placeholder-gray-600 focus:border-amber-500 focus:outline-none transition"
+                  className="h-12 w-full rounded-xl border border-white/10 bg-transparent px-4 pr-12 text-sm text-white placeholder:text-white/28 transition focus:border-[#ff5f80] focus:outline-none md:rounded-lg md:bg-[#1a1c23] md:pl-10 md:placeholder:text-gray-500"
                   required
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/35 transition hover:text-white/70 md:right-3 md:text-gray-500 md:hover:text-white"
                   aria-label={showConfirmPassword ? t.hideConfirmPassword : t.showConfirmPassword}
                 >
                   {showConfirmPassword ? (
@@ -244,21 +260,19 @@ function NewPasswordContent() {
               </div>
             </div>
 
-            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 rounded-lg py-3 font-medium text-white transition disabled:opacity-50"
+              className="mt-2 h-12 w-full rounded-xl bg-white text-sm font-semibold text-[#0b0d10] transition hover:bg-white/90 disabled:opacity-50 md:rounded-lg md:bg-gradient-to-r md:from-amber-500 md:to-amber-600 md:text-white md:hover:from-amber-600 md:hover:to-amber-700"
             >
               {isLoading ? t.resetting : t.resetPassword}
             </button>
           </form>
 
-          {/* Back Link */}
-          <div className="mt-6 text-center">
+          <div className="mt-auto pt-8 text-center">
             <Link
               href={localizePath("/auth/login", locale)}
-              className="text-sm text-gray-400 hover:text-white transition inline-flex items-center gap-1"
+              className="inline-flex items-center gap-1 text-sm text-white/55 transition hover:text-white/82 md:text-gray-400 md:hover:text-white"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5" />

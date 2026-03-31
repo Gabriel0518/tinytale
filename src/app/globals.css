@@ -6,6 +6,7 @@
   --background: #141414;
   --foreground: #FFFFFF;
   --tinytale-mobile-toast-offset: 1rem;
+  --tinytale-keyboard-inset: 0px;
 }
 
 html {
@@ -23,6 +24,8 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+  scroll-padding-top: calc(env(safe-area-inset-top) + 1rem);
+  scroll-padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
 }
 
 @layer base {
@@ -52,6 +55,28 @@ body {
 .mobile-scroll {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
+}
+
+.keyboard-safe-scroll {
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+.keyboard-safe-form {
+  padding-bottom: calc(max(1.5rem, env(safe-area-inset-bottom)) + min(var(--tinytale-keyboard-inset), 16rem));
+}
+
+body.keyboard-open {
+  --tinytale-mobile-toast-offset: calc(env(safe-area-inset-bottom) + 1rem);
+}
+
+body.keyboard-open.has-bottom-bar,
+body.keyboard-open.has-bottom-bar.has-mini-player,
+body.keyboard-open.has-mini-player:not(.has-bottom-bar) {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
 }
 
 body.keyboard-open .mobile-bottom-tab,
@@ -141,6 +166,21 @@ body.keyboard-open .mobile-mini-player {
   background: rgba(20, 20, 20, 0.8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+@media (max-width: 768px) {
+  .glass-card {
+    background: rgba(17, 17, 17, 0.96);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .glass-header {
+    background: rgba(17, 17, 17, 0.96);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 /* Gold gradient utilities */

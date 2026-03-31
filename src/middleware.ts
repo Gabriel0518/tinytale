@@ -18,6 +18,10 @@ const API_URL = (
 ).replace(/\/+$/, '');
 const PUBLIC_PATHS = new Set([
   '/',
+  '/browse',
+  '/category',
+  '/rankings',
+  '/search',
   '/help',
   '/about',
   '/careers',
@@ -38,6 +42,8 @@ function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.has(normalized)) return true;
   if (normalized.startsWith('/affiliate/')) return true;
   if (normalized.startsWith('/auth/')) return true;
+  if (normalized.startsWith('/drama/')) return true;
+  if (normalized.startsWith('/ref/')) return true;
   return false;
 }
 

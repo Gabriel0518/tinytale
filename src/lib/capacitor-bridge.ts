@@ -13,8 +13,15 @@ type PushRegistrationResult = {
   remove: () => void;
 };
 
+export type KeyboardState = {
+  visible: boolean;
+  height: number;
+};
+
 const APP_LINK_HOSTS = new Set(["tinytale.top", "www.tinytale.top", "localhost", "10.0.2.2"]);
 const CUSTOM_APP_SCHEME = "top.tinytale.app";
+const DEV_NATIVE_PUSH_OVERRIDE = process.env.NEXT_PUBLIC_ENABLE_NATIVE_PUSH_DEV === "true";
+const DEV_NATIVE_LOCAL_HOSTS = new Set(["127.0.0.1", "localhost"]);
 
 interface CapacitorRuntime {
   getPlatform?: () => string;
@@ -59,14 +66,37 @@ export function isIOSApp() {
   return getNativePlatform() === "ios";
 }
 
+function blurActiveTextInput() {
+  if (typeof document === "undefined") return;
+
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement)) return;
+
+  if (
+    activeElement instanceof HTMLInputElement ||
+    activeElement instanceof HTMLTextAreaElement ||
+    activeElement instanceof HTMLSelectElement ||
+    activeElement.isContentEditable
+  ) {
+    activeElement.blur();
+  }
+}
+
 export const mobileFeatures = {
   hideCreatorPlatform: true,
   hideAffiliate: true,
   useBottomTabNav: true,
-  enablePushNotifications: true,
+  enablePushNotifications:
+    process.env.NODE_ENV === "production" ||
+    process.env.NEXT_PUBLIC_ENABLE_PUSH_NOTIFICATIONS === "true",
   enableNativeShare: true,
   enableHaptics: true,
+  enableKeepAwake: true,
+  enableOrientationLock: true,
 };
+
+let nativeKeepAwakeEnabled = false;
+let nativeSplashHidden = false;
 
 export async function shareContent(payload: {
   title?: string;
@@ -147,26 +177,101 @@ export async function triggerHaptic(
   }
 }
 
+export async function setNativeKeepAwake(enabled: boolean) {
+  if (!isNativeApp() || !mobileFeatures.enableKeepAwake) return;
+
+  try {
+    const { KeepAwake } = await import("@capacitor-community/keep-awake");
+    if (enabled) {
+      if (nativeKeepAwakeEnabled) return;
+      await KeepAwake.keepAwake();
+      nativeKeepAwakeEnabled = true;
+      return;
+    }
+
+    if (!nativeKeepAwakeEnabled) return;
+    await KeepAwake.allowSleep();
+    nativeKeepAwakeEnabled = false;
+  } catch {
+    // Keep-awake is optional and should silently fall back on unsupported runtimes.
+  }
+}
+
+export async function lockNativeScreenOrientation(
+  orientation: "portrait" | "portrait-primary" | "portrait-secondary" | "landscape" = "portrait"
+) {
+  if (!isNativeApp() || !mobileFeatures.enableOrientationLock) return;
+
+  try {
+    const { ScreenOrientation } = await import("@capacitor/screen-orientation");
+    await ScreenOrientation.lock({ orientation });
+  } catch {
+    // Orientation lock is best-effort for mobile webviews.
+  }
+}
+
+export async function unlockNativeScreenOrientation() {
+  if (!isNativeApp() || !mobileFeatures.enableOrientationLock) return;
+
+  try {
+    const { ScreenOrientation } = await import("@capacitor/screen-orientation");
+    await ScreenOrientation.unlock();
+  } catch {
+    // Ignore unlock failures outside supported runtimes.
+  }
+}
+
 export async function syncNativeStatusBar(pathname: string) {
   if (!isNativeApp()) return;
 
   try {
-    const normalizedPath = pathname || "/";
-    const isImmersivePlayer = normalizedPath.includes("/play/");
     const { StatusBar, Style } = await import("@capacitor/status-bar");
-
-    if (isImmersivePlayer) {
-      await StatusBar.hide();
-      await StatusBar.setOverlaysWebView({ overlay: true });
-      return;
-    }
-
-    await StatusBar.show();
-    await StatusBar.setOverlaysWebView({ overlay: false });
     await StatusBar.setStyle({ style: Style.Dark });
     await StatusBar.setBackgroundColor({ color: "#141414" });
+    await StatusBar.setOverlaysWebView({ overlay: true });
+    await StatusBar.hide();
   } catch {
     // Ignore native chrome sync failures outside supported platforms.
+  }
+}
+
+export async function hideNativeSplashScreen() {
+  if (!isNativeApp() || nativeSplashHidden) return;
+
+  try {
+    const { SplashScreen } = await import("@capacitor/splash-screen");
+    await SplashScreen.hide();
+    nativeSplashHidden = true;
+  } catch {
+    // Ignore splash hide failures outside supported runtimes.
+  }
+}
+
+export async function exitNativeApp() {
+  if (!isAndroidApp()) return;
+
+  try {
+    const { App } = await import("@capacitor/app");
+    await App.exitApp();
+  } catch {
+    // Ignore exit failures during web fallback.
+  }
+}
+
+export async function dismissActiveKeyboard(waitMs = 0) {
+  blurActiveTextInput();
+
+  if (isNativeApp()) {
+    try {
+      const { Keyboard } = await import("@capacitor/keyboard");
+      await Keyboard.hide();
+    } catch {
+      // Keyboard hide is best-effort on native runtimes.
+    }
+  }
+
+  if (waitMs > 0) {
+    await new Promise((resolve) => window.setTimeout(resolve, waitMs));
   }
 }
 
@@ -175,6 +280,23 @@ export function observeNetworkStatus(onChange: (status: NetworkStatus) => void) 
     return () => undefined;
   }
 
+  const emitStatus = (status: NetworkStatus) => {
+    const isLocalNativeDev =
+      process.env.NODE_ENV !== "production" &&
+      isNativeApp() &&
+      DEV_NATIVE_LOCAL_HOSTS.has(window.location.hostname);
+
+    if (isLocalNativeDev && !status.connected) {
+      onChange({
+        connected: true,
+        connectionType: status.connectionType || "local-dev",
+      });
+      return;
+    }
+
+    onChange(status);
+  };
+
   if (isNativeApp()) {
     let handle: ListenerHandle | null = null;
     let cancelled = false;
@@ -182,8 +304,8 @@ export function observeNetworkStatus(onChange: (status: NetworkStatus) => void) 
     void import("@capacitor/network").then(async ({ Network }) => {
       if (cancelled) return;
       const status = await Network.getStatus();
-      onChange(status);
-      handle = await Network.addListener("networkStatusChange", onChange);
+      emitStatus(status);
+      handle = await Network.addListener("networkStatusChange", emitStatus);
     });
 
     return () => {
@@ -208,7 +330,7 @@ export function observeNetworkStatus(onChange: (status: NetworkStatus) => void) 
   };
 }
 
-export function observeKeyboardState(onChange: (visible: boolean) => void) {
+export function observeKeyboardState(onChange: (state: KeyboardState) => void) {
   if (typeof window === "undefined") {
     return () => undefined;
   }
@@ -220,8 +342,18 @@ export function observeKeyboardState(onChange: (visible: boolean) => void) {
 
     void import("@capacitor/keyboard").then(async ({ Keyboard }) => {
       if (cancelled) return;
-      showHandle = await Keyboard.addListener("keyboardDidShow", () => onChange(true));
-      hideHandle = await Keyboard.addListener("keyboardDidHide", () => onChange(false));
+      showHandle = await Keyboard.addListener("keyboardDidShow", (event?: { keyboardHeight?: number }) =>
+        onChange({
+          visible: true,
+          height: Math.max(0, Math.round(event?.keyboardHeight ?? 0)),
+        })
+      );
+      hideHandle = await Keyboard.addListener("keyboardDidHide", () =>
+        onChange({
+          visible: false,
+          height: 0,
+        })
+      );
     });
 
     return () => {
@@ -232,13 +364,45 @@ export function observeKeyboardState(onChange: (visible: boolean) => void) {
   }
 
   const viewport = window.visualViewport;
-  if (!viewport) return () => undefined;
+  if (!viewport) {
+    onChange({ visible: false, height: 0 });
+    return () => undefined;
+  }
 
-  const initialHeight = viewport.height;
-  const handleResize = () => onChange(initialHeight - viewport.height > 120);
+  let baselineHeight = Math.max(window.innerHeight, viewport.height);
+  let lastState: KeyboardState = { visible: false, height: 0 };
 
-  viewport.addEventListener("resize", handleResize);
-  return () => viewport.removeEventListener("resize", handleResize);
+  const emitState = () => {
+    const currentHeight = Math.max(0, Math.round(viewport.height));
+    const nextHeight = Math.max(0, Math.round(baselineHeight - currentHeight));
+    const nextVisible = nextHeight > 120;
+
+    if (!nextVisible) {
+      baselineHeight = Math.max(baselineHeight, Math.max(window.innerHeight, currentHeight));
+    }
+
+    const nextState = {
+      visible: nextVisible,
+      height: nextVisible ? nextHeight : 0,
+    };
+
+    if (nextState.visible === lastState.visible && nextState.height === lastState.height) {
+      return;
+    }
+
+    lastState = nextState;
+    onChange(nextState);
+  };
+
+  emitState();
+
+  viewport.addEventListener("resize", emitState);
+  viewport.addEventListener("scroll", emitState);
+
+  return () => {
+    viewport.removeEventListener("resize", emitState);
+    viewport.removeEventListener("scroll", emitState);
+  };
 }
 
 export function observeAppState(onChange: (isActive: boolean) => void) {
@@ -336,6 +500,14 @@ export function observeBackButton(onBack: (canGoBack: boolean) => void) {
 
 export async function registerPushNotifications(onNotificationRoute?: (notification: any) => void): Promise<PushRegistrationResult> {
   if (!isNativeApp() || !mobileFeatures.enablePushNotifications) {
+    return {
+      remove: () => undefined,
+    };
+  }
+
+  // FCM registration is noisy and unreliable on local Android emulator sessions.
+  // Keep the app startup stable by skipping it unless explicitly re-enabled for dev debugging.
+  if (process.env.NODE_ENV !== "production" && isAndroidApp() && !DEV_NATIVE_PUSH_OVERRIDE) {
     return {
       remove: () => undefined,
     };

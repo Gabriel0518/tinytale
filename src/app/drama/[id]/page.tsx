@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Suspense} from "reac
 import { useParams, useRouter, useSearchParams} from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { ChevronLeft, Share2 } from "lucide-react";
 import { dramasApi, reviewsApi, userApi, coinsApi, episodesApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
@@ -25,6 +26,7 @@ import { resolvePlaybackSource } from "@/lib/playback";
 import { getQualityMenuOptions, resolveDefaultQuality } from "@/lib/playerQuality";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
 import { copyText, shareContent } from "@/lib/capacitor-bridge";
+import { resolveSafeImageUrl } from "@/lib/safe-image";
 
 const DRAMA_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
@@ -372,6 +374,7 @@ function DramaDetailContent() {
   const [showAllReviews, setShowAllReviews] = useState(false);
   const [mobileTab, setMobileTab] = useState<"episodes" | "reviews" | "related">("episodes");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [mobileHeaderSolid, setMobileHeaderSolid] = useState(false);
   const [unlockingAll, setUnlockingAll] = useState(false);
   const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
   const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
@@ -379,6 +382,20 @@ function DramaDetailContent() {
     () => Array.from(unlockedEpisodeIds).sort().join(","),
     [unlockedEpisodeIds]
   );
+
+  useEffect(() => {
+    if (!isMobile || typeof window === "undefined") return;
+
+    const handleScroll = () => {
+      setMobileHeaderSolid(window.scrollY > 150);
+    };
+
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [isMobile]);
 
   // Fetch drama data
   useEffect(() => {
@@ -676,6 +693,14 @@ function DramaDetailContent() {
     }
   }, [drama?.description, drama?.title, t.copyFail, t.linkCopied, toast]);
 
+  const handleMobileBack = useCallback(() => {
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push(localizePath("/browse", locale));
+  }, [locale, router]);
+
   // Auth check for review (P1-18) + toast errors (P1-22)
   const handleSubmitReview = async () => {
     if (!reviewRating || !reviewContent.trim()) return;
@@ -741,61 +766,89 @@ function DramaDetailContent() {
 
   if (isMobile) {
     return (
-      <div className="min-h-screen bg-[#141414] pb-32">
-        <Navbar />
+      <div className="min-h-screen bg-[#0b0c12] pb-32">
+        <div
+          className={`fixed inset-x-0 top-0 z-40 border-b px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all duration-200 ${
+            mobileHeaderSolid
+              ? "border-white/10 bg-[#0b0c12]/92 shadow-[0_10px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl"
+              : "border-transparent bg-gradient-to-b from-black/60 to-transparent"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={handleMobileBack}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white backdrop-blur-md"
+              aria-label="Back"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <div className={`min-w-0 flex-1 text-center text-sm font-semibold text-white transition-all ${mobileHeaderSolid ? "opacity-100" : "translate-y-1 opacity-0"}`}>
+              <p className="truncate px-2">{drama.title}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void handleShareDrama();
+              }}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white backdrop-blur-md"
+              aria-label={t.share}
+            >
+              <Share2 className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+        </div>
 
-        <main className="pt-[calc(56px+env(safe-area-inset-top))]">
-          <section className="relative overflow-hidden">
-            <div className="relative aspect-[4/5] w-full">
-              <Image
-                src={drama.horizontalCover || drama.cover || "/placeholder-cover.svg"}
-                alt={drama.title}
-                fill
-                className="object-cover"
-                unoptimized={Boolean((drama.horizontalCover || drama.cover)?.startsWith("blob:"))}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#141414] via-[#141414]/55 to-black/10" />
-              <div className="absolute inset-x-0 bottom-0 p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  {drama.isFeatured ? (
-                    <span className="rounded-full bg-red-500 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-white">
-                      {t.trending}
-                    </span>
-                  ) : null}
-                  {resolveDramaMode(drama) === "completed" ? (
-                    <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold text-emerald-300">
-                      {t.completed}
-                    </span>
-                  ) : null}
-                </div>
-                <h1 className="max-w-[85%] text-3xl font-bold text-white">{drama.title}</h1>
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-white/78">
-                  <span className="text-yellow-400">★ {drama.rating?.toFixed(1)}</span>
-                  {drama.year ? <span>{drama.year}</span> : null}
-                  <span>{episodes.length} {t.episodesCount}</span>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {drama.categories?.slice(0, 3).map((cat) => (
-                    <Link
-                      key={cat}
-                      href={localizePath(`/category?category=${encodeURIComponent(cat)}`, locale)}
-                      className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/85 backdrop-blur-sm"
-                    >
-                      {cat}
-                    </Link>
-                  ))}
-                </div>
+        <main>
+          <section className="relative h-[58vh] min-h-[390px] w-full overflow-hidden">
+            <Image
+              src={resolveSafeImageUrl(drama.horizontalCover || drama.cover)}
+              alt={drama.title}
+              fill
+              className="object-cover"
+              sizes="100vw"
+              unoptimized={Boolean(resolveSafeImageUrl(drama.horizontalCover || drama.cover).startsWith("blob:"))}
+              priority
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.35)_0%,rgba(0,0,0,0.15)_35%,rgba(11,12,18,0.92)_72%,#0b0c12_100%)]" />
+            <div className="absolute inset-x-0 bottom-0 px-4 pb-6">
+              <div className="mb-3 flex items-center gap-2">
+                {drama.isFeatured ? (
+                  <span className="rounded-full bg-red-500 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
+                    {t.trending}
+                  </span>
+                ) : null}
+                {resolveDramaMode(drama) === "completed" ? (
+                  <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold text-emerald-200">
+                    {t.completed}
+                  </span>
+                ) : null}
+              </div>
+              <h1 className="max-w-[90%] text-3xl font-bold leading-[1.15] text-white">{drama.title}</h1>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-white/78">
+                <span className="text-yellow-400">★ {drama.rating?.toFixed(1)}</span>
+                {drama.year ? <span>{drama.year}</span> : null}
+                <span>{episodes.length} {t.episodesCount}</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {drama.categories?.slice(0, 3).map((cat) => (
+                  <Link
+                    key={cat}
+                    href={localizePath(`/category?category=${encodeURIComponent(cat)}`, locale)}
+                    className="rounded-full border border-white/12 bg-white/8 px-3 py-1 text-xs text-white/85 backdrop-blur-md"
+                  >
+                    {cat}
+                  </Link>
+                ))}
               </div>
             </div>
           </section>
 
           <section className="px-4 py-5">
-            <div className="rounded-[28px] border border-white/8 bg-[#191919] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.25)]">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-white/40">{t.aboutDrama}</p>
-                  <p className="mt-2 text-sm leading-6 text-white/75">{visibleMobileDescription}</p>
-                </div>
+            <div className="rounded-[28px] border border-white/10 bg-[#171a26] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-white/40">{t.aboutDrama}</p>
+                <p className="mt-2 text-sm leading-6 text-white/75">{visibleMobileDescription}</p>
               </div>
               {shouldClampDescription ? (
                 <button
@@ -810,15 +863,15 @@ function DramaDetailContent() {
               <div className="mt-4 flex gap-2">
                 <button
                   onClick={toggleFavorite}
-                  className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-medium transition ${
-                    isFavorited ? "bg-red-600 text-white" : "bg-white/6 text-white hover:bg-white/10"
+                  className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-medium transition active:scale-[0.98] ${
+                    isFavorited ? "bg-red-600 text-white" : "bg-white/8 text-white hover:bg-white/12"
                   }`}
                 >
                   <span>{isFavorited ? t.inMyList : `+ ${t.myList}`}</span>
                 </button>
                 <button
                   onClick={() => { void handleShareDrama(); }}
-                  className="flex min-h-[44px] items-center justify-center rounded-2xl bg-white/6 px-4 text-sm font-medium text-white hover:bg-white/10"
+                  className="flex min-h-[44px] items-center justify-center rounded-2xl bg-white/8 px-4 text-sm font-medium text-white hover:bg-white/12 active:scale-[0.98]"
                 >
                   {t.share}
                 </button>
@@ -826,7 +879,7 @@ function DramaDetailContent() {
             </div>
           </section>
 
-          <section className="sticky top-[calc(56px+env(safe-area-inset-top))] z-20 border-y border-white/6 bg-[#141414]/92 px-4 py-3 backdrop-blur-xl">
+          <section className="sticky top-[calc(52px+env(safe-area-inset-top))] z-20 border-y border-white/8 bg-[#0b0c12]/90 px-4 py-3 backdrop-blur-xl">
             <div className="flex gap-2">
               {[
                 { key: "episodes" as const, label: t.episodes },
@@ -837,8 +890,8 @@ function DramaDetailContent() {
                   key={tab.key}
                   type="button"
                   onClick={() => setMobileTab(tab.key)}
-                  className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    mobileTab === tab.key ? "bg-white text-black" : "bg-white/6 text-white/70"
+                  className={`flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition ${
+                    mobileTab === tab.key ? "bg-white text-black" : "bg-white/8 text-white/70"
                   }`}
                 >
                   {tab.label}
@@ -888,7 +941,7 @@ function DramaDetailContent() {
                   </div>
                 ) : null}
 
-                <div className="flex gap-3 overflow-x-auto pb-2 mobile-scroll [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                <div className="space-y-2">
                   {episodes.map((ep) => {
                     const isCurrentEpisode = activeEpisode?._id === ep._id;
                     const access = episodeAccessMap[ep._id];
@@ -914,33 +967,34 @@ function DramaDetailContent() {
                         key={ep._id}
                         type="button"
                         onClick={() => { void handleEpisodeClick(ep); }}
-                        className={`w-[76vw] shrink-0 rounded-[24px] border p-3 text-left transition ${
+                        className={`w-full rounded-[22px] border p-3 text-left transition active:scale-[0.99] ${
                           isCurrentEpisode
                             ? "border-red-500/60 bg-red-500/10 shadow-[0_18px_40px_rgba(127,29,29,0.28)]"
-                            : "border-white/8 bg-white/4"
+                            : "border-white/8 bg-white/5"
                         }`}
                       >
-                        <div className="relative mb-3 aspect-video overflow-hidden rounded-2xl bg-black">
-                          <Image
-                            src={ep.thumbnail || drama.cover || "/placeholder-cover.svg"}
-                            alt={ep.title}
-                            fill
-                            className="object-cover"
-                            unoptimized={Boolean((ep.thumbnail || drama.cover)?.startsWith("blob:"))}
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-                          <div className="absolute left-3 top-3 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/80 backdrop-blur-md">
-                            {isCurrentEpisode ? t.watchNow : `${t.episodes} ${ep.episodeNumber}`}
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl bg-black">
+                            <Image
+                              src={ep.thumbnail || drama.cover || "/placeholder-cover.svg"}
+                              alt={ep.title}
+                              fill
+                              className="object-cover"
+                              sizes="96px"
+                              unoptimized={Boolean((ep.thumbnail || drama.cover)?.startsWith("blob:"))}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+                            <div className="absolute left-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/80 backdrop-blur-md">
+                              {ep.episodeNumber}
+                            </div>
                           </div>
-                          <div className="absolute bottom-3 right-3 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-medium text-white/85 backdrop-blur-md">
-                            {formatDuration(ep.duration)}
-                          </div>
-                        </div>
-                        <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-white">{t.episodes} {ep.episodeNumber}</p>
                             <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/65">{ep.title}</p>
-                            <p className="mt-2 text-[11px] uppercase tracking-[0.16em] text-white/35">
+                            <p className="mt-1 text-[11px] text-white/40">
+                              {formatDuration(ep.duration)}
+                            </p>
+                            <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-white/35">
                               {isCurrentEpisode ? t.watchNow : statusLabel}
                             </p>
                           </div>
@@ -975,7 +1029,7 @@ function DramaDetailContent() {
                 </div>
 
                 {showReviewForm ? (
-                  <div className="rounded-[24px] border border-white/8 bg-white/4 p-4">
+                  <div className="keyboard-safe-form rounded-[24px] border border-white/8 bg-white/4 p-4">
                     <div className="mb-3 flex items-center gap-3">
                       <span className="text-sm text-gray-300">{t.yourRating}</span>
                       <StarRating rating={reviewRating} onRate={setReviewRating} interactive />
@@ -1315,7 +1369,7 @@ function DramaDetailContent() {
 
           {/* Review Form */}
           {showReviewForm && (
-            <div className="mb-6 rounded-lg bg-[#1a1a1a] p-4">
+            <div className="keyboard-safe-form mb-6 rounded-lg bg-[#1a1a1a] p-4">
               <div className="flex items-center gap-3 mb-3">
                 <span className="text-sm text-gray-300">{t.yourRating}</span>
                 <StarRating rating={reviewRating} onRate={setReviewRating} interactive />

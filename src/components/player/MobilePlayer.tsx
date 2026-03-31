@@ -4,7 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Forward, PictureInPicture2, Rewind } from 'lucide-react';
 import SimplePlayer, { SimplePlayerHandle } from '@/components/player/SimplePlayer';
 import { cn, formatDuration } from '@/lib/utils';
-import { triggerHaptic } from '@/lib/capacitor-bridge';
+import {
+  lockNativeScreenOrientation,
+  setNativeKeepAwake,
+  triggerHaptic,
+  unlockNativeScreenOrientation,
+} from '@/lib/capacitor-bridge';
 
 interface MobilePlayerProps {
   videoUrl: string;
@@ -134,6 +139,19 @@ export default function MobilePlayer({
 
     return () => clearTimeout(timeoutId);
   }, [isPlaying, showChrome, showSpeedMenu]);
+
+  useEffect(() => {
+    void lockNativeScreenOrientation('portrait');
+
+    return () => {
+      void setNativeKeepAwake(false);
+      void unlockNativeScreenOrientation();
+    };
+  }, []);
+
+  useEffect(() => {
+    void setNativeKeepAwake(isPlaying);
+  }, [isPlaying]);
 
   const togglePlayback = useCallback(() => {
     playerRef.current?.togglePlay();
@@ -355,6 +373,10 @@ export default function MobilePlayer({
   const timeLabel = useMemo(() => {
     return `${formatDuration(currentTime)} / ${formatDuration(duration || 0)}`;
   }, [currentTime, duration]);
+  const progressPercent = useMemo(() => {
+    if (!duration || duration <= 0) return 0;
+    return Math.max(0, Math.min(100, (currentTime / duration) * 100));
+  }, [currentTime, duration]);
 
   return (
     <div
@@ -452,6 +474,17 @@ export default function MobilePlayer({
           {hasPreviousEpisode ? <ChevronsDownUp className="h-3.5 w-3.5" /> : null}
           <span>{isPlaying ? labels.tapToPause : labels.tapToPlay}</span>
           {hasNextEpisode ? <ChevronsUpDown className="h-3.5 w-3.5" /> : null}
+        </div>
+      </div>
+      <div
+        className="pointer-events-none absolute inset-x-0 z-[11]"
+        style={{ bottom: "max(env(safe-area-inset-bottom), 0px)" }}
+      >
+        <div className="h-[3px] bg-white/15">
+          <div
+            className="h-full bg-red-500 shadow-[0_0_16px_rgba(239,68,68,0.55)] transition-[width] duration-200"
+            style={{ width: `${progressPercent}%` }}
+          />
         </div>
       </div>
 

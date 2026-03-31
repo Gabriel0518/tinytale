@@ -192,7 +192,7 @@ export default function CreatorLayout({ children }: { children: React.ReactNode 
               })}
             </div>
           </nav>
-          <main className="p-4 md:p-5 lg:px-6 lg:py-6 xl:px-8 xl:py-7 2xl:px-10">
+          <main className="keyboard-safe-form p-4 md:p-5 lg:px-6 lg:py-6 xl:px-8 xl:py-7 2xl:px-10">
             <div className="mx-auto w-full max-w-[1320px]">{children}</div>
           </main>
         </div>

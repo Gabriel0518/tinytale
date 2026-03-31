@@ -130,6 +130,55 @@ export interface Category {
   sortOrder?: number;
 }
 
+export interface HomepageFeaturedBuckets {
+  rankings?: Drama[];
+  featured?: Drama[];
+  trending?: Drama[];
+  new?: Drama[];
+}
+
+export interface HomepagePlaylist {
+  _id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  icon?: string;
+  countries?: string[];
+  resolvedLanguage?: string;
+  requestedLanguage?: string;
+  translationStatus?: string | null;
+  dramas: Drama[];
+}
+
+export interface HomepageBanner {
+  _id: string;
+  title: string;
+  subtitle: string;
+  image: string;
+  linkType: 'drama' | 'playlist' | 'url';
+  linkId: string;
+  slot: 'standard' | 'featured';
+  position: number;
+  status?: 'Active' | 'Disabled';
+  resolvedLanguage?: string;
+  requestedLanguage?: string;
+  translationStatus?: string | null;
+}
+
+export interface HomepageHeroBanner {
+  _id: string;
+  coverImage: string;
+  title: string;
+  subtitle: string;
+  tag: string;
+  dramaId: string;
+  displayDurationSec: number;
+  position: number;
+  resolvedLanguage?: string;
+  requestedLanguage?: string;
+  translationStatus?: string | null;
+}
+
 // Review Types
 export interface Review {
   _id: string;

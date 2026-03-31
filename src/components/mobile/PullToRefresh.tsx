@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 import { cn } from '@/lib/utils';
+import { triggerHaptic } from '@/lib/capacitor-bridge';
 
 const MAX_PULL = 108;
 const REFRESH_THRESHOLD = 72;
@@ -88,6 +89,7 @@ export function PullToRefresh({
       return;
     }
 
+    void triggerHaptic('success');
     setRefreshing(true);
     setPullDistance(56);
 

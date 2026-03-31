@@ -5,10 +5,10 @@ import type { Drama } from "@/types";
 import { localizeCategoryLabel } from "@/lib/categoryI18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { resolveSafeImageUrl } from "@/lib/safe-image";
 
 function validCover(url?: string): string {
-  if (!url || url.startsWith('blob:')) return '/placeholder-cover.svg';
-  return url;
+  return resolveSafeImageUrl(url);
 }
 
 interface DramaCardProps {

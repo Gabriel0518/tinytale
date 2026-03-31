@@ -826,7 +826,7 @@ export default function HelpPage() {
   }, [formData]);
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="keyboard-safe-form min-h-screen bg-black text-white">
       <Navbar />
 
       <div className="relative pt-16 overflow-hidden">
@@ -949,7 +949,7 @@ export default function HelpPage() {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="keyboard-safe-form space-y-4">
               <div className="flex gap-3">
                 {(["general", "technical", "business"] as const).map((typeKey) => (
                   <button

@@ -20,10 +20,13 @@ export default function OTPInput({
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    // Auto-focus first input on mount
-    if (inputRefs.current[0] && !disabled) {
-      inputRefs.current[0].focus();
-    }
+    if (disabled) return undefined;
+
+    const timer = window.setTimeout(() => {
+      inputRefs.current[0]?.focus({ preventScroll: true });
+    }, 120);
+
+    return () => window.clearTimeout(timer);
   }, [disabled]);
 
   const handleChange = (index: number, digit: string) => {
@@ -43,7 +46,7 @@ export default function OTPInput({
 
     // Auto-advance to next input
     if (newDigit && index < length - 1) {
-      inputRefs.current[index + 1]?.focus();
+      inputRefs.current[index + 1]?.focus({ preventScroll: true });
     }
   };
 
@@ -54,7 +57,7 @@ export default function OTPInput({
     if (e.key === 'Backspace') {
       if (!value[index] && index > 0) {
         // Move to previous input if current is empty
-        inputRefs.current[index - 1]?.focus();
+        inputRefs.current[index - 1]?.focus({ preventScroll: true });
       } else {
         // Clear current input
         const newValue = value.split('');
@@ -65,10 +68,10 @@ export default function OTPInput({
 
     // Handle arrow keys
     if (e.key === 'ArrowLeft' && index > 0) {
-      inputRefs.current[index - 1]?.focus();
+      inputRefs.current[index - 1]?.focus({ preventScroll: true });
     }
     if (e.key === 'ArrowRight' && index < length - 1) {
-      inputRefs.current[index + 1]?.focus();
+      inputRefs.current[index + 1]?.focus({ preventScroll: true });
     }
   };
 
@@ -83,7 +86,7 @@ export default function OTPInput({
       onChange(digits);
       // Focus last filled input
       const lastIndex = Math.min(digits.length - 1, length - 1);
-      inputRefs.current[lastIndex]?.focus();
+      inputRefs.current[lastIndex]?.focus({ preventScroll: true });
     }
   };
 
@@ -95,6 +98,7 @@ export default function OTPInput({
           ref={(el) => { inputRefs.current[index] = el; }}
           type="text"
           inputMode="numeric"
+          autoComplete={index === 0 ? 'one-time-code' : 'off'}
           maxLength={1}
           value={value[index] || ''}
           onChange={(e) => handleChange(index, e.target.value)}
@@ -110,6 +114,7 @@ export default function OTPInput({
           }}
           onFocus={(e) => {
             e.target.style.border = '2px solid #f2b90d';
+            e.target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
           }}
           onBlur={(e) => {
             if (!error) {

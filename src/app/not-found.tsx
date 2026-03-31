@@ -38,7 +38,7 @@ export default function NotFoundPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white relative overflow-hidden">
+    <div className="keyboard-safe-form relative min-h-screen overflow-hidden bg-[#121212] text-white">
       <style jsx>{`
         @keyframes grain { 0%,100% { transform: translate(0,0); } 10% { transform: translate(-5%,-10%); } 30% { transform: translate(3%,-15%); } 50% { transform: translate(12%,9%); } 70% { transform: translate(9%,4%); } 90% { transform: translate(-1%,7%); } }
         @keyframes reelSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -102,10 +102,12 @@ export default function NotFoundPage() {
           <div className="relative">
             <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
             <input
-              type="text"
+              type="search"
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search for dramas, actors..."
+              enterKeyHint="search"
+              inputMode="search"
               className="w-full bg-[#2A2A2A] border border-white/10 rounded-full pl-12 pr-10 py-3.5 text-sm text-white placeholder-gray-500 focus:border-red-500 focus:outline-none transition"
             />
             {query && (

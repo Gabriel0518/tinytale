@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 
 const FB_APP_ID = process.env.NEXT_PUBLIC_FB_APP_ID || '1826379214690255';
 
@@ -61,18 +61,13 @@ function onFbReady(callback: () => void) {
 }
 
 export function useFacebookLogin(onSuccess: (accessToken: string) => void, onError?: (error: string) => void) {
-  useEffect(() => {
-    if (FB_APP_ID) {
-      loadFacebookSdk();
-    }
-  }, []);
-
   const login = useCallback(() => {
     if (!FB_APP_ID) {
       onError?.('Facebook App ID is not configured');
       return;
     }
 
+    loadFacebookSdk();
     onFbReady(() => {
       window.FB.login(
         (response: FBLoginResponse) => {

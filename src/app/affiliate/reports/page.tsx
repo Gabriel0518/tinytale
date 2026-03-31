@@ -217,7 +217,7 @@ export default function CommissionReportsPage() {
   const totalPages = data?.totalPages ?? 1;
 
   return (
-    <div className="min-h-screen bg-[#0f0f17] text-gray-200 p-6 md:p-10">
+    <div className="keyboard-safe-form min-h-screen bg-[#0f0f17] p-6 text-gray-200 md:p-10">
       {/* Page Title */}
       <h1 className="text-2xl font-bold mb-6">{t.title}</h1>
 
@@ -245,19 +245,23 @@ export default function CommissionReportsPage() {
           type="date"
           value={startDate}
           onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+          enterKeyHint="next"
           className="bg-[#1a1a2e] border border-gray-700/50 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-purple-500"
         />
         <input
           type="date"
           value={endDate}
           onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+          enterKeyHint="next"
           className="bg-[#1a1a2e] border border-gray-700/50 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-purple-500"
         />
         <input
-          type="text"
+          type="search"
           placeholder={t.searchPlaceholder}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          enterKeyHint="search"
+          inputMode="search"
           className="bg-[#1a1a2e] border border-gray-700/50 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-purple-500 min-w-[200px]"
         />
         <button

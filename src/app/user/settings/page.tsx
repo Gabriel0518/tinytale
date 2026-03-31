@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter} from "next/navigation";
+import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useToast } from "@/components/ui/Toast";
@@ -13,6 +14,7 @@ import { localizePath, LOCALE_DISPLAY_NAMES, SupportedLocale, SUPPORTED_LOCALES 
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
 import { mergeRuntimeSettings, readRuntimeSettings } from "@/lib/runtime-settings";
+import { usePlatform } from "@/hooks/usePlatform";
 
 type Section = "profile" | "security" | "notifications" | "preferences";
 
@@ -1032,6 +1034,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 export default function SettingsPage() {
   const locale = useLocale();
   const copy = resolveLocaleCopy(COPY, locale);
+  const { isMobile } = usePlatform();
   const languageOptions = useMemo(() => {
     const labels = new Intl.DisplayNames([locale], { type: "language" });
     return SUPPORTED_LOCALES.map((code) => ({
@@ -1044,6 +1047,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [section, setSection] = useState<Section>("profile");
+  const [mobileView, setMobileView] = useState<"menu" | "detail">("menu");
 
   const sidebarItems: { id: Section | "history" | "purchases" | "logout"; label: string; icon: string }[] = [
     { id: "profile", label: copy.sidebar.profile, icon: "M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" },
@@ -1177,6 +1181,14 @@ export default function SettingsPage() {
     }));
   }, [copy.sessions.activeNow, copy.sessions.active2h, copy.sessions.active3d]);
 
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileView("detail");
+      return;
+    }
+    setMobileView("menu");
+  }, [isMobile]);
+
   if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -1283,13 +1295,46 @@ export default function SettingsPage() {
   };
 
   const isVip = user.vipStatus === "active";
+  const sectionTitleMap: Record<Section, string> = {
+    profile: copy.sidebar.profile,
+    security: copy.sidebar.security,
+    notifications: copy.sidebar.notifications,
+    preferences: copy.sidebar.preferences,
+  };
+  const mobileLegalLinks = [
+    { label: "Help Center", href: localizePath("/help", locale) },
+    { label: "Terms of Service", href: localizePath("/terms", locale) },
+    { label: "Privacy Policy", href: localizePath("/privacy", locale) },
+  ];
+
+  const openMobileSection = (next: Section) => {
+    setSection(next);
+    setMobileView("detail");
+  };
+
+  const handleMobileMenuAction = (id: Section | "history" | "purchases" | "logout") => {
+    if (id === "logout") {
+      logout();
+      router.push(localizePath("/", locale));
+      return;
+    }
+    if (id === "history") {
+      router.push(localizePath("/user/history", locale));
+      return;
+    }
+    if (id === "purchases") {
+      router.push(localizePath("/user/purchases", locale));
+      return;
+    }
+    openMobileSection(id);
+  };
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="keyboard-safe-form min-h-screen bg-black text-white">
       <Navbar />
 
-      <div className="max-w-6xl mx-auto px-4 pt-24 pb-16">
-        <h1 className="text-2xl font-bold mb-8">{copy.title}</h1>
+      <div className="keyboard-safe-form max-w-6xl mx-auto px-4 pt-24 pb-16">
+        <h1 className={`font-bold ${isMobile ? "mb-4 text-xl" : "mb-8 text-2xl"}`}>{copy.title}</h1>
         <div className="md:flex gap-8">
           <aside className="w-56 shrink-0 hidden md:block">
             <div className="bg-zinc-900/60 rounded-xl border border-white/10 overflow-hidden">
@@ -1312,25 +1357,96 @@ export default function SettingsPage() {
             </div>
           </aside>
 
-          <div className="md:hidden w-full mb-4">
-            <select
-              value={section}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val === "logout") { logout(); router.push(localizePath("/", locale)); return; }
-                if (val === "history") { router.push(localizePath("/user/history", locale)); return; }
-                if (val === "purchases") { router.push(localizePath("/user/purchases", locale)); return; }
-                setSection(val as Section);
-              }}
-              className="w-full bg-zinc-900/60 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-red-500 focus:outline-none appearance-none"
-            >
-              {sidebarItems.map((item) => (
-                <option key={item.id} value={item.id}>{item.label}</option>
-              ))}
-            </select>
-          </div>
+          {isMobile ? (
+            mobileView === "menu" ? (
+              <div className="mb-4 w-full space-y-4">
+                <section className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/60">
+                  <p className="px-4 pt-4 text-[11px] uppercase tracking-[0.16em] text-white/35">Account</p>
+                  {([
+                    { id: "profile", label: copy.sidebar.profile },
+                    { id: "security", label: copy.sidebar.security },
+                    { id: "history", label: copy.sidebar.history },
+                    { id: "purchases", label: copy.sidebar.purchases },
+                  ] as const).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleMobileMenuAction(item.id)}
+                      className="flex w-full items-center justify-between border-t border-white/5 px-4 py-3 text-left text-sm text-white"
+                    >
+                      <span>{item.label}</span>
+                      <svg className="h-4 w-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  ))}
+                </section>
 
-          <main className="flex-1 min-w-0">
+                <section className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/60">
+                  <p className="px-4 pt-4 text-[11px] uppercase tracking-[0.16em] text-white/35">Preferences</p>
+                  {([
+                    { id: "notifications", label: copy.sidebar.notifications },
+                    { id: "preferences", label: copy.sidebar.preferences },
+                  ] as const).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleMobileMenuAction(item.id)}
+                      className="flex w-full items-center justify-between border-t border-white/5 px-4 py-3 text-left text-sm text-white"
+                    >
+                      <span>{item.label}</span>
+                      <svg className="h-4 w-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  ))}
+                </section>
+
+                <section className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/60">
+                  <p className="px-4 pt-4 text-[11px] uppercase tracking-[0.16em] text-white/35">About</p>
+                  {mobileLegalLinks.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="flex items-center justify-between border-t border-white/5 px-4 py-3 text-sm text-white"
+                    >
+                      <span>{item.label}</span>
+                      <svg className="h-4 w-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </Link>
+                  ))}
+                </section>
+
+                <button
+                  type="button"
+                  onClick={() => handleMobileMenuAction("logout")}
+                  className="w-full rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300"
+                >
+                  {copy.sidebar.logout}
+                </button>
+              </div>
+            ) : (
+              <div className="mb-4 flex w-full items-center gap-2 rounded-2xl border border-white/10 bg-zinc-900/60 px-3 py-2.5">
+                <button
+                  type="button"
+                  onClick={() => setMobileView("menu")}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white"
+                  aria-label="Back to settings menu"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.14em] text-white/45">Settings</p>
+                  <p className="text-sm font-semibold text-white">{sectionTitleMap[section]}</p>
+                </div>
+              </div>
+            )
+          ) : null}
+
+          <main className={`flex-1 min-w-0 ${isMobile && mobileView === "menu" ? "hidden" : ""}`}>
             {section === "profile" && (
               <div className="space-y-6">
                 <div className="bg-zinc-900/60 rounded-xl border border-white/10 p-6">
@@ -1654,7 +1770,7 @@ export default function SettingsPage() {
         </div>
       )}
 
-      <Footer />
+      {!isMobile ? <Footer /> : null}
     </div>
   );
 }

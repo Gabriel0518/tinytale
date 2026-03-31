@@ -574,20 +574,53 @@ export default function ProfilePage() {
     { label: t.library.history, value: history.length },
     { label: t.wallet.coins, value: user.coins || 0 },
   ];
-  const quickLinks = [
-    { label: t.wallet.topUpNow, href: localizePath("/user/coins", locale), accent: "from-red-500/20 to-red-500/5 border-red-500/20" },
-    { label: isVip ? t.wallet.renewMembership : t.wallet.becomeMember, href: localizePath("/user/subscription", locale), accent: "from-yellow-500/20 to-yellow-500/5 border-yellow-500/20" },
-    { label: t.tabs.library, href: localizePath("/user/favorites", locale), accent: "from-white/10 to-white/5 border-white/10" },
-    { label: t.settings, href: localizePath("/user/settings", locale), accent: "from-cyan-500/15 to-cyan-500/5 border-cyan-500/20" },
+  const mobileActionCards = [
+    {
+      label: t.wallet.coins,
+      detail: `${(user.coins || 0).toLocaleString()}`,
+      href: localizePath("/user/coins", locale),
+      accent: "from-red-500/20 to-red-500/5 border-red-500/20",
+    },
+    {
+      label: t.wallet.vipMembership,
+      detail: isVip ? t.vipMember : t.wallet.becomeMember,
+      href: localizePath("/user/subscription", locale),
+      accent: "from-yellow-500/20 to-yellow-500/5 border-yellow-500/20",
+    },
+    {
+      label: t.library.favorites,
+      detail: `${favorites.length}`,
+      href: localizePath("/user/favorites", locale),
+      accent: "from-white/12 to-white/5 border-white/10",
+    },
+    {
+      label: t.library.history,
+      detail: `${history.length}`,
+      href: localizePath("/user/history", locale),
+      accent: "from-white/12 to-white/5 border-white/10",
+    },
+    {
+      label: t.wallet.transactionHistory,
+      detail: t.wallet.viewAll,
+      href: localizePath("/user/purchases", locale),
+      accent: "from-fuchsia-500/18 to-fuchsia-500/5 border-fuchsia-500/20",
+    },
+    {
+      label: t.settings,
+      detail: t.profile.editProfile,
+      href: localizePath("/user/settings", locale),
+      accent: "from-cyan-500/18 to-cyan-500/5 border-cyan-500/20",
+    },
   ];
   const latestHistoryItem = history[0];
+  const favoritePreview = favorites.slice(0, 4);
 
   if (isMobile) {
     return (
       <div className="min-h-screen bg-[#0F1014]">
         <Navbar />
 
-        <main className="space-y-4 px-4 pb-8 pt-[calc(56px+env(safe-area-inset-top)+12px)]">
+        <main className="space-y-4 px-4 pb-10 pt-[calc(56px+env(safe-area-inset-top)+12px)]">
           <section className="overflow-hidden rounded-[28px] border border-white/8 bg-[radial-gradient(circle_at_top_right,_rgba(250,204,21,0.16),_transparent_34%),linear-gradient(180deg,#191B22_0%,#121318_100%)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.32)]">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -623,15 +656,27 @@ export default function ProfilePage() {
                 </div>
               ))}
             </div>
+          </section>
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              {quickLinks.map((item) => (
+          <section className="rounded-[28px] border border-white/8 bg-[#121319] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">{t.tabs.wallet}</h2>
+              <span className="text-xs uppercase tracking-[0.16em] text-white/35">APP MENU</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {mobileActionCards.map((item) => (
                 <Link
-                  key={item.label}
+                  key={`${item.label}-${item.detail}`}
                   href={item.href}
-                  className={`rounded-2xl border bg-gradient-to-br px-4 py-3 text-sm font-semibold text-white ${item.accent}`}
+                  className={`rounded-2xl border bg-gradient-to-br px-3 py-3 transition active:scale-[0.98] ${item.accent}`}
                 >
-                  {item.label}
+                  <p className="text-xs uppercase tracking-[0.14em] text-white/45">{item.label}</p>
+                  <div className="mt-2 flex items-center justify-between">
+                    <p className="truncate text-sm font-semibold text-white">{item.detail}</p>
+                    <svg className="h-4 w-4 text-white/45" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -664,38 +709,40 @@ export default function ProfilePage() {
             </Link>
           ) : null}
 
-          <section className="sticky top-[calc(56px+env(safe-area-inset-top)+8px)] z-20 rounded-[24px] border border-white/8 bg-[#101116]/90 p-2 backdrop-blur-xl">
-            <div className="flex gap-2" role="tablist">
-              {(["library", "wallet"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  aria-selected={activeTab === tab}
-                  role="tab"
-                  className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
-                    activeTab === tab ? "bg-white text-black" : "text-white/65"
-                  }`}
-                >
-                  {tab === "library" ? t.tabs.library : t.tabs.wallet}
-                </button>
-              ))}
+          <section className="rounded-[28px] border border-white/8 bg-[#121319] p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white">{t.tabs.library}</h2>
+              <Link href={localizePath("/user/favorites", locale)} className="text-xs font-semibold uppercase tracking-[0.14em] text-red-400">
+                {t.wallet.viewAll}
+              </Link>
             </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Link href={localizePath("/user/favorites", locale)} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-white/40">{t.library.favorites}</p>
+                <p className="mt-2 text-xl font-bold text-white">{favorites.length.toLocaleString()}</p>
+              </Link>
+              <Link href={localizePath("/user/history", locale)} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-white/40">{t.library.history}</p>
+                <p className="mt-2 text-xl font-bold text-white">{history.length.toLocaleString()}</p>
+              </Link>
+            </div>
+
+            {favoritePreview.length > 0 ? (
+              <div className="mt-4 grid grid-cols-4 gap-2">
+                {favoritePreview.map((drama) => (
+                  <Link key={drama._id} href={localizePath(`/drama/${drama._id}`, locale)} className="block overflow-hidden rounded-xl border border-white/8 bg-white/[0.03]">
+                    <div className="relative aspect-[3/4]">
+                      <Image src={drama.cover} alt={drama.title} fill className="object-cover" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : null}
           </section>
 
           <section>
-            {activeTab === "library" ? (
-              <LibraryTab favorites={favorites} history={history} locale={locale} t={t} isMobile />
-            ) : (
-              <WalletTab
-                user={user}
-                isVip={isVip}
-                token={token}
-                locale={locale}
-                t={t}
-                dateLocale={dateLocale}
-                isMobile
-              />
-            )}
+            <h2 className="mb-3 text-lg font-bold text-white">{t.wallet.supportMore}</h2>
+            <SupportLinks locale={locale} t={t} />
           </section>
         </main>
       </div>

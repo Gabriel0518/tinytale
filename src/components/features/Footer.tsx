@@ -179,7 +179,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
 export function Footer() {
   const locale = useLocale();
   const t = resolveLocaleCopy(FOOTER_TEXT, locale);
-  const { isMobile } = usePlatform();
+  const { isMobile, isApp } = usePlatform();
   const [socialLinks, setSocialLinks] = useState<{ key: string; url: string }[]>([]);
 
   const footerSections = useMemo(() => ([
@@ -207,6 +207,8 @@ export function Footer() {
   ]), [t]);
 
   useEffect(() => {
+    if (isMobile || isApp) return;
+
     fetch(`${API_URL}/api/settings/social`)
       .then((r) => r.json())
       .then((res) => {
@@ -218,7 +220,11 @@ export function Footer() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [isApp, isMobile]);
+
+  if (isMobile || isApp) {
+    return null;
+  }
 
   return (
     <footer
@@ -230,7 +236,14 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4">
         {/* Logo */}
         <div className="mb-8">
-          <Image src="/logo.png" alt="TinyTale" width={420} height={108} className="h-12 w-auto md:h-16" />
+          <Image
+            src="/logo.png"
+            alt="TinyTale"
+            width={420}
+            height={108}
+            className="h-12 w-auto md:h-16"
+            style={{ width: "auto" }}
+          />
           <p className="mt-3 text-sm text-gray-500">
             {t.tagline}
           </p>

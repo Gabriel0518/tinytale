@@ -123,12 +123,21 @@ function VerifyOTPContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#1a1a1a' }}>
-      <div className="relative w-full max-w-md rounded-2xl shadow-2xl overflow-hidden" style={{ background: 'linear-gradient(180deg, #4a4020 0%, #3a3318 100%)' }}>
+    <div
+      className="keyboard-safe-scroll keyboard-safe-form min-h-screen px-4 py-[calc(1rem+env(safe-area-inset-top))]"
+      style={{ backgroundColor: '#1a1a1a' }}
+    >
+      <div
+        className="relative mx-auto flex w-full max-w-md flex-col overflow-hidden rounded-2xl shadow-2xl"
+        style={{
+          background: 'linear-gradient(180deg, #4a4020 0%, #3a3318 100%)',
+          maxHeight: 'calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - min(var(--tinytale-keyboard-inset, 0px), 16rem) - 2rem)',
+        }}
+      >
         {/* Top Border Decoration */}
         <div className="absolute top-0 left-0 w-full h-1" style={{ background: 'linear-gradient(90deg, transparent 0%, #f2b90d 50%, transparent 100%)' }}></div>
 
-        <div className="p-10">
+        <div className="keyboard-safe-scroll keyboard-safe-form min-h-0 p-10">
           {/* Header Section */}
           <div className="flex flex-col items-center text-center mb-8">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4" style={{ backgroundColor: 'rgba(242, 185, 13, 0.15)' }}>

@@ -3,6 +3,8 @@
 import React, { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
+import { MobileBottomSheet } from "@/components/mobile/MobileBottomSheet";
+import { useResponsiveModal } from "@/hooks/useResponsiveModal";
 
 interface ModalProps {
   open: boolean;
@@ -14,16 +16,40 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, children, className, size = "md" }: ModalProps) {
+  const useMobileSheet = useResponsiveModal();
+
   useEffect(() => {
+    if (useMobileSheet) return;
+
     if (open) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => { document.body.style.overflow = ""; };
-  }, [open]);
+  }, [open, useMobileSheet]);
 
   if (!open) return null;
+
+  if (useMobileSheet) {
+    return (
+      <MobileBottomSheet open={open} onClose={onClose} contentClassName={className}>
+        {title ? (
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h2 className="text-base font-semibold text-white">{title}</h2>
+            <button
+              onClick={onClose}
+              className="rounded-full bg-white/10 p-2 text-white/70 transition hover:bg-white/15 hover:text-white"
+              aria-label="Close dialog"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        ) : null}
+        {children}
+      </MobileBottomSheet>
+    );
+  }
 
   const sizes = {
     sm: "max-w-sm",

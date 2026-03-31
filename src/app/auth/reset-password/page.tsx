@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect} from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter} from "next/navigation";
 import { AuthLayout } from "@/components/auth/AuthLayout";
@@ -10,6 +10,7 @@ import { passwordApi } from "@/lib/api";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { dismissActiveKeyboard } from "@/lib/capacitor-bridge";
 
 export default function ResetPasswordPage() {
   const locale = useLocale();
@@ -21,6 +22,15 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const handleClose = useCallback(() => {
+    const homePath = localizePath("/", locale);
+    void dismissActiveKeyboard();
+    if (typeof window !== "undefined") {
+      window.location.assign(homePath);
+      return;
+    }
+    router.replace(homePath);
+  }, [locale, router]);
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -75,103 +85,106 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <AuthLayout>
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-black/40 p-8 backdrop-blur-xl">
-        {/* Lock Icon */}
-        <div className="mb-6 flex justify-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-500/20">
-            <svg className="h-8 w-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </div>
-        </div>
-
-        {/* Title */}
-        <h1 className="mb-2 text-center text-2xl font-bold text-white">{t.title}</h1>
-        <p className="mb-8 text-center text-sm text-gray-400">
-          {t.subtitle}
-        </p>
-
-        {/* Error */}
-        {error && (
-          <div role="alert" className="mb-4 rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Email Field */}
-          <div>
-            <label htmlFor="reset-email" className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">
-              {t.emailAddress}
-            </label>
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-              </svg>
-              <input
-                id="reset-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={t.emailExample}
-                className="w-full rounded-lg border border-white/10 bg-[#1a1c23] py-3 pl-10 pr-4 text-white placeholder-gray-600 focus:border-amber-500 focus:outline-none"
-                required
-              />
-            </div>
-          </div>
-
-          {/* Verification Code Field */}
-          <div>
-            <label htmlFor="reset-code" className="mb-2 block text-xs font-medium uppercase tracking-wider text-gray-500">
-              {t.verificationCode}
-            </label>
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
-              </svg>
-              <input
-                id="reset-code"
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder={t.codePlaceholder}
-                className="w-full rounded-lg border border-white/10 bg-[#1a1c23] py-3 pl-10 pr-24 text-white placeholder-gray-600 focus:border-amber-500 focus:outline-none"
-                maxLength={6}
-                inputMode="numeric"
-              />
-              <button
-                type="button"
-                onClick={handleSendCode}
-                disabled={isSending || countdown > 0}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded bg-amber-500 px-3 py-1 text-xs font-bold text-black transition hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSending ? t.sending : countdown > 0 ? `${countdown}s` : t.getCode}
-              </button>
-            </div>
-          </div>
-
-          {/* Submit Button */}
+    <AuthLayout
+      mobileHeader={
+        <header className="flex items-center justify-end px-6 pb-2 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
           <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 py-3 font-semibold text-black transition hover:from-amber-600 hover:to-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+            onClick={handleClose}
+            aria-label={t.backSignIn}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.03] text-white/55 transition hover:border-white/20 hover:text-white"
           >
-            {isLoading ? t.verifying : t.verifyAndReset}
-          </button>
-        </form>
-
-        {/* Divider */}
-        <div className="my-6 border-t border-white/10" />
-
-        {/* Back to Sign In */}
-        <div className="text-center">
-          <Link href={localizePath("/auth/login", locale)} className="text-sm text-gray-400 transition hover:text-white">
-            <svg className="mr-1 inline-block h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="m6 6 12 12M18 6 6 18" />
             </svg>
-            {t.backSignIn}
-          </Link>
+          </button>
+        </header>
+      }
+      contentClassName="items-start justify-start px-0 pb-0 pt-0 md:items-center md:justify-center md:px-4 md:py-8"
+      hideFooterOnMobile
+    >
+      <div className="keyboard-safe-scroll keyboard-safe-form relative flex min-h-0 w-full flex-1 flex-col bg-transparent px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 md:max-w-md md:flex-none md:overflow-visible md:rounded-[28px] md:border md:border-white/10 md:bg-[#12151d] md:p-8">
+        <div className="relative z-10 flex flex-1 flex-col">
+          <div className="mb-8 md:mb-6 md:text-center">
+            <h1 className="text-[2.05rem] font-semibold tracking-[-0.04em] text-white md:text-2xl md:font-bold md:tracking-normal">{t.title}</h1>
+            <p className="mt-2 max-w-[18rem] text-sm leading-6 text-white/55 md:mx-auto md:max-w-none md:text-gray-400">
+              {t.subtitle}
+            </p>
+          </div>
+
+          {error && (
+            <div role="alert" className="mb-4 rounded-2xl border border-red-500/30 bg-red-950/40 px-4 py-3 text-sm text-red-100">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div className="space-y-2">
+              <label htmlFor="reset-email" className="block text-sm font-semibold text-white/92 md:text-xs md:uppercase md:tracking-[0.24em] md:text-gray-500">
+                {t.emailAddress}
+              </label>
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 hidden h-5 w-5 -translate-y-1/2 text-gray-500 md:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+                <input
+                  id="reset-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder={t.emailExample}
+                  className="h-12 w-full rounded-xl border border-white/10 bg-transparent px-4 text-sm text-white placeholder:text-white/28 transition focus:border-[#ff5f80] focus:outline-none md:rounded-lg md:bg-[#1a1c23] md:pl-10 md:pr-4 md:placeholder:text-gray-500"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="reset-code" className="block text-sm font-semibold text-white/92 md:text-xs md:uppercase md:tracking-[0.24em] md:text-gray-500">
+                {t.verificationCode}
+              </label>
+              <div className="relative">
+                <svg className="absolute left-3 top-1/2 hidden h-5 w-5 -translate-y-1/2 text-gray-500 md:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+                </svg>
+                <input
+                  id="reset-code"
+                  type="text"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder={t.codePlaceholder}
+                  className="h-12 w-full rounded-xl border border-white/10 bg-transparent px-4 pr-28 text-sm text-white placeholder:text-white/28 transition focus:border-[#ff5f80] focus:outline-none md:rounded-lg md:bg-[#1a1c23] md:pl-10 md:pr-24 md:placeholder:text-gray-500"
+                  maxLength={6}
+                  inputMode="numeric"
+                />
+                <button
+                  type="button"
+                  onClick={handleSendCode}
+                  disabled={isSending || countdown > 0}
+                  className="absolute right-2 top-1/2 min-h-[36px] -translate-y-1/2 rounded-lg border border-white/10 bg-white/8 px-3 text-xs font-semibold text-white transition hover:bg-white/12 disabled:cursor-not-allowed disabled:opacity-50 md:bg-amber-500 md:text-black md:hover:bg-amber-600"
+                >
+                  {isSending ? t.sending : countdown > 0 ? `${countdown}s` : t.getCode}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="mt-2 h-12 w-full rounded-xl bg-white text-sm font-semibold text-[#0b0d10] transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-50 md:rounded-lg md:bg-gradient-to-r md:from-amber-500 md:to-amber-600 md:text-black md:hover:from-amber-600 md:hover:to-amber-700"
+            >
+              {isLoading ? t.verifying : t.verifyAndReset}
+            </button>
+          </form>
+
+          <div className="mt-auto pt-8 text-center">
+            <Link href={localizePath("/auth/login", locale)} className="text-sm text-white/55 transition hover:text-white/82 md:text-gray-400 md:hover:text-white">
+              <svg className="mr-1 inline-block h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+              </svg>
+              {t.backSignIn}
+            </Link>
+          </div>
         </div>
       </div>
     </AuthLayout>

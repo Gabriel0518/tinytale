@@ -10,7 +10,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string, turnstileToken?: string) => Promise<void>;
   register: (email: string, password: string, nickname: string, referredBy?: string) => Promise<void>;
-  googleLogin: (credential: string) => Promise<void>;
+  googleLogin: (credential: string | { credential?: string; accessToken?: string; idToken?: string }) => Promise<void>;
   facebookLogin: (accessToken: string) => Promise<void>;
   logout: () => void;
   updateUser: (user: User) => void;
@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const googleLogin = async (credential: string) => {
+  const googleLogin = async (credential: string | { credential?: string; accessToken?: string; idToken?: string }) => {
     const response = await authApi.googleLogin(credential);
     if (response.success && response.data) {
       const { user: userData, token: authToken } = response.data;

@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -22,6 +22,7 @@ import { resolveLocaleCopy } from '@/lib/locale-copy';
 import { formatDuration } from "@/lib/utils";
 import { usePlaybackSession } from "@/components/mobile/PlaybackSession";
 import { MobileBottomSheet } from "@/components/mobile/MobileBottomSheet";
+import { resolveSafeImageUrl } from "@/lib/safe-image";
 import {
   prefetchEpisodeStream,
   preloadImageAsset,
@@ -303,6 +304,7 @@ export default function PlayEpisodePage() {
   const [unlockingEpisode, setUnlockingEpisode] = useState(false);
   const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
   const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
+  const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState<number | null>(null);
   const lastProgressReportAtRef = useRef<number>(0);
 
   // 加载短剧和剧集信息
@@ -493,9 +495,10 @@ export default function PlayEpisodePage() {
   const handleEnded = () => {
     const currentIndex = episodes.findIndex((ep) => ep._id === episodeId);
     if (currentIndex >= 0 && currentIndex < episodes.length - 1) {
-      const nextEpisode = episodes[currentIndex + 1];
-      router.push(localizePath(`/drama/${dramaId}/play/${nextEpisode._id}`, locale));
+      setNextEpisodeCountdown(5);
+      return;
     }
+    setNextEpisodeCountdown(null);
   };
 
   // 播放错误处理
@@ -505,6 +508,7 @@ export default function PlayEpisodePage() {
   };
 
   const handlePlay = () => {
+    setNextEpisodeCountdown(null);
     if (!drama || !currentEpisode) return;
     updateSession({
       dramaTitle: drama.title,
@@ -581,6 +585,61 @@ export default function PlayEpisodePage() {
     episodeAccessMap,
   ]);
 
+  const goToEpisode = useCallback((targetEpisode: Episode) => {
+    setNextEpisodeCountdown(null);
+    router.push(localizePath(`/drama/${dramaId}/play/${targetEpisode._id}`, locale));
+  }, [dramaId, locale, router]);
+
+  const handlePreviousEpisode = useCallback(() => {
+    if (hasPreviousEpisode) {
+      goToEpisode(episodes[currentEpisodeIndex - 1]);
+    }
+  }, [currentEpisodeIndex, episodes, goToEpisode, hasPreviousEpisode]);
+
+  const handleNextEpisode = useCallback(() => {
+    if (hasNextEpisode) {
+      goToEpisode(episodes[currentEpisodeIndex + 1]);
+    }
+  }, [currentEpisodeIndex, episodes, goToEpisode, hasNextEpisode]);
+
+  useEffect(() => {
+    setNextEpisodeCountdown(null);
+  }, [episodeId]);
+
+  useEffect(() => {
+    if (nextEpisodeCountdown === null) return;
+    if (!hasNextEpisode) {
+      setNextEpisodeCountdown(null);
+      return;
+    }
+    if (nextEpisodeCountdown <= 0) {
+      handleNextEpisode();
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setNextEpisodeCountdown((prev) => (prev === null ? null : prev - 1));
+    }, 1000);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [handleNextEpisode, hasNextEpisode, nextEpisodeCountdown]);
+
+  const videoUrl = streamInfo && currentEpisode
+    ? (() => {
+        const source = resolvePlaybackSource(streamInfo, currentEpisode.videoUrl) || currentEpisode.videoUrl;
+        if (!source || !source.includes('.m3u8')) return source;
+        try {
+          const parsed = new URL(source);
+          parsed.searchParams.set('quality', selectedQuality);
+          return parsed.toString();
+        } catch {
+          return source;
+        }
+      })()
+    : "";
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#0f0f17]">
@@ -647,7 +706,7 @@ export default function PlayEpisodePage() {
   };
 
   if (!streamInfo && !canAccessCurrentEpisode) {
-    const coverImage = currentEpisode.thumbnail || drama?.cover || "/placeholder-cover.svg";
+    const coverImage = resolveSafeImageUrl(currentEpisode.thumbnail || drama?.cover);
 
     return (
       <div className={isMobile ? "fixed inset-0 z-50 overflow-hidden bg-black" : "min-h-screen bg-[#0f0f17]"}>
@@ -734,34 +793,6 @@ export default function PlayEpisodePage() {
     );
   }
 
-  const videoUrl = (() => {
-    const source = resolvePlaybackSource(streamInfo, currentEpisode.videoUrl) || currentEpisode.videoUrl;
-    if (!source || !source.includes('.m3u8')) return source;
-    try {
-      const parsed = new URL(source);
-      parsed.searchParams.set('quality', selectedQuality);
-      return parsed.toString();
-    } catch {
-      return source;
-    }
-  })();
-
-  const goToEpisode = (targetEpisode: Episode) => {
-    router.push(localizePath(`/drama/${dramaId}/play/${targetEpisode._id}`, locale));
-  };
-
-  const handlePreviousEpisode = () => {
-    if (hasPreviousEpisode) {
-      goToEpisode(episodes[currentEpisodeIndex - 1]);
-    }
-  };
-
-  const handleNextEpisode = () => {
-    if (hasNextEpisode) {
-      goToEpisode(episodes[currentEpisodeIndex + 1]);
-    }
-  };
-
   if (isMobile) {
     return (
       <div className="fixed inset-0 z-50 bg-black">
@@ -829,6 +860,35 @@ export default function PlayEpisodePage() {
             </div>
           </div>
         </div>
+        {nextEpisodeCountdown !== null && hasNextEpisode ? (
+          <div className="pointer-events-none absolute inset-x-0 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-[58] px-4">
+            <div className="pointer-events-auto rounded-3xl border border-white/15 bg-black/58 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/45">{t.nextEpisodeHint}</p>
+              <p className="mt-1 text-sm font-semibold text-white">
+                {nextEpisode ? `${t.episode} ${nextEpisode.episodeNumber}` : t.nextEpisodeHint} · {nextEpisodeCountdown}s
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNextEpisodeCountdown(null)}
+                  className="rounded-2xl border border-white/14 bg-white/8 px-3 py-2 text-sm font-medium text-white/85"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNextEpisodeCountdown(null);
+                    handleNextEpisode();
+                  }}
+                  className="rounded-2xl bg-red-600 px-3 py-2 text-sm font-semibold text-white"
+                >
+                  Play Now
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <MobileBottomSheet
           open={showEpisodeSheet}

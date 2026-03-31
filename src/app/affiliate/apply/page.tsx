@@ -796,7 +796,7 @@ export default function AffiliateApplyPage() {
   const labelClass = "block text-sm font-medium text-gray-300 mb-1.5";
 
   return (
-    <div className="min-h-screen bg-[#0a0a12] text-white py-12 px-4">
+    <div className="keyboard-safe-form min-h-screen bg-[#0a0a12] text-white py-12 px-4">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-center mb-8">{t.pageTitle}</h1>
 
@@ -807,7 +807,7 @@ export default function AffiliateApplyPage() {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="keyboard-safe-form space-y-8">
           <div className="bg-[#13131d] border border-gray-800/50 rounded-xl p-6 space-y-5">
             <h2 className="text-lg font-semibold text-white mb-1">{t.personalInfo}</h2>
 

@@ -1,4 +1,12 @@
-import type { EpisodeAccessResult, IpGeoData, StreamPlaybackInfo } from '@/types';
+import type {
+  EpisodeAccessResult,
+  HomepageBanner,
+  HomepageFeaturedBuckets,
+  HomepageHeroBanner,
+  HomepagePlaylist,
+  IpGeoData,
+  StreamPlaybackInfo,
+} from '@/types';
 import type {
   CreatorApplicationDraft,
   CreatorAudienceAnalytics,
@@ -52,7 +60,14 @@ function resolveClientAccessibleBaseUrl(baseUrl: string): string {
     }
 
     const currentHostname = window.location.hostname;
-    if (isLoopbackHostname(currentHostname)) {
+    if (!currentHostname) {
+      return normalizeBaseUrl(parsed.toString());
+    }
+
+    // Keep loopback requests on the same hostname as the current page so
+    // local Android debugging via adb reverse does not trigger localhost vs
+    // 127.0.0.1 CORS mismatches.
+    if (parsed.hostname === currentHostname) {
       return normalizeBaseUrl(parsed.toString());
     }
 
@@ -304,8 +319,8 @@ export const authApi = {
   register: (email: string, password: string, nickname: string, referredBy?: string) =>
     api.post('/api/auth/register', { email, password, nickname, referredBy }),
 
-  googleLogin: (credential: string) =>
-    api.post('/api/auth/google', { credential }),
+  googleLogin: (credential: string | { credential?: string; accessToken?: string; idToken?: string }) =>
+    api.post('/api/auth/google', typeof credential === 'string' ? { credential } : credential),
 
   facebookLogin: (accessToken: string) =>
     api.post('/api/auth/facebook', { accessToken }),
@@ -325,7 +340,7 @@ export const dramasApi = {
     api.get(`/api/dramas/${id}`),
 
   getFeatured: () =>
-    api.get('/api/featured'),
+    api.get<{ success: boolean; data: HomepageFeaturedBuckets }>('/api/featured'),
 
   getRankings: (type?: string) =>
     api.get(`/api/featured/rankings${type ? `?type=${type}` : ''}`),
@@ -334,13 +349,13 @@ export const dramasApi = {
     api.get('/api/featured/trending'),
 
   getPlaylists: () =>
-    api.get('/api/playlists'),
+    api.get<{ success: boolean; data: HomepagePlaylist[] }>('/api/playlists'),
 
   getBanners: () =>
-    api.get('/api/banners'),
+    api.get<{ success: boolean; data: HomepageBanner[] }>('/api/banners'),
 
   getHeroBanners: () =>
-    api.get('/api/hero-banners'),
+    api.get<{ success: boolean; data: HomepageHeroBanner[] }>('/api/hero-banners'),
 
   getRelated: (id: string) =>
     api.get(`/api/dramas/${id}/related`),

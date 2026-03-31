@@ -1098,7 +1098,7 @@ export default function CoinsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="keyboard-safe-form min-h-screen bg-black text-white">
       <Navbar />
 
       <div className="mx-auto max-w-6xl px-4 pb-16 pt-24">
@@ -1385,6 +1385,9 @@ export default function CoinsPage() {
                     onChange={(event) => setRedeemCode(event.target.value.toUpperCase())}
                     placeholder={t.enterCode}
                     aria-label={t.enterCode}
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    enterKeyHint="done"
                     className="flex-1 rounded-lg border border-white/10 bg-zinc-800/50 px-3 py-2 text-sm text-white focus:border-yellow-500 focus:outline-none"
                   />
                   <button

@@ -6,7 +6,7 @@ TinyTale Android push is wired through Capacitor Push Notifications plus Firebas
 
 - Android app package: `top.tinytale.app`
 - Firebase project: `tinytale-b7062`
-- Firebase Android app config: `android/app/google-services.json`
+- Firebase Android app config: local-only `android/app/google-services.json` from Firebase Console
 - Android 13 permission added: `android.permission.POST_NOTIFICATIONS`
 - Web/native bridge registration:
   - `src/lib/capacitor-bridge.ts`
@@ -21,6 +21,12 @@ TinyTale Android push is wired through Capacitor Push Notifications plus Firebas
 ```bash
 npx cap sync android
 ```
+
+## Secrets handling
+
+- `android/app/google-services.json` must stay local and must not be committed.
+- Download it from Firebase Console when setting up a machine.
+- If the file was ever committed, rotate or restrict the exposed Google API key in Google Cloud Console.
 
 ## To verify on device
 

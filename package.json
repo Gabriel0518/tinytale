@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 7003",
-    "dev:frontend": "next dev -p 7001",
+    "dev:frontend": "next dev -H 0.0.0.0 -p 7001",
     "dev:admin": "next dev -p 7003",
     "build": "next build",
     "start": "next start",
@@ -12,10 +12,13 @@
     "android:copy": "npx cap copy android",
     "android:sync": "npx cap sync android",
     "android:open": "npx cap open android",
-    "android:run": "npx cap run android"
+    "android:run": "npx cap run android",
+    "android:assemble": "./scripts/with-android-studio-jdk.sh sh -lc 'cd android && ./gradlew assembleDebug'",
+    "android:install": "./scripts/with-android-studio-jdk.sh sh -lc 'cd android && ./gradlew installDebug'"
   },
   "dependencies": {
     "@airwallex/components-sdk": "^1.28.3",
+    "@capacitor-community/keep-awake": "^8.0.0",
     "@capacitor/android": "^8.3.0",
     "@capacitor/app": "^8.1.0",
     "@capacitor/browser": "^8.0.3",
@@ -26,9 +29,11 @@
     "@capacitor/network": "^8.0.1",
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/push-notifications": "^8.0.3",
+    "@capacitor/screen-orientation": "^8.0.1",
     "@capacitor/share": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
+    "@capgo/capacitor-social-login": "^8.3.9",
     "@hookform/resolvers": "^5.2.2",
     "@react-oauth/google": "^0.13.4",
     "@types/video.js": "^7.3.58",

@@ -12,7 +12,20 @@
           "package_name": "top.tinytale.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "941933807449-061qq65g4l84fpaifi4tj50sk7mou2h1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "top.tinytale.app",
+            "certificate_hash": "3aed9c0e9d124986ddd38d6d180844bd9257614d"
+          }
+        },
+        {
+          "client_id": "941933807449-n4e458mjvuuv7o871mr20qchj6gcdap2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDbeMEnH8pCF72vxWT-4WGXLS8H2IbEmjk"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "941933807449-n4e458mjvuuv7o871mr20qchj6gcdap2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

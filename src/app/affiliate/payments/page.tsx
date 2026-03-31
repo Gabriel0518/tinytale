@@ -725,8 +725,12 @@ function WithdrawModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[#1a1a2e] rounded-2xl w-full max-w-md p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div
+        className="keyboard-safe-scroll keyboard-safe-form w-full max-w-md rounded-2xl rounded-b-none bg-[#1a1a2e] p-6 shadow-2xl sm:rounded-b-2xl"
+        style={{ maxHeight: 'calc(100dvh - env(safe-area-inset-top) - min(var(--tinytale-keyboard-inset, 0px), 16rem) - 1rem)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="text-xl font-semibold text-white mb-1">{t.withdrawModal.title}</h2>
         <p className="text-gray-400 text-sm mb-5">{t.withdrawModal.available}: <span className="text-green-400 font-medium">${balance.toFixed(2)}</span></p>
 
@@ -878,8 +882,12 @@ function EditPaymentModal({
   const inputCls = "w-full bg-[#0f0f17] border border-gray-700/50 rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-purple-500";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-[#1a1a2e] rounded-2xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-3 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+      <div
+        className="keyboard-safe-scroll keyboard-safe-form w-full max-w-lg rounded-2xl rounded-b-none bg-[#1a1a2e] p-6 shadow-2xl sm:rounded-b-2xl"
+        style={{ maxHeight: 'calc(100dvh - env(safe-area-inset-top) - min(var(--tinytale-keyboard-inset, 0px), 16rem) - 1rem)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2 className="text-xl font-semibold text-white mb-5">{isEdit ? t.paymentModal.editTitle : t.paymentModal.addTitle}</h2>
 
         <div className="flex gap-1 bg-[#0f0f17] rounded-lg p-1 mb-5">

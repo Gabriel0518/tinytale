@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "inverse-on-surface": "#0f1115",
+              "on-secondary": "#FFFFFF",
+              "primary-fixed": "#FF3B5C",
+              "on-tertiary-container": "#FFD700",
+              "on-secondary-fixed": "#FFFFFF",
+              "on-primary-container": "#FF3B5C",
+              "surface-dim": "#0b0d10",
+              "secondary": "#2C2F36",
+              "on-primary-fixed-variant": "#FFFFFF",
+              "on-tertiary-fixed-variant": "#000000",
+              "surface-container-low": "#15181e",
+              "background": "#0f1115",
+              "primary-dim": "#ff6f7c",
+              "error-dim": "#d53d18",
+              "on-secondary-fixed-variant": "#9CA3AF",
+              "error-container": "#B00020",
+              "tertiary-fixed-dim": "#FFD700",
+              "surface-tint": "#FF3B5C",
+              "surface-variant": "#1c1f26",
+              "on-secondary-container": "#9CA3AF",
+              "primary-fixed-dim": "#FF3B5C",
+              "outline-variant": "rgba(255, 255, 255, 0.1)",
+              "surface-container": "#1c1f26",
+              "on-tertiary": "#000000",
+              "tertiary-dim": "#b08af6",
+              "primary-container": "rgba(255, 59, 92, 0.2)",
+              "inverse-surface": "#FFFFFF",
+              "inverse-primary": "#FF3B5C",
+              "on-surface": "#FFFFFF",
+              "error": "#CF6679",
+              "on-surface-variant": "#9CA3AF",
+              "on-primary-fixed": "#FFFFFF",
+              "secondary-fixed-dim": "#2C2F36",
+              "outline": "#414753",
+              "on-primary": "#FFFFFF",
+              "on-error-container": "#FFFFFF",
+              "surface-bright": "#2c2f36",
+              "on-tertiary-fixed": "#000000",
+              "surface-container-highest": "#2c2f36",
+              "surface-container-lowest": "#050608",
+              "on-error": "#000000",
+              "surface": "#0f1115",
+              "primary": "#FF3B5C",
+              "secondary-fixed": "#2C2F36",
+              "tertiary-container": "rgba(255, 215, 0, 0.2)",
+              "surface-container-high": "#25282e",
+              "tertiary": "#FFD700",
+              "secondary-dim": "#ef779f",
+              "tertiary-fixed": "#FFD700",
+              "secondary-container": "#1c1f26",
+              "on-background": "#FFFFFF"
+            },
+            fontFamily: {
+              "headline": ["Plus Jakarta Sans"],
+              "body": ["Plus Jakarta Sans"],
+              "label": ["Plus Jakarta Sans"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0f1115; color: #FFFFFF; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .poster-gradient { background: linear-gradient(to top, rgba(15, 17, 21, 0.95) 0%, rgba(15, 17, 21, 0) 50%); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface">
+<!-- TopAppBar -->
+<header class="bg-[#0f1115]/85 backdrop-blur-xl fixed top-0 w-full z-50 shadow-2xl">
+<div class="flex items-center justify-between px-6 h-16 w-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#FF3B5C] text-2xl" data-icon="movie_filter">movie_filter</span>
+<h1 class="font-['Plus_Jakarta_Sans'] font-black italic text-[#FF3B5C] tracking-tighter text-2xl">VELVET</h1>
+</div>
+<div class="flex items-center justify-center p-2 bg-surface-container-highest rounded-full text-white/70 hover:text-[#FF3B5C] transition-colors duration-300 scale-95 active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</div>
+</div>
+</header>
+<main class="pt-20 pb-24 px-4 min-h-screen">
+<!-- Category Scrolling Row -->
+<section class="mb-6">
+<div class="flex gap-3 overflow-x-auto hide-scrollbar py-2">
+<button class="flex-none px-6 py-2 rounded-full bg-on-surface text-inverse-on-surface font-bold text-sm transition-all">All</button>
+<button class="flex-none px-6 py-2 rounded-full bg-surface-container-highest text-on-surface-variant font-bold text-sm hover:text-on-surface transition-all">Romance</button>
+<button class="flex-none px-6 py-2 rounded-full bg-surface-container-highest text-on-surface-variant font-bold text-sm hover:text-on-surface transition-all">CEO</button>
+<button class="flex-none px-6 py-2 rounded-full bg-surface-container-highest text-on-surface-variant font-bold text-sm hover:text-on-surface transition-all">Revenge</button>
+<button class="flex-none px-6 py-2 rounded-full bg-surface-container-highest text-on-surface-variant font-bold text-sm hover:text-on-surface transition-all">Werewolf</button>
+<button class="flex-none px-6 py-2 rounded-full bg-surface-container-highest text-on-surface-variant font-bold text-sm hover:text-on-surface transition-all">Action</button>
+</div>
+</section>
+<!-- Secondary Filter Row -->
+<section class="mb-8 flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex gap-4">
+<span class="text-xs font-bold text-primary tracking-widest uppercase">Status</span>
+<div class="flex gap-3">
+<button class="text-xs font-bold text-on-surface">All</button>
+<button class="text-xs font-bold text-on-surface-variant">Ongoing</button>
+<button class="text-xs font-bold text-on-surface-variant">Completed</button>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between border-t border-outline-variant pt-4">
+<div class="flex gap-4">
+<span class="text-xs font-bold text-primary tracking-widest uppercase">Sort</span>
+<div class="flex gap-4">
+<button class="text-xs font-bold text-on-surface">Popular</button>
+<button class="text-xs font-bold text-on-surface-variant">Latest</button>
+<button class="text-xs font-bold text-on-surface-variant">Top Rated</button>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-xl" data-icon="filter_list">filter_list</span>
+</div>
+</section>
+<!-- Drama Grid -->
+<section class="grid grid-cols-2 gap-4 mb-8">
+<!-- Card 1 -->
+<div class="group relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-container shadow-xl">
+<img alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="cinematic portrait of a mysterious man in a tuxedo standing in a rainy neon-lit alleyway, dramatic high-contrast lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA1AHXypc55nQNmVtRdoOWv0fkD_Mtayyny6Xtcsn8sQt8lLWf7zT7UmaeQcvatubO52LUAaRsFU3s-CbVMglFyFKACRpmCV1S9bLrD_gwZmyI2-0bO2Hqi_1YsiomDsK4cSILKw22YmZt7CG9sSC5gOUOizlNx8RDsSNOq-4FScGH7EAtwMqufPGMJRErfuJscvfzTpTt7_JjRjVx59EnnCmHd4Z3PgkiQr4askaOZhrMaFoIvZPzggwXTFR-QfKhPDbabnPXpiqU"/>
+<div class="absolute inset-0 poster-gradient"></div>
+<div class="absolute top-2 left-2 flex gap-1">
+<span class="px-2 py-0.5 rounded bg-primary text-[10px] font-black tracking-tighter text-white">HOT</span>
+</div>
+<div class="absolute bottom-3 left-3 right-3">
+<h3 class="font-bold text-sm leading-tight mb-1 line-clamp-2">The CEO's Hidden Heir</h3>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[#FFD700] text-xs" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[10px] font-bold text-on-tertiary-container">4.9</span>
+</div>
+<span class="text-[10px] font-bold text-white/50 uppercase">68 eps</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="group relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-container shadow-xl">
+<img alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="glamorous woman in a red silk dress looking over her shoulder in a luxury penthouse setting, soft warm lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdgbo5ylT2f1VUHFgO_B90gSFacluOpmtUS3nZeb2F-grWp8E4kRbELVoXriO56YGPKGvRtXAqlrR6l73zK2QkISS-QnGKBXft0YbRr4IoJ3LhIzwTQo1X0mR412aDVt480IfRarM5T27ZiYA6BoU6LvUeUXc9T10689BdfcipWPs8k1K_8Ch969IwfeaTCfbzIgQJYIrEVOtnwNbhy8z1pk7uhLXTg7ixjK7Z7cdh0ErDSPi-R7UNi2yN2nvSkCPuDCS_HnsGTuE"/>
+<div class="absolute inset-0 poster-gradient"></div>
+<div class="absolute top-2 left-2 flex gap-1">
+<span class="px-2 py-0.5 rounded bg-[#FFD700] text-[10px] font-black tracking-tighter text-black">VIP</span>
+</div>
+<div class="absolute bottom-3 left-3 right-3">
+<h3 class="font-bold text-sm leading-tight mb-1 line-clamp-2">Revenge of the Ex-Wife</h3>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[#FFD700] text-xs" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[10px] font-bold text-on-tertiary-container">4.7</span>
+</div>
+<span class="text-[10px] font-bold text-white/50 uppercase">120 eps</span>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="group relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-container shadow-xl">
+<img alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="dramatic close-up of a man's face with golden wolf eyes glowing in the shadows, dark cinematic forest background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGM6ws-BBEHfqgvm0QebZrM9Mrg4w_rbrsBUMt0kF8VxKs7JDjulTnEqDBFLv0HGLb216LQ1BXhkeuFOiylRqp0pVELEyh6rD0hT8tbBFrVdGzd91SGEK7E6BOdQErXzrpzqYcbgu1JHhQXfO6GmCGwQNMeuGe5sqVuted2UwT0h4xonCIkb8S-IYyloyf3VUDlbiFzfYd9NyNjDnXCUFkOpplCNJCJwoiyroI47EYX4JZL7YzGZcpEqYK16180HkSzwNy3oVX5w4"/>
+<div class="absolute inset-0 poster-gradient"></div>
+<div class="absolute top-2 left-2 flex gap-1">
+<span class="px-2 py-0.5 rounded bg-[#4ade80] text-[10px] font-black tracking-tighter text-black">NEW</span>
+</div>
+<div class="absolute bottom-3 left-3 right-3">
+<h3 class="font-bold text-sm leading-tight mb-1 line-clamp-2">Moonlight Alpha's Vow</h3>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[#FFD700] text-xs" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[10px] font-bold text-on-tertiary-container">4.8</span>
+</div>
+<span class="text-[10px] font-bold text-white/50 uppercase">45 eps</span>
+</div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="group relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-container shadow-xl">
+<img alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="modern luxury car driving through a neon-lit city at night, vibrant streaks of light, high speed aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAX9SSK52VKIuhr_aSxXq7kxvQGarKXMQuMUWsTBNLVrOUYfOMzxtt3uEW-sazfP65rnqT1oyslkONYoRuGBpTivn711M_2vAUZCcgsohv62FFwQN3XNWms9zU-MLXnMVCQPPLkw7Ewb9MommY5p--16IMthkPivOyuJ5iQ1GUcf1QEaV8EDtIxFGRS8ghY93-6zHscKkkFrscKa7sG_rozdk8DgQcMwptNslUZRkJJCUVv_yEl96o-SYtVAKO2rqgCsHgN0Wdagm8"/>
+<div class="absolute inset-0 poster-gradient"></div>
+<div class="absolute top-2 left-2 flex gap-1">
+<span class="px-2 py-0.5 rounded bg-primary text-[10px] font-black tracking-tighter text-white">HOT</span>
+</div>
+<div class="absolute bottom-3 left-3 right-3">
+<h3 class="font-bold text-sm leading-tight mb-1 line-clamp-2">Fast Lane Romance</h3>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[#FFD700] text-xs" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[10px] font-bold text-on-tertiary-container">4.5</span>
+</div>
+<span class="text-[10px] font-bold text-white/50 uppercase">82 eps</span>
+</div>
+</div>
+</div>
+<!-- Card 5 -->
+<div class="group relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-container shadow-xl">
+<img alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="bride in a tattered wedding dress standing in the middle of a grand ballroom, dramatic spotlight, cinematic mood" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAcCB3WdVWNhbHxf_i7SNXIzOiaNDINQ6As5dtAGLZVNItq8SZDX8SohiFqzPtB0GF-j2D20W-kNzsCu25Mvl5QwUMveFFAu9obbhS0l4w6GUGbCVlDVP6N4wVmFxJY5OzCk1SW6mO-So5S4qOkyXbddhk6-k6EQXTt2Z0jCV5VtrAhN8x5N0iu8AEmtNuGQwnvQhLQ9X2yeRTHVUUKAXI5yR9LDPaVUaqhKXTwzkynBuErSl2peEsu7FWENFoiSyyghgPz0Erch70"/>
+<div class="absolute inset-0 poster-gradient"></div>
+<div class="absolute bottom-3 left-3 right-3">
+<h3 class="font-bold text-sm leading-tight mb-1 line-clamp-2">The Forsaken Bride</h3>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[#FFD700] text-xs" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[10px] font-bold text-on-tertiary-container">4.9</span>
+</div>
+<span class="text-[10px] font-bold text-white/50 uppercase">95 eps</span>
+</div>
+</div>
+</div>
+<!-- Card 6 -->
+<div class="group relative aspect-[2/3] rounded-xl overflow-hidden bg-surface-container shadow-xl">
+<img alt="" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" data-alt="low angle shot of a massive skyscraper reaching into the clouds, moody overcast lighting, corporate power theme" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdlhIfhV0uSD-2MhzW-20s9xtNxH19EFOUqJTXxLf-rqWhdRcUO91CIA9FttxQyFFQn6_x61NZjcwwqdbXpBUoYO290erABOMESatgzenAgBe7F15EYhgxh2K-JNWaqsL18Tl8oj5PaL3JDXkFslObROYq2jtk6dw7yQ0IjlPvp10fUx8L5g_1UTzMPg278lf8cy9xzwq7aNHhnu7BQa6OtPRt1TpTnUa1iFQUnpd0xAVb0Ix7UVUp11RNt1STOSmyiUsSUx0b5sw"/>
+<div class="absolute inset-0 poster-gradient"></div>
+<div class="absolute top-2 left-2 flex gap-1">
+<span class="px-2 py-0.5 rounded bg-[#FFD700] text-[10px] font-black tracking-tighter text-black">VIP</span>
+</div>
+<div class="absolute bottom-3 left-3 right-3">
+<h3 class="font-bold text-sm leading-tight mb-1 line-clamp-2">Legacy of the Billionaire</h3>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[#FFD700] text-xs" data-icon="star" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[10px] font-bold text-on-tertiary-container">4.6</span>
+</div>
+<span class="text-[10px] font-bold text-white/50 uppercase">77 eps</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-safe h-20 bg-[#0f1115]/85 backdrop-blur-xl z-50 rounded-t-2xl border-t border-white/10 shadow-[0_-10px_20px_rgba(0,0,0,0.3)]">
+<a class="flex flex-col items-center justify-center text-white/50 p-3 hover:text-white transition-all duration-300 scale-110 active:scale-95 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#FF3B5C] bg-[#FF3B5C]/10 rounded-full p-3 shadow-[0_0_15px_rgba(255,59,92,0.3)] scale-110 active:scale-95 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="explore">explore</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white/50 p-3 hover:text-white transition-all duration-300 scale-110 active:scale-95 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="play_circle">play_circle</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white/50 p-3 hover:text-white transition-all duration-300 scale-110 active:scale-95 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="bookmarks">bookmarks</span>
+</a>
+<a class="flex flex-col items-center justify-center text-white/50 p-3 hover:text-white transition-all duration-300 scale-110 active:scale-95 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+</a>
+</nav>
+</body></html>

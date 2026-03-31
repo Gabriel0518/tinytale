@@ -7,12 +7,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { dramasApi } from '@/lib/api';
 import { Drama } from '@/types';
-import { Navbar } from '@/components/features/Navbar';
-import { Footer } from '@/components/features/Footer';
 import { mockDramas } from '@/lib/mockData';
 import {localizePath, SupportedLocale } from '@/lib/i18n';
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { resolveSafeImageUrl } from '@/lib/safe-image';
+import { MobilePageShell } from '@/components/mobile/MobilePageShell';
+import { MobileScrollTabs } from '@/components/mobile/MobileScrollTabs';
 
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
 
@@ -249,10 +250,10 @@ export default function Rankings() {
         <>
           {/* #1 Featured Card */}
           {dramas[0] && (
-            <Link href={localizePath(`/drama/${dramas[0]._id}`, locale)} className="group relative mb-4 block overflow-hidden rounded-lg">
+            <Link href={localizePath(`/drama/${dramas[0]._id}`, locale)} className="group relative mb-4 block overflow-hidden rounded-[24px] transition-transform duration-100 active:scale-[0.99]">
               <div className="relative aspect-[3/4]">
                 <Image
-                  src={dramas[0].cover}
+                  src={resolveSafeImageUrl(dramas[0].cover)}
                   alt={dramas[0].title}
                   fill
                   className="object-cover transition duration-300 group-hover:scale-105"
@@ -285,14 +286,14 @@ export default function Rankings() {
               <Link
                 key={drama._id}
                 href={localizePath(`/drama/${drama._id}`, locale)}
-                className="group flex items-center gap-3 rounded-lg px-2 py-2.5 transition hover:bg-[#252525]"
+                className="group flex items-center gap-3 rounded-[18px] px-2 py-2.5 transition hover:bg-[#252525] active:scale-[0.99]"
               >
                 <span className={`w-5 text-center text-sm font-bold ${rankColor(i + 2)}`}>
                   {i + 2}
                 </span>
                 <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded">
                   <Image
-                    src={drama.cover}
+                    src={resolveSafeImageUrl(drama.cover)}
                     alt={drama.title}
                     fill
                     className="object-cover"
@@ -320,10 +321,7 @@ export default function Rankings() {
   );
 
   return (
-    <div className="min-h-screen bg-[#141414]">
-      <Navbar activePath="/rankings" />
-
-      <div className="pt-20">
+    <MobilePageShell activePath="/rankings" title={t.pageTitle}>
         <div className="mx-auto max-w-7xl px-4 py-8">
           {/* Header + Period Filter */}
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -333,22 +331,11 @@ export default function Rankings() {
                 {t.pageDesc}
               </p>
             </div>
-            <div className="flex gap-1 rounded-full bg-[#1f1f1f] p-1">
-              {periods.map((p) => (
-                <button
-                  key={p.key}
-                  onClick={() => setPeriod(p.key)}
-                  aria-pressed={period === p.key}
-                  className={`rounded-full px-5 py-2 text-sm font-medium transition ${
-                    period === p.key
-                      ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black'
-                      : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            <MobileScrollTabs
+              items={periods}
+              value={period}
+              onChange={(key) => setPeriod(key as TimePeriod)}
+            />
           </div>
 
           {/* Three-Column Leaderboard Grid */}
@@ -373,10 +360,6 @@ export default function Rankings() {
             )}
           </div>
         </div>
-      </div>
-
-      {/* Footer */}
-      <Footer />
-    </div>
+    </MobilePageShell>
   );
 }

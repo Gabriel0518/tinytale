@@ -9,7 +9,7 @@ import { MobileMiniPlayer } from '@/components/mobile/MobileMiniPlayer';
 import { PlaybackSessionProvider } from '@/components/mobile/PlaybackSession';
 
 const FALLBACK_GOOGLE_CLIENT_ID =
-  '995123954885-eslkphffjblocspkukd7l2ms49sgcmv0.apps.googleusercontent.com';
+  '941933807449-n4e458mjvuuv7o871mr20qchj6gcdap2.apps.googleusercontent.com';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Avoid invalid_client from placeholder IDs:

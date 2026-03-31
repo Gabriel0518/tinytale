@@ -12,9 +12,16 @@ type PlatformState = {
   isIOS: boolean;
 };
 
+const INITIAL_PLATFORM_STATE: PlatformState = {
+  isMobile: false,
+  isApp: false,
+  isAndroid: false,
+  isIOS: false,
+};
+
 function readPlatformState(): PlatformState {
   if (typeof window === "undefined") {
-    return { isMobile: false, isApp: false, isAndroid: false, isIOS: false };
+    return INITIAL_PLATFORM_STATE;
   }
 
   const nativePlatform = getNativePlatform();
@@ -30,7 +37,8 @@ function readPlatformState(): PlatformState {
 }
 
 export function usePlatform() {
-  const [platform, setPlatform] = useState<PlatformState>(readPlatformState);
+  // Keep the first client render aligned with SSR, then promote to the real runtime state.
+  const [platform, setPlatform] = useState<PlatformState>(INITIAL_PLATFORM_STATE);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia(MOBILE_BREAKPOINT_QUERY);

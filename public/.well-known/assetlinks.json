@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "top.tinytale.app",
+      "sha256_cert_fingerprints": [
+        "58:5B:29:BB:44:8C:9C:56:66:E4:5E:F6:7C:2F:F7:97:0E:0C:77:E2:0C:82:67:B5:58:92:03:CD:8C:C1:9C:68"
+      ]
+    }
+  }
+]

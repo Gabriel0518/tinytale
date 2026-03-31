@@ -8,7 +8,10 @@ import { usePlatform } from '@/hooks/usePlatform';
 import { useAuth } from '@/lib/authContext';
 import { settingsApi } from '@/lib/api';
 import {
+  dismissActiveKeyboard,
   getNativePlatform,
+  hideNativeSplashScreen,
+  KeyboardState,
   observeAppState,
   observeAppUrlOpen,
   observeBackButton,
@@ -17,9 +20,10 @@ import {
   registerPushNotifications,
   syncNativeStatusBar,
   triggerHaptic,
+  exitNativeApp,
 } from '@/lib/capacitor-bridge';
 import { resolveLocaleCopy } from '@/lib/locale-copy';
-import { localizePath, SupportedLocale } from '@/lib/i18n';
+import { localizePath, removeLocalePrefix, SupportedLocale } from '@/lib/i18n';
 import {
   mergeRuntimeSettings,
   readRuntimeSettings,
@@ -29,13 +33,13 @@ import {
 import { upsertInAppNotification } from '@/lib/in-app-notifications';
 
 const RUNTIME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
-  en: { offline: 'You are offline. Some features may be unavailable.', online: 'Back online.' },
-  zh: { offline: '当前处于离线状态，部分功能可能不可用。', online: '网络已恢复。' },
-  ja: { offline: 'オフラインです。一部機能が利用できません。', online: 'オンラインに戻りました。' },
-  es: { offline: 'Estás sin conexión. Algunas funciones pueden no estar disponibles.', online: 'Conexión restaurada.' },
-  pt: { offline: 'Você está offline. Alguns recursos podem não estar disponíveis.', online: 'Conexão restaurada.' },
-  hi: { offline: 'आप ऑफलाइन हैं। कुछ सुविधाएं उपलब्ध नहीं हो सकतीं।', online: 'नेटवर्क वापस आ गया।' },
-  id: { offline: 'Kamu sedang offline. Beberapa fitur mungkin tidak tersedia.', online: 'Koneksi kembali normal.' },
+  en: { offline: 'You are offline. Some features may be unavailable.', online: 'Back online.', backAgain: 'Tap back again to exit.' },
+  zh: { offline: '当前处于离线状态，部分功能可能不可用。', online: '网络已恢复。', backAgain: '再按一次返回退出应用。' },
+  ja: { offline: 'オフラインです。一部機能が利用できません。', online: 'オンラインに戻りました。', backAgain: 'もう一度戻るを押すと終了します。' },
+  es: { offline: 'Estás sin conexión. Algunas funciones pueden no estar disponibles.', online: 'Conexión restaurada.', backAgain: 'Pulsa atrás otra vez para salir.' },
+  pt: { offline: 'Você está offline. Alguns recursos podem não estar disponíveis.', online: 'Conexão restaurada.', backAgain: 'Toque em voltar novamente para sair.' },
+  hi: { offline: 'आप ऑफलाइन हैं। कुछ सुविधाएं उपलब्ध नहीं हो सकतीं।', online: 'नेटवर्क वापस आ गया।', backAgain: 'ऐप से बाहर निकलने के लिए फिर से बैक दबाएं।' },
+  id: { offline: 'Kamu sedang offline. Beberapa fitur mungkin tidak tersedia.', online: 'Koneksi kembali normal.', backAgain: 'Tekan kembali sekali lagi untuk keluar.' },
 };
 
 function routeToNativePath(path: string, locale: SupportedLocale) {
@@ -83,6 +87,83 @@ function resolveNotificationTarget(payload: any) {
   return '/user/notifications';
 }
 
+function isKeyboardFocusableElement(target: EventTarget | null): target is HTMLElement {
+  if (!(target instanceof HTMLElement)) return false;
+
+  if (target instanceof HTMLInputElement) {
+    return target.type !== 'hidden' && !target.disabled && !target.readOnly;
+  }
+
+  if (target instanceof HTMLTextAreaElement) {
+    return !target.disabled && !target.readOnly;
+  }
+
+  if (target instanceof HTMLSelectElement) {
+    return !target.disabled;
+  }
+
+  return target.isContentEditable;
+}
+
+function resolveKeyboardScrollContainer(target: HTMLElement): HTMLElement | null {
+  let current: HTMLElement | null = target.parentElement;
+
+  while (current && current !== document.body) {
+    const styles = window.getComputedStyle(current);
+    const overflowY = styles.overflowY;
+    const isScrollable = (overflowY === 'auto' || overflowY === 'scroll') && current.scrollHeight > current.clientHeight + 4;
+
+    if (isScrollable) {
+      return current;
+    }
+
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
+function scrollKeyboardTargetIntoView(target: HTMLElement) {
+  const keyboardState = (window as Window & {
+    __tinytaleLastKeyboardState__?: KeyboardState;
+  }).__tinytaleLastKeyboardState__;
+  const keyboardHeight = keyboardState?.height ?? 0;
+  const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+  const scrollContainer = resolveKeyboardScrollContainer(target);
+  const topInset = 92;
+  const bottomInset = keyboardHeight > 0
+    ? Math.max(28, Math.min(92, Math.round(keyboardHeight * 0.18)))
+    : 32;
+  const visibleBottom = viewportHeight - bottomInset;
+  const rect = target.getBoundingClientRect();
+  const containerRect = scrollContainer?.getBoundingClientRect();
+  const visibleTopBoundary = Math.max(topInset, containerRect?.top ?? 0);
+  const visibleBottomBoundary = Math.min(visibleBottom, containerRect?.bottom ?? visibleBottom);
+
+  if (rect.top >= visibleTopBoundary && rect.bottom <= visibleBottomBoundary) {
+    return;
+  }
+
+  const deltaTop = rect.top < visibleTopBoundary ? rect.top - visibleTopBoundary - 16 : 0;
+  const deltaBottom = rect.bottom > visibleBottomBoundary ? rect.bottom - visibleBottomBoundary + 16 : 0;
+  const delta = deltaTop || deltaBottom;
+
+  if (!delta) return;
+
+  if (scrollContainer) {
+    scrollContainer.scrollBy({
+      top: delta,
+      behavior: 'smooth',
+    });
+    return;
+  }
+
+  window.scrollBy({
+    top: delta,
+    behavior: 'smooth',
+  });
+}
+
 export function AppRuntime() {
   const pathname = usePathname();
   const locale = useLocale();
@@ -91,6 +172,7 @@ export function AppRuntime() {
   const { token } = useAuth();
   const { isApp, isMobile } = usePlatform();
   const hasShownOfflineRef = useRef(false);
+  const lastBackTapRef = useRef(0);
   const syncedPushTokenRef = useRef<string>('');
   const runtimeSettingsRef = useRef<RuntimeSettingsSnapshot | null>(null);
   const [runtimeSettings, setRuntimeSettings] = useState<RuntimeSettingsSnapshot | null>(null);
@@ -132,6 +214,16 @@ export function AppRuntime() {
   useEffect(() => {
     if (!isApp) return;
 
+    const timeout = window.setTimeout(() => {
+      void hideNativeSplashScreen();
+    }, 250);
+
+    return () => window.clearTimeout(timeout);
+  }, [isApp, pathname]);
+
+  useEffect(() => {
+    if (!isApp) return;
+
     return observeAppUrlOpen((path) => {
       routeToNativePath(path, locale);
     });
@@ -168,30 +260,119 @@ export function AppRuntime() {
   useEffect(() => {
     if (!isMobile) return;
 
-    return observeKeyboardState((visible) => {
+    return observeKeyboardState(({ visible, height }) => {
       document.body.classList.toggle('keyboard-open', visible);
+      document.documentElement.style.setProperty('--tinytale-keyboard-inset', `${height}px`);
+      (window as Window & { __tinytaleLastKeyboardState__?: KeyboardState }).__tinytaleLastKeyboardState__ = {
+        visible,
+        height,
+      };
+      window.dispatchEvent(new CustomEvent('tinytale:keyboard-state', { detail: { visible, height } }));
+
+      if (!visible) return;
+
+      const activeElement = document.activeElement;
+      if (isKeyboardFocusableElement(activeElement)) {
+        window.setTimeout(() => {
+          scrollKeyboardTargetIntoView(activeElement);
+        }, 90);
+      }
     });
   }, [isMobile]);
 
   useEffect(() => {
+    if (!isMobile || typeof window === 'undefined') return;
+
+    void dismissActiveKeyboard();
+    document.body.classList.remove('keyboard-open');
+    document.documentElement.style.setProperty('--tinytale-keyboard-inset', '0px');
+    (window as Window & { __tinytaleLastKeyboardState__?: KeyboardState }).__tinytaleLastKeyboardState__ = {
+      visible: false,
+      height: 0,
+    };
+
+    const pendingTimers = new Set<number>();
+
+    const queueScroll = (target: HTMLElement, delays: number[]) => {
+      delays.forEach((delay) => {
+        const timer = window.setTimeout(() => {
+          pendingTimers.delete(timer);
+          scrollKeyboardTargetIntoView(target);
+        }, delay);
+        pendingTimers.add(timer);
+      });
+    };
+
+    const handleFocusIn = (event: FocusEvent) => {
+      if (!isKeyboardFocusableElement(event.target)) return;
+      queueScroll(event.target, [40, 220]);
+    };
+
+    const handleKeyboardState = (event: Event) => {
+      const detail = (event as CustomEvent<{ visible?: boolean }>).detail;
+      if (!detail?.visible) return;
+
+      const activeElement = document.activeElement;
+      if (isKeyboardFocusableElement(activeElement)) {
+        queueScroll(activeElement, [80, 260]);
+      }
+    };
+
+    window.addEventListener('focusin', handleFocusIn);
+    window.addEventListener('tinytale:keyboard-state', handleKeyboardState as EventListener);
+
+    return () => {
+      pendingTimers.forEach((timer) => window.clearTimeout(timer));
+      window.removeEventListener('focusin', handleFocusIn);
+      window.removeEventListener('tinytale:keyboard-state', handleKeyboardState as EventListener);
+      document.body.classList.remove('keyboard-open');
+      document.documentElement.style.removeProperty('--tinytale-keyboard-inset');
+    };
+  }, [isMobile]);
+
+  useEffect(() => {
+    if (!isMobile || typeof window === 'undefined') return;
+
+    void dismissActiveKeyboard();
+    document.body.classList.remove('keyboard-open');
+    document.documentElement.style.setProperty('--tinytale-keyboard-inset', '0px');
+    (window as Window & { __tinytaleLastKeyboardState__?: KeyboardState }).__tinytaleLastKeyboardState__ = {
+      visible: false,
+      height: 0,
+    };
+  }, [isMobile, pathname]);
+
+  useEffect(() => {
     if (!isApp) return;
-    if (!pathname?.includes('/play/') && !pathname?.startsWith(`/${locale}/auth`) && !pathname?.startsWith('/auth')) {
-      return;
-    }
+
+    const normalizedPath = removeLocalePrefix(pathname || '/') || '/';
 
     return observeBackButton((canGoBack) => {
       void triggerHaptic('light');
 
-      if (canGoBack && typeof window !== 'undefined') {
+      if (typeof window === 'undefined') return;
+
+      if (normalizedPath === '/') {
+        const now = Date.now();
+        if (now - lastBackTapRef.current < 1800) {
+          void exitNativeApp();
+          return;
+        }
+
+        lastBackTapRef.current = now;
+        toast(text.backAgain, 'info');
+        return;
+      }
+
+      const shouldGoBack = canGoBack || window.history.length > 1;
+      if (shouldGoBack) {
         window.history.back();
         return;
       }
 
-      if (typeof window !== 'undefined') {
-        window.location.assign(localizePath('/', locale));
-      }
+      window.location.assign(localizePath('/', locale));
     });
-  }, [isApp, locale, pathname]);
+  }, [isApp, locale, pathname, text.backAgain, toast]);
 
   useEffect(() => {
     if (!isApp) return;
