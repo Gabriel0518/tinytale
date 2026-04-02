@@ -16,14 +16,21 @@ import { usePlatform } from '@/hooks/usePlatform';
 import { localizeCategoryLabel, normalizeCategoryKey } from '@/lib/categoryI18n';
 import { localizePath, SupportedLocale } from '@/lib/i18n';
 import { resolveLocaleCopy } from '@/lib/locale-copy';
-import { mockCategories, mockDramas } from '@/lib/mockData';
 import { resolveSafeImageUrl } from '@/lib/safe-image';
 import { getDramaBadge, resolveDramaMode } from '@/lib/utils';
+import { readViewCache, writeViewCache } from '@/lib/view-cache';
 import { Category, Drama } from '@/types';
 
 type StatusFilter = 'all' | 'ongoing' | 'completed' | 'upcoming';
 type SortOption = 'popular' | 'latest' | 'top-rated';
 type CardBadge = 'hot' | 'new' | 'top';
+
+type BrowseViewCache = {
+  dramas: Drama[];
+  categories: Category[];
+};
+
+const BROWSE_VIEW_CACHE_MAX_AGE_MS = 3 * 60 * 1000;
 
 const badgeStyles: Record<CardBadge, { label: string; className: string }> = {
   hot: { label: 'HOT', className: 'bg-[#ff3b5c] text-white' },
@@ -217,18 +224,32 @@ function BrowseContent() {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
   const loaderRef = useRef<HTMLDivElement | null>(null);
+  const cacheKey = `browse-view:${locale}`;
+  const cachedView = useMemo(
+    () => readViewCache<BrowseViewCache>(cacheKey, BROWSE_VIEW_CACHE_MAX_AGE_MS),
+    [cacheKey]
+  );
 
-  const [dramas, setDramas] = useState<Drama[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [dramas, setDramas] = useState<Drama[]>(() => cachedView?.dramas || []);
+  const [categories, setCategories] = useState<Category[]>(() => cachedView?.categories || []);
+  const [loading, setLoading] = useState(() => !cachedView);
   const [selectedCategory, setSelectedCategory] = useState(categoryParam || 'all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('popular');
   const [visibleCount, setVisibleCount] = useState(isMobile ? 12 : 18);
 
   useEffect(() => {
+    if (!cachedView) return;
+    setDramas(cachedView.dramas);
+    setCategories(cachedView.categories);
+    setLoading(false);
+  }, [cachedView]);
+
+  useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
+      if (!cachedView) {
+        setLoading(true);
+      }
       try {
         const [dramasRes, categoriesRes] = await Promise.all([
           dramasApi.getAll({ limit: 50 }),
@@ -236,18 +257,24 @@ function BrowseContent() {
         ]);
         const fetchedDramas = dramasRes.data?.dramas || [];
         const fetchedCategories = categoriesRes.data || [];
-        setDramas(fetchedDramas.length > 0 ? fetchedDramas : mockDramas);
-        setCategories(fetchedCategories.length > 0 ? fetchedCategories : mockCategories);
+        setDramas(fetchedDramas);
+        setCategories(fetchedCategories);
+        writeViewCache<BrowseViewCache>(cacheKey, {
+          dramas: fetchedDramas,
+          categories: fetchedCategories,
+        });
       } catch {
-        setDramas(mockDramas);
-        setCategories(mockCategories);
+        if (!cachedView) {
+          setDramas([]);
+          setCategories([]);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     void fetchData();
-  }, []);
+  }, [cacheKey, cachedView]);
 
   useEffect(() => {
     setSelectedCategory(categoryParam || 'all');
@@ -405,8 +432,12 @@ function BrowseContent() {
           ]);
           const fetchedDramas = dramasRes.data?.dramas || [];
           const fetchedCategories = categoriesRes.data || [];
-          setDramas(fetchedDramas.length > 0 ? fetchedDramas : mockDramas);
-          setCategories(fetchedCategories.length > 0 ? fetchedCategories : mockCategories);
+          setDramas(fetchedDramas);
+          setCategories(fetchedCategories);
+          writeViewCache<BrowseViewCache>(cacheKey, {
+            dramas: fetchedDramas,
+            categories: fetchedCategories,
+          });
           setVisibleCount(isMobile ? 12 : 18);
         }}
         pullLabel={t.refreshPull}

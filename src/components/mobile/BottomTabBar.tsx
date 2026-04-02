@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo } from "react";
-import { usePathname } from "next/navigation";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { Bookmark, Compass, Home, PlayCircle, User } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,9 +10,11 @@ import { useLocale } from "@/hooks/useLocale";
 import { usePlatform } from "@/hooks/usePlatform";
 import { resolveLocaleCopy } from "@/lib/locale-copy";
 import { triggerHaptic } from "@/lib/capacitor-bridge";
+import { prefetchPlayFeedBootstrap, readPrefetchedPlayFeedBootstrap } from "@/lib/play-feed-prefetch";
 
 interface BottomTabBarProps {
   notificationCount?: number;
+  forceVisible?: boolean;
 }
 
 type TabItem = {
@@ -51,6 +52,8 @@ const HIDDEN_ROUTES = [
   "/terms",
 ];
 
+const TAB_NAVIGATION_MASK_TIMEOUT_MS = 900;
+
 function shouldShowTabBar(pathname: string) {
   if (!pathname) return false;
   if (pathname.includes("/play/")) return false;
@@ -76,77 +79,153 @@ function resolveActiveTab(pathname: string) {
   return "";
 }
 
-export function BottomTabBar({ notificationCount = 0 }: BottomTabBarProps) {
+export function BottomTabBar({ notificationCount = 0, forceVisible = false }: BottomTabBarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const locale = useLocale();
   const labels = resolveLocaleCopy(TAB_LABELS, locale);
   const { isMobile } = usePlatform();
   const normalizedPath = removeLocalePrefix(pathname || "/");
+  const pendingResetRef = useRef<number | null>(null);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
 
-  const isVisible = isMobile && shouldShowTabBar(normalizedPath);
+  const isVisible = isMobile && (forceVisible || shouldShowTabBar(normalizedPath));
   const activeTab = useMemo(() => resolveActiveTab(normalizedPath), [normalizedPath]);
+  const displayActiveTab = pendingHref ?? activeTab;
+
+  useEffect(() => {
+    TAB_ITEMS.forEach((item) => {
+      router.prefetch(localizePath(item.href, locale));
+    });
+  }, [locale, router]);
+
+  useEffect(() => {
+    if (!isVisible) return;
+    void prefetchPlayFeedBootstrap("for-you");
+  }, [isVisible]);
 
   useEffect(() => {
     document.body.classList.toggle("has-bottom-bar", isVisible);
     return () => document.body.classList.remove("has-bottom-bar");
   }, [isVisible]);
 
+  useEffect(() => {
+    if (pendingHref && normalizedPath === pendingHref) {
+      setPendingHref(null);
+    }
+  }, [normalizedPath, pendingHref]);
+
+  useEffect(() => {
+    if (!pendingHref) {
+      if (pendingResetRef.current !== null) {
+        window.clearTimeout(pendingResetRef.current);
+        pendingResetRef.current = null;
+      }
+      return;
+    }
+
+    pendingResetRef.current = window.setTimeout(() => {
+      setPendingHref(null);
+      pendingResetRef.current = null;
+    }, TAB_NAVIGATION_MASK_TIMEOUT_MS);
+
+    return () => {
+      if (pendingResetRef.current !== null) {
+        window.clearTimeout(pendingResetRef.current);
+        pendingResetRef.current = null;
+      }
+    };
+  }, [pendingHref]);
+
+  const handleTabNavigation = (href: string) => {
+    void triggerHaptic("selection");
+
+    if (href === "/play") {
+      setPendingHref("/play");
+      void (async () => {
+        const cachedBootstrap = readPrefetchedPlayFeedBootstrap("for-you");
+        const payload = cachedBootstrap || await prefetchPlayFeedBootstrap("for-you");
+        const target = payload?.window?.current;
+
+        startTransition(() => {
+          if (target?.dramaId && target?.episodeId) {
+            router.push(localizePath(`/drama/${target.dramaId}/play/${target.episodeId}`, locale));
+            return;
+          }
+          router.push(localizePath("/play", locale));
+        });
+      })();
+      return;
+    }
+
+    if (normalizedPath === href) {
+      setPendingHref(null);
+      return;
+    }
+
+    setPendingHref(href);
+    startTransition(() => {
+      router.push(localizePath(href, locale));
+    });
+  };
+
   if (!isVisible) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 md:hidden">
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(100%+env(safe-area-inset-bottom))] bg-[#111116]/95" />
-      <nav
-        aria-label="Mobile navigation"
-        className="mobile-bottom-tab pointer-events-auto relative mx-auto max-w-md rounded-t-[28px] border-t border-white/10 bg-[#111116]/95 px-5 pb-safe-bottom pt-3 shadow-[0_-18px_36px_rgba(0,0,0,0.42)] backdrop-blur-2xl"
-      >
-        <div className="mx-auto grid max-w-sm grid-cols-5 gap-1">
-          {TAB_ITEMS.map((item) => {
-            const active = activeTab === item.href;
-            const Icon = item.icon;
-            const badgeVisible = item.href === "/user/profile" && notificationCount > 0;
+    <>
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 md:hidden">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(100%+env(safe-area-inset-bottom))] bg-[#111116]/95" />
+        <nav
+          aria-label="Mobile navigation"
+          className="mobile-bottom-tab pointer-events-auto relative mx-auto max-w-md rounded-t-[28px] border-t border-white/10 bg-[#111116]/95 px-5 pb-safe-bottom pt-3 shadow-[0_-18px_36px_rgba(0,0,0,0.42)] backdrop-blur-2xl"
+        >
+          <div className="mx-auto grid max-w-sm grid-cols-5 gap-1">
+            {TAB_ITEMS.map((item) => {
+              const active = displayActiveTab === item.href;
+              const Icon = item.icon;
+              const badgeVisible = item.href === "/user/profile" && notificationCount > 0;
 
-            return (
-              <Link
-                key={item.href}
-                href={localizePath(item.href, locale)}
-                onClick={() => {
-                  void triggerHaptic('selection');
-                }}
-                className={cn(
-                  "relative flex min-h-[58px] items-center justify-center rounded-2xl transition duration-200",
-                  active ? "text-[#ff4a6a]" : "text-[#c3c5cb]/78 hover:text-white"
-                )}
-                aria-label={labels[item.key]}
-              >
-                {active ? (
-                  <span className="absolute inset-1 rounded-full bg-[radial-gradient(circle,rgba(255,74,106,0.24)_0%,rgba(255,74,106,0.14)_34%,rgba(255,74,106,0.04)_58%,transparent_74%)] blur-[10px]" />
-                ) : null}
-                <div
+              return (
+                <button
+                  key={item.href}
+                  type="button"
+                  onClick={() => handleTabNavigation(item.href)}
                   className={cn(
-                    "relative flex h-11 w-11 -translate-y-[10px] items-center justify-center rounded-full transition duration-200",
-                    active && "bg-[#ff4a6a]/10"
+                    "relative flex min-h-[58px] items-center justify-center rounded-2xl transition duration-200",
+                    active ? "text-[#ff4a6a]" : "text-[#c3c5cb]/78 hover:text-white"
                   )}
+                  aria-label={labels[item.key]}
+                  aria-current={active ? "page" : undefined}
                 >
-                  <Icon
-                    className={cn(
-                      "h-[27px] w-[27px]",
-                      active ? "text-[#ff4a6a]" : "text-current"
-                    )}
-                    strokeWidth={2.1}
-                  />
-                  {badgeVisible ? (
-                    <span className="absolute -right-2 -top-2 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
-                      {Math.min(notificationCount, 99)}
-                    </span>
+                  {active ? (
+                    <span className="absolute inset-1 rounded-full bg-[radial-gradient(circle,rgba(255,74,106,0.24)_0%,rgba(255,74,106,0.14)_34%,rgba(255,74,106,0.04)_58%,transparent_74%)] blur-[10px]" />
                   ) : null}
-                </div>
-                <span className="sr-only">{labels[item.key]}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
-    </div>
+                  <div
+                    className={cn(
+                      "relative flex h-11 w-11 -translate-y-[10px] items-center justify-center rounded-full transition duration-200",
+                      active && "bg-[#ff4a6a]/10"
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-[27px] w-[27px]",
+                        active ? "text-[#ff4a6a]" : "text-current"
+                      )}
+                      strokeWidth={2.1}
+                    />
+                    {badgeVisible ? (
+                      <span className="absolute -right-2 -top-2 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                        {Math.min(notificationCount, 99)}
+                      </span>
+                    ) : null}
+                  </div>
+                  <span className="sr-only">{labels[item.key]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
+    </>
   );
 }

@@ -27,6 +27,7 @@ interface NavbarProps {
   renderSearch?: React.ReactNode;
   mobileTitle?: string;
   forceBackButton?: boolean;
+  mobileShowBrand?: boolean;
   mobileRightSlot?: React.ReactNode;
 }
 
@@ -190,6 +191,7 @@ export function Navbar({
   renderSearch,
   mobileTitle,
   forceBackButton = false,
+  mobileShowBrand = true,
   mobileRightSlot,
 }: NavbarProps) {
   const pathname = usePathname();
@@ -277,8 +279,6 @@ export function Navbar({
     persistRecentSearch(normalized);
     setMobileSearchValue(normalized);
     await dismissActiveKeyboard(40);
-    setIsSearchOpen(false);
-    router.push(`${toLocalePath("/search")}?q=${encodeURIComponent(normalized)}`);
   };
 
   const bgStyle =
@@ -377,14 +377,18 @@ export function Navbar({
                 priority
               />
             </Link>
-            <Link href={toLocalePath("/")} className="flex min-w-0 items-center gap-2 md:hidden">
-              <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-red-600 text-[11px] font-black text-white">
-                T
-              </span>
-              <span className="truncate text-sm font-semibold tracking-[0.01em] text-white">
-                {mobileHeaderTitle || "TinyTale"}
-              </span>
-            </Link>
+            {mobileShowBrand ? (
+              <Link href={toLocalePath("/")} className="flex min-w-0 items-center gap-2 md:hidden">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-red-600 text-[11px] font-black text-white">
+                  T
+                </span>
+                <span className="truncate text-sm font-semibold tracking-[0.01em] text-white">
+                  {mobileHeaderTitle || "TinyTale"}
+                </span>
+              </Link>
+            ) : (
+              <div className="min-w-0 flex-1 md:hidden" />
+            )}
           </div>
 
           {/* Desktop Nav Links */}

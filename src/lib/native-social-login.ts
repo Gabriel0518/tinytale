@@ -71,7 +71,6 @@ export async function loginWithNativeGoogle() {
     provider: 'google',
     options: {
       filterByAuthorizedAccounts: false,
-      idTokenOnly: true,
     },
   });
 

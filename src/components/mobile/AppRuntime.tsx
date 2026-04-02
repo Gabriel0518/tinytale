@@ -169,12 +169,15 @@ export function AppRuntime() {
   const locale = useLocale();
   const text = resolveLocaleCopy(RUNTIME_TEXT, locale);
   const { toast } = useToast();
-  const { token } = useAuth();
+  const { token, loading: authLoading } = useAuth();
   const { isApp, isMobile } = usePlatform();
   const hasShownOfflineRef = useRef(false);
   const lastBackTapRef = useRef(0);
   const syncedPushTokenRef = useRef<string>('');
   const runtimeSettingsRef = useRef<RuntimeSettingsSnapshot | null>(null);
+  const launchStartedAtRef = useRef<number | null>(null);
+  const launchReadyRef = useRef(false);
+  const launchBrandTimerRef = useRef<number | null>(null);
   const [runtimeSettings, setRuntimeSettings] = useState<RuntimeSettingsSnapshot | null>(null);
 
   useEffect(() => {
@@ -212,14 +215,133 @@ export function AppRuntime() {
   }, [isApp, pathname]);
 
   useEffect(() => {
-    if (!isApp) return;
+    if (!isApp || typeof window === 'undefined') return;
+    if (launchReadyRef.current) return;
 
-    const timeout = window.setTimeout(() => {
-      void hideNativeSplashScreen();
-    }, 250);
+    if (launchStartedAtRef.current === null) {
+      launchStartedAtRef.current = window.performance.now();
+      document.documentElement.classList.remove('native-app-launch-hiding');
+      document.documentElement.classList.add('native-app-launching');
+      document.body.classList.add('native-app-launching');
+      document.documentElement.classList.add('native-app-boot');
+      document.body.classList.add('native-app-boot');
+      document.documentElement.classList.remove('native-app-brand-visible');
+      launchBrandTimerRef.current = window.setTimeout(() => {
+        document.documentElement.classList.add('native-app-brand-visible');
+        launchBrandTimerRef.current = null;
+      }, 260);
+    }
 
-    return () => window.clearTimeout(timeout);
-  }, [isApp, pathname]);
+    const waitForWindowLoad = async () => {
+      if (document.readyState === 'complete') return;
+      await new Promise<void>((resolve) => {
+        window.addEventListener('load', () => resolve(), { once: true });
+      });
+    };
+
+    const waitForFonts = async () => {
+      const fonts = document.fonts;
+      if (!fonts?.ready) return;
+
+      await Promise.race([
+        fonts.ready.then(() => undefined).catch(() => undefined),
+        new Promise<void>((resolve) => {
+          window.setTimeout(resolve, 900);
+        }),
+      ]);
+    };
+
+    const waitForRouteReady = async () => {
+      const normalizedPath = removeLocalePrefix(pathname || '/') || '/';
+      if (normalizedPath !== '/') return;
+
+      const readyPath = document.documentElement.getAttribute('data-native-route-ready');
+      if (readyPath === normalizedPath) return;
+
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          const handleRouteReady = (event: Event) => {
+            const customEvent = event as CustomEvent<{ pathname?: string }>;
+            const nextPath = customEvent.detail?.pathname || normalizedPath;
+            if (nextPath !== normalizedPath) return;
+
+            window.removeEventListener('tinytale:route-ready', handleRouteReady as EventListener);
+            resolve();
+          };
+
+          window.addEventListener('tinytale:route-ready', handleRouteReady as EventListener);
+        }),
+        new Promise<void>((resolve) => {
+          window.setTimeout(resolve, 2200);
+        }),
+      ]);
+    };
+
+    const finishLaunch = async () => {
+      if (launchReadyRef.current) return;
+
+      launchReadyRef.current = true;
+      await hideNativeSplashScreen();
+      document.documentElement.classList.add('native-app-launch-hiding');
+
+      window.setTimeout(() => {
+        document.documentElement.classList.remove('native-app-launch-hiding');
+        document.documentElement.classList.remove('native-app-brand-visible');
+        document.documentElement.classList.remove('native-app-boot');
+        document.documentElement.classList.remove('native-app-launching');
+        document.body.classList.remove('native-app-boot');
+        document.body.classList.remove('native-app-launching');
+      }, 260);
+    };
+
+    const hardTimeout = window.setTimeout(() => {
+      void finishLaunch();
+    }, 4500);
+
+    if (authLoading) {
+      return () => window.clearTimeout(hardTimeout);
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      await waitForWindowLoad();
+      await waitForFonts();
+      await waitForRouteReady();
+
+      const elapsed = window.performance.now() - (launchStartedAtRef.current ?? window.performance.now());
+      const remaining = Math.max(0, 900 - elapsed);
+
+      if (remaining > 0) {
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, remaining);
+        });
+      }
+
+      if (cancelled) return;
+      await finishLaunch();
+    })();
+
+    return () => {
+      cancelled = true;
+      if (launchBrandTimerRef.current !== null) {
+        window.clearTimeout(launchBrandTimerRef.current);
+        launchBrandTimerRef.current = null;
+      }
+      window.clearTimeout(hardTimeout);
+    };
+  }, [authLoading, isApp, pathname]);
+
+  useEffect(() => {
+    if (isApp || typeof document === 'undefined') return;
+
+    document.documentElement.classList.remove('native-app-launch-hiding');
+    document.documentElement.classList.remove('native-app-brand-visible');
+    document.documentElement.classList.remove('native-app-boot');
+    document.documentElement.classList.remove('native-app-launching');
+    document.body.classList.remove('native-app-boot');
+    document.body.classList.remove('native-app-launching');
+  }, [isApp]);
 
   useEffect(() => {
     if (!isApp) return;

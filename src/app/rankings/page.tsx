@@ -7,15 +7,21 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { dramasApi } from '@/lib/api';
 import { Drama } from '@/types';
-import { mockDramas } from '@/lib/mockData';
 import {localizePath, SupportedLocale } from '@/lib/i18n';
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
 import { resolveSafeImageUrl } from '@/lib/safe-image';
 import { MobilePageShell } from '@/components/mobile/MobilePageShell';
 import { MobileScrollTabs } from '@/components/mobile/MobileScrollTabs';
+import { readViewCache, writeViewCache } from '@/lib/view-cache';
 
 type TimePeriod = 'daily' | 'weekly' | 'monthly' | 'all';
+
+type RankingsViewCache = {
+  dramas: Drama[];
+};
+
+const RANKINGS_VIEW_CACHE_MAX_AGE_MS = 3 * 60 * 1000;
 
 const RANKINGS_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
@@ -171,26 +177,41 @@ function rankColor(rank: number): string {
 export default function Rankings() {
   const locale = useLocale();
   const t = resolveLocaleCopy(RANKINGS_TEXT, locale);
-  const [allDramas, setAllDramas] = useState<Drama[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `rankings-view:${locale}`;
+  const cachedView = useMemo(
+    () => readViewCache<RankingsViewCache>(cacheKey, RANKINGS_VIEW_CACHE_MAX_AGE_MS),
+    [cacheKey]
+  );
+  const [allDramas, setAllDramas] = useState<Drama[]>(() => cachedView?.dramas || []);
+  const [loading, setLoading] = useState(() => !cachedView);
   const [period, setPeriod] = useState<TimePeriod>('daily');
 
   useEffect(() => {
+    if (!cachedView) return;
+    setAllDramas(cachedView.dramas);
+    setLoading(false);
+  }, [cachedView]);
+
+  useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
+      if (!cachedView) {
+        setLoading(true);
+      }
       try {
-        // TODO: Backend does not support period filtering yet. When it does, pass `period` as a param.
         const res = await dramasApi.getAll({ sort: 'views', limit: 50 });
         const data = res.data?.dramas || res.data || [];
-        setAllDramas(data.length > 0 ? data : mockDramas);
+        setAllDramas(data);
+        writeViewCache<RankingsViewCache>(cacheKey, { dramas: data });
       } catch {
-        setAllDramas(mockDramas);
+        if (!cachedView) {
+          setAllDramas([]);
+        }
       } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [period]);
+  }, [cacheKey, cachedView]);
 
   // Three ranking lists (wrapped in useMemo)
   const hotRanking = useMemo(() =>

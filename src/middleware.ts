@@ -19,6 +19,7 @@ const API_URL = (
 const PUBLIC_PATHS = new Set([
   '/',
   '/browse',
+  '/play',
   '/category',
   '/rankings',
   '/search',
@@ -29,6 +30,7 @@ const PUBLIC_PATHS = new Set([
   '/terms',
   '/privacy',
   '/cookies',
+  '/creator-home',
   '/auth/login',
   '/auth/register',
   '/auth/verify-otp',
@@ -42,6 +44,7 @@ function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.has(normalized)) return true;
   if (normalized.startsWith('/affiliate/')) return true;
   if (normalized.startsWith('/auth/')) return true;
+  if (normalized.startsWith('/creator-home/')) return true;
   if (normalized.startsWith('/drama/')) return true;
   if (normalized.startsWith('/ref/')) return true;
   return false;

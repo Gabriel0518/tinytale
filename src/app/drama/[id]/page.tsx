@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Suspense} from "reac
 import { useParams, useRouter, useSearchParams} from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronLeft, Share2 } from "lucide-react";
+import { Check, Play, Plus, Share2, Sparkles } from "lucide-react";
 import { dramasApi, reviewsApi, userApi, coinsApi, episodesApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
@@ -68,7 +68,7 @@ const DRAMA_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     lead: "Lead",
     supporting: "Supporting",
     reviews: "Reviews",
-    writeReview: "Write a Review",
+    writeReview: "Write a review",
     yourRating: "Your Rating:",
     reviewPlaceholder: "Share your thoughts about this drama...",
     cancel: "Cancel",
@@ -172,6 +172,32 @@ function StarRating({ rating, onRate, interactive = false }: { rating: number; o
       ))}
     </div>
   );
+}
+
+function normalizeReview(raw: unknown, fallback?: Partial<Review>): Review {
+  const item = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const populatedUser = (item.userId && typeof item.userId === "object" ? item.userId : null) as Record<string, unknown> | null;
+  const rating = typeof item.rating === "number"
+    ? item.rating
+    : typeof fallback?.rating === "number"
+      ? fallback.rating
+      : 0;
+
+  return {
+    _id: String(item._id || fallback?._id || `review-${Date.now()}`),
+    userId: String(
+      item.userId && typeof item.userId !== "object"
+        ? item.userId
+        : populatedUser?._id || fallback?.userId || ""
+    ),
+    userName: String(item.userName || populatedUser?.nickname || fallback?.userName || "User"),
+    userAvatar: String(item.userAvatar || populatedUser?.avatar || fallback?.userAvatar || ""),
+    dramaId: String(item.dramaId || fallback?.dramaId || ""),
+    rating,
+    content: String(item.content || fallback?.content || ""),
+    likes: typeof item.likes === "number" ? item.likes : fallback?.likes,
+    createdAt: String(item.createdAt || fallback?.createdAt || new Date().toISOString()),
+  };
 }
 
 /** Inner player component that consumes PlayerRoot context */
@@ -372,9 +398,7 @@ function DramaDetailContent() {
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState("");
   const [showAllReviews, setShowAllReviews] = useState(false);
-  const [mobileTab, setMobileTab] = useState<"episodes" | "reviews" | "related">("episodes");
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
-  const [mobileHeaderSolid, setMobileHeaderSolid] = useState(false);
   const [unlockingAll, setUnlockingAll] = useState(false);
   const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
   const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
@@ -382,20 +406,6 @@ function DramaDetailContent() {
     () => Array.from(unlockedEpisodeIds).sort().join(","),
     [unlockedEpisodeIds]
   );
-
-  useEffect(() => {
-    if (!isMobile || typeof window === "undefined") return;
-
-    const handleScroll = () => {
-      setMobileHeaderSolid(window.scrollY > 150);
-    };
-
-    handleScroll();
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, [isMobile]);
 
   // Fetch drama data
   useEffect(() => {
@@ -411,7 +421,7 @@ function DramaDetailContent() {
         const episodesData: Episode[] = dramaRes.data?.episodes || [];
         setDrama(dramaData);
         setEpisodes(episodesData);
-        setReviews(reviewsRes.data?.reviews || []);
+        setReviews(((reviewsRes.data?.reviews || []) as unknown[]).map((review) => normalizeReview(review)));
         setReviewTotal(reviewsRes.data?.total || 0);
         setRelatedDramas(relatedRes.data || []);
 
@@ -587,6 +597,10 @@ function DramaDetailContent() {
   );
   const originalTotalUnlockCost = lockedEpisodes.reduce((sum, ep) => sum + ep.unlockPrice, 0);
   const unlockAllDiscountCoins = Math.max(originalTotalUnlockCost - totalUnlockCost, 0);
+  const unlockAllCompactPriceLabel = originalTotalUnlockCost > totalUnlockCost
+    ? `${originalTotalUnlockCost} → ${totalUnlockCost} ${t.coins}`
+    : `${totalUnlockCost} ${t.coins}`;
+  const unlockAllCompactMetaLabel = `${lockedEpisodes.length} ${t.episodes}`;
 
   const handleUnlockAll = useCallback(async () => {
     if (!token) {
@@ -693,14 +707,6 @@ function DramaDetailContent() {
     }
   }, [drama?.description, drama?.title, t.copyFail, t.linkCopied, toast]);
 
-  const handleMobileBack = useCallback(() => {
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back();
-      return;
-    }
-    router.push(localizePath("/browse", locale));
-  }, [locale, router]);
-
   // Auth check for review (P1-18) + toast errors (P1-22)
   const handleSubmitReview = async () => {
     if (!reviewRating || !reviewContent.trim()) return;
@@ -712,7 +718,17 @@ function DramaDetailContent() {
     try {
       const res = await reviewsApi.add(token, dramaId, reviewRating, reviewContent);
       if (res.data) {
-        setReviews((prev) => [res.data, ...prev]);
+        setReviews((prev) => [
+          normalizeReview(res.data, {
+            dramaId,
+            rating: reviewRating,
+            content: reviewContent.trim(),
+            userId: user?._id || "",
+            userName: user?.nickname || "User",
+            userAvatar: user?.avatar,
+          }),
+          ...prev,
+        ]);
         setReviewTotal((prev) => prev + 1);
       }
       setShowReviewForm(false);
@@ -763,356 +779,353 @@ function DramaDetailContent() {
   const visibleMobileDescription = shouldClampDescription && !descriptionExpanded
     ? `${mobileDescription.slice(0, 140).trim()}...`
     : mobileDescription;
+  const mobileHeroImage = resolveSafeImageUrl(drama.cover || drama.horizontalCover);
 
   if (isMobile) {
     return (
-      <div className="min-h-screen bg-[#0b0c12] pb-32">
-        <div
-          className={`fixed inset-x-0 top-0 z-40 border-b px-4 pb-2 pt-[calc(0.5rem+env(safe-area-inset-top))] transition-all duration-200 ${
-            mobileHeaderSolid
-              ? "border-white/10 bg-[#0b0c12]/92 shadow-[0_10px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl"
-              : "border-transparent bg-gradient-to-b from-black/60 to-transparent"
-          }`}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={handleMobileBack}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white backdrop-blur-md"
-              aria-label="Back"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <div className={`min-w-0 flex-1 text-center text-sm font-semibold text-white transition-all ${mobileHeaderSolid ? "opacity-100" : "translate-y-1 opacity-0"}`}>
-              <p className="truncate px-2">{drama.title}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                void handleShareDrama();
-              }}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white backdrop-blur-md"
-              aria-label={t.share}
-            >
-              <Share2 className="h-[18px] w-[18px]" />
-            </button>
-          </div>
-        </div>
+      <div className="min-h-screen bg-[#0f1115]">
+        <Navbar
+          variant="transparent"
+          forceBackButton
+          showSearch={false}
+          mobileShowBrand={false}
+        />
 
-        <main>
-          <section className="relative h-[58vh] min-h-[390px] w-full overflow-hidden">
+        <main className="pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
+          <section className="relative min-h-[35rem] w-full overflow-hidden">
             <Image
-              src={resolveSafeImageUrl(drama.horizontalCover || drama.cover)}
+              src={mobileHeroImage}
               alt={drama.title}
               fill
-              className="object-cover"
+              className="object-cover object-top"
               sizes="100vw"
-              unoptimized={Boolean(resolveSafeImageUrl(drama.horizontalCover || drama.cover).startsWith("blob:"))}
+              unoptimized={Boolean(mobileHeroImage.startsWith("blob:"))}
               priority
             />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.35)_0%,rgba(0,0,0,0.15)_35%,rgba(11,12,18,0.92)_72%,#0b0c12_100%)]" />
-            <div className="absolute inset-x-0 bottom-0 px-4 pb-6">
-              <div className="mb-3 flex items-center gap-2">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,59,92,0.18),transparent_34%),linear-gradient(180deg,rgba(6,7,9,0.16)_0%,rgba(10,11,15,0.38)_32%,rgba(15,17,21,0.92)_72%,#0f1115_100%)]" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/44 via-transparent to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 px-4 pb-7">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
                 {drama.isFeatured ? (
-                  <span className="rounded-full bg-red-500 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
+                  <span className="rounded-md bg-[#ff3b5c] px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white">
                     {t.trending}
                   </span>
                 ) : null}
-                {resolveDramaMode(drama) === "completed" ? (
-                  <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-semibold text-emerald-200">
-                    {t.completed}
+                {typeof drama.rating === "number" ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[#1a1d23]/82 px-2.5 py-1 text-xs font-semibold text-[#ffd84d] backdrop-blur-md">
+                    <Sparkles className="h-3.5 w-3.5 fill-current" />
+                    {drama.rating.toFixed(1)}
                   </span>
                 ) : null}
               </div>
-              <h1 className="max-w-[90%] text-3xl font-bold leading-[1.15] text-white">{drama.title}</h1>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-white/78">
-                <span className="text-yellow-400">★ {drama.rating?.toFixed(1)}</span>
+              <h1 className="max-w-[86%] text-[2.15rem] font-black uppercase leading-[0.92] tracking-[-0.02em] text-white drop-shadow-[0_14px_32px_rgba(0,0,0,0.55)]">
+                {drama.title}
+              </h1>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.12em] text-white/58">
                 {drama.year ? <span>{drama.year}</span> : null}
+                {drama.year ? <span className="h-1 w-1 rounded-full bg-white/24" /> : null}
                 <span>{episodes.length} {t.episodesCount}</span>
+                {episodes.length > 0 ? <span className="h-1 w-1 rounded-full bg-white/24" /> : null}
+                <span>{drama.categories?.[0] || t.episodes}</span>
+                {resolveDramaMode(drama) === "completed" ? (
+                  <>
+                    <span className="h-1 w-1 rounded-full bg-white/24" />
+                    <span>{t.completed}</span>
+                  </>
+                ) : null}
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 {drama.categories?.slice(0, 3).map((cat) => (
                   <Link
                     key={cat}
                     href={localizePath(`/category?category=${encodeURIComponent(cat)}`, locale)}
-                    className="rounded-full border border-white/12 bg-white/8 px-3 py-1 text-xs text-white/85 backdrop-blur-md"
+                    className="rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/78 backdrop-blur-md"
                   >
                     {cat}
                   </Link>
                 ))}
               </div>
+              <div className="mt-5 flex items-center gap-3">
+                <Link
+                  href={watchHref}
+                  className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-full bg-[#ff3b5c] px-5 text-sm font-bold text-white shadow-[0_16px_30px_rgba(255,59,92,0.32)] transition active:scale-[0.98]"
+                >
+                  <Play className="h-[18px] w-[18px] fill-current" />
+                  <span>{t.watchNow}</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={toggleFavorite}
+                  className="inline-flex h-[52px] w-[52px] items-center justify-center rounded-full border border-white/10 bg-[#1a1d23]/78 text-white backdrop-blur-xl transition active:scale-[0.96]"
+                  aria-label={isFavorited ? t.inMyList : t.myList}
+                >
+                  {isFavorited ? <Check className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { void handleShareDrama(); }}
+                  className="inline-flex h-[52px] w-[52px] items-center justify-center rounded-full border border-white/10 bg-[#1a1d23]/78 text-white backdrop-blur-xl transition active:scale-[0.96]"
+                  aria-label={t.share}
+                >
+                  <Share2 className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           </section>
 
-          <section className="px-4 py-5">
-            <div className="rounded-[28px] border border-white/10 bg-[#171a26] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-white/40">{t.aboutDrama}</p>
-                <p className="mt-2 text-sm leading-6 text-white/75">{visibleMobileDescription}</p>
-              </div>
+          <section className="px-4 py-6">
+            <div className="space-y-3">
+              <p className="text-[17px] font-semibold tracking-[-0.01em] text-white">{t.aboutDrama}</p>
+              <p className="text-[14px] leading-7 text-white/74">{visibleMobileDescription}</p>
               {shouldClampDescription ? (
                 <button
                   type="button"
                   onClick={() => setDescriptionExpanded((prev) => !prev)}
-                  className="mt-3 text-sm font-medium text-red-400"
+                  className="text-[12px] font-black uppercase tracking-[0.16em] text-[#ff6c84]"
                 >
                   {descriptionExpanded ? t.descriptionLess : t.descriptionMore}
                 </button>
               ) : null}
+            </div>
+          </section>
 
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={toggleFavorite}
-                  className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-2xl px-4 text-sm font-medium transition active:scale-[0.98] ${
-                    isFavorited ? "bg-red-600 text-white" : "bg-white/8 text-white hover:bg-white/12"
-                  }`}
-                >
-                  <span>{isFavorited ? t.inMyList : `+ ${t.myList}`}</span>
-                </button>
-                <button
-                  onClick={() => { void handleShareDrama(); }}
-                  className="flex min-h-[44px] items-center justify-center rounded-2xl bg-white/8 px-4 text-sm font-medium text-white hover:bg-white/12 active:scale-[0.98]"
-                >
-                  {t.share}
-                </button>
+          <section className="px-4 py-2">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-[18px] font-bold tracking-[-0.02em] text-white">{t.episodes}</h2>
+                <p className="mt-1 text-[11px] font-black uppercase tracking-[0.18em] text-white/34">
+                  {episodes.length} {t.episodesCount}
+                </p>
               </div>
-            </div>
-          </section>
-
-          <section className="sticky top-[calc(52px+env(safe-area-inset-top))] z-20 border-y border-white/8 bg-[#0b0c12]/90 px-4 py-3 backdrop-blur-xl">
-            <div className="flex gap-2">
-              {[
-                { key: "episodes" as const, label: t.episodes },
-                { key: "reviews" as const, label: t.tabReviews },
-                { key: "related" as const, label: t.tabRelated },
-              ].map((tab) => (
+              {lockedEpisodes.length > 0 ? (
                 <button
-                  key={tab.key}
                   type="button"
-                  onClick={() => setMobileTab(tab.key)}
-                  className={`flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition ${
-                    mobileTab === tab.key ? "bg-white text-black" : "bg-white/8 text-white/70"
-                  }`}
+                  onClick={handleUnlockAll}
+                  disabled={unlockingAll}
+                  className="flex shrink-0 flex-col items-end rounded-[18px] bg-[linear-gradient(135deg,#ffd84d,#f4bf2e)] px-3 py-2 text-right text-[#111318] shadow-[0_10px_24px_rgba(255,216,77,0.18)] disabled:opacity-60"
                 >
-                  {tab.label}
+                  <span className="text-[9px] font-black uppercase tracking-[0.14em] opacity-70">
+                    {unlockingAll ? "..." : t.unlockAll}
+                  </span>
+                  <span className="mt-0.5 text-[11px] font-black leading-none">
+                    {unlockAllCompactPriceLabel}
+                  </span>
+                  <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.08em] opacity-70">
+                    {unlockAllCompactMetaLabel}
+                  </span>
                 </button>
-              ))}
+              ) : null}
             </div>
-          </section>
 
-          <section className="px-4 py-5">
-            {mobileTab === "episodes" ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-white">{t.episodes}</h2>
-                    <p className="text-sm text-white/45">{t.updatedToEp} {episodes.length}</p>
-                  </div>
-                  {lockedEpisodes.length > 0 ? (
-                    <button
-                      type="button"
-                      onClick={handleUnlockAll}
-                      disabled={unlockingAll}
-                      className="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-black disabled:opacity-60"
-                    >
-                      {t.unlockAll}
-                    </button>
-                  ) : null}
-                </div>
+            <div className="mt-4 space-y-3">
+              {episodes.map((ep) => {
+                const isCurrentEpisode = activeEpisode?._id === ep._id;
+                const access = episodeAccessMap[ep._id];
+                const isUnlocked = unlockedEpisodeIds.has(ep._id);
+                const unlockPrice = getEpisodeEffectiveUnlockPrice(ep, access);
+                const statusLabel = ep.isFree
+                  ? t.free
+                  : isUnlocked
+                    ? t.unlocked
+                    : access?.reason === "vip_monthly_free_available"
+                      ? `${t.vip} ${t.free}`
+                      : unlockPrice > 0
+                        ? `${unlockPrice} ${t.coins}`
+                        : t.vip;
+                const statusClass = ep.isFree || isUnlocked
+                  ? "bg-[#14b86a] text-white"
+                  : access?.reason === "vip_monthly_free_available"
+                    ? "bg-[#6d3bff] text-white"
+                    : "bg-[#ffd84d] text-[#111318]";
+                const thumbnail = resolveSafeImageUrl(ep.thumbnail || drama.cover);
+                const episodeSummary = ep.description?.trim() || ep.title;
 
-                {lockedEpisodes.length > 0 ? (
-                  <div className="rounded-[24px] border border-amber-400/15 bg-gradient-to-br from-amber-400/10 via-[#20160a] to-[#121212] p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.22em] text-amber-200/55">{t.unlockAll}</p>
-                        <p className="mt-2 text-sm font-semibold text-white">
-                          {lockedEpisodes.length} {t.episodes} · {totalUnlockCost} {t.coins}
-                        </p>
-                        {unlockAllDiscountCoins > 0 ? (
-                          <p className="mt-1 text-xs text-amber-200/70">
-                            VIP -{unlockAllDiscountCoins} {t.coins}
-                          </p>
-                        ) : null}
+                return (
+                  <button
+                    key={ep._id}
+                    type="button"
+                    onClick={() => { void handleEpisodeClick(ep); }}
+                    className={`w-full rounded-[22px] p-2.5 text-left transition duration-200 active:scale-[0.99] ${
+                      isCurrentEpisode
+                        ? "bg-[#19131a] shadow-[0_16px_34px_rgba(255,59,92,0.16)]"
+                        : "bg-[#15181e]"
+                    }`}
+                  >
+                    <div className={`flex gap-3 ${isCurrentEpisode ? "" : "opacity-90"}`}>
+                      <div className="relative aspect-[2/3] w-20 shrink-0 overflow-hidden rounded-[16px] bg-black">
+                        <Image
+                          src={thumbnail}
+                          alt={ep.title}
+                          fill
+                          className="object-cover"
+                          sizes="80px"
+                          unoptimized={Boolean(thumbnail.startsWith("blob:"))}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/78 via-black/14 to-transparent" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/48 text-white backdrop-blur-sm">
+                            <Play className="h-4 w-4 fill-current" />
+                          </span>
+                        </div>
+                        <div className={`absolute left-1.5 top-1.5 rounded-md px-1.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${statusClass}`}>
+                          {statusLabel}
+                        </div>
+                        <div className="absolute inset-x-0 bottom-0 h-1 bg-white/10">
+                          <div
+                            className={`h-full rounded-full ${isCurrentEpisode ? "bg-[#ff3b5c]" : "bg-white/0"}`}
+                            style={{ width: isCurrentEpisode ? "72%" : "0%" }}
+                          />
+                        </div>
                       </div>
-                      <div className="rounded-full border border-amber-300/15 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold text-amber-200">
-                        {originalTotalUnlockCost > totalUnlockCost ? `${originalTotalUnlockCost} → ${totalUnlockCost}` : `${totalUnlockCost}`}
+
+                      <div className="flex min-w-0 flex-1 flex-col justify-center py-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isCurrentEpisode ? "text-[#ff6c84]" : "text-white/42"}`}>
+                            EP {String(ep.episodeNumber).padStart(2, "0")}
+                          </span>
+                          <span className="text-[10px] font-medium text-white/38">{formatDuration(ep.duration)}</span>
+                        </div>
+                        <h3 className="mt-1 line-clamp-1 text-[15px] font-bold tracking-[-0.02em] text-white">{ep.title}</h3>
+                        <p className="mt-1 line-clamp-2 text-[11px] leading-[1.125rem] text-white/54">{episodeSummary}</p>
+                        <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-white/34">
+                          {isCurrentEpisode ? t.watchNow : statusLabel}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-                <div className="space-y-2">
-                  {episodes.map((ep) => {
-                    const isCurrentEpisode = activeEpisode?._id === ep._id;
-                    const access = episodeAccessMap[ep._id];
-                    const isUnlocked = unlockedEpisodeIds.has(ep._id);
-                    const unlockPrice = getEpisodeEffectiveUnlockPrice(ep, access);
-                    const statusLabel = ep.isFree
-                      ? t.free
-                      : isUnlocked
-                        ? t.unlocked
-                        : access?.reason === "vip_monthly_free_available"
-                          ? `${t.vip} ${t.free}`
-                          : unlockPrice > 0
-                            ? `${unlockPrice} ${t.coins}`
-                            : t.vip;
-                    const statusClass = ep.isFree || isUnlocked
-                      ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200"
-                      : access?.reason === "vip_monthly_free_available"
-                        ? "border-fuchsia-400/20 bg-fuchsia-400/10 text-fuchsia-200"
-                        : "border-amber-400/20 bg-amber-400/10 text-amber-200";
-
-                    return (
-                      <button
-                        key={ep._id}
-                        type="button"
-                        onClick={() => { void handleEpisodeClick(ep); }}
-                        className={`w-full rounded-[22px] border p-3 text-left transition active:scale-[0.99] ${
-                          isCurrentEpisode
-                            ? "border-red-500/60 bg-red-500/10 shadow-[0_18px_40px_rgba(127,29,29,0.28)]"
-                            : "border-white/8 bg-white/5"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl bg-black">
-                            <Image
-                              src={ep.thumbnail || drama.cover || "/placeholder-cover.svg"}
-                              alt={ep.title}
-                              fill
-                              className="object-cover"
-                              sizes="96px"
-                              unoptimized={Boolean((ep.thumbnail || drama.cover)?.startsWith("blob:"))}
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
-                            <div className="absolute left-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/80 backdrop-blur-md">
-                              {ep.episodeNumber}
-                            </div>
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-white">{t.episodes} {ep.episodeNumber}</p>
-                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-white/65">{ep.title}</p>
-                            <p className="mt-1 text-[11px] text-white/40">
-                              {formatDuration(ep.duration)}
-                            </p>
-                            <p className="mt-1 text-[11px] uppercase tracking-[0.14em] text-white/35">
-                              {isCurrentEpisode ? t.watchNow : statusLabel}
-                            </p>
-                          </div>
-                          <div className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${statusClass}`}>
-                            {statusLabel}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+          {relatedDramas.length > 0 ? (
+            <section className="pb-2 pt-8">
+              <div className="px-4">
+                <h2 className="text-[18px] font-bold tracking-[-0.02em] text-white">{t.moreLikeThis}</h2>
               </div>
-            ) : null}
+              <div className="mt-4 flex gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [-ms-overflow-style:none]">
+                {relatedDramas.map((d) => {
+                  const relatedCover = resolveSafeImageUrl(d.cover || d.horizontalCover);
 
-            {mobileTab === "reviews" ? (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-white">{t.reviews}</h2>
+                  return (
+                    <button
+                      key={d._id}
+                      type="button"
+                      onClick={() => router.push(localizePath(`/drama/${d._id}`, locale))}
+                      className="w-36 shrink-0 text-left"
+                    >
+                      <div className="relative aspect-[2/3] overflow-hidden rounded-[18px] bg-[#181b20]">
+                        <Image
+                          src={relatedCover}
+                          alt={d.title}
+                          fill
+                          className="object-cover"
+                          sizes="144px"
+                          unoptimized={Boolean(relatedCover.startsWith("blob:"))}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/48 to-transparent" />
+                        <div className="absolute right-2 top-2 rounded-md bg-black/55 px-1.5 py-1 text-[10px] font-bold text-[#ffd84d] backdrop-blur-sm">
+                          {d.rating?.toFixed(1)}
+                        </div>
+                      </div>
+                      <p className="mt-2 line-clamp-1 text-[15px] font-bold tracking-[-0.02em] text-white">{d.title}</p>
+                      <p className="mt-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/36">
+                        {d.categories?.[0] || t.episodes}
+                        {d.year ? ` • ${d.year}` : ""}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          <section className="px-4 py-8">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-[18px] font-bold tracking-[-0.02em] text-white">
+                {t.reviews}
+                {reviewTotal > 0 ? <span className="ml-2 text-sm font-semibold text-white/38">({reviewTotal})</span> : null}
+              </h2>
+              <button
+                onClick={() => {
+                  if (!token) {
+                    toast(t.signInReview, "info");
+                    router.push(`${localizePath('/auth/login', locale)}?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+                    return;
+                  }
+                  setShowReviewForm(!showReviewForm);
+                }}
+                className="rounded-full bg-[#15181e] px-4 py-2 text-[13px] font-medium text-white/88 shadow-[0_12px_28px_rgba(0,0,0,0.18)]"
+              >
+                {t.writeReview}
+              </button>
+            </div>
+
+            {showReviewForm ? (
+              <div className="keyboard-safe-form mt-4 rounded-[24px] bg-[#15181e] p-4 shadow-[0_14px_36px_rgba(0,0,0,0.22)]">
+                <div className="mb-3 flex items-center gap-3">
+                  <span className="text-[12px] font-black uppercase tracking-[0.16em] text-white/48">{t.yourRating}</span>
+                  <StarRating rating={reviewRating} onRate={setReviewRating} interactive />
+                </div>
+                <textarea
+                  value={reviewContent}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  placeholder={t.reviewPlaceholder}
+                  className="w-full rounded-2xl bg-black/20 p-3 text-[14px] text-white placeholder-gray-500 outline-none transition focus:bg-black/30"
+                  rows={4}
+                />
+                <div className="mt-3 flex justify-end gap-2">
                   <button
-                    onClick={() => {
-                      if (!token) {
-                        toast(t.signInReview, "info");
-                        router.push(`${localizePath('/auth/login', locale)}?returnUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`);
-                        return;
-                      }
-                      setShowReviewForm(!showReviewForm);
-                    }}
-                    className="rounded-full bg-white/6 px-4 py-2 text-sm font-medium text-white"
+                    onClick={() => { setShowReviewForm(false); setReviewRating(0); setReviewContent(""); }}
+                    className="rounded-full px-4 py-2 text-sm text-gray-400"
                   >
-                    {t.writeReview}
+                    {t.cancel}
+                  </button>
+                  <button
+                    onClick={handleSubmitReview}
+                    disabled={!reviewRating || !reviewContent.trim()}
+                    className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                  >
+                    {t.submitReview}
                   </button>
                 </div>
+              </div>
+            ) : null}
 
-                {showReviewForm ? (
-                  <div className="keyboard-safe-form rounded-[24px] border border-white/8 bg-white/4 p-4">
-                    <div className="mb-3 flex items-center gap-3">
-                      <span className="text-sm text-gray-300">{t.yourRating}</span>
-                      <StarRating rating={reviewRating} onRate={setReviewRating} interactive />
-                    </div>
-                    <textarea
-                      value={reviewContent}
-                      onChange={(e) => setReviewContent(e.target.value)}
-                      placeholder={t.reviewPlaceholder}
-                      className="w-full rounded-2xl bg-black/20 p-3 text-sm text-white placeholder-gray-500 outline-none focus:ring-1 focus:ring-red-600"
-                      rows={4}
-                    />
-                    <div className="mt-3 flex justify-end gap-2">
-                      <button
-                        onClick={() => { setShowReviewForm(false); setReviewRating(0); setReviewContent(""); }}
-                        className="rounded-full px-4 py-2 text-sm text-gray-400"
-                      >
-                        {t.cancel}
-                      </button>
-                      <button
-                        onClick={handleSubmitReview}
-                        disabled={!reviewRating || !reviewContent.trim()}
-                        className="rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                      >
-                        {t.submitReview}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-
-                {displayedReviews.length === 0 ? (
-                  <div className="rounded-[24px] border border-white/8 bg-white/4 px-4 py-10 text-center text-white/55">{t.noReviews}</div>
-                ) : (
-                  displayedReviews.map((review) => (
-                    <div key={review._id} className="rounded-[24px] border border-white/8 bg-white/4 p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-red-600 to-pink-600">
-                          <span className="text-sm font-bold text-white">{review.userName?.charAt(0).toUpperCase() || "U"}</span>
+            {displayedReviews.length === 0 ? (
+              <div className="mt-4 rounded-[24px] bg-[#15181e] px-4 py-10 text-center text-[14px] text-white/55 shadow-[0_14px_36px_rgba(0,0,0,0.2)]">
+                {t.noReviews}
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {displayedReviews.map((review) => (
+                  <div key={review._id} className="rounded-[24px] bg-[#15181e] p-4 shadow-[0_14px_36px_rgba(0,0,0,0.2)]">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-red-600 to-pink-600">
+                        <span className="text-sm font-bold text-white">{review.userName?.charAt(0).toUpperCase() || "U"}</span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[14px] font-semibold text-white">{review.userName}</span>
+                          <StarRating rating={review.rating} />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-medium text-white">{review.userName}</span>
-                            <StarRating rating={review.rating} />
-                          </div>
-                          <p className="mt-2 text-sm text-white/75">{review.content}</p>
-                        </div>
+                        <p className="mt-2 text-[14px] leading-6 text-white/72">{review.content}</p>
                       </div>
                     </div>
-                  ))
-                )}
+                  </div>
+                ))}
+                {reviews.length > 3 ? (
+                  <button
+                    onClick={() => setShowAllReviews(!showAllReviews)}
+                    className="w-full rounded-[24px] bg-[#15181e] px-4 py-3 text-[13px] font-semibold text-white/72 shadow-[0_14px_36px_rgba(0,0,0,0.2)]"
+                  >
+                    {showAllReviews ? t.showLess : `${t.showMoreReviews} (${reviews.length - 3})`}
+                  </button>
+                ) : null}
               </div>
-            ) : null}
-
-            {mobileTab === "related" ? (
-              <div>
-                <h2 className="mb-4 text-lg font-semibold text-white">{t.moreLikeThis}</h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {relatedDramas.map((d) => (
-                    <DramaCard
-                      key={d._id}
-                      drama={d}
-                      onClick={() => router.push(localizePath(`/drama/${d._id}`, locale))}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
+            )}
           </section>
         </main>
-
-        <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[calc(0.85rem+env(safe-area-inset-bottom))]">
-          <Link
-            href={watchHref}
-            className="flex min-h-[56px] items-center justify-between rounded-[24px] bg-red-600 px-5 py-3 text-white shadow-[0_18px_40px_rgba(229,9,20,0.35)]"
-          >
-            <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-white/70">{t.watchNow}</p>
-              <p className="mt-1 text-sm font-semibold">
-                {watchEpisode ? `${t.episodes} ${watchEpisode.episodeNumber}` : drama.title}
-              </p>
-            </div>
-            <span className="text-sm font-semibold">{t.watchNow} →</span>
-          </Link>
-        </div>
       </div>
     );
   }
@@ -1170,21 +1183,40 @@ function DramaDetailContent() {
             <div className="w-full lg:w-80 flex-shrink-0">
               <div className="rounded-lg bg-[#1a1a1a] p-4 lg:h-[calc(56.25vw*0.5625)] lg:max-h-[480px] flex flex-col">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold text-white">{t.episodes}</h3>
-                  <span className="text-xs text-gray-400">{t.updatedToEp} {episodes.length}</span>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">{t.episodes}</h3>
+                    <span className="text-xs text-gray-400">{t.updatedToEp} {episodes.length}</span>
+                  </div>
+                  {lockedEpisodes.length > 0 ? (
+                    <button
+                      onClick={handleUnlockAll}
+                      disabled={unlockingAll}
+                      className="flex shrink-0 flex-col items-end rounded-xl bg-gradient-to-r from-yellow-600 to-yellow-500 px-3 py-2 text-right text-black transition disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <span className="text-[9px] font-black uppercase tracking-[0.12em] opacity-70">
+                        {unlockingAll ? "..." : t.unlockAll}
+                      </span>
+                      <span className="mt-0.5 text-[11px] font-black leading-none">
+                        {unlockAllCompactPriceLabel}
+                      </span>
+                      <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.08em] opacity-70">
+                        {unlockAllCompactMetaLabel}
+                      </span>
+                    </button>
+                  ) : null}
                 </div>
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
                   {episodes.map((ep) => (
                     <button
                       key={ep._id}
                       onClick={() => handleEpisodeClick(ep)}
-                      className={`w-full flex items-center gap-3 rounded-lg p-2 text-left transition ${
+                      className={`w-full flex items-center gap-2.5 rounded-lg p-2 text-left transition ${
                         activeEpisode?._id === ep._id
-                          ? "bg-red-600/20 border border-red-600/50"
+                          ? "bg-red-600/18 shadow-[0_10px_24px_rgba(239,68,68,0.12)]"
                           : "bg-[#222] hover:bg-[#2a2a2a]"
                       }`}
                       >
-                      <div className="relative h-12 w-20 flex-shrink-0 overflow-hidden rounded bg-gray-800">
+                      <div className="relative h-10 w-16 flex-shrink-0 overflow-hidden rounded bg-gray-800">
                         <Image
                           src={ep.thumbnail || drama.cover || "/placeholder-cover.svg"}
                           alt={ep.title}
@@ -1229,26 +1261,7 @@ function DramaDetailContent() {
                     </button>
                   ))}
                 </div>
-                {lockedEpisodes.length > 0 ? (
-                  <button
-                    onClick={handleUnlockAll}
-                    disabled={unlockingAll}
-                    className="mt-3 w-full rounded-lg bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 py-2.5 text-sm font-medium text-black transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {unlockingAll ? (
-                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                        </svg>
-                        {unlockAllDiscountCoins > 0
-                          ? `${t.unlockAll} (${originalTotalUnlockCost} -> ${totalUnlockCost} ${t.coins})`
-                          : `${t.unlockAll} (${totalUnlockCost} ${t.coins})`}
-                      </>
-                    )}
-                  </button>
-                ) : episodes.some(ep => !ep.isFree && unlockedEpisodeIds.has(ep._id)) ? (
+                {lockedEpisodes.length === 0 && episodes.some(ep => !ep.isFree && unlockedEpisodeIds.has(ep._id)) ? (
                   <div className="mt-3 w-full rounded-lg bg-green-600/20 border border-green-600/30 py-2.5 text-sm font-medium text-green-400 flex items-center justify-center gap-2">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

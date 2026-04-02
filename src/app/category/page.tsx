@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { Suspense, useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { dramasApi, categoriesApi } from '@/lib/api';
@@ -11,9 +11,10 @@ import { Navbar } from '@/components/features/Navbar';
 import { Footer } from '@/components/features/Footer';
 import { DramaCard } from '@/components/features/DramaCard';
 import { localizePath, SupportedLocale } from '@/lib/i18n';
-import { localizeCategoryLabel } from '@/lib/categoryI18n';
+import { localizeCategoryLabel, normalizeCategoryKey } from '@/lib/categoryI18n';
 import { useLocale } from '@/hooks/useLocale';
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { readViewCache, writeViewCache } from '@/lib/view-cache';
 
 const CATEGORY_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
@@ -101,16 +102,28 @@ const CATEGORY_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     remaining: 'tersisa',
     errorFallback: 'Gagal memuat drama.' } };
 
+type CategoryViewCache = {
+  dramas: Drama[];
+  categories: Category[];
+};
+
+const CATEGORY_VIEW_CACHE_MAX_AGE_MS = 3 * 60 * 1000;
+
 function CategoryContent() {
   const locale = useLocale();
   const t = resolveLocaleCopy(CATEGORY_TEXT, locale);
   const searchParams = useSearchParams();
   const router = useRouter();
   const categoryParam = searchParams.get('category');
+  const cacheKey = `category-view:${locale}`;
+  const cachedView = useMemo(
+    () => readViewCache<CategoryViewCache>(cacheKey, CATEGORY_VIEW_CACHE_MAX_AGE_MS),
+    [cacheKey]
+  );
 
-  const [dramas, setDramas] = useState<Drama[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [dramas, setDramas] = useState<Drama[]>(() => cachedView?.dramas || []);
+  const [categories, setCategories] = useState<Category[]>(() => cachedView?.categories || []);
+  const [loading, setLoading] = useState(() => !cachedView);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(categoryParam || 'all');
   const [sortBy, setSortBy] = useState('newest');
@@ -121,57 +134,84 @@ function CategoryContent() {
 
   /* Sync selectedCategory from URL search params */
   useEffect(() => {
+    if (!cachedView) return;
+    setDramas(cachedView.dramas);
+    setCategories(cachedView.categories);
+    setLoading(false);
+  }, [cachedView]);
+
+  useEffect(() => {
     const cat = searchParams.get('category');
     if (cat && cat !== selectedCategory) {
       setSelectedCategory(cat);
+      return;
     }
-  }, [searchParams]);
+    if (!cat && selectedCategory !== 'all') {
+      setSelectedCategory('all');
+    }
+  }, [searchParams, selectedCategory]);
 
   /* Update URL when category changes */
   const handleCategoryChange = useCallback((category: string) => {
     setSelectedCategory(category);
     setVisibleCount(ITEMS_PER_PAGE);
     if (category === 'all') {
-      router.push(localizePath('/category', locale));
+      router.replace(localizePath('/category', locale));
     } else {
-      router.push(`${localizePath('/category', locale)}?category=${category}`);
+      router.replace(`${localizePath('/category', locale)}?category=${category}`);
     }
   }, [router, locale]);
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await categoriesApi.getAll();
-        setCategories(res.data || []);
-      } catch (err) {
-        console.error('Failed to fetch categories:', err);
+    const fetchCatalog = async () => {
+      if (!cachedView) {
+        setLoading(true);
       }
-    };
-    fetchCategories();
-  }, []);
-
-  useEffect(() => {
-    const fetchDramas = async () => {
-      setLoading(true);
       setError(null);
       try {
-        const params: { category?: string; sort?: string; limit?: number } = { limit: 50 };
-        if (selectedCategory !== 'all') {
-          params.category = selectedCategory;
-        }
-        params.sort = sortBy;
-
-        const res = await dramasApi.getAll(params);
-        setDramas(res.data?.dramas || []);
+        const [dramasRes, categoriesRes] = await Promise.all([
+          dramasApi.getAll({ limit: 50 }),
+          categoriesApi.getAll(),
+        ]);
+        const fetchedDramas = dramasRes.data?.dramas || [];
+        const fetchedCategories = categoriesRes.data || [];
+        setDramas(fetchedDramas);
+        setCategories(fetchedCategories);
+        writeViewCache<CategoryViewCache>(cacheKey, {
+          dramas: fetchedDramas,
+          categories: fetchedCategories,
+        });
       } catch (err) {
-        console.error('Failed to fetch dramas:', err);
-        setError(t.errorFallback);
+        console.error('Failed to fetch category catalog:', err);
+        if (!cachedView) {
+          setDramas([]);
+          setCategories([]);
+          setError(t.errorFallback);
+        }
       } finally {
         setLoading(false);
       }
     };
-    fetchDramas();
-  }, [selectedCategory, sortBy, retryCount, t.errorFallback]);
+    void fetchCatalog();
+  }, [cacheKey, cachedView, retryCount, t.errorFallback]);
+
+  const visibleDramas = useMemo(() => {
+    const filtered = dramas
+      .filter((drama) => {
+        if (selectedCategory === 'all') return true;
+        return drama.categories?.some(
+          (category) => normalizeCategoryKey(category) === normalizeCategoryKey(selectedCategory)
+        );
+      })
+      .sort((a, b) => {
+        if (sortBy === 'rating') {
+          return (b.rating || 0) - (a.rating || 0);
+        }
+        return (b.createdAt || '').localeCompare(a.createdAt || '');
+      });
+
+    return filtered;
+  }, [dramas, selectedCategory, sortBy]);
 
   const currentCategory = categories.find((c) => c.slug === selectedCategory);
 
@@ -278,26 +318,26 @@ function CategoryContent() {
                     {t.retry}
                   </button>
                 </div>
-              ) : dramas.length === 0 ? (
+              ) : visibleDramas.length === 0 ? (
                 <div className="py-12 text-center">
                   <p className="text-text-tertiary">{t.noDramas}</p>
                 </div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                    {dramas.slice(0, visibleCount).map((drama) => (
+                    {visibleDramas.slice(0, visibleCount).map((drama) => (
                       <Link key={drama._id} href={localizePath(`/drama/${drama._id}`, locale)}>
                         <DramaCard drama={drama} />
                       </Link>
                     ))}
                   </div>
-                  {visibleCount < dramas.length && (
+                  {visibleCount < visibleDramas.length && (
                     <div className="mt-8 text-center">
                       <button
                         onClick={() => setVisibleCount((c) => c + ITEMS_PER_PAGE)}
                         className="rounded-lg border border-bg-elevated bg-bg-secondary px-6 py-2.5 text-sm font-medium text-text-primary transition hover:bg-bg-elevated"
                       >
-                        {t.loadMore} ({dramas.length - visibleCount} {t.remaining})
+                        {t.loadMore} ({visibleDramas.length - visibleCount} {t.remaining})
                       </button>
                     </div>
                   )}
