@@ -1,5 +1,7 @@
 import type {
   EpisodeAccessResult,
+  FeedBootstrapPayload,
+  FeedPlayableItem,
   HomepageBanner,
   HomepageFeaturedBuckets,
   HomepageHeroBanner,
@@ -363,6 +365,18 @@ export const dramasApi = {
 
 // Episodes API
 export const episodesApi = {
+  getRandomPlayable: () =>
+    api.get<{
+      success: boolean;
+      data: {
+        sourceType: 'database' | 'cloudflare-stream' | 'fallback-demo';
+        cloudflareConfigured: boolean;
+        dramaId: string;
+        episodeId: string;
+        redirectPath: string;
+      };
+    }>('/api/episodes/random-playable'),
+
   // Get stream playback info (HLS URL + signed token)
   getStream: (episodeId: string, token?: string) => {
     const headers: Record<string, string> = {};
@@ -385,6 +399,36 @@ export const episodesApi = {
     }, {
       headers: { Authorization: `Bearer ${token}` },
     }),
+};
+
+export const playFeedApi = {
+  getBootstrap: (params?: { mode?: 'for-you' | 'following'; count?: number; token?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.mode) query.set('mode', params.mode);
+    if (params?.count) query.set('count', String(params.count));
+    return api.get<{ success: boolean; data: FeedBootstrapPayload }>(
+      `/api/feed/bootstrap${query.toString() ? `?${query.toString()}` : ''}`,
+      params?.token ? { token: params.token } : {}
+    );
+  },
+
+  getNext: (params?: {
+    mode?: 'for-you' | 'following';
+    count?: number;
+    cursor?: string | null;
+    excludeEpisodeIds?: string[];
+    token?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.mode) query.set('mode', params.mode);
+    if (params?.count) query.set('count', String(params.count));
+    if (params?.cursor) query.set('cursor', params.cursor);
+    if (params?.excludeEpisodeIds?.length) query.set('excludeEpisodeIds', params.excludeEpisodeIds.join(','));
+    return api.get<{ success: boolean; data: { items: FeedPlayableItem[] } }>(
+      `/api/feed/next${query.toString() ? `?${query.toString()}` : ''}`,
+      params?.token ? { token: params.token } : {}
+    );
+  },
 };
 
 // Categories API
