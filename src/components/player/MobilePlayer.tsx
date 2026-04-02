@@ -289,14 +289,12 @@ export default function MobilePlayer({
     } catch { /* ignore */ }
   }, [progressKey, initialSeekTime]);
 
-  // 保存进度 (每 3 秒)
+  // 保存进度 (每 5 秒)
+  const progressTick = Math.floor(currentTime / 5);
   useEffect(() => {
     if (!progressKey || !isPlaying || currentTime < 1) return;
-    const id = setTimeout(() => {
-      try { sessionStorage.setItem(progressKey, String(currentTime)); } catch { /* ignore */ }
-    }, 3000);
-    return () => clearTimeout(id);
-  }, [progressKey, isPlaying, Math.floor(currentTime / 3)]);
+    try { sessionStorage.setItem(progressKey, String(currentTime)); } catch { /* ignore */ }
+  }, [progressKey, isPlaying, progressTick, currentTime]);
 
   // 离开前保存
   useEffect(() => {
