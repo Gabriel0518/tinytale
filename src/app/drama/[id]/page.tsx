@@ -582,12 +582,10 @@ function DramaDetailContent() {
         return false;
       }
     }
-    const player = playerRef.current?.getPlayer?.();
-    const shouldAutoplayNext = player ? !player.paused() && !player.ended() : true;
-    setEpisodeAutoplay(shouldAutoplayNext);
-    setActiveEpisode(episode);
+    // 直接跳转到播放页面
+    router.push(localizePath(`/drama/${dramaId}/play/${episode._id}`, locale));
     return true;
-  }, [token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, confirmDialog, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.cancel, t.unlockSuccess, t.unlockFail, playerRef]);
+  }, [token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, confirmDialog, dramaId, locale, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.cancel, t.unlockSuccess, t.unlockFail]);
 
   // Unlock all paid episodes
   const lockedEpisodes = episodes.filter(ep => !ep.isFree && !unlockedEpisodeIds.has(ep._id));
@@ -917,85 +915,64 @@ function DramaDetailContent() {
               ) : null}
             </div>
 
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 flex flex-wrap gap-1.5">
               {episodes.map((ep) => {
-                const isCurrentEpisode = activeEpisode?._id === ep._id;
-                const access = episodeAccessMap[ep._id];
+                const isSelected = activeEpisode?._id === ep._id;
                 const isUnlocked = unlockedEpisodeIds.has(ep._id);
-                const unlockPrice = getEpisodeEffectiveUnlockPrice(ep, access);
-                const statusLabel = ep.isFree
-                  ? t.free
-                  : isUnlocked
-                    ? t.unlocked
-                    : access?.reason === "vip_monthly_free_available"
-                      ? `${t.vip} ${t.free}`
-                      : unlockPrice > 0
-                        ? `${unlockPrice} ${t.coins}`
-                        : t.vip;
-                const statusClass = ep.isFree || isUnlocked
-                  ? "bg-[#14b86a] text-white"
-                  : access?.reason === "vip_monthly_free_available"
-                    ? "bg-[#6d3bff] text-white"
-                    : "bg-[#ffd84d] text-[#111318]";
-                const thumbnail = resolveSafeImageUrl(ep.thumbnail || drama.cover);
-                const episodeSummary = ep.description?.trim() || ep.title;
+                const isFreeOrUnlocked = ep.isFree || isUnlocked;
 
                 return (
                   <button
                     key={ep._id}
                     type="button"
-                    onClick={() => { void handleEpisodeClick(ep); }}
-                    className={`w-full rounded-[22px] p-2.5 text-left transition duration-200 active:scale-[0.99] ${
-                      isCurrentEpisode
-                        ? "bg-[#19131a] shadow-[0_16px_34px_rgba(255,59,92,0.16)]"
-                        : "bg-[#15181e]"
+                    onClick={() => setActiveEpisode(ep)}
+                    className={`flex h-[36px] w-[36px] items-center justify-center rounded-lg text-[12px] font-bold transition-all duration-150 ${
+                      isSelected
+                        ? "bg-[#ff3b5c] text-white shadow-[0_4px_12px_rgba(255,59,92,0.4)]"
+                        : isFreeOrUnlocked
+                          ? "bg-white/10 text-white/80 hover:bg-white/18"
+                          : "bg-white/5 text-white/30"
                     }`}
                   >
-                    <div className={`flex gap-3 ${isCurrentEpisode ? "" : "opacity-90"}`}>
-                      <div className="relative aspect-[2/3] w-20 shrink-0 overflow-hidden rounded-[16px] bg-black">
-                        <Image
-                          src={thumbnail}
-                          alt={ep.title}
-                          fill
-                          className="object-cover"
-                          sizes="80px"
-                          unoptimized={Boolean(thumbnail.startsWith("blob:"))}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/78 via-black/14 to-transparent" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/48 text-white backdrop-blur-sm">
-                            <Play className="h-4 w-4 fill-current" />
-                          </span>
-                        </div>
-                        <div className={`absolute left-1.5 top-1.5 rounded-md px-1.5 py-1 text-[9px] font-black uppercase tracking-[0.14em] ${statusClass}`}>
-                          {statusLabel}
-                        </div>
-                        <div className="absolute inset-x-0 bottom-0 h-1 bg-white/10">
-                          <div
-                            className={`h-full rounded-full ${isCurrentEpisode ? "bg-[#ff3b5c]" : "bg-white/0"}`}
-                            style={{ width: isCurrentEpisode ? "72%" : "0%" }}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex min-w-0 flex-1 flex-col justify-center py-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${isCurrentEpisode ? "text-[#ff6c84]" : "text-white/42"}`}>
-                            EP {String(ep.episodeNumber).padStart(2, "0")}
-                          </span>
-                          <span className="text-[10px] font-medium text-white/38">{formatDuration(ep.duration)}</span>
-                        </div>
-                        <h3 className="mt-1 line-clamp-1 text-[15px] font-bold tracking-[-0.02em] text-white">{ep.title}</h3>
-                        <p className="mt-1 line-clamp-2 text-[11px] leading-[1.125rem] text-white/54">{episodeSummary}</p>
-                        <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-white/34">
-                          {isCurrentEpisode ? t.watchNow : statusLabel}
-                        </p>
-                      </div>
-                    </div>
+                    {ep.episodeNumber}
                   </button>
                 );
               })}
             </div>
+
+            {activeEpisode ? (
+              <div className="mt-4 rounded-2xl bg-[#15181e] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ff6c84]">
+                        EP {String(activeEpisode.episodeNumber).padStart(2, "0")}
+                      </span>
+                      <span className="text-[10px] text-white/38">{formatDuration(activeEpisode.duration)}</span>
+                      <span className={`rounded px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] ${
+                        activeEpisode.isFree || unlockedEpisodeIds.has(activeEpisode._id)
+                          ? "bg-[#14b86a]/20 text-[#14b86a]"
+                          : "bg-[#ffd84d]/20 text-[#ffd84d]"
+                      }`}>
+                        {activeEpisode.isFree ? t.free : unlockedEpisodeIds.has(activeEpisode._id) ? t.unlocked : `${activeEpisode.unlockPrice} ${t.coins}`}
+                      </span>
+                    </div>
+                    <h3 className="mt-1.5 text-[15px] font-bold tracking-[-0.02em] text-white">{activeEpisode.title}</h3>
+                    {activeEpisode.description ? (
+                      <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-white/54">{activeEpisode.description}</p>
+                    ) : null}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { void handleEpisodeClick(activeEpisode); }}
+                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-[#ff3b5c] py-3 text-[13px] font-bold text-white shadow-[0_8px_20px_rgba(255,59,92,0.3)] transition active:scale-[0.98]"
+                >
+                  <Play className="h-4 w-4 fill-current" />
+                  <span>{t.watchNow}</span>
+                </button>
+              </div>
+            ) : null}
           </section>
 
           {relatedDramas.length > 0 ? (

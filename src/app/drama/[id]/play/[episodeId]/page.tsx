@@ -503,40 +503,27 @@ export default function PlayEpisodePage() {
         }
         setCurrentEpisode(episode);
 
-        // 优化：检查是否已有缓存的流信息
+        // 检查缓存的流信息
         const cachedStream =
           readPrefetchedStream(episodeId, token) ||
           readPrefetchedStream(episodeId);
-
-        // 如果有 seeded playback（从 feed 导航而来）且已有流信息，跳过 API 调用
-        const hasValidSeededStream = hasSeededPlayback && streamInfo && (streamInfo.playbackUrl || streamInfo.videoUid);
-
-        if (hasValidSeededStream && episode.isFree) {
-          // 免费剧集且已有 seeded stream，直接使用，不需要 API 调用
-          setLoading(false);
-          return;
-        }
-
-        if (cachedStream && !hasValidSeededStream) {
+        if (cachedStream) {
           setStreamInfo(cachedStream);
         }
 
         if (!episode.isFree && token) {
-          // 并行执行访问检查和流获取，不阻塞
+          // 并行执行访问检查和流获取
           const [accessResult, streamResult] = await Promise.allSettled([
             episodesApi.checkAccess(episode._id, token),
-            hasValidSeededStream ? Promise.resolve(streamInfo) : prefetchEpisodeStream(episodeId, token),
+            prefetchEpisodeStream(episodeId, token),
           ]);
 
-          // 处理访问检查结果
           if (accessResult.status === 'fulfilled') {
             const access = (accessResult.value as any)?.data ?? accessResult.value;
             setEpisodeAccessMap((prev) => ({
               ...prev,
               [episode._id]: access as EpisodeAccessResult,
             }));
-
-            // 如果无访问权限，清除流信息
             if (!(access as EpisodeAccessResult)?.hasAccess) {
               setStreamInfo(null);
               return;
@@ -554,12 +541,10 @@ export default function PlayEpisodePage() {
             return;
           }
 
-          // 处理流获取结果
-          if (streamResult.status === 'fulfilled' && !hasValidSeededStream) {
+          if (streamResult.status === 'fulfilled') {
             setStreamInfo(streamResult.value);
           }
-        } else if (episode.isFree && !hasValidSeededStream) {
-          // 免费剧集且没有 seeded stream，获取流信息
+        } else if (episode.isFree) {
           const stream = await prefetchEpisodeStream(episodeId, token);
           setStreamInfo(stream);
         }
@@ -574,7 +559,7 @@ export default function PlayEpisodePage() {
     if (dramaId && episodeId) {
       loadData();
     }
-  }, [dramaId, episodeId, hasSeededPlayback, streamInfo, token, router, toast, locale, t.episodeNotFound, t.failedToLoad]);
+  }, [dramaId, episodeId, hasSeededPlayback, token, router, toast, locale, t.episodeNotFound, t.failedToLoad]);
 
   useEffect(() => {
     if (!token || episodes.length === 0) {
