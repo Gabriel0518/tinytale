@@ -1154,8 +1154,20 @@ export default function PlayEpisodePage() {
               <span aria-hidden="true">←</span>
               <span>{t.backToDrama}</span>
             </Link>
-            <div className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[11px] font-semibold text-white/75 backdrop-blur-md">
-              {currentEpisodeStatus}
+            <div className="flex items-center gap-2">
+              {isMobile && mobileHasNextEpisode ? (
+                <button
+                  type="button"
+                  onClick={() => { void handleFeedNextItem(); }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-2 text-sm font-medium text-white backdrop-blur-md transition active:scale-95"
+                >
+                  <span>Skip</span>
+                  <span aria-hidden="true">↓</span>
+                </button>
+              ) : null}
+              <div className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[11px] font-semibold text-white/75 backdrop-blur-md">
+                {currentEpisodeStatus}
+              </div>
             </div>
           </div>
 

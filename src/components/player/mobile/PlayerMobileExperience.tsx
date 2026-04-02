@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bookmark,
   Captions,
@@ -231,6 +231,33 @@ export default function PlayerMobileExperience({
     duration: currentEpisode.duration || 0,
   });
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
+  const [swipeHint, setSwipeHint] = useState(false);
+
+  // 右侧边缘左滑进入剧集详情页
+  const swipeRef = useRef<{ startX: number; startY: number; edgeStart: boolean } | null>(null);
+
+  const handleSwipeTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const screenW = window.innerWidth;
+    // 只在屏幕右侧 15% 区域触发
+    const isRightEdge = touch.clientX > screenW * 0.85;
+    swipeRef.current = { startX: touch.clientX, startY: touch.clientY, edgeStart: isRightEdge };
+  }, []);
+
+  const handleSwipeTouchEnd = useCallback((e: React.TouchEvent) => {
+    const ref = swipeRef.current;
+    swipeRef.current = null;
+    if (!ref?.edgeStart) return;
+
+    const touch = e.changedTouches[0];
+    const dx = ref.startX - touch.clientX;
+    const dy = Math.abs(touch.clientY - ref.startY);
+    // 左滑超过 60px 且水平位移大于垂直位移
+    if (dx > 60 && dx > dy * 1.5) {
+      setSwipeHint(false);
+      router.push(localizePath(`/drama/${dramaId}`, locale));
+    }
+  }, [dramaId, locale, router]);
 
   const currentFeedItem = useMemo(
     () => buildFeedItem(drama, currentEpisode),
@@ -556,7 +583,11 @@ export default function PlayerMobileExperience({
     <div
       className="fixed inset-0 z-40 overflow-hidden bg-black text-[#d6d9df]"
       style={{ ['--player-nav-top-offset' as string]: PLAYER_NAV_TOP_OFFSET }}
+      onTouchStart={handleSwipeTouchStart}
+      onTouchEnd={handleSwipeTouchEnd}
     >
+      {/* 右侧边缘滑动指示条 */}
+      <div className="pointer-events-none absolute right-0 top-1/2 z-[60] h-16 w-1 -translate-y-1/2 rounded-l-full bg-white/15" />
       <MobilePlayer
         streamVideoId={playbackSource.streamVideoId}
         videoUrl={playbackSource.rawVideoUrl || playbackSource.playbackUrl}
