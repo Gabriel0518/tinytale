@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Forward, PictureInPicture2, Rewind } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronsDownUp, ChevronsUpDown, Forward, PictureInPicture2, Play, RotateCcw, Rewind } from 'lucide-react';
 import CloudflarePlayer, { CloudflarePlayerHandle } from '@/components/player/CloudflarePlayer';
 import SimplePlayer, { SimplePlayerHandle } from '@/components/player/SimplePlayer';
 import NativeHlsPlayer, { NativeHlsPlayerHandle } from '@/components/player/NativeHlsPlayer';
@@ -185,6 +185,9 @@ export default function MobilePlayer({
   const [preferSimplePlayerBackend, setPreferSimplePlayerBackend] = useState(false);
   const [playerMuted, setPlayerMuted] = useState(autoplay);
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
+  const [showPauseButton, setShowPauseButton] = useState(!autoplay);
+  const pauseButtonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const labels = labelsProp || DEFAULT_LABELS;
   const playbackRate = playbackRateProp ?? playbackRateState;
 
@@ -266,8 +269,76 @@ export default function MobilePlayer({
     };
   }, []);
 
+  // === 功能 1: 播放进度记忆 ===
+  const progressKey = useMemo(() => {
+    const id = streamVideoId || videoUrl || '';
+    return id ? `tinytale:progress:${id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 64)}` : '';
+  }, [streamVideoId, videoUrl]);
+
+  // 恢复进度
   useEffect(() => {
-    if (!showChrome || showSpeedMenu || !isPlaying) return undefined;
+    if (!progressKey || initialSeekTime > 0) return;
+    try {
+      const saved = sessionStorage.getItem(progressKey);
+      if (saved) {
+        const time = parseFloat(saved);
+        if (time > 2 && isFinite(time)) {
+          playerRef.current?.seek(time);
+        }
+      }
+    } catch { /* ignore */ }
+  }, [progressKey, initialSeekTime]);
+
+  // 保存进度 (每 3 秒)
+  useEffect(() => {
+    if (!progressKey || !isPlaying || currentTime < 1) return;
+    const id = setTimeout(() => {
+      try { sessionStorage.setItem(progressKey, String(currentTime)); } catch { /* ignore */ }
+    }, 3000);
+    return () => clearTimeout(id);
+  }, [progressKey, isPlaying, Math.floor(currentTime / 3)]);
+
+  // 离开前保存
+  useEffect(() => {
+    return () => {
+      if (progressKey && currentTime > 1) {
+        try { sessionStorage.setItem(progressKey, String(currentTime)); } catch { /* ignore */ }
+      }
+    };
+  }, [progressKey, currentTime]);
+
+  // === 功能 2: 暂停按钮显示逻辑 ===
+  useEffect(() => {
+    if (pauseButtonTimerRef.current) clearTimeout(pauseButtonTimerRef.current);
+    if (!isPlaying) {
+      setShowPauseButton(true);
+    } else {
+      // 播放时短暂显示后隐藏
+      pauseButtonTimerRef.current = setTimeout(() => setShowPauseButton(false), 300);
+    }
+    return () => { if (pauseButtonTimerRef.current) clearTimeout(pauseButtonTimerRef.current); };
+  }, [isPlaying]);
+
+  // === 功能 3: 横屏播放 ===
+  const enterLandscape = useCallback(async () => {
+    setIsLandscape(true);
+    try {
+      const screenOrientation = (screen as any).orientation;
+      if (screenOrientation?.lock) {
+        await screenOrientation.lock('landscape');
+      }
+    } catch { /* not supported */ }
+  }, []);
+
+  const exitLandscape = useCallback(async () => {
+    setIsLandscape(false);
+    try {
+      const screenOrientation = (screen as any).orientation;
+      if (screenOrientation?.unlock) {
+        screenOrientation.unlock();
+      }
+    } catch { /* not supported */ }
+  }, []);
 
     const timeoutId = setTimeout(() => {
       setShowChrome(false);
@@ -638,6 +709,15 @@ export default function MobilePlayer({
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/50" />
 
+      {/* 暂停时居中播放按钮 */}
+      {showPauseButton && !isPlaying && hasStartedPlayback ? (
+        <div className="pointer-events-none absolute inset-0 z-[15] flex items-center justify-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm">
+            <Play className="h-7 w-7 fill-white text-white ml-1" />
+          </div>
+        </div>
+      ) : null}
+
       {showInternalChrome ? (
       <div
         className={cn(
@@ -747,6 +827,107 @@ export default function MobilePlayer({
                 {rate}x
               </button>
             ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* 横屏翻转按钮 - 显示在进度条上方 */}
+      {showInternalChrome && showChrome && !isLandscape ? (
+        <button
+          type="button"
+          onClick={enterLandscape}
+          className="pointer-events-auto absolute z-[12] flex h-[28px] w-[28px] items-center justify-center rounded-md bg-black/50 backdrop-blur-sm transition active:scale-90"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 20px)', right: '12px' }}
+          aria-label="Landscape mode"
+        >
+          <RotateCcw className="h-[14px] w-[14px] text-white/80" />
+        </button>
+      ) : null}
+
+      {/* 横屏全屏播放器 */}
+      {isLandscape ? (
+        <div className="fixed inset-0 z-[9999] bg-black">
+          <div className="relative h-full w-full">
+            {/* 视频 */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              {preferSimplePlayerBackend && videoUrl ? (
+                <NativeHlsPlayer
+                  ref={playerRef as any}
+                  videoUrl={videoUrl}
+                  poster={poster}
+                  autoplay
+                  muted={false}
+                  controls={false}
+                  subtitles={subtitles}
+                  activeSubtitleLanguage={activeSubtitleLanguage}
+                  onTimeUpdate={(time, d) => { setCurrentTime(time); setDuration(d); onTimeUpdate?.(time, d); }}
+                  onEnded={onEnded}
+                  onError={onError}
+                  onPlay={() => { setIsPlaying(true); onPlay?.(); }}
+                  onPause={() => { setIsPlaying(false); onPause?.(); }}
+                  className="h-full w-full object-contain"
+                />
+              ) : (
+                <CloudflarePlayer
+                  ref={playerRef as any}
+                  streamVideoId={streamVideoId}
+                  videoUrl={videoUrl}
+                  signedToken={signedToken}
+                  quality={quality}
+                  subtitles={subtitles}
+                  activeSubtitleLanguage={activeSubtitleLanguage}
+                  poster={poster}
+                  autoplay
+                  onTimeUpdate={(time, d) => { setCurrentTime(time); setDuration(d); onTimeUpdate?.(time, d); }}
+                  onEnded={onEnded}
+                  onError={onError}
+                  onPlay={() => { setIsPlaying(true); onPlay?.(); }}
+                  onPause={() => { setIsPlaying(false); onPause?.(); }}
+                  className="h-full w-full"
+                />
+              )}
+            </div>
+
+            {/* 暂停按钮 */}
+            {!isPlaying ? (
+              <div
+                className="absolute inset-0 z-10 flex items-center justify-center"
+                onClick={togglePlayback}
+              >
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black/60 backdrop-blur-sm">
+                  <Play className="h-7 w-7 fill-white text-white ml-1" />
+                </div>
+              </div>
+            ) : null}
+
+            {/* 顶部：返回按钮 + 标题 */}
+            <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-3 bg-gradient-to-b from-black/60 to-transparent px-4 pb-8 pt-3">
+              <button
+                type="button"
+                onClick={exitLandscape}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm"
+              >
+                <ArrowLeft className="h-5 w-5 text-white" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-white">{title}</p>
+                {subtitle ? <p className="truncate text-xs text-white/60">{subtitle}</p> : null}
+              </div>
+            </div>
+
+            {/* 底部：进度条 */}
+            <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/60 to-transparent px-4 pb-3 pt-8">
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-medium tabular-nums text-white/80">{formatDuration(currentTime)}</span>
+                <div className="relative flex-1 h-1 rounded-full bg-white/20">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full bg-[#ff3b5c]"
+                    style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+                  />
+                </div>
+                <span className="text-[11px] font-medium tabular-nums text-white/80">{formatDuration(duration)}</span>
+              </div>
+            </div>
           </div>
         </div>
       ) : null}
