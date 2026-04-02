@@ -34,10 +34,18 @@ export interface CloudflarePlayerHandle {
   play: () => void;
   pause: () => void;
   seek: (time: number) => void;
+  seekBy: (deltaSeconds: number) => void;
   setVolume: (vol: number) => void;
   setMuted: (muted: boolean) => void;
   setPlaybackRate: (rate: number) => void;
   setSubtitleTrack: (language: string | null) => void;
+  getCurrentTime: () => number;
+  getDuration: () => number;
+  getPlaybackRate: () => number;
+  enterPictureInPicture: () => Promise<void>;
+  exitPictureInPicture: () => Promise<void>;
+  isPictureInPictureActive: () => boolean;
+  isPictureInPictureSupported: () => boolean;
   getPlayer: () => ReturnType<typeof import('video.js').default> | null;
 }
 
@@ -76,7 +84,20 @@ function applyQualityParam(url: string, quality?: string): string {
 }
 
 function canUseNativeHls(): boolean {
-  if (typeof document === 'undefined') return false;
+  if (typeof window === 'undefined' || typeof navigator === 'undefined' || typeof document === 'undefined') {
+    return false;
+  }
+
+  const userAgent = navigator.userAgent || '';
+  const platform = navigator.platform || '';
+  const vendor = navigator.vendor || '';
+  const isAppleDevice = /iPad|iPhone|iPod|Mac/i.test(`${platform} ${userAgent}`);
+  const isSafari = /Safari/i.test(userAgent) && !/Chrome|CriOS|Edg|OPR|SamsungBrowser|Android/i.test(userAgent) && /Apple/i.test(vendor);
+
+  if (!isAppleDevice || !isSafari) {
+    return false;
+  }
+
   const probe = document.createElement('video');
   return Boolean(
     probe.canPlayType('application/vnd.apple.mpegurl') ||
@@ -213,16 +234,64 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       applySubtitleSelection(activeSubtitleRef.current);
     }, [applySubtitleSelection]);
 
+    const getVideoElement = useCallback(() => {
+      const player = playerRef.current;
+      if (!player || player.isDisposed()) return null;
+      const element = player.el();
+      if (!element) return null;
+      return element.querySelector('video');
+    }, []);
+
     useImperativeHandle(ref, () => ({
       play: () => playerRef.current?.play(),
       pause: () => playerRef.current?.pause(),
       seek: (time: number) => playerRef.current?.currentTime(time),
+      seekBy: (deltaSeconds: number) => {
+        const player = playerRef.current;
+        if (!player || player.isDisposed()) return;
+        const currentTime = player.currentTime() ?? 0;
+        player.currentTime(Math.max(0, currentTime + deltaSeconds));
+      },
       setVolume: (vol: number) => playerRef.current?.volume(vol),
       setMuted: (muted: boolean) => playerRef.current?.muted(muted),
       setPlaybackRate: (rate: number) => playerRef.current?.playbackRate(rate),
       setSubtitleTrack: (language: string | null) => applySubtitleSelection(language),
+      getCurrentTime: () => {
+        const player = playerRef.current;
+        if (!player || player.isDisposed()) return 0;
+        return player.currentTime() ?? 0;
+      },
+      getDuration: () => {
+        const player = playerRef.current;
+        if (!player || player.isDisposed()) return 0;
+        return player.duration() ?? 0;
+      },
+      getPlaybackRate: () => {
+        const player = playerRef.current;
+        if (!player || player.isDisposed()) return 1;
+        return player.playbackRate() ?? 1;
+      },
+      enterPictureInPicture: async () => {
+        const video = getVideoElement();
+        if (!video || typeof video.requestPictureInPicture !== 'function') return;
+        await video.requestPictureInPicture();
+      },
+      exitPictureInPicture: async () => {
+        if (typeof document === 'undefined' || !document.pictureInPictureElement) return;
+        await document.exitPictureInPicture();
+      },
+      isPictureInPictureActive: () => {
+        const video = getVideoElement();
+        if (!video || typeof document === 'undefined') return false;
+        return document.pictureInPictureElement === video;
+      },
+      isPictureInPictureSupported: () => {
+        const video = getVideoElement();
+        if (!video || typeof document === 'undefined') return false;
+        return Boolean(document.pictureInPictureEnabled && typeof video.requestPictureInPicture === 'function');
+      },
       getPlayer: () => playerRef.current,
-    }), [applySubtitleSelection]);
+    }), [applySubtitleSelection, getVideoElement]);
 
     // Resolve base source (without quality param) — prefer backend-provided videoUrl.
     const getBaseSource = useCallback(() => {
@@ -285,6 +354,13 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
             nativeVideoTracks: useNativeHls,
             vhs: {
               overrideNative: !useNativeHls,
+              // 平衡优化：快速启动 + 适度缓冲
+              maxBufferLength: 20,              // 最大缓冲 20 秒（平衡首帧速度和流畅度）
+              maxBufferSize: 30 * 1000 * 1000,  // 30MB 缓冲区
+              maxBufferHole: 0.5,               // 允许 0.5s 缓冲空洞
+              // 快速启动优化
+              fastQualityChange: true,          // 快速切换画质
+              smoothQualityChange: true,        // 平滑画质切换
             },
           },
           poster: poster || undefined,
@@ -343,6 +419,32 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         detachTextTrackListener?.();
         const player = playerRef.current;
         if (player && !player.isDisposed()) {
+          try {
+            const videoElement = getVideoElement();
+            if (videoElement) {
+              try {
+                videoElement.pause();
+              } catch {
+                // Ignore pause failures during teardown.
+              }
+              try {
+                if (typeof document !== 'undefined' && document.pictureInPictureElement === videoElement) {
+                  void document.exitPictureInPicture();
+                }
+              } catch {
+                // Ignore PiP cleanup failures.
+              }
+              try {
+                videoElement.removeAttribute('src');
+                videoElement.load();
+              } catch {
+                // Ignore native element src cleanup failures.
+              }
+            }
+            player.pause();
+          } catch {
+            // Ignore player pause failures during teardown.
+          }
           player.dispose();
           playerRef.current = null;
         }

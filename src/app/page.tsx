@@ -14,8 +14,7 @@ import { HomeCarousel } from '@/components/features/HomeCarousel';
 import { EditorialBanner } from '@/components/features/EditorialBanner';
 import { FeaturedBanner } from '@/components/features/FeaturedBanner';
 import { Footer } from '@/components/features/Footer';
-import { mockDramas, mockCategories } from '@/lib/mockData';
-import { localizePath, SupportedLocale } from '@/lib/i18n';
+import { localizePath, removeLocalePrefix, SupportedLocale } from '@/lib/i18n';
 import { localizeCategoryLabel, normalizeCategoryKey } from '@/lib/categoryI18n';
 import { usePlatform } from '@/hooks/usePlatform';
 import { useLocale } from '@/hooks/useLocale';
@@ -23,6 +22,8 @@ import { resolveLocaleCopy } from '@/lib/locale-copy';
 import { resolveOptionalSafeImageUrl } from '@/lib/safe-image';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 import { MobileScrollTabs } from '@/components/mobile/MobileScrollTabs';
+import { MobileHeroSkeleton, MobilePillRowSkeleton, MobileShelfSkeleton } from '@/components/mobile/MobileSkeletons';
+import { readViewCache, writeViewCache } from '@/lib/view-cache';
 
 function validCover(url?: string): string | undefined {
   return resolveOptionalSafeImageUrl(url);
@@ -182,6 +183,18 @@ type MobileCuratedCard = {
   backingIndex?: number;
 };
 
+type HomeViewCache = {
+  dramas: Drama[];
+  categories: Category[];
+  hotRankings: Drama[];
+  recommendations: Drama[];
+  featuredTrending: Drama[];
+  featuredNewReleases: Drama[];
+  customPlaylists: HomepagePlaylist[];
+  banners: HomepageBanner[];
+  heroBanners: HomepageHeroBanner[];
+};
+
 const MOBILE_HOME_CATEGORY_PILLS = [
   { key: 'all', labels: { en: 'All', zh: '全部' } },
   { key: 'romance', labels: { en: 'Romance', zh: '爱情' } },
@@ -203,52 +216,6 @@ const MOBILE_HOME_HERO = {
   backingIndex: 0,
 };
 
-const MOBILE_HOME_TRENDING: MobileCuratedCard[] = [
-  {
-    key: 'contract-bride',
-    title: 'Contract Bride',
-    cover:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuAgxVXCUfjR_4xqYGFHLkTVhPVFssrdwFPNDiDGBx7VGu7p6xwGWtVf2e-SoD-jlIC8rsLf-1O5jUTU2Wt-Cixlkwxx7x9epdbXCn2tb1uUJA0dGFvgHacG2RHPspaebAhi4s8xgGXSa7sFSeuil8a6IocApKsWAveLqATx_cja6KrNa1_HqikHzegNsODIuKRPc8z5zR40iLHTEQLFql5h0lSwrmRxDoJbzREzkZ1aIyidcgB0ga7rEJvOZofTA0hFA9QDUff2vS4',
-    meta: '102 Episodes',
-    rating: '4.8',
-    badge: { label: 'Hot', tone: 'primary' },
-    genres: ['romance', 'drama'],
-    backingIndex: 1,
-  },
-  {
-    key: 'the-lost-heir',
-    title: 'The Lost Heir',
-    cover:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuBIH9md2mH3sWS7a00ZmFKHTvKL8Dqqr4mWvixD5wti95u1EU7ICvZlc3Y6vUMk5rgV1ueI_yeG2XKuYwRbtOg2pAfYGGcOeKtGZmdlW8tvGLC1EEYm3055h-LdombAzm2iyQeBPdeu9z6YWg7AGoeVu7puRHlMp3IQeb62Fx0pDSCz67bsQhDwvWI3jyfjR5jknOuMzQmnkn3rV3VQs27btAM5D_GHT2AY8YDFW8u736WQLSRAPho1py-OURu_lRxQlDJl7EvD8ZM',
-    meta: '45 Episodes',
-    rating: '4.7',
-    badge: { label: 'Ongoing', tone: 'success' },
-    genres: ['ceo', 'drama'],
-    backingIndex: 2,
-  },
-  {
-    key: 'moonlight-soul',
-    title: 'Moonlight Soul',
-    cover:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuBbqTQchxqoj6TYH9bkir6vndLNN-v7B0kG9bhAfB5ohCTmTdkmAuuh8jsEjwAAkl0t6AlbYIF_E4SjkmLDbRGfTso3sUxq71Ta3Gce64yg926Ih8oPkWSpQvYuT7Oiz9LJ-nxaP4PBApCJ2HnIe27wklqnT-t9374o3eBL_P82sSOxcS8tfyTWCDsozPll4N39Xyn0hCpTJRc1fTUQ_Fe056ij2-dNMddaAqM5HPRDkqeSPSMi8GKcvomTGX1C_Va7FrJ9bpPkd_4',
-    meta: 'Completed',
-    rating: '4.9',
-    genres: ['romance', 'mystery'],
-    backingIndex: 3,
-  },
-  {
-    key: 'betrayal-game',
-    title: 'Betrayal Game',
-    cover:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuB59HEfveupKKgkZZUKCa7wF3pzoAQqBVnI_ri6kKHixwSxK_0ZB68SxOKlLYp8vVv6lpaJPv7Y8ZDmQnrEDF7koH885G7WyVi6WPoMB1VVo3rIFDMrbr8wWkLZStH9B4Y-xuVSMKRmGVl0rstHB7mUPbiKTQOdTx2nHXMd10-m1Zumnd6ULJugM6XGLcgQ-mYr-9ZmO5tnVlWikchzi8SqeFFN7bWdPdaUeCL0zBgXiLGZ0z4cx2Ll4zmmv5a61frsd4RoFQqiHn0',
-    meta: '12 Episodes',
-    rating: '4.5',
-    badge: { label: 'New', tone: 'info' },
-    genres: ['revenge', 'drama'],
-    backingIndex: 4,
-  },
-];
-
 const MOBILE_HOME_WEEKLY_PICK = {
   title: 'WEEKLY TOP PICKS',
   description: 'Curated by our editors. The must-watch series of the week.',
@@ -257,71 +224,11 @@ const MOBILE_HOME_WEEKLY_PICK = {
     'https://lh3.googleusercontent.com/aida-public/AB6AXuAuKhrAwhJX86yeOD0jv7JW5GXG-yrZP492Itz2nLvMZJ8IvDEr7wpic-zPxFOCiUeYrLUqaieRSn3ZDpE_4rI4WZsMx9MCX268-yl57UoKNLDG8OSIBV-AZd0AZXPPnU0iqM9MlW6Y1gkJNhG7r1MsLExj-5rTS81m9bRIg6lhvJE6k7xXyPxEhKp_6t67yB705Enz5symJZJj4AvBYQkPRbD3w0DhnwZN2A_nBFaTdnj4CV3mAdkdQJYwHKpUd5OkclIFf5kOvNc',
 };
 
-const MOBILE_HOME_NEW_RELEASES: MobileCuratedCard[] = [
-  {
-    key: 'neon-pulse',
-    title: 'Neon Pulse',
-    cover:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuCY822hWb9mHLqQYFbrE2AKcbFxoqtIA5mh3WGOrnOa2XD8ndVeaMaiU2nosJ6ZM4JZAGVeSZDXjyQrqpRMY2-Xwjlq4X4l1PLUbHFJsheRyCtrpzC8BcMX8ia11emiesVpdcdR-Ycr7a0sJStXIISua5rh8ztpys4O0Zy-HUgrAwGz9P3Fm_avX-HzRdxySEIk8UW4VY0IgbwAwBCgA5OCodz4gn9p96wPg2oEfS5njX1LfVsBBVVBX0UUt5DjqV2lYGUo4clVZAk',
-    meta: 'Fresh Today',
-    badge: { label: 'New', tone: 'info' },
-    genres: ['drama', 'mystery'],
-    backingIndex: 5,
-  },
-  {
-    key: 'the-archive',
-    title: 'The Archive',
-    cover:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuC2GGfDZ7YVpQGykAUCZJEfX_E3DGxMo1IFnPAgEHT8FaR7c4opHNfYtG1AfRBZQiCqE1mu2NYDm9fskZ-89Y7PPpyr82NL_AryakVFJYtf9ArOtyzn9x4rfyJfShnhW5zyg_9M7CRPy9Yr_2XKsIcoJVoyL-uSa4-mludtoeSsLcg8UuGl9SLjljLwGRqxwKyvduGtw2NLufSNL9aPdn5qIyzfE7OOKMeG-SBsfKtqVCR7JznMl3J4sgfBQHASQXR0SCLcwa8wUes',
-    meta: '5 Episodes',
-    genres: ['mystery', 'drama'],
-    backingIndex: 6,
-  },
-  {
-    key: 'love-and-gold',
-    title: 'Love & Gold',
-    cover:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuD9uUSzFhDPjQFkwu-5OPX-p2g_DgbBRFX3beKkhEsQpalooT05LK35V-3ey35k2GqIQPJA120tQh1G1SKitbDfstnL8h1DnhNvTns6k4blk9TCUNMY9AU0BrnK4hIpHSQvu_XM5f-JK3VjBP_QkqEJfQzCmEWU16cCLHOfQGxZ8WXji06vb_MUGB9n854AVQ57uADjYFE5Iup3quLiYVpiZAQtP7idbTozHJ0wl9uN9lObx15l-F9NO1c2XnXe2tROcDNacRXAhRQ',
-    meta: 'Just Added',
-    genres: ['romance', 'ceo'],
-    backingIndex: 7,
-  },
-];
-
-const MOBILE_HOME_EDITORS_CHOICE: MobileCuratedCard[] = [
-  {
-    key: 'shadow-of-the-forest',
-    title: 'Shadow of the Forest',
-    cover:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuBdZD2yqNa_TBbVHWIebyVP5LwB6Ky8GNTEkRneP-M3Dx65xfVtu1wCKezAAroc70hPP7PC9YYAfpo2xEARl2H98Ob8QSoH1ldpXj0DCAAcfiD5_rhR6SNXsMpm8fzqKkeZRkvsXwMYtPeB39X4bP4diwo94-lfBURGJ7wJcyyvvZQ1cRVfHvct03HIs6Ute1-3PXNGJ-hlg8RZmhTT4sow9UOQNidYN2JnAUMY1y3WDSMU6PBGgtW8RhtGp2KLRj-aaENwZPhAaNc',
-    meta: "Editor's Pick",
-    genres: ['mystery', 'drama'],
-    backingIndex: 8,
-  },
-  {
-    key: 'the-glass-house',
-    title: 'The Glass House',
-    cover:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuBlWMXjs0O8JHXLEptoLkur_NZ-JrKoxoFCtR4PybqcfVjO7DOS4bXVp2YPNH0-ZMU5byK7HiQKEu1zkIg0mLNtC-yE_h8OvcZKaTfmrajBFSBa9DidirdQ8hy2cZeNwCcN9ZKv85Vsy2U9UtNarLc_uKPKU422djqTeauyTzFaG-kgs4CFHEHIvJmTVHrZ2n5qjQs6lMTKx_xELCQRn39q1X5jzCL43RTORRJ6xw9zYgXU9ZJhnDYHE4cnuq1gs2kJ2Fdu9K1RqJ0',
-    meta: 'Staff Select',
-    genres: ['ceo', 'drama'],
-    backingIndex: 9,
-  },
-  {
-    key: 'fluid-emotions',
-    title: 'Fluid Emotions',
-    cover:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuBBXHhUBZSmSaU4AF84tuO0rgHFsNajrwk7yfWHDkeAoe1yegVixGmVfi29Stvj4e9fXKc3ijsOkz3XRZ0ExHWQ28P48kcVCZSrON9_ICXqCIJfRJKJ2MhUwWWs4V1scyIV3VMgWcCV1Ao0mTEXNTWdv_Q5wXGQi7VGrxTcFyHzl9evO5AmQyudkOFm1Gwupecaij6-77NSF7nJzJ1J5qL5jXSvbqeqljw1uMdbWmMCsS_-dORi1JBRFlJ9ydX9s9gkqhjO55tvqCs',
-    meta: 'Staff Select',
-    genres: ['romance', 'drama'],
-    backingIndex: 10,
-  },
-];
-
 const MOBILE_HOME_DRAMA_LIMIT = 96;
 const MOBILE_HOME_INITIAL_CARD_COUNT = 4;
 const MOBILE_HOME_SECONDARY_STAGE_DELAY_MS = 700;
 const MOBILE_HOME_PREFETCH_DELAY_MS = 1200;
+const HOME_VIEW_CACHE_MAX_AGE_MS = 3 * 60 * 1000;
 
 function matchesMobileCategory(genres: string[], activeCategory: string) {
   if (normalizeCategoryKey(activeCategory) === 'all') return true;
@@ -546,12 +453,17 @@ export default function Home() {
   const { isMobile } = usePlatform();
   const router = useRouter();
   const requestIdRef = useRef(0);
-  const [dramas, setDramas] = useState<Drama[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [hotRankings, setHotRankings] = useState<Drama[]>([]);
-  const [recommendations, setRecommendations] = useState<Drama[]>([]);
-  const [featuredTrending, setFeaturedTrending] = useState<Drama[]>([]);
-  const [featuredNewReleases, setFeaturedNewReleases] = useState<Drama[]>([]);
+  const homeCacheKey = `home-view:${locale}:${isMobile ? 'mobile' : 'desktop'}`;
+  const cachedHomeView = useMemo(
+    () => readViewCache<HomeViewCache>(homeCacheKey, HOME_VIEW_CACHE_MAX_AGE_MS),
+    [homeCacheKey]
+  );
+  const [dramas, setDramas] = useState<Drama[]>(() => cachedHomeView?.dramas || []);
+  const [categories, setCategories] = useState<Category[]>(() => cachedHomeView?.categories || []);
+  const [hotRankings, setHotRankings] = useState<Drama[]>(() => cachedHomeView?.hotRankings || []);
+  const [recommendations, setRecommendations] = useState<Drama[]>(() => cachedHomeView?.recommendations || []);
+  const [featuredTrending, setFeaturedTrending] = useState<Drama[]>(() => cachedHomeView?.featuredTrending || []);
+  const [featuredNewReleases, setFeaturedNewReleases] = useState<Drama[]>(() => cachedHomeView?.featuredNewReleases || []);
   const [continueWatching, setContinueWatching] = useState<Array<{
     _id: string;
     dramaId: string;
@@ -563,10 +475,10 @@ export default function Home() {
     durationSeconds: number;
     updatedAt?: string;
   }>>([]);
-  const [customPlaylists, setCustomPlaylists] = useState<HomepagePlaylist[]>([]);
-  const [banners, setBanners] = useState<HomepageBanner[]>([]);
-  const [heroBanners, setHeroBanners] = useState<HomepageHeroBanner[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [customPlaylists, setCustomPlaylists] = useState<HomepagePlaylist[]>(() => cachedHomeView?.customPlaylists || []);
+  const [banners, setBanners] = useState<HomepageBanner[]>(() => cachedHomeView?.banners || []);
+  const [heroBanners, setHeroBanners] = useState<HomepageHeroBanner[]>(() => cachedHomeView?.heroBanners || []);
+  const [loading, setLoading] = useState(() => !cachedHomeView);
   const [activeCategory, setActiveCategory] = useState('all');
   const [heroIndex, setHeroIndex] = useState(0);
   const [mobileContentStage, setMobileContentStage] = useState<'critical' | 'full'>('critical');
@@ -582,13 +494,35 @@ export default function Home() {
       categories: localized.categories?.length ? localized.categories : drama.categories };
   }, []);
 
+  useEffect(() => {
+    if (!cachedHomeView) return;
+    setDramas(cachedHomeView.dramas);
+    setCategories(cachedHomeView.categories);
+    setHotRankings(cachedHomeView.hotRankings);
+    setRecommendations(cachedHomeView.recommendations);
+    setFeaturedTrending(cachedHomeView.featuredTrending);
+    setFeaturedNewReleases(cachedHomeView.featuredNewReleases);
+    setCustomPlaylists(cachedHomeView.customPlaylists);
+    setBanners(cachedHomeView.banners);
+    setHeroBanners(cachedHomeView.heroBanners);
+    setLoading(false);
+  }, [cachedHomeView]);
+
   const fetchHomeData = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
 
-    if (mode !== 'refresh') {
+    if (mode !== 'refresh' && !cachedHomeView) {
       setLoading(true);
     }
+
+    // 添加超时保护：10 秒后强制结束 loading 状态
+    const timeoutId = setTimeout(() => {
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+        console.warn('Home data fetch timeout after 10s');
+      }
+    }, 10000);
 
     try {
       const [dramasRes, categoriesRes, rankingsRes, featuredRes, playlistsRes, bannersRes, heroBannersRes] = await Promise.all([
@@ -600,13 +534,16 @@ export default function Home() {
         dramasApi.getBanners().catch(() => ({ data: [] })),
         dramasApi.getHeroBanners().catch(() => ({ data: [] })),
       ]);
+
+      clearTimeout(timeoutId);
+
       const fetchedDramas = dramasRes.data?.dramas || [];
       const fetchedCategories = categoriesRes.data || [];
-      const localizedDramas = fetchedDramas.length > 0 ? fetchedDramas : mockDramas;
+      const localizedDramas = fetchedDramas;
       const localizedMap = new Map<string, Drama>(
         localizedDramas.map((drama: Drama) => [drama._id, drama])
       );
-      const localizedCategories = (fetchedCategories.length > 0 ? fetchedCategories : mockCategories).map((category: Category) => ({
+      const localizedCategories = fetchedCategories.map((category: Category) => ({
         ...category,
         name: localizeCategoryLabel(category.name, locale, category.slug) }));
 
@@ -678,6 +615,45 @@ export default function Home() {
       );
       setHeroIndex(0);
 
+      writeViewCache<HomeViewCache>(homeCacheKey, {
+        dramas: localizedDramas,
+        categories: localizedCategories,
+        hotRankings: Array.isArray(rankings)
+          ? rankings.slice(0, 5).map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
+          : [],
+        recommendations: Array.isArray(recDramas)
+          ? recDramas.map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
+          : [],
+        featuredTrending: Array.isArray(trendingFeatured)
+          ? trendingFeatured.map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
+          : [],
+        featuredNewReleases: Array.isArray(newFeatured)
+          ? newFeatured.map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
+          : [],
+        customPlaylists: (Array.isArray(plData) ? plData : []).map((p: any) => ({
+          _id: p._id,
+          slug: p.slug || '',
+          name: p.name,
+          icon: p.icon || '',
+          dramas: Array.isArray(p.dramas)
+            ? p.dramas.map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
+            : [] })),
+        banners: (Array.isArray(bnData) ? bnData : []).map((b: any) => ({
+          _id: b._id, title: b.title || '', subtitle: b.subtitle || '',
+          image: b.image || '', linkType: b.linkType || 'drama', linkId: b.linkId || '',
+          slot: b.slot || 'standard', position: b.position ?? 0 })),
+        heroBanners: (Array.isArray(hbData) ? hbData : []).map((item: any) => ({
+          _id: item._id,
+          coverImage: item.coverImage || '',
+          title: item.title || '',
+          subtitle: item.subtitle || '',
+          tag: item.tag || '',
+          dramaId: typeof item.dramaId === 'string' ? item.dramaId : item.dramaId?._id || '',
+          displayDurationSec: Number(item.displayDurationSec || 5),
+          position: Number(item.position ?? 0),
+        })),
+      });
+
       if (typeof window !== 'undefined') {
         const token = localStorage.getItem('token') || '';
         if (token && !isMobile) {
@@ -711,28 +687,39 @@ export default function Home() {
       }
     } catch {
       if (requestId !== requestIdRef.current) return;
-      setDramas(mockDramas);
-      setFeaturedTrending([]);
-      setFeaturedNewReleases([]);
-      setRecommendations([]);
-      setCustomPlaylists([]);
-      setBanners([]);
-      setHeroBanners([]);
-      setCategories(
-        mockCategories.map((category) => ({
-          ...category,
-          name: localizeCategoryLabel(category.name, locale, category.slug) }))
-      );
+      if (!cachedHomeView) {
+        setDramas([]);
+        setFeaturedTrending([]);
+        setFeaturedNewReleases([]);
+        setRecommendations([]);
+        setCustomPlaylists([]);
+        setBanners([]);
+        setHeroBanners([]);
+        setCategories([]);
+      }
     } finally {
       if (requestId === requestIdRef.current) {
         setLoading(false);
       }
     }
-  }, [isMobile, locale, mergeLocalizedDrama]);
+  }, [cachedHomeView, homeCacheKey, isMobile, locale, mergeLocalizedDrama]);
 
   useEffect(() => {
     void fetchHomeData('initial');
   }, [fetchHomeData]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (loading) return;
+
+    const normalizedPath = removeLocalePrefix(window.location.pathname) || '/';
+    document.documentElement.setAttribute('data-native-route-ready', normalizedPath);
+    window.dispatchEvent(
+      new CustomEvent('tinytale:route-ready', {
+        detail: { pathname: normalizedPath },
+      })
+    );
+  }, [loading]);
 
   useEffect(() => {
     setActiveCategory('all');
@@ -859,11 +846,11 @@ export default function Home() {
   const mobileHeroData = useMemo(() => {
     if (currentHeroBanner?.coverImage) {
       return {
-        title: currentHeroBanner.title || MOBILE_HOME_HERO.title,
-        description: currentHeroBanner.subtitle || MOBILE_HOME_HERO.description,
-        tag: currentHeroBanner.tag || MOBILE_HOME_HERO.tag,
-        rating: heroDrama?.rating?.toFixed(1) || MOBILE_HOME_HERO.rating,
-        cover: validCover(currentHeroBanner.coverImage) || MOBILE_HOME_HERO.cover,
+        title: currentHeroBanner.title || '',
+        description: currentHeroBanner.subtitle || '',
+        tag: currentHeroBanner.tag || '',
+        rating: heroDrama?.rating?.toFixed(1) || '',
+        cover: validCover(currentHeroBanner.coverImage) || '',
         href: currentHeroBanner.dramaId ? localizePath(`/drama/${currentHeroBanner.dramaId}`, locale) : localizePath(t.browseFallback, locale),
       };
     }
@@ -879,22 +866,15 @@ export default function Home() {
       };
     }
 
-    return {
-      title: MOBILE_HOME_HERO.title,
-      description: MOBILE_HOME_HERO.description,
-      tag: MOBILE_HOME_HERO.tag,
-      rating: MOBILE_HOME_HERO.rating,
-      cover: MOBILE_HOME_HERO.cover,
-      href: resolveMobileHref(MOBILE_HOME_HERO, dramas, locale, t.browseFallback),
-    };
-  }, [currentHeroBanner, dramas, heroDrama, heroIndex, hotRankings.length, locale, t.browseFallback]);
+    return null;
+  }, [currentHeroBanner, heroDrama, heroIndex, hotRankings.length, locale, t.browseFallback]);
 
   const mobileTrendingCards = useMemo(() => {
     const source = featuredTrending.length > 0 ? featuredTrending : trendingDramas;
     if (source.length > 0) {
       return filterMobileCards(source.map((drama, index) => mapDramaToMobileCard(drama, index, 'trending', t.episodes)), activeCategory);
     }
-    return filterMobileCards(MOBILE_HOME_TRENDING, activeCategory);
+    return [];
   }, [activeCategory, featuredTrending, t.episodes, trendingDramas]);
 
   const mobileNewReleaseCards = useMemo(() => {
@@ -902,17 +882,17 @@ export default function Home() {
     if (source.length > 0) {
       return filterMobileCards(source.map((drama, index) => mapDramaToMobileCard(drama, index, 'new', t.episodes)), activeCategory);
     }
-    return filterMobileCards(MOBILE_HOME_NEW_RELEASES, activeCategory);
+    return [];
   }, [activeCategory, featuredNewReleases, newReleases, t.episodes]);
 
   const mobileWeeklyBanner = useMemo(() => {
     const featuredBanner = banners.find((item) => item.slot === 'featured') || banners[0];
     if (!featuredBanner) return null;
     return {
-      title: featuredBanner.title || MOBILE_HOME_WEEKLY_PICK.title,
-      description: featuredBanner.subtitle || MOBILE_HOME_WEEKLY_PICK.description,
+      title: featuredBanner.title || '',
+      description: featuredBanner.subtitle || '',
       actionLabel: MOBILE_HOME_WEEKLY_PICK.actionLabel,
-      cover: validCover(featuredBanner.image) || MOBILE_HOME_WEEKLY_PICK.cover,
+      cover: validCover(featuredBanner.image) || '',
       href: resolveBannerHref(featuredBanner),
     };
   }, [banners, resolveBannerHref]);
@@ -928,7 +908,7 @@ export default function Home() {
         activeCategory
       );
     }
-    return filterMobileCards(MOBILE_HOME_EDITORS_CHOICE, activeCategory);
+    return [];
   }, [activeCategory, editorsChoice, recommendations, t.episodes]);
 
   const visibleMobileTrendingCards = useMemo(
@@ -987,6 +967,9 @@ export default function Home() {
         refreshingLabel={t.refreshing}
       >
       {isMobile ? (
+      loading && !mobileHeroData ? (
+      <MobileHeroSkeleton />
+      ) : mobileHeroData ? (
       <section className="relative min-h-[580px] w-full overflow-hidden md:hidden">
         <Image
           src={mobileHeroData.cover}
@@ -1001,20 +984,26 @@ export default function Home() {
         <div className="relative z-10 flex min-h-[580px] items-end px-4 pb-9 pt-[calc(92px+env(safe-area-inset-top))]">
           <div className="max-w-[86%]">
             <div className="mb-4 flex items-center gap-2">
-              <span className="rounded-full bg-[#ff3b5c] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
-                {mobileHeroData.tag}
-              </span>
-              <span className="inline-flex items-center gap-1 text-sm font-bold text-[#ffd24d]">
-                <Star className="h-4 w-4 fill-[#ffd24d] text-[#ffd24d]" />
-                {mobileHeroData.rating}
-              </span>
+              {mobileHeroData.tag ? (
+                <span className="rounded-full bg-[#ff3b5c] px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white">
+                  {mobileHeroData.tag}
+                </span>
+              ) : null}
+              {mobileHeroData.rating ? (
+                <span className="inline-flex items-center gap-1 text-sm font-bold text-[#ffd24d]">
+                  <Star className="h-4 w-4 fill-[#ffd24d] text-[#ffd24d]" />
+                  {mobileHeroData.rating}
+                </span>
+              ) : null}
             </div>
             <h1 className="max-w-[290px] text-[2.35rem] font-black leading-[0.93] tracking-[-0.06em] text-white">
               {mobileHeroData.title}
             </h1>
-            <p className="mt-4 max-w-[320px] text-sm leading-6 text-white/72">
-              {mobileHeroData.description}
-            </p>
+            {mobileHeroData.description ? (
+              <p className="mt-4 max-w-[320px] text-sm leading-6 text-white/72">
+                {mobileHeroData.description}
+              </p>
+            ) : null}
             <div className="mt-6 flex items-center gap-3">
               <Link
                 href={mobileHeroData.href}
@@ -1035,6 +1024,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+      ) : (
+      <section className="min-h-[220px] w-full bg-[#0f1115] md:hidden" />
+      )
       ) : (
       <section className="relative aspect-[9/14] max-h-[55vh] min-h-[420px] w-full overflow-hidden md:h-[85vh] md:max-h-none md:min-h-0 md:aspect-auto">
         {isManagedHeroEnabled && currentHeroBanner ? (
@@ -1205,42 +1197,58 @@ export default function Home() {
       )}
 
       {/* Category Filter Pills */}
-      <section className="mx-auto max-w-7xl px-4 py-6">
-        <MobileScrollTabs
-          items={visibleCategoryPills}
-          value={activeCategory}
-          onChange={setActiveCategory}
-          activeTabClassName="bg-white text-black"
-          inactiveTabClassName={isMobile ? 'bg-[#2b2f37] text-white/68 hover:bg-[#353a45] hover:text-white' : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a] hover:text-white'}
-        />
-      </section>
+      {loading && categories.length === 0 && isMobile ? (
+        <MobilePillRowSkeleton />
+      ) : (
+        <section className="mx-auto max-w-7xl px-4 py-6">
+          <MobileScrollTabs
+            items={visibleCategoryPills}
+            value={activeCategory}
+            onChange={setActiveCategory}
+            activeTabClassName="bg-white text-black"
+            inactiveTabClassName={isMobile ? 'bg-[#2b2f37] text-white/68 hover:bg-[#353a45] hover:text-white' : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a] hover:text-white'}
+          />
+        </section>
+      )}
 
       {isMobile ? (
         <>
-          <MobileCuratedRail
-            title="Trending Now"
-            items={visibleMobileTrendingCards}
-            locale={locale}
-            dramas={dramas}
-            actionLabel="See All"
-          />
+          {loading && visibleMobileTrendingCards.length === 0 ? (
+            <MobileShelfSkeleton titleWidthClass="w-32" />
+          ) : visibleMobileTrendingCards.length > 0 ? (
+            <MobileCuratedRail
+              title="Trending Now"
+              items={visibleMobileTrendingCards}
+              locale={locale}
+              dramas={dramas}
+              actionLabel="See All"
+            />
+          ) : null}
           {mobileContentStage === 'full' ? (
             <>
-              <MobileWeeklyTopPicks locale={locale} banner={mobileWeeklyBanner} />
-              <MobileCuratedRail
-                title="New Releases"
-                items={visibleMobileNewReleaseCards}
-                locale={locale}
-                dramas={dramas}
-                actionLabel="See All"
-              />
-              <MobileCuratedRail
-                title={t.editorsChoice}
-                items={mobileEditorsChoiceCards}
-                locale={locale}
-                dramas={dramas}
-                actionLabel="See All"
-              />
+              {mobileWeeklyBanner ? <MobileWeeklyTopPicks locale={locale} banner={mobileWeeklyBanner} /> : null}
+              {loading && visibleMobileNewReleaseCards.length === 0 ? (
+                <MobileShelfSkeleton titleWidthClass="w-28" />
+              ) : visibleMobileNewReleaseCards.length > 0 ? (
+                <MobileCuratedRail
+                  title="New Releases"
+                  items={visibleMobileNewReleaseCards}
+                  locale={locale}
+                  dramas={dramas}
+                  actionLabel="See All"
+                />
+              ) : null}
+              {loading && mobileEditorsChoiceCards.length === 0 ? (
+                <MobileShelfSkeleton titleWidthClass="w-36" />
+              ) : mobileEditorsChoiceCards.length > 0 ? (
+                <MobileCuratedRail
+                  title={t.editorsChoice}
+                  items={mobileEditorsChoiceCards}
+                  locale={locale}
+                  dramas={dramas}
+                  actionLabel="See All"
+                />
+              ) : null}
             </>
           ) : null}
         </>
