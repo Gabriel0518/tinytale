@@ -286,7 +286,7 @@ export default function MobilePlayer({
           playerRef.current?.seek(time);
         }
       }
-    } catch { /* ignore */ }
+    } catch (_e) { /* ignore */ }
   }, [progressKey, initialSeekTime]);
 
   // 保存进度 (每 5 秒)
@@ -325,7 +325,7 @@ export default function MobilePlayer({
       if (screenOrientation?.lock) {
         await screenOrientation.lock('landscape');
       }
-    } catch { /* not supported */ }
+    } catch (_e) { /* not supported */ }
   }, []);
 
   const exitLandscape = useCallback(async () => {
@@ -335,9 +335,11 @@ export default function MobilePlayer({
       if (screenOrientation?.unlock) {
         screenOrientation.unlock();
       }
-    } catch { /* not supported */ }
+    } catch (_e) { /* not supported */ }
   }, []);
 
+  useEffect(() => {
+    if (!showChrome || showSpeedMenu || !isPlaying) return undefined;
     const timeoutId = setTimeout(() => {
       setShowChrome(false);
     }, CHROME_AUTO_HIDE_MS);
