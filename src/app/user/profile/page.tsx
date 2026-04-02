@@ -607,7 +607,7 @@ export default function ProfilePage() {
     },
     {
       label: t.settings,
-      detail: t.profile.editProfile,
+      detail: t.editProfile,
       href: localizePath("/user/settings", locale),
       accent: "from-cyan-500/18 to-cyan-500/5 border-cyan-500/20",
     },
