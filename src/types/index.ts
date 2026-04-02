@@ -1,6 +1,9 @@
 // Drama Types
 export interface Drama {
   _id: string;
+  creatorId?: string | null;
+  creatorName?: string;
+  creatorAvatar?: string;
   title: string;
   cover: string;
   horizontalCover?: string;
@@ -38,9 +41,12 @@ export interface SubtitleTrack {
 
 export interface StreamPlaybackInfo {
   videoUid: string;
+  videoUrl?: string;            // Raw video URL (e.g. direct Cloudflare Stream HLS URL)
   playbackUrl?: string;       // HLS manifest URL (absolute, backward-compatible)
   playbackPath?: string;      // HLS manifest path (preferred)
   signedToken?: string;       // Signed token for paid content
+  streamVideoId?: string;     // Cloudflare Stream video UID (alias for videoUid)
+  subtitleUrl?: string | null;
   thumbnailUrl?: string;
   duration?: number;
   subtitles: SubtitleTrack[];
@@ -202,6 +208,47 @@ export interface Comment {
   status: 'pending' | 'approved' | 'rejected';
   likes?: number;
   createdAt?: string;
+}
+
+export interface FeedPlayableItem {
+  itemId: string;
+  dramaId: string;
+  episodeId: string;
+  chunkId: string;
+  streamVideoId?: string;
+  playbackUrl?: string;
+  poster?: string;
+  dramaTitle: string;
+  episodeTitle: string;
+  description?: string;
+  durationMs: number;
+  startMs: number;
+  endMs: number;
+  order: number;
+  isFree: boolean;
+  hasSubtitles: boolean;
+  hasMultipleAudioTracks: boolean;
+  preloadPriority: 'high' | 'medium' | 'low';
+  seekable: boolean;
+  chunkType: 'physical' | 'virtual';
+}
+
+export interface FeedWindowState {
+  current: FeedPlayableItem;
+  previous: FeedPlayableItem | null;
+  next: FeedPlayableItem[];
+  cursor: string | null;
+  loadingStates: {
+    current: 'loaded' | 'loading' | 'error';
+    next: Array<'loaded' | 'loading' | 'error'>;
+  };
+  canSwitchNext: boolean;
+  canSwitchPrev: boolean;
+}
+
+export interface FeedBootstrapPayload {
+  mode: 'for-you' | 'following';
+  window: FeedWindowState;
 }
 
 // API Response Types

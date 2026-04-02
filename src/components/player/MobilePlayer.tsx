@@ -2,9 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Forward, PictureInPicture2, Rewind } from 'lucide-react';
+import CloudflarePlayer, { CloudflarePlayerHandle } from '@/components/player/CloudflarePlayer';
 import SimplePlayer, { SimplePlayerHandle } from '@/components/player/SimplePlayer';
+import NativeHlsPlayer, { NativeHlsPlayerHandle } from '@/components/player/NativeHlsPlayer';
 import { cn, formatDuration } from '@/lib/utils';
+import type { SubtitleTrack } from '@/types';
+import type { PlaybackAudioOption } from '@/lib/playback-adapters';
 import {
+  isNativeApp,
   lockNativeScreenOrientation,
   setNativeKeepAwake,
   triggerHaptic,
@@ -12,12 +17,21 @@ import {
 } from '@/lib/capacitor-bridge';
 
 interface MobilePlayerProps {
-  videoUrl: string;
+  videoUrl?: string;
+  streamVideoId?: string;
+  signedToken?: string;
+  quality?: string;
+  subtitles?: SubtitleTrack[];
+  activeSubtitleLanguage?: string | null;
+  selectedAudioId?: string;
+  onAvailableAudioOptionsChange?: (options: PlaybackAudioOption[]) => void;
   poster?: string;
   title: string;
   subtitle?: string;
   autoplay?: boolean;
   initialSeekTime?: number;
+  playbackRate?: number;
+  onPlaybackRateChange?: (rate: number) => void;
   onTimeUpdate?: (time: number, duration: number) => void;
   onEnded?: () => void;
   onError?: (error: string) => void;
@@ -40,6 +54,9 @@ interface MobilePlayerProps {
     previousEpisode: string;
     speedBoost: (rate: number) => string;
   };
+  showInternalChrome?: boolean;
+  showInternalSpeedMenu?: boolean;
+  showInternalProgress?: boolean;
 }
 
 type GestureZone = 'left' | 'center' | 'right';
@@ -48,6 +65,50 @@ type GestureFeedback =
   | { type: 'navigation'; label: string }
   | { type: 'speed'; label: string }
   | null;
+
+type PlayerHandleLike = Pick<
+  CloudflarePlayerHandle,
+  | 'play'
+  | 'pause'
+  | 'seek'
+  | 'seekBy'
+  | 'setMuted'
+  | 'setPlaybackRate'
+  | 'getPlaybackRate'
+  | 'getDuration'
+  | 'enterPictureInPicture'
+  | 'exitPictureInPicture'
+  | 'isPictureInPictureActive'
+  | 'isPictureInPictureSupported'
+> | Pick<
+  SimplePlayerHandle,
+  | 'play'
+  | 'pause'
+  | 'seek'
+  | 'seekBy'
+  | 'setMuted'
+  | 'setPlaybackRate'
+  | 'getPlaybackRate'
+  | 'getDuration'
+  | 'enterPictureInPicture'
+  | 'exitPictureInPicture'
+  | 'isPictureInPictureActive'
+  | 'isPictureInPictureSupported'
+> | Pick<
+  NativeHlsPlayerHandle,
+  | 'play'
+  | 'pause'
+  | 'seek'
+  | 'seekBy'
+  | 'setMuted'
+  | 'setPlaybackRate'
+  | 'getPlaybackRate'
+  | 'getDuration'
+  | 'enterPictureInPicture'
+  | 'exitPictureInPicture'
+  | 'isPictureInPictureActive'
+  | 'isPictureInPictureSupported'
+>;
 
 const PLAYBACK_RATES = [1, 1.25, 1.5, 2];
 const DOUBLE_TAP_WINDOW = 260;
@@ -69,11 +130,20 @@ const DEFAULT_LABELS: NonNullable<MobilePlayerProps['labels']> = {
 
 export default function MobilePlayer({
   videoUrl,
+  streamVideoId,
+  signedToken,
+  quality = 'auto',
+  subtitles = [],
+  activeSubtitleLanguage = null,
+  selectedAudioId,
+  onAvailableAudioOptionsChange,
   poster,
   title,
   subtitle,
   autoplay = true,
   initialSeekTime = 0,
+  playbackRate: playbackRateProp,
+  onPlaybackRateChange,
   onTimeUpdate,
   onEnded,
   onError,
@@ -86,8 +156,11 @@ export default function MobilePlayer({
   hasPreviousEpisode = false,
   className,
   labels: labelsProp,
+  showInternalChrome = true,
+  showInternalSpeedMenu = true,
+  showInternalProgress = true,
 }: MobilePlayerProps) {
-  const playerRef = useRef<SimplePlayerHandle | null>(null);
+  const playerRef = useRef<PlayerHandleLike | null>(null);
   const touchStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
   const speedBoostRestoreRateRef = useRef<number | null>(null);
   const tapRef = useRef<{ at: number; zone: GestureZone; timeoutId: ReturnType<typeof setTimeout> | null }>({
@@ -101,14 +174,44 @@ export default function MobilePlayer({
   const [isPlaying, setIsPlaying] = useState(autoplay);
   const [showChrome, setShowChrome] = useState(true);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-  const [playbackRate, setPlaybackRate] = useState(1);
+  const [playbackRateState, setPlaybackRateState] = useState(playbackRateProp ?? 1);
   const [isSpeedBoosting, setIsSpeedBoosting] = useState(false);
   const [feedback, setFeedback] = useState<GestureFeedback>(null);
   const [currentTime, setCurrentTime] = useState(initialSeekTime);
   const [duration, setDuration] = useState(0);
   const [pictureInPictureSupported, setPictureInPictureSupported] = useState(false);
   const [pictureInPictureActive, setPictureInPictureActive] = useState(false);
+  const [preferCloudflareIframeBackend, setPreferCloudflareIframeBackend] = useState(false);
+  const [preferSimplePlayerBackend, setPreferSimplePlayerBackend] = useState(false);
+  const [playerMuted, setPlayerMuted] = useState(autoplay);
+  const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const labels = labelsProp || DEFAULT_LABELS;
+  const playbackRate = playbackRateProp ?? playbackRateState;
+
+  useEffect(() => {
+    if (typeof navigator === 'undefined') return;
+
+    const userAgent = navigator.userAgent || '';
+    const isAndroid = /Android/i.test(userAgent);
+    const hasStreamId = Boolean(streamVideoId);
+    const hasHlsUrl = Boolean(videoUrl?.includes('.m3u8'));
+
+    // On Android WebView, always prefer SimplePlayer (react-player + hls.js)
+    // for Cloudflare Stream content. The iframe embed SDK and Video.js are
+    // both unreliable inside Capacitor WebView.
+    // Detect Cloudflare by streamVideoId presence, NOT by URL pattern, because
+    // the playback URL may be proxied through our API server.
+    const shouldUseSimple = isAndroid && (hasStreamId || hasHlsUrl) && Boolean(videoUrl);
+
+    setPreferCloudflareIframeBackend(false);
+    setPreferSimplePlayerBackend(shouldUseSimple);
+
+    if (isAndroid) {
+      console.log(
+        `[MobilePlayer] Android detected streamVideoId=${hasStreamId} hlsUrl=${hasHlsUrl} → backend=${shouldUseSimple ? 'SimplePlayer' : 'CloudflarePlayer'}`
+      );
+    }
+  }, [streamVideoId, videoUrl]);
 
   const dismissFeedback = useCallback(() => {
     setFeedback(null);
@@ -123,12 +226,45 @@ export default function MobilePlayer({
   useEffect(() => {
     setShowChrome(true);
     setShowSpeedMenu(false);
-    setPlaybackRate(1);
+    setPlaybackRateState(playbackRateProp ?? 1);
     setIsSpeedBoosting(false);
     speedBoostRestoreRateRef.current = null;
     isLongPressActiveRef.current = false;
     setCurrentTime(initialSeekTime);
-  }, [videoUrl, initialSeekTime]);
+    setHasStartedPlayback(false);
+  }, [videoUrl, streamVideoId, initialSeekTime, playbackRateProp]);
+
+  useEffect(() => {
+    setPlayerMuted(Boolean(preferSimplePlayerBackend && autoplay));
+  }, [autoplay, preferSimplePlayerBackend, streamVideoId, videoUrl]);
+
+  useEffect(() => {
+    if (!preferSimplePlayerBackend || !autoplay || !playerMuted || !isNativeApp()) return;
+
+    const timeoutId = setTimeout(() => {
+      playerRef.current?.setMuted(false);
+      setPlayerMuted(false);
+      console.log('[MobilePlayer] native autoplay unmute attempt');
+    }, 220);
+
+    return () => clearTimeout(timeoutId);
+  }, [autoplay, playerMuted, preferSimplePlayerBackend]);
+
+  useEffect(() => {
+    if (playbackRateProp === undefined) return;
+    setPlaybackRateState(playbackRateProp);
+    playerRef.current?.setPlaybackRate(playbackRateProp);
+  }, [playbackRateProp]);
+
+  useEffect(() => {
+    return () => {
+      try {
+        playerRef.current?.pause();
+      } catch {
+        // Ignore teardown failures while leaving the route.
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!showChrome || showSpeedMenu || !isPlaying) return undefined;
@@ -154,10 +290,25 @@ export default function MobilePlayer({
   }, [isPlaying]);
 
   const togglePlayback = useCallback(() => {
-    playerRef.current?.togglePlay();
+    if (!playerRef.current) return;
+    if (!hasStartedPlayback) {
+      if (preferSimplePlayerBackend) {
+        playerRef.current.setMuted(false);
+        setPlayerMuted(false);
+      }
+      playerRef.current.play();
+      setShowChrome(true);
+      setShowSpeedMenu(false);
+      return;
+    }
+    if (isPlaying) {
+      playerRef.current.pause();
+    } else {
+      playerRef.current.play();
+    }
     setShowChrome(true);
     setShowSpeedMenu(false);
-  }, []);
+  }, [hasStartedPlayback, isPlaying, preferSimplePlayerBackend]);
 
   const showSeekFeedback = useCallback((deltaSeconds: number) => {
     const minutes = formatDuration(Math.abs(deltaSeconds));
@@ -191,15 +342,16 @@ export default function MobilePlayer({
     speedBoostRestoreRateRef.current = null;
     isLongPressActiveRef.current = false;
     setIsSpeedBoosting(false);
-    setPlaybackRate(rate);
+    setPlaybackRateState(rate);
+    onPlaybackRateChange?.(rate);
     setShowSpeedMenu(false);
     setFeedback({ type: 'speed', label: labels.speedBoost(rate) });
-  }, [labels]);
+  }, [labels, onPlaybackRateChange]);
 
   const endSpeedBoost = useCallback(() => {
     if (speedBoostRestoreRateRef.current === null) return;
     playerRef.current?.setPlaybackRate(speedBoostRestoreRateRef.current);
-    setPlaybackRate(speedBoostRestoreRateRef.current);
+    setPlaybackRateState(speedBoostRestoreRateRef.current);
     setIsSpeedBoosting(false);
     isLongPressActiveRef.current = false;
     speedBoostRestoreRateRef.current = null;
@@ -214,7 +366,7 @@ export default function MobilePlayer({
     setShowSpeedMenu(false);
     setIsSpeedBoosting(true);
     playerRef.current?.setPlaybackRate(2);
-    setPlaybackRate(2);
+    setPlaybackRateState(2);
     setFeedback({ type: 'speed', label: labels.speedBoost(2) });
     void triggerHaptic('medium');
   }, [labels, playbackRate]);
@@ -339,6 +491,17 @@ export default function MobilePlayer({
     const zone = resolveZone(touch.clientX, event.currentTarget.clientWidth);
     const now = Date.now();
 
+    // On Android WebView, play() must stay inside the original user gesture stack.
+    // Waiting for the single/double-tap timeout causes the first playback attempt
+    // to lose gesture context and gets blocked by autoplay policy.
+    if (zone === 'center' && !hasStartedPlayback) {
+      clearPendingTap();
+      tapRef.current.at = 0;
+      tapRef.current.zone = zone;
+      handleSingleTap(zone);
+      return;
+    }
+
     if (tapRef.current.at && tapRef.current.zone === zone && now - tapRef.current.at < DOUBLE_TAP_WINDOW) {
       clearPendingTap();
       tapRef.current.at = 0;
@@ -358,6 +521,7 @@ export default function MobilePlayer({
     clearPendingTap,
     handleDoubleTap,
     handleSingleTap,
+    hasStartedPlayback,
     performEpisodeNavigation,
     resolveZone,
     endSpeedBoost,
@@ -386,47 +550,95 @@ export default function MobilePlayer({
       onTouchEnd={handleTouchEnd}
       onTouchCancel={handleTouchCancel}
     >
-      <SimplePlayer
-        ref={playerRef}
-        videoUrl={videoUrl}
-        poster={poster}
-        autoplay={autoplay}
-        initialSeekTime={initialSeekTime}
-        onTimeUpdate={(time, playerDuration) => {
-          setCurrentTime(time);
-          setDuration(playerDuration);
-          onTimeUpdate?.(time, playerDuration);
-        }}
-        onReady={() => {
-          setDuration(playerRef.current?.getDuration() || 0);
-          setPictureInPictureSupported(playerRef.current?.isPictureInPictureSupported() || false);
-          setPictureInPictureActive(playerRef.current?.isPictureInPictureActive() || false);
-          onReady?.();
-        }}
-        onEnded={onEnded}
-        onError={onError}
-        onPlay={() => {
-          setIsPlaying(true);
-          onPlay?.();
-        }}
-        onPause={() => {
-          setIsPlaying(false);
-          onPause?.();
-        }}
-        onNextTrack={onNextEpisode}
-        onPreviousTrack={onPreviousEpisode}
-        onEnterPictureInPicture={() => setPictureInPictureActive(true)}
-        onLeavePictureInPicture={() => setPictureInPictureActive(false)}
-        mediaSession={{
-          title,
-          artist: subtitle,
-          artwork: poster ? [{ src: poster }] : undefined,
-        }}
-        className="h-full w-full"
-      />
+      {preferSimplePlayerBackend && videoUrl ? (
+        <NativeHlsPlayer
+          ref={playerRef as any}
+          videoUrl={videoUrl}
+          poster={poster}
+          autoplay={autoplay}
+          muted={playerMuted}
+          controls={false}
+          initialSeekTime={initialSeekTime}
+          subtitles={subtitles}
+          activeSubtitleLanguage={activeSubtitleLanguage}
+          selectedAudioId={selectedAudioId}
+          onAvailableAudioOptionsChange={onAvailableAudioOptionsChange}
+          onTimeUpdate={(time, playerDuration) => {
+            setCurrentTime(time);
+            setDuration(playerDuration);
+            onTimeUpdate?.(time, playerDuration);
+          }}
+          onReady={() => {
+            setDuration(playerRef.current?.getDuration() || 0);
+            if (initialSeekTime > 0) {
+              playerRef.current?.seek(initialSeekTime);
+            }
+            playerRef.current?.setPlaybackRate(playbackRate);
+            setPictureInPictureSupported(playerRef.current?.isPictureInPictureSupported() || false);
+            setPictureInPictureActive(playerRef.current?.isPictureInPictureActive() || false);
+            onReady?.();
+          }}
+          onEnded={onEnded}
+          onError={onError}
+          onPlay={() => {
+            setHasStartedPlayback(true);
+            setIsPlaying(true);
+            if (playerMuted && isNativeApp()) {
+              playerRef.current?.setMuted(false);
+              setPlayerMuted(false);
+            }
+            onPlay?.();
+          }}
+          onPause={() => {
+            setIsPlaying(false);
+            onPause?.();
+          }}
+          className="h-full w-full"
+        />
+      ) : (
+        <CloudflarePlayer
+          ref={playerRef as any}
+          streamVideoId={streamVideoId}
+          videoUrl={videoUrl}
+          signedToken={signedToken}
+          quality={quality}
+          subtitles={subtitles}
+          activeSubtitleLanguage={activeSubtitleLanguage}
+          poster={poster}
+          autoplay={autoplay}
+          onTimeUpdate={(time, playerDuration) => {
+            setCurrentTime(time);
+            setDuration(playerDuration);
+            onTimeUpdate?.(time, playerDuration);
+          }}
+          onReady={() => {
+            setDuration(playerRef.current?.getDuration() || 0);
+            if (initialSeekTime > 0) {
+              playerRef.current?.seek(initialSeekTime);
+            }
+            playerRef.current?.setPlaybackRate(playbackRate);
+            setPictureInPictureSupported(playerRef.current?.isPictureInPictureSupported() || false);
+            setPictureInPictureActive(playerRef.current?.isPictureInPictureActive() || false);
+            onReady?.();
+          }}
+          onEnded={onEnded}
+          onError={onError}
+          onPlay={() => {
+            setHasStartedPlayback(true);
+            setIsPlaying(true);
+            onPlay?.();
+          }}
+          onPause={() => {
+            setIsPlaying(false);
+            onPause?.();
+          }}
+          className="h-full w-full"
+        />
+      )}
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/50" />
 
+      {showInternalChrome ? (
       <div
         className={cn(
           'absolute inset-x-0 top-0 z-10 px-4 pb-6 pt-[calc(0.75rem+env(safe-area-inset-top))] transition-opacity duration-200',
@@ -439,6 +651,7 @@ export default function MobilePlayer({
             {subtitle ? <p className="mt-1 line-clamp-1 text-xs text-white/70">{subtitle}</p> : null}
           </div>
           <div className="pointer-events-auto flex items-center gap-2">
+            {showInternalSpeedMenu ? (
             <button
               type="button"
               onClick={() => {
@@ -449,6 +662,7 @@ export default function MobilePlayer({
             >
               <span>{playbackRate}x</span>
             </button>
+            ) : null}
             {pictureInPictureSupported ? (
               <button
                 type="button"
@@ -462,7 +676,9 @@ export default function MobilePlayer({
           </div>
         </div>
       </div>
+      ) : null}
 
+      {showInternalChrome ? (
       <div
         className={cn(
           'pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-center justify-between px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-12 text-xs text-white/85 transition-opacity duration-200',
@@ -476,6 +692,8 @@ export default function MobilePlayer({
           {hasNextEpisode ? <ChevronsUpDown className="h-3.5 w-3.5" /> : null}
         </div>
       </div>
+      ) : null}
+      {showInternalProgress ? (
       <div
         className="pointer-events-none absolute inset-x-0 z-[11]"
         style={{ bottom: "max(env(safe-area-inset-bottom), 0px)" }}
@@ -487,8 +705,9 @@ export default function MobilePlayer({
           />
         </div>
       </div>
+      ) : null}
 
-      {showChrome ? (
+      {showInternalChrome && showChrome ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 flex justify-center px-4">
           <div className="rounded-full border border-white/10 bg-black/35 px-3 py-1.5 text-[11px] font-medium text-white/80 backdrop-blur-md">
             {isSpeedBoosting ? labels.speedBoost(2) : labels.holdForSpeed}
@@ -509,7 +728,7 @@ export default function MobilePlayer({
         </div>
       ) : null}
 
-      {showSpeedMenu ? (
+      {showInternalSpeedMenu && showSpeedMenu ? (
         <div className="absolute inset-x-4 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-20 rounded-3xl border border-white/10 bg-zinc-950/88 p-4 shadow-2xl backdrop-blur-xl">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-white/45">{labels.playbackSpeed}</p>
           <div className="grid grid-cols-4 gap-2">

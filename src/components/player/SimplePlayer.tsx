@@ -6,19 +6,32 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  useCallback,
+  type ComponentType,
 } from 'react';
-import dynamic from 'next/dynamic';
 
-// 动态导入 ReactPlayer 以避免 SSR 问题
-const ReactPlayer = dynamic(() => import('react-player'), {
-  ssr: false,
-  loading: () => <div className="flex items-center justify-center h-full bg-black"><p className="text-white">Loading player...</p></div>
-}) as any;
+function logPlayerDebug(message: string) {
+  console.log(`[SimplePlayer] ${message}`);
+}
+
+function formatMediaError(error: MediaError | null | undefined): string {
+  if (!error) return 'none';
+  const codeMap: Record<number, string> = {
+    1: 'MEDIA_ERR_ABORTED',
+    2: 'MEDIA_ERR_NETWORK',
+    3: 'MEDIA_ERR_DECODE',
+    4: 'MEDIA_ERR_SRC_NOT_SUPPORTED',
+  };
+  return `${codeMap[error.code] || `MEDIA_ERR_${error.code}`} ${error.message || ''}`.trim();
+}
 
 interface SimplePlayerProps {
   videoUrl: string;
   poster?: string;
   autoplay?: boolean;
+  muted?: boolean;
+  controls?: boolean;
+  forceHls?: boolean;
   initialSeekTime?: number;
   mediaSession?: {
     title: string;
@@ -62,6 +75,9 @@ const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function 
   videoUrl,
   poster,
   autoplay = false,
+  muted: mutedProp = false,
+  controls = true,
+  forceHls = false,
   initialSeekTime = 0,
   mediaSession,
   onTimeUpdate,
@@ -80,14 +96,25 @@ const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function 
   const lastUrlRef = useRef<string>(videoUrl);
   const resumeTimeRef = useRef<number>(0);
   const resumePlayingRef = useRef<boolean>(autoplay);
+  const autoplayRetryTimeoutsRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const initialSeekRef = useRef<number>(Math.max(0, Number(initialSeekTime) || 0));
   const hasAppliedInitialSeekRef = useRef<boolean>(false);
+  const debugVideoRef = useRef<HTMLVideoElement | null>(null);
+  const lastLoggedProgressSecondRef = useRef<number>(-1);
+  const [ReactPlayer, setReactPlayer] = useState<ComponentType<any> | null>(null);
   const [playing, setPlaying] = useState(autoplay);
   const [volume, setVolume] = useState(1);
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(mutedProp);
   const [currentTime, setCurrentTime] = useState(initialSeekTime);
   const [duration, setDuration] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
+
+  // Load ReactPlayer on the client side without next/dynamic, which breaks ref forwarding.
+  useEffect(() => {
+    import('react-player').then((mod) => {
+      setReactPlayer(() => mod.default);
+    });
+  }, []);
 
   useImperativeHandle(ref, () => ({
     play: () => setPlaying(true),
@@ -129,6 +156,25 @@ const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function 
     },
   }), [duration, playbackRate, playing]);
 
+  const clearAutoplayRetries = useCallback(() => {
+    autoplayRetryTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+    autoplayRetryTimeoutsRef.current = [];
+  }, []);
+
+  const attemptAutoplay = useCallback(() => {
+    const internalPlayer = playerRef.current?.getInternalPlayer?.();
+    if (!internalPlayer || typeof internalPlayer.play !== 'function') return;
+
+    try {
+      const maybePromise = internalPlayer.play();
+      if (maybePromise && typeof maybePromise.catch === 'function') {
+        maybePromise.catch(() => undefined);
+      }
+    } catch {
+      // Ignore autoplay rejections; we'll retry a few times after readiness.
+    }
+  }, []);
+
   // 定期上报播放进度
   useEffect(() => {
     if (playing && duration > 0) {
@@ -141,10 +187,63 @@ const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function 
     }
   }, [playing, duration, onTimeUpdate]);
 
+  useEffect(() => () => {
+    clearAutoplayRetries();
+  }, [clearAutoplayRetries]);
+
+  // Re-attach debug event listeners when ReactPlayer finishes loading.
+  // Without ReactPlayer in the deps, the effect runs before the player mounts
+  // and playerRef.current is null, so no native video events get captured.
+  useEffect(() => {
+    if (!ReactPlayer) return undefined;
+
+    const internalPlayer = playerRef.current?.getInternalPlayer?.();
+    const video = internalPlayer instanceof HTMLVideoElement ? internalPlayer : null;
+
+    if (!video) {
+      logPlayerDebug(`debug-attach skipped: internalPlayer=${typeof internalPlayer} ref=${Boolean(playerRef.current)} url=${videoUrl?.slice(0, 80) || 'empty'}`);
+      return undefined;
+    }
+
+    if (debugVideoRef.current === video) {
+      return undefined;
+    }
+
+    debugVideoRef.current = video;
+    const logEvent = (eventName: string) => {
+      logPlayerDebug(
+        `${eventName} readyState=${video.readyState} networkState=${video.networkState} currentTime=${video.currentTime.toFixed(2)} paused=${video.paused} ended=${video.ended} error=${formatMediaError(video.error)} src=${video.currentSrc || video.src || 'n/a'}`
+      );
+    };
+
+    const events = ['loadstart', 'loadedmetadata', 'loadeddata', 'canplay', 'canplaythrough', 'play', 'playing', 'pause', 'waiting', 'stalled', 'suspend', 'ended', 'error'] as const;
+    const listeners = new Map<string, () => void>();
+    events.forEach((eventName) => {
+      const listener = () => logEvent(eventName);
+      listeners.set(eventName, listener);
+      video.addEventListener(eventName, listener);
+    });
+    logEvent('attach');
+
+    return () => {
+      listeners.forEach((listener, eventName) => {
+        video.removeEventListener(eventName, listener);
+      });
+      if (debugVideoRef.current === video) {
+        debugVideoRef.current = null;
+      }
+    };
+  }, [ReactPlayer, videoUrl, playing]);
+
   const handleProgress = (state: any) => {
     setCurrentTime(state.playedSeconds || 0);
     if (duration > 0) {
       onTimeUpdate?.(state.playedSeconds, duration);
+    }
+    const progressSecond = Math.floor(state.playedSeconds || 0);
+    if (progressSecond !== lastLoggedProgressSecondRef.current && (progressSecond <= 5 || progressSecond % 5 === 0)) {
+      lastLoggedProgressSecondRef.current = progressSecond;
+      logPlayerDebug(`progress current=${(state.playedSeconds || 0).toFixed(2)} loaded=${(state.loaded || 0).toFixed(3)} duration=${duration.toFixed(2)} playing=${playing}`);
     }
   };
 
@@ -153,6 +252,7 @@ const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function 
   };
 
   const handleReady = () => {
+    logPlayerDebug(`ready ref=${Boolean(playerRef.current)} internalPlayer=${typeof playerRef.current?.getInternalPlayer?.()}`);
     const shouldUseResumeTime = resumeTimeRef.current > 0;
     const seekTarget = shouldUseResumeTime
       ? resumeTimeRef.current
@@ -167,27 +267,40 @@ const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function 
     if (resumePlayingRef.current) {
       setPlaying(true);
     }
-    console.log('Player ready');
+    if (autoplay) {
+      clearAutoplayRetries();
+      attemptAutoplay();
+      autoplayRetryTimeoutsRef.current = [300, 900, 1800].map((delay) =>
+        setTimeout(() => {
+          attemptAutoplay();
+        }, delay)
+      );
+    }
+    logPlayerDebug(`ready autoplay=${autoplay} muted=${muted} forceHls=${forceHls} initialSeek=${initialSeekRef.current}`);
     onReady?.();
   };
 
   const handlePlay = () => {
+    clearAutoplayRetries();
     setPlaying(true);
+    logPlayerDebug(`handlePlay current=${(playerRef.current?.getCurrentTime?.() || 0).toFixed(2)}`);
     onPlay?.();
   };
 
   const handlePause = () => {
     setPlaying(false);
+    logPlayerDebug(`handlePause current=${(playerRef.current?.getCurrentTime?.() || 0).toFixed(2)}`);
     onPause?.();
   };
 
   const handleEnded = () => {
     setPlaying(false);
+    logPlayerDebug('handleEnded');
     onEnded?.();
   };
 
   const handleError = (error: any) => {
-    console.error('Player error:', error);
+    logPlayerDebug(`handleError ${error?.message || error?.toString?.() || 'unknown error'}`);
     onError?.(error?.message || 'Video playback error');
   };
 
@@ -204,6 +317,10 @@ const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function 
     initialSeekRef.current = Math.max(0, Number(initialSeekTime) || 0);
     setCurrentTime(Math.max(0, Number(initialSeekTime) || 0));
   }, [videoUrl, initialSeekTime]);
+
+  useEffect(() => {
+    setMuted(mutedProp);
+  }, [mutedProp]);
 
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
@@ -271,6 +388,14 @@ const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function 
     }
   }, [currentTime, duration, playbackRate]);
 
+  if (!ReactPlayer) {
+    return (
+      <div className={`relative bg-black flex items-center justify-center ${className}`}>
+        <p className="text-white text-sm">Loading player...</p>
+      </div>
+    );
+  }
+
   return (
     <div className={`relative bg-black ${className}`}>
       <ReactPlayer
@@ -282,10 +407,21 @@ const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function 
         muted={muted}
         width="100%"
         height="100%"
-        controls={true}
+        controls={controls}
         light={autoplay ? false : poster}
         playsInline={true}
         disablePictureInPicture={false}
+        config={{
+          file: {
+            forceHLS: forceHls,
+            attributes: {
+              playsInline: true,
+              autoPlay: autoplay,
+              muted,
+              preload: 'auto',
+            },
+          },
+        }}
         onReady={handleReady}
         onPlay={handlePlay}
         onPause={handlePause}

@@ -112,3 +112,13 @@ export function mergeRuntimeSettings(partial: RuntimeSettingsSnapshot) {
   writeRuntimeSettings(nextSnapshot);
   return nextSnapshot;
 }
+
+export function readPlaybackRuntimeSettings(): PlaybackRuntimeSettings | null {
+  return readRuntimeSettings()?.playback || null;
+}
+
+export function updatePlaybackRuntimeSettings(partial: Partial<PlaybackRuntimeSettings>) {
+  return mergeRuntimeSettings({
+    playback: partial as PlaybackRuntimeSettings,
+  });
+}
