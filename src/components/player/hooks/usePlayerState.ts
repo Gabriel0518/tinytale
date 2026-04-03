@@ -1,6 +1,6 @@
 'use client';
 
-import { useReducer, useCallback } from 'react';
+import { useReducer, useCallback, useMemo } from 'react';
 import { PlayerState, PlayerAction } from '../types/player';
 
 const initialState: PlayerState = {
@@ -53,21 +53,49 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
 export function usePlayerState() {
   const [state, dispatch] = useReducer(playerReducer, initialState);
 
-  const actions = {
-    setPlaying: useCallback((playing: boolean) => dispatch({ type: 'SET_PLAYING', payload: playing }), []),
-    togglePlay: useCallback(() => dispatch({ type: 'TOGGLE_PLAY' }), []),
-    setCurrentTime: useCallback((time: number) => dispatch({ type: 'SET_CURRENT_TIME', payload: time }), []),
-    setDuration: useCallback((duration: number) => dispatch({ type: 'SET_DURATION', payload: duration }), []),
-    setBuffered: useCallback((buffered: number) => dispatch({ type: 'SET_BUFFERED', payload: buffered }), []),
-    setVolume: useCallback((volume: number) => dispatch({ type: 'SET_VOLUME', payload: volume }), []),
-    toggleMute: useCallback(() => dispatch({ type: 'TOGGLE_MUTE' }), []),
-    setPlaybackRate: useCallback((rate: number) => dispatch({ type: 'SET_PLAYBACK_RATE', payload: rate }), []),
-    setQuality: useCallback((quality: string) => dispatch({ type: 'SET_QUALITY', payload: quality }), []),
-    setFullscreen: useCallback((fs: boolean) => dispatch({ type: 'SET_FULLSCREEN', payload: fs }), []),
-    setLoading: useCallback((loading: boolean) => dispatch({ type: 'SET_LOADING', payload: loading }), []),
-    setError: useCallback((error: string | null) => dispatch({ type: 'SET_ERROR', payload: error }), []),
-    reset: useCallback(() => dispatch({ type: 'RESET' }), []),
-  };
+  const setPlaying = useCallback((playing: boolean) => dispatch({ type: 'SET_PLAYING', payload: playing }), []);
+  const togglePlay = useCallback(() => dispatch({ type: 'TOGGLE_PLAY' }), []);
+  const setCurrentTime = useCallback((time: number) => dispatch({ type: 'SET_CURRENT_TIME', payload: time }), []);
+  const setDuration = useCallback((duration: number) => dispatch({ type: 'SET_DURATION', payload: duration }), []);
+  const setBuffered = useCallback((buffered: number) => dispatch({ type: 'SET_BUFFERED', payload: buffered }), []);
+  const setVolume = useCallback((volume: number) => dispatch({ type: 'SET_VOLUME', payload: volume }), []);
+  const toggleMute = useCallback(() => dispatch({ type: 'TOGGLE_MUTE' }), []);
+  const setPlaybackRate = useCallback((rate: number) => dispatch({ type: 'SET_PLAYBACK_RATE', payload: rate }), []);
+  const setQuality = useCallback((quality: string) => dispatch({ type: 'SET_QUALITY', payload: quality }), []);
+  const setFullscreen = useCallback((fs: boolean) => dispatch({ type: 'SET_FULLSCREEN', payload: fs }), []);
+  const setLoading = useCallback((loading: boolean) => dispatch({ type: 'SET_LOADING', payload: loading }), []);
+  const setError = useCallback((error: string | null) => dispatch({ type: 'SET_ERROR', payload: error }), []);
+  const reset = useCallback(() => dispatch({ type: 'RESET' }), []);
+
+  const actions = useMemo(() => ({
+    setPlaying,
+    togglePlay,
+    setCurrentTime,
+    setDuration,
+    setBuffered,
+    setVolume,
+    toggleMute,
+    setPlaybackRate,
+    setQuality,
+    setFullscreen,
+    setLoading,
+    setError,
+    reset,
+  }), [
+    reset,
+    setBuffered,
+    setCurrentTime,
+    setDuration,
+    setError,
+    setFullscreen,
+    setLoading,
+    setPlaybackRate,
+    setPlaying,
+    setQuality,
+    setVolume,
+    toggleMute,
+    togglePlay,
+  ]);
 
   return { state, dispatch, actions };
 }
