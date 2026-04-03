@@ -49,7 +49,7 @@ export interface CloudflarePlayerHandle {
   getPlayer: () => ReturnType<typeof import('video.js').default> | null;
 }
 
-const CF_STREAM_SUBDOMAIN = process.env.NEXT_PUBLIC_CF_STREAM_SUBDOMAIN || 'mock-subdomain';
+const CF_STREAM_SUBDOMAIN = process.env.NEXT_PUBLIC_CF_STREAM_SUBDOMAIN || '';
 
 type TextTrackListWithEvents = TextTrackList & {
   addEventListener?: (type: string, listener: EventListener) => void;
@@ -293,21 +293,23 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       getPlayer: () => playerRef.current,
     }), [applySubtitleSelection, getVideoElement]);
 
-    // Resolve base source (without quality param) — prefer signed Cloudflare HLS when available.
+    // Resolve base source (without quality param).
+    // Priority: backend-provided videoUrl (already contains correct subdomain and path)
+    // > locally built HLS URL (only if subdomain env var is configured)
     const getBaseSource = useCallback(() => {
-      // When streamVideoId is present, always build a signed HLS URL
-      if (streamVideoId) {
-        return {
-          src: buildHlsUrl(streamVideoId, signedToken),
-          type: 'application/x-mpegURL' as const,
-        };
-      }
-      // Fall back to explicit videoUrl only when no streamVideoId
+      // Backend-provided videoUrl is the authoritative source (signed, correct domain)
       if (videoUrl) {
         const isHls = videoUrl.includes('.m3u8');
         return {
           src: videoUrl,
           type: isHls ? 'application/x-mpegURL' as const : 'video/mp4' as const,
+        };
+      }
+      // Only build locally if we have a real subdomain configured (not the mock fallback)
+      if (streamVideoId && CF_STREAM_SUBDOMAIN && CF_STREAM_SUBDOMAIN !== 'mock-subdomain') {
+        return {
+          src: buildHlsUrl(streamVideoId, signedToken),
+          type: 'application/x-mpegURL' as const,
         };
       }
       return null;
