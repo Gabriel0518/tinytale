@@ -370,6 +370,19 @@ function getEpisodeEffectiveUnlockPrice(episode: Episode, access?: EpisodeAccess
   return episode.unlockPrice;
 }
 
+function buildDramaDetailEpisodeHref(
+  dramaId: string,
+  locale: SupportedLocale,
+  episodeId: string,
+) {
+  const url = new URL(
+    localizePath(`/drama/${dramaId}`, locale),
+    "https://tinytale.local",
+  );
+  url.searchParams.set("ep", episodeId);
+  return `${url.pathname}${url.search}`;
+}
+
 function DramaDetailContent() {
   const locale = useLocale();
   const t = resolveLocaleCopy(DRAMA_TEXT, locale);
@@ -534,7 +547,18 @@ function DramaDetailContent() {
     `${localizePath(`/drama/${dramaId}/play/${episodeId}`, locale)}?source=drama`
   ), [dramaId, locale]);
 
+  const setActiveEpisodeLocally = useCallback((episode: Episode) => {
+    setActiveEpisode(episode);
+    setStreamInfo(null);
+    lastProgressReportAtRef.current = 0;
+    router.replace(buildDramaDetailEpisodeHref(dramaId, locale, episode._id), { scroll: false });
+  }, [dramaId, locale, router]);
+
   const handleEpisodeClick = useCallback(async (episode: Episode) => {
+    if (activeEpisode?._id === episode._id) {
+      return true;
+    }
+
     if (!episode.isFree && !unlockedEpisodeIds.has(episode._id)) {
       // Auth check for unlock (P1-18)
       if (!token) {
@@ -581,10 +605,9 @@ function DramaDetailContent() {
         return false;
       }
     }
-    // 直接跳转到播放页面
-    router.push(buildDramaPlayerHref(episode._id));
+    setActiveEpisodeLocally(episode);
     return true;
-  }, [token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, confirmDialog, buildDramaPlayerHref, locale, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.cancel, t.unlockSuccess, t.unlockFail]);
+  }, [activeEpisode?._id, token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, confirmDialog, setActiveEpisodeLocally, locale, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.cancel, t.unlockSuccess, t.unlockFail]);
 
   // Unlock all paid episodes
   const lockedEpisodes = episodes.filter(ep => !ep.isFree && !unlockedEpisodeIds.has(ep._id));
@@ -1145,7 +1168,8 @@ function DramaDetailContent() {
             {/* Video Player */}
             <div className="flex-1 min-w-0">
               <PlayerRoot className="aspect-video bg-black rounded-lg overflow-hidden">
-                <PlayerInner
+              <PlayerInner
+                  key={activeEpisode?._id || "no-episode"}
                   playerRef={playerRef}
                   streamInfo={streamInfo}
                   activeEpisode={activeEpisode}
