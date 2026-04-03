@@ -17,8 +17,6 @@ const CONCURRENT_SEGMENTS = 3;           // 并发下载分片数（平衡速度
 const INITIAL_BUFFER_SECONDS = 10;       // 初始缓冲秒数
 const MAX_BUFFER_SECONDS = 30;           // 最大缓冲秒数
 const SEGMENT_DURATION_ESTIMATE = 2;     // HLS 分片时长估算（秒）
-const PREFETCH_CACHE_TTL = 10 * 60 * 1000; // 预取缓存 10 分钟
-
 interface SegmentPrefetchTask {
   url: string;
   index: number;
@@ -164,18 +162,27 @@ function calculateAdaptivePrefetchDepth(): number {
  */
 export async function deepPrefetchVideoSegments(
   playbackUrl: string | undefined | null,
+  options?: {
+    startSeconds?: number;
+    bufferSeconds?: number;
+  },
 ): Promise<void> {
   if (!playbackUrl || typeof window === 'undefined') return;
-  const cacheKey = `deep:${playbackUrl}`;
+  const startSeconds = Math.max(0, options?.startSeconds || 0);
+  const bufferSeconds = Math.max(5, options?.bufferSeconds || calculateAdaptivePrefetchDepth());
+  const segmentCount = Math.ceil(bufferSeconds / SEGMENT_DURATION_ESTIMATE);
+  const startIndex = Math.max(0, Math.floor(startSeconds / SEGMENT_DURATION_ESTIMATE) - 1);
+  const cacheKey = `deep:${playbackUrl}:${startIndex}:${segmentCount}`;
   if (completedSegments.has(cacheKey)) return;
 
   try {
     const segmentUrls = await parseHlsManifest(playbackUrl);
     if (segmentUrls.length === 0) return;
 
-    const bufferSeconds = calculateAdaptivePrefetchDepth();
-    const segmentCount = Math.ceil(bufferSeconds / SEGMENT_DURATION_ESTIMATE);
-    const targetSegments = segmentUrls.slice(0, Math.min(segmentCount, segmentUrls.length));
+    const targetSegments = segmentUrls.slice(
+      startIndex,
+      Math.min(startIndex + segmentCount, segmentUrls.length),
+    );
 
     await downloadSegmentsConcurrently(targetSegments, CONCURRENT_SEGMENTS);
     completedSegments.add(cacheKey);
