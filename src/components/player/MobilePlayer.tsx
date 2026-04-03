@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { ArrowLeft, ChevronDown, ChevronsDownUp, ChevronsUpDown, Forward, PictureInPicture2, Play, RotateCcw, Rewind } from 'lucide-react';
 import CloudflarePlayer, { CloudflarePlayerHandle } from '@/components/player/CloudflarePlayer';
 import { SimplePlayerHandle } from '@/components/player/SimplePlayer';
@@ -63,6 +63,7 @@ interface MobilePlayerProps {
   showInternalChrome?: boolean;
   showInternalSpeedMenu?: boolean;
   showInternalProgress?: boolean;
+  progressBarOffset?: string;
   onRefreshFeed?: () => void;
 }
 
@@ -167,9 +168,11 @@ export default function MobilePlayer({
   showInternalChrome = true,
   showInternalSpeedMenu = true,
   showInternalProgress = true,
+  progressBarOffset = 'max(env(safe-area-inset-bottom), 0px)',
   onRefreshFeed,
 }: MobilePlayerProps) {
   const playerRef = useRef<PlayerHandleLike | null>(null);
+  const progressBarRef = useRef<HTMLDivElement | null>(null);
   const touchStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
   const speedBoostRestoreRateRef = useRef<number | null>(null);
   const tapRef = useRef<{ at: number; zone: GestureZone; timeoutId: ReturnType<typeof setTimeout> | null }>({
@@ -194,6 +197,8 @@ export default function MobilePlayer({
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [showPauseButton, setShowPauseButton] = useState(!autoplay);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [scrubTime, setScrubTime] = useState(initialSeekTime);
   const pauseButtonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const labels = labelsProp || DEFAULT_LABELS;
   const playbackRate = playbackRateProp ?? playbackRateState;
@@ -230,6 +235,8 @@ export default function MobilePlayer({
     speedBoostRestoreRateRef.current = null;
     isLongPressActiveRef.current = false;
     setCurrentTime(restoredSeekTime);
+    setScrubTime(restoredSeekTime);
+    setIsScrubbing(false);
     setHasStartedPlayback(false);
   }, [videoUrl, streamVideoId, restoredSeekTime, playbackRateProp]);
 
@@ -604,12 +611,79 @@ export default function MobilePlayer({
   }, [clearLongPress, clearPendingTap, endSpeedBoost]);
 
   const timeLabel = useMemo(() => {
-    return `${formatDuration(currentTime)} / ${formatDuration(duration || 0)}`;
-  }, [currentTime, duration]);
+    const displayedTime = isScrubbing ? scrubTime : currentTime;
+    return `${formatDuration(displayedTime)} / ${formatDuration(duration || 0)}`;
+  }, [currentTime, duration, isScrubbing, scrubTime]);
   const progressPercent = useMemo(() => {
+    const displayedTime = isScrubbing ? scrubTime : currentTime;
     if (!duration || duration <= 0) return 0;
-    return Math.max(0, Math.min(100, (currentTime / duration) * 100));
-  }, [currentTime, duration]);
+    return Math.max(0, Math.min(100, (displayedTime / duration) * 100));
+  }, [currentTime, duration, isScrubbing, scrubTime]);
+
+  const resolveSeekTimeFromClientX = useCallback((clientX: number) => {
+    const element = progressBarRef.current;
+    if (!element || !duration || duration <= 0) return 0;
+
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0) return 0;
+
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return percent * duration;
+  }, [duration]);
+
+  const applySeek = useCallback((nextTime: number) => {
+    playerRef.current?.seek(nextTime);
+    setCurrentTime(nextTime);
+    setScrubTime(nextTime);
+  }, []);
+
+  const handleProgressPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!duration || duration <= 0) return;
+
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setShowChrome(true);
+    setShowSpeedMenu(false);
+
+    const nextTime = resolveSeekTimeFromClientX(event.clientX);
+    setIsScrubbing(true);
+    applySeek(nextTime);
+  }, [applySeek, duration, resolveSeekTimeFromClientX]);
+
+  const handleProgressPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isScrubbing) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const nextTime = resolveSeekTimeFromClientX(event.clientX);
+    applySeek(nextTime);
+  }, [applySeek, isScrubbing, resolveSeekTimeFromClientX]);
+
+  const finishProgressScrub = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isScrubbing) return;
+    event.preventDefault();
+    event.stopPropagation();
+
+    const nextTime = resolveSeekTimeFromClientX(event.clientX);
+    applySeek(nextTime);
+    setIsScrubbing(false);
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, [applySeek, isScrubbing, resolveSeekTimeFromClientX]);
+
+  const cancelProgressScrub = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isScrubbing) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setIsScrubbing(false);
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, [isScrubbing]);
 
   return (
     <div
@@ -773,14 +847,35 @@ export default function MobilePlayer({
       ) : null}
       {showInternalProgress ? (
       <div
-        className="pointer-events-none absolute inset-x-0 z-[11]"
-        style={{ bottom: "max(env(safe-area-inset-bottom), 0px)" }}
+        className="absolute inset-x-0 z-[11] px-3"
+        style={{ bottom: progressBarOffset }}
       >
-        <div className="h-[3px] bg-white/15">
+        <div
+          ref={progressBarRef}
+          className="pointer-events-auto relative h-5 touch-none"
+          onPointerDown={handleProgressPointerDown}
+          onPointerMove={handleProgressPointerMove}
+          onPointerUp={finishProgressScrub}
+          onPointerCancel={cancelProgressScrub}
+          onTouchStart={(event) => event.stopPropagation()}
+          onTouchMove={(event) => event.stopPropagation()}
+          onTouchEnd={(event) => event.stopPropagation()}
+          role="slider"
+          aria-label="Playback progress"
+          aria-valuemin={0}
+          aria-valuemax={Math.max(duration, 0)}
+          aria-valuenow={Math.max(0, Math.min(isScrubbing ? scrubTime : currentTime, duration || 0))}
+        >
+        <div className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-white/15">
           <div
-            className="h-full bg-red-500 shadow-[0_0_16px_rgba(239,68,68,0.55)] transition-[width] duration-200"
+            className="h-full rounded-full bg-red-500 shadow-[0_0_16px_rgba(239,68,68,0.55)] transition-[width] duration-150"
             style={{ width: `${progressPercent}%` }}
           />
+        </div>
+        <div
+          className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/70 bg-white shadow-[0_0_10px_rgba(255,255,255,0.45)] transition-opacity duration-150"
+          style={{ left: `${progressPercent}%`, opacity: showChrome || isScrubbing ? 1 : 0 }}
+        />
         </div>
       </div>
       ) : null}

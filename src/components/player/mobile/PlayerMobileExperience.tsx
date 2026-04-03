@@ -297,9 +297,6 @@ export default function PlayerMobileExperience({
     [currentEpisode, drama]
   );
   const displayedCommentCount = comments.length;
-  const progressPercent = playbackProgress.duration > 0
-    ? Math.max(0, Math.min(100, (playbackProgress.currentTime / playbackProgress.duration) * 100))
-    : 0;
 
   useEffect(() => {
     setCommentInput('');
@@ -656,7 +653,8 @@ export default function PlayerMobileExperience({
         onRefreshFeed={playbackMode === 'feed' ? onRefreshFeed : undefined}
         showInternalChrome={false}
         showInternalSpeedMenu={false}
-        showInternalProgress={false}
+        showInternalProgress
+        progressBarOffset="var(--player-nav-top-offset)"
         className="h-[calc(100dvh-var(--player-nav-top-offset))] w-full"
       />
 
@@ -813,18 +811,6 @@ export default function PlayerMobileExperience({
               </div>
             </div>
           </div>
-        </div>
-      </div>
-
-      <div
-        className="pointer-events-none absolute inset-x-0 z-[58]"
-        style={{ bottom: 'var(--player-nav-top-offset)' }}
-      >
-        <div className="h-[2px] bg-white/18">
-          <div
-            className="h-full bg-[#FF3B5C] shadow-[0_0_8px_rgba(255,59,92,0.8)] transition-[width] duration-200"
-            style={{ width: `${progressPercent}%` }}
-          />
         </div>
       </div>
 
