@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ChevronDown, ChevronsDownUp, ChevronsUpDown, Forward, PictureInPicture2, Play, RotateCcw, Rewind } from 'lucide-react';
 import CloudflarePlayer, { CloudflarePlayerHandle } from '@/components/player/CloudflarePlayer';
-import SimplePlayer, { SimplePlayerHandle } from '@/components/player/SimplePlayer';
+import { SimplePlayerHandle } from '@/components/player/SimplePlayer';
 import NativeHlsPlayer, { NativeHlsPlayerHandle } from '@/components/player/NativeHlsPlayer';
 import { cn, formatDuration } from '@/lib/utils';
 import type { SubtitleTrack } from '@/types';
@@ -15,6 +15,11 @@ import {
   triggerHaptic,
   unlockNativeScreenOrientation,
 } from '@/lib/capacitor-bridge';
+import {
+  buildPlaybackProgressKey,
+  readSavedPlaybackProgress,
+  writeSavedPlaybackProgress,
+} from '@/lib/playback-progress-cache';
 
 interface MobilePlayerProps {
   videoUrl?: string;
@@ -52,11 +57,13 @@ interface MobilePlayerProps {
     holdForSpeed: string;
     nextEpisode: string;
     previousEpisode: string;
+    refreshFeed: string;
     speedBoost: (rate: number) => string;
   };
   showInternalChrome?: boolean;
   showInternalSpeedMenu?: boolean;
   showInternalProgress?: boolean;
+  onRefreshFeed?: () => void;
 }
 
 type GestureZone = 'left' | 'center' | 'right';
@@ -125,6 +132,7 @@ const DEFAULT_LABELS: NonNullable<MobilePlayerProps['labels']> = {
   holdForSpeed: 'Hold for 2x',
   nextEpisode: 'Next Episode',
   previousEpisode: 'Previous Episode',
+  refreshFeed: 'Refresh Feed',
   speedBoost: (rate) => `${rate}x speed`,
 };
 
@@ -159,6 +167,7 @@ export default function MobilePlayer({
   showInternalChrome = true,
   showInternalSpeedMenu = true,
   showInternalProgress = true,
+  onRefreshFeed,
 }: MobilePlayerProps) {
   const playerRef = useRef<PlayerHandleLike | null>(null);
   const touchStartRef = useRef<{ x: number; y: number; at: number } | null>(null);
@@ -181,7 +190,6 @@ export default function MobilePlayer({
   const [duration, setDuration] = useState(0);
   const [pictureInPictureSupported, setPictureInPictureSupported] = useState(false);
   const [pictureInPictureActive, setPictureInPictureActive] = useState(false);
-  const [preferCloudflareIframeBackend, setPreferCloudflareIframeBackend] = useState(false);
   const [preferSimplePlayerBackend, setPreferSimplePlayerBackend] = useState(false);
   const [playerMuted, setPlayerMuted] = useState(autoplay);
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
@@ -190,6 +198,10 @@ export default function MobilePlayer({
   const pauseButtonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const labels = labelsProp || DEFAULT_LABELS;
   const playbackRate = playbackRateProp ?? playbackRateState;
+  const restoredSeekTime = useMemo(() => {
+    if (initialSeekTime > 0) return initialSeekTime;
+    return readSavedPlaybackProgress({ streamVideoId, videoUrl });
+  }, [initialSeekTime, streamVideoId, videoUrl]);
 
   useEffect(() => {
     if (typeof navigator === 'undefined') return;
@@ -206,7 +218,6 @@ export default function MobilePlayer({
     // the playback URL may be proxied through our API server.
     const shouldUseSimple = isAndroid && (hasStreamId || hasHlsUrl) && Boolean(videoUrl);
 
-    setPreferCloudflareIframeBackend(false);
     setPreferSimplePlayerBackend(shouldUseSimple);
 
     if (isAndroid) {
@@ -233,9 +244,9 @@ export default function MobilePlayer({
     setIsSpeedBoosting(false);
     speedBoostRestoreRateRef.current = null;
     isLongPressActiveRef.current = false;
-    setCurrentTime(initialSeekTime);
+    setCurrentTime(restoredSeekTime);
     setHasStartedPlayback(false);
-  }, [videoUrl, streamVideoId, initialSeekTime, playbackRateProp]);
+  }, [videoUrl, streamVideoId, restoredSeekTime, playbackRateProp]);
 
   useEffect(() => {
     setPlayerMuted(Boolean(preferSimplePlayerBackend && autoplay));
@@ -260,9 +271,11 @@ export default function MobilePlayer({
   }, [playbackRateProp]);
 
   useEffect(() => {
+    const currentPlayer = playerRef.current;
+
     return () => {
       try {
-        playerRef.current?.pause();
+        currentPlayer?.pause();
       } catch {
         // Ignore teardown failures while leaving the route.
       }
@@ -271,39 +284,32 @@ export default function MobilePlayer({
 
   // === 功能 1: 播放进度记忆 ===
   const progressKey = useMemo(() => {
-    const id = streamVideoId || videoUrl || '';
-    return id ? `tinytale:progress:${id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 64)}` : '';
+    return buildPlaybackProgressKey({ streamVideoId, videoUrl });
   }, [streamVideoId, videoUrl]);
 
   // 恢复进度
   useEffect(() => {
-    if (!progressKey || initialSeekTime > 0) return;
+    if (!progressKey || restoredSeekTime <= 0) return;
     try {
-      const saved = sessionStorage.getItem(progressKey);
-      if (saved) {
-        const time = parseFloat(saved);
-        if (time > 2 && isFinite(time)) {
-          playerRef.current?.seek(time);
-        }
-      }
-    } catch (_e) { /* ignore */ }
-  }, [progressKey, initialSeekTime]);
+      playerRef.current?.seek(restoredSeekTime);
+    } catch { /* ignore */ }
+  }, [progressKey, restoredSeekTime]);
 
   // 保存进度 (每 5 秒)
   const progressTick = Math.floor(currentTime / 5);
   useEffect(() => {
     if (!progressKey || !isPlaying || currentTime < 1) return;
-    try { sessionStorage.setItem(progressKey, String(currentTime)); } catch { /* ignore */ }
-  }, [progressKey, isPlaying, progressTick, currentTime]);
+    writeSavedPlaybackProgress({ streamVideoId, videoUrl }, currentTime);
+  }, [currentTime, isPlaying, progressKey, progressTick, streamVideoId, videoUrl]);
 
   // 离开前保存
   useEffect(() => {
     return () => {
       if (progressKey && currentTime > 1) {
-        try { sessionStorage.setItem(progressKey, String(currentTime)); } catch { /* ignore */ }
+        writeSavedPlaybackProgress({ streamVideoId, videoUrl }, currentTime);
       }
     };
-  }, [progressKey, currentTime]);
+  }, [currentTime, progressKey, streamVideoId, videoUrl]);
 
   // === 功能 2: 暂停按钮显示逻辑 ===
   useEffect(() => {
@@ -325,7 +331,7 @@ export default function MobilePlayer({
       if (screenOrientation?.lock) {
         await screenOrientation.lock('landscape');
       }
-    } catch (_e) { /* not supported */ }
+    } catch { /* not supported */ }
   }, []);
 
   const exitLandscape = useCallback(async () => {
@@ -335,7 +341,7 @@ export default function MobilePlayer({
       if (screenOrientation?.unlock) {
         screenOrientation.unlock();
       }
-    } catch (_e) { /* not supported */ }
+    } catch { /* not supported */ }
   }, []);
 
   useEffect(() => {
@@ -404,8 +410,15 @@ export default function MobilePlayer({
       void triggerHaptic('light');
       onPreviousEpisode?.();
       setFeedback({ type: 'navigation', label: labels.previousEpisode });
+      return;
     }
-  }, [hasNextEpisode, hasPreviousEpisode, labels.nextEpisode, labels.previousEpisode, onNextEpisode, onPreviousEpisode]);
+
+    if (onRefreshFeed) {
+      void triggerHaptic('medium');
+      onRefreshFeed();
+      setFeedback({ type: 'navigation', label: labels.refreshFeed });
+    }
+  }, [hasNextEpisode, hasPreviousEpisode, labels.nextEpisode, labels.previousEpisode, labels.refreshFeed, onNextEpisode, onPreviousEpisode, onRefreshFeed]);
 
   const applyPlaybackRate = useCallback((rate: number) => {
     playerRef.current?.setPlaybackRate(rate);
@@ -629,7 +642,7 @@ export default function MobilePlayer({
           autoplay={autoplay}
           muted={playerMuted}
           controls={false}
-          initialSeekTime={initialSeekTime}
+          initialSeekTime={restoredSeekTime}
           subtitles={subtitles}
           activeSubtitleLanguage={activeSubtitleLanguage}
           selectedAudioId={selectedAudioId}
@@ -641,8 +654,8 @@ export default function MobilePlayer({
           }}
           onReady={() => {
             setDuration(playerRef.current?.getDuration() || 0);
-            if (initialSeekTime > 0) {
-              playerRef.current?.seek(initialSeekTime);
+            if (restoredSeekTime > 0) {
+              playerRef.current?.seek(restoredSeekTime);
             }
             playerRef.current?.setPlaybackRate(playbackRate);
             setPictureInPictureSupported(playerRef.current?.isPictureInPictureSupported() || false);
@@ -684,8 +697,8 @@ export default function MobilePlayer({
           }}
           onReady={() => {
             setDuration(playerRef.current?.getDuration() || 0);
-            if (initialSeekTime > 0) {
-              playerRef.current?.seek(initialSeekTime);
+            if (restoredSeekTime > 0) {
+              playerRef.current?.seek(restoredSeekTime);
             }
             playerRef.current?.setPlaybackRate(playbackRate);
             setPictureInPictureSupported(playerRef.current?.isPictureInPictureSupported() || false);

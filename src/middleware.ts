@@ -39,12 +39,33 @@ const PUBLIC_PATHS = new Set([
   '/affiliate',
 ]);
 
+const CREATOR_WORKSPACE_SEGMENTS = new Set([
+  'apply',
+  'pending',
+  'dashboard',
+  'dramas',
+  'analytics',
+  'settlements',
+  'contract',
+  'settings',
+  'notifications',
+  'tickets',
+]);
+
+function isPublicCreatorProfilePath(pathname: string) {
+  if (!pathname.startsWith('/creator/')) return false;
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length !== 2) return false;
+  return !CREATOR_WORKSPACE_SEGMENTS.has(segments[1]);
+}
+
 function isPublicPath(pathname: string): boolean {
   const normalized = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
   if (PUBLIC_PATHS.has(normalized)) return true;
   if (normalized.startsWith('/affiliate/')) return true;
   if (normalized.startsWith('/auth/')) return true;
   if (normalized.startsWith('/creator-home/')) return true;
+  if (isPublicCreatorProfilePath(normalized)) return true;
   if (normalized.startsWith('/drama/')) return true;
   if (normalized.startsWith('/ref/')) return true;
   return false;

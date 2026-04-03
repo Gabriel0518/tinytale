@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { Loader2 } from "lucide-react";
 import { creatorApi } from "@/lib/api";
 import { resolveAirwallexLocale } from "@/lib/airwallex";
@@ -68,7 +69,6 @@ export function CreatorAirwallexBeneficiaryForm({
   const fallbackReadyTimerRef = useRef<number | null>(null);
   const iframeProbeTimerRef = useRef<number | null>(null);
   const readyRef = useRef(false);
-  const bootstrapIdRef = useRef(0);
   const [booting, setBooting] = useState(true);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -225,25 +225,25 @@ export function CreatorAirwallexBeneficiaryForm({
         setBooting(false);
       }
     }
-  }, [airwallexLocale, defaultValues, token]);
+  }, [airwallexLocale, defaultValues, t, token]);
 
   useEffect(() => {
-    const runId = ++bootstrapIdRef.current;
-    const currentBootstrapId = runId;
+    let isActive = true;
     let mountedElement: BeneficiaryElement | null = null;
 
-    const cancelled = () => runId !== bootstrapIdRef.current;
+    const cancelled = () => !isActive;
     runBootstrap(cancelled, (el) => { mountedElement = el; });
 
     return () => {
-      if (bootstrapIdRef.current === currentBootstrapId) {
-        bootstrapIdRef.current++;
+      isActive = false;
+      const fallbackReadyTimerId = fallbackReadyTimerRef.current;
+      const iframeProbeTimerId = iframeProbeTimerRef.current;
+
+      if (fallbackReadyTimerId) {
+        window.clearTimeout(fallbackReadyTimerId);
       }
-      if (fallbackReadyTimerRef.current) {
-        window.clearTimeout(fallbackReadyTimerRef.current);
-      }
-      if (iframeProbeTimerRef.current) {
-        window.clearTimeout(iframeProbeTimerRef.current);
+      if (iframeProbeTimerId) {
+        window.clearTimeout(iframeProbeTimerId);
       }
       mountedElement?.destroy();
       elementRef.current = null;
@@ -304,9 +304,12 @@ export function CreatorAirwallexBeneficiaryForm({
               </div>
             ) : (
               <div className="flex min-h-[72px] items-center justify-center">
-                <img
+                <Image
                   src="/ui/airwallex-loading.gif"
                   alt={sdkState}
+                  width={48}
+                  height={48}
+                  unoptimized
                   className="h-12 w-12"
                 />
               </div>

@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Suspense} from "reac
 import { useParams, useRouter, useSearchParams} from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Check, Play, Plus, Share2, Sparkles } from "lucide-react";
+import { Check, Play, Plus, Sparkles } from "lucide-react";
 import { dramasApi, reviewsApi, userApi, coinsApi, episodesApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
@@ -393,7 +393,7 @@ function DramaDetailContent() {
   const [loading, setLoading] = useState(true);
   const [isFavorited, setIsFavorited] = useState(false);
   const [activeEpisode, setActiveEpisode] = useState<Episode | null>(null);
-  const [episodeAutoplay, setEpisodeAutoplay] = useState(true);
+  const episodeAutoplay = true;
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewContent, setReviewContent] = useState("");
@@ -402,11 +402,6 @@ function DramaDetailContent() {
   const [unlockingAll, setUnlockingAll] = useState(false);
   const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
   const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
-  const unlockedEpisodeIdsKey = useMemo(
-    () => Array.from(unlockedEpisodeIds).sort().join(","),
-    [unlockedEpisodeIds]
-  );
-
   // Fetch drama data
   useEffect(() => {
     const fetchData = async () => {
@@ -439,7 +434,7 @@ function DramaDetailContent() {
       }
     };
     fetchData();
-  }, [dramaId, searchParams, t.failedLoadDrama]);
+  }, [dramaId, searchParams, t.failedLoadDrama, toast]);
 
   // Initialize favorite state from API on mount (P1-17)
   useEffect(() => {
@@ -510,7 +505,7 @@ function DramaDetailContent() {
     return () => {
       cancelled = true;
     };
-  }, [token, episodes, unlockedEpisodeIdsKey]);
+  }, [token, episodes, unlockedEpisodeIds]);
 
   // Fetch stream info when active episode changes
   useEffect(() => {
@@ -533,7 +528,11 @@ function DramaDetailContent() {
         if (!cancelled) setStreamInfo(null);
       });
     return () => { cancelled = true; };
-  }, [activeEpisode?._id, activeEpisode?.isFree, token, unlockedEpisodeIds]);
+  }, [activeEpisode, token, unlockedEpisodeIds]);
+
+  const buildDramaPlayerHref = useCallback((episodeId: string) => (
+    `${localizePath(`/drama/${dramaId}/play/${episodeId}`, locale)}?source=drama`
+  ), [dramaId, locale]);
 
   const handleEpisodeClick = useCallback(async (episode: Episode) => {
     if (!episode.isFree && !unlockedEpisodeIds.has(episode._id)) {
@@ -583,9 +582,9 @@ function DramaDetailContent() {
       }
     }
     // 直接跳转到播放页面
-    router.push(localizePath(`/drama/${dramaId}/play/${episode._id}`, locale));
+    router.push(buildDramaPlayerHref(episode._id));
     return true;
-  }, [token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, confirmDialog, dramaId, locale, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.cancel, t.unlockSuccess, t.unlockFail]);
+  }, [token, toast, router, refreshUser, episodes, unlockedEpisodeIds, episodeAccessMap, confirmDialog, buildDramaPlayerHref, locale, t.signInUnlock, t.unlockAll, t.coins, t.vip, t.free, t.cancel, t.unlockSuccess, t.unlockFail]);
 
   // Unlock all paid episodes
   const lockedEpisodes = episodes.filter(ep => !ep.isFree && !unlockedEpisodeIds.has(ep._id));
@@ -653,7 +652,7 @@ function DramaDetailContent() {
     } finally {
       setUnlockingAll(false);
     }
-  }, [token, dramaId, lockedEpisodes.length, totalUnlockCost, unlockAllDiscountCoins, toast, router, refreshUser, confirmDialog, t.signInUnlock, t.unlockAllNone, t.unlockAll, t.episodes, t.coins, t.vip, t.cancel, t.unlockAllSuccessSuffix, t.insufficientCoins, t.unlockAllFail]);
+  }, [token, dramaId, lockedEpisodes.length, totalUnlockCost, unlockAllDiscountCoins, toast, router, refreshUser, confirmDialog, episodes, locale, t.signInUnlock, t.unlockAllNone, t.unlockAll, t.episodes, t.coins, t.vip, t.cancel, t.unlockAllSuccessSuffix, t.insufficientCoins, t.unlockAllFail]);
 
   // Fix favorite toggle logic (P0-05) + auth check (P1-18)
   const toggleFavorite = async () => {
@@ -703,7 +702,7 @@ function DramaDetailContent() {
         toast(t.copyFail, "error");
       }
     }
-  }, [drama?.description, drama?.title, t.copyFail, t.linkCopied, toast]);
+  }, [drama, t.copyFail, t.linkCopied, toast]);
 
   // Auth check for review (P1-18) + toast errors (P1-22)
   const handleSubmitReview = async () => {
@@ -771,7 +770,7 @@ function DramaDetailContent() {
   };
   const isVip = user?.role === 'admin' || user?.vipStatus === 'active';
   const watchEpisode = activeEpisode || episodes.find((episode) => episode.isFree) || episodes[0] || null;
-  const watchHref = watchEpisode ? localizePath(`/drama/${dramaId}/play/${watchEpisode._id}`, locale) : localizePath(`/drama/${dramaId}`, locale);
+  const watchHref = watchEpisode ? buildDramaPlayerHref(watchEpisode._id) : localizePath(`/drama/${dramaId}`, locale);
   const mobileDescription = drama.description || "";
   const shouldClampDescription = mobileDescription.length > 140;
   const visibleMobileDescription = shouldClampDescription && !descriptionExpanded
@@ -859,14 +858,27 @@ function DramaDetailContent() {
                 >
                   {isFavorited ? <Check className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => { void handleShareDrama(); }}
-                  className="inline-flex h-[52px] w-[52px] items-center justify-center rounded-full border border-white/10 bg-[#1a1d23]/78 text-white backdrop-blur-xl transition active:scale-[0.96]"
-                  aria-label={t.share}
-                >
-                  <Share2 className="h-5 w-5" />
-                </button>
+                {drama.creatorId && (
+                  <Link
+                    href={localizePath(`/creator/${drama.creatorId}`, locale)}
+                    className="inline-flex h-[52px] w-[52px] items-center justify-center rounded-full border border-white/10 bg-[#1a1d23]/78 backdrop-blur-xl transition active:scale-[0.96] overflow-hidden"
+                    aria-label="View creator profile"
+                  >
+                    {drama.creatorAvatar ? (
+                      <Image
+                        src={drama.creatorAvatar}
+                        alt={drama.creatorName || "Creator"}
+                        width={52}
+                        height={52}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-lg font-semibold">
+                        {(drama.creatorName || "C").charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </Link>
+                )}
               </div>
             </div>
           </section>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { COUNTRY_GROUPS } from "@/lib/countries";
 import { adminApi } from "@/lib/adminApi";
@@ -828,10 +829,12 @@ function StepBasicInfo({
             >
               {form.verticalCover ? (
                 <>
-                  <img
+                  <Image
                     src={form.verticalCover}
                     alt="Vertical cover preview"
-                    className="absolute inset-0 h-full w-full object-cover"
+                    fill
+                    unoptimized
+                    className="object-cover"
                   />
                   {coverUploading === "verticalCover" ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
@@ -878,10 +881,12 @@ function StepBasicInfo({
             >
               {form.horizontalCover ? (
                 <>
-                  <img
+                  <Image
                     src={form.horizontalCover}
                     alt="Horizontal cover preview"
-                    className="absolute inset-0 h-full w-full object-cover"
+                    fill
+                    unoptimized
+                    className="object-cover"
                   />
                   {coverUploading === "horizontalCover" ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
@@ -2066,7 +2071,7 @@ function StepVideoSubtitles({
                       <p className="mt-2 text-xs text-red-300">Processing failed</p>
                     </div>
                   ) : ep.cover ? (
-                    <img src={ep.cover} alt={ep.name} className="h-full w-full object-cover" />
+                    <Image src={ep.cover} alt={ep.name} fill unoptimized className="object-cover" />
                   ) : (
                     <div className="flex h-full items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -2346,7 +2351,9 @@ function StepPayment({ form, updateForm }: StepPaymentProps) {
           <div className="mb-4 flex items-start gap-3">
             <div className="h-16 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-800">
               {form.verticalCover ? (
-                <img src={form.verticalCover} alt="" className="h-full w-full object-cover" />
+                <div className="relative h-full w-full">
+                  <Image src={form.verticalCover} alt="" fill unoptimized className="object-cover" />
+                </div>
               ) : (
                 <div className="flex h-full items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import { createPortal } from "react-dom";
 import { adminApi } from "@/lib/adminApi";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -193,7 +194,7 @@ export default function AdminBannersPage() {
           <div className="relative rounded-xl border-2 border-dashed border-gray-600 bg-[#13131d] overflow-hidden" style={{ height: imagePreview ? "180px" : "120px" }}>
             {imagePreview ? (
               <>
-                <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+                <Image src={imagePreview} alt="Preview" fill unoptimized className="object-cover" />
                 <button type="button" onClick={() => { setImagePreview(""); setForm(prev => ({ ...prev, image: "" })); }}
                   className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80">
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -258,7 +259,11 @@ export default function AdminBannersPage() {
                     <button key={item._id} type="button"
                       onClick={() => { setForm({ ...form, linkId: item._id }); setLinkSearch(""); setLinkResults([]); }}
                       className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-300 hover:bg-[#13131d]">
-                      {item.cover && <img src={item.cover} alt="" className="h-8 w-6 rounded object-cover" />}
+                      {item.cover ? (
+                        <div className="relative h-8 w-6 shrink-0 overflow-hidden rounded">
+                          <Image src={item.cover} alt="" fill unoptimized className="object-cover" />
+                        </div>
+                      ) : null}
                       <span className="truncate">{item.title || item.name}</span>
                     </button>
                   ))}
@@ -347,8 +352,8 @@ export default function AdminBannersPage() {
         <div className="grid gap-4">
           {banners.map(b => (
             <div key={b._id} className="flex items-center gap-4 rounded-xl border border-gray-700/50 bg-[#13131d] p-4 hover:border-gray-600 transition">
-              <div className="h-20 w-36 flex-shrink-0 overflow-hidden rounded-lg bg-gray-800">
-                {b.image && <img src={b.image} alt={b.title} className="h-full w-full object-cover" />}
+              <div className="relative h-20 w-36 flex-shrink-0 overflow-hidden rounded-lg bg-gray-800">
+                {b.image ? <Image src={b.image} alt={b.title} fill unoptimized className="object-cover" /> : null}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

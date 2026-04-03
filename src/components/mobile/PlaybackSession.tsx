@@ -88,6 +88,10 @@ function readStoredJson<T>(key: string): T | null {
   }
 }
 
+export function readPlaybackSession() {
+  return readStoredJson<PlaybackSession>(STORAGE_KEY);
+}
+
 export function usePlaybackSession() {
   return useContext(PlaybackSessionContext);
 }

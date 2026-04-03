@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowUpRight, Eye, FileText, ShieldCheck, X } from "lucide-react";
@@ -754,9 +755,12 @@ export default function CreatorApplicationDetailPage() {
             <div className="min-h-0 flex-1 bg-[#09090f]">
               {previewAsset.kind === "image" ? (
                 <div className="flex h-full items-center justify-center overflow-auto p-6">
-                  <img
+                  <Image
                     src={previewAsset.href}
                     alt={previewAsset.label}
+                    width={1600}
+                    height={1200}
+                    unoptimized
                     className="max-h-full max-w-full rounded-xl border border-gray-800 object-contain"
                   />
                 </div>

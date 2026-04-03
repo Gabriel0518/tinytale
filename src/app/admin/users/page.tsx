@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { adminApi } from "@/lib/adminApi";
@@ -46,10 +46,7 @@ export default function AdminUsersPage() {
   // API data
   const [users, setUsers] = useState<User[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
-  const [loading, setLoading] = useState(true);
-
   const fetchUsers = useCallback(async () => {
-    setLoading(true);
     try {
       const params: Record<string, any> = { page: currentPage, limit: PAGE_SIZE };
       if (appliedFilters.nickname) params.search = appliedFilters.nickname;
@@ -75,8 +72,6 @@ export default function AdminUsersPage() {
     } catch {
       setUsers([]);
       setTotalUsers(0);
-    } finally {
-      setLoading(false);
     }
   }, [currentPage, appliedFilters]);
 

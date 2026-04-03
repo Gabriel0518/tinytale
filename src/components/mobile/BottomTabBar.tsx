@@ -10,7 +10,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { usePlatform } from "@/hooks/usePlatform";
 import { resolveLocaleCopy } from "@/lib/locale-copy";
 import { triggerHaptic } from "@/lib/capacitor-bridge";
-import { prefetchPlayFeedBootstrap, readPrefetchedPlayFeedBootstrap } from "@/lib/play-feed-prefetch";
+import { prefetchPlayFeedBootstrap } from "@/lib/play-feed-prefetch";
 
 interface BottomTabBarProps {
   notificationCount?: number;
@@ -41,7 +41,7 @@ const TAB_LABELS: FlexibleRecord<SupportedLocale, Record<TabItem["key"], string>
   hi: { home: "होम", browse: "ब्राउज़", play: "चलाएँ", history: "इतिहास", me: "मैं" },
 };
 
-const HIDDEN_PREFIXES = ["/admin", "/affiliate", "/creator", "/auth"];
+const HIDDEN_PREFIXES = ["/admin", "/affiliate", "/auth"];
 const HIDDEN_ROUTES = [
   "/about",
   "/careers",
@@ -52,12 +52,44 @@ const HIDDEN_ROUTES = [
   "/terms",
 ];
 
-const TAB_NAVIGATION_MASK_TIMEOUT_MS = 900;
+const CREATOR_WORKSPACE_SEGMENTS = new Set([
+  "apply",
+  "pending",
+  "dashboard",
+  "dramas",
+  "analytics",
+  "settlements",
+  "contract",
+  "settings",
+  "notifications",
+  "tickets",
+]);
+
+const TAB_NAVIGATION_MASK_TIMEOUT_MS = 3000;
+
+function isCreatorWorkspacePath(pathname: string) {
+  if (pathname === "/creator") return true;
+  if (!pathname.startsWith("/creator/")) return false;
+
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length < 2) return false;
+  return CREATOR_WORKSPACE_SEGMENTS.has(segments[1]);
+}
+
+function isPublicCreatorProfilePath(pathname: string) {
+  if (!pathname.startsWith("/creator/")) return false;
+
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length !== 2) return false;
+  return !CREATOR_WORKSPACE_SEGMENTS.has(segments[1]);
+}
 
 function shouldShowTabBar(pathname: string) {
   if (!pathname) return false;
   if (pathname.includes("/play/")) return false;
   if (pathname.startsWith("/user/coins/checkout")) return false;
+  if (isPublicCreatorProfilePath(pathname)) return true;
+  if (isCreatorWorkspacePath(pathname)) return false;
   if (HIDDEN_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return false;
   if (HIDDEN_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) return false;
   return true;
@@ -69,6 +101,7 @@ function resolveActiveTab(pathname: string) {
     pathname.startsWith("/browse") ||
     pathname.startsWith("/search") ||
     pathname.startsWith("/category") ||
+    isPublicCreatorProfilePath(pathname) ||
     (pathname.startsWith("/drama") && !pathname.includes("/play/"))
   ) {
     return "/browse";
@@ -110,10 +143,10 @@ export function BottomTabBar({ notificationCount = 0, forceVisible = false }: Bo
   }, [isVisible]);
 
   useEffect(() => {
-    if (pendingHref && normalizedPath === pendingHref) {
+    if (pendingHref && (normalizedPath === pendingHref || activeTab === pendingHref)) {
       setPendingHref(null);
     }
-  }, [normalizedPath, pendingHref]);
+  }, [activeTab, normalizedPath, pendingHref]);
 
   useEffect(() => {
     if (!pendingHref) {
@@ -141,20 +174,16 @@ export function BottomTabBar({ notificationCount = 0, forceVisible = false }: Bo
     void triggerHaptic("selection");
 
     if (href === "/play") {
-      setPendingHref("/play");
-      void (async () => {
-        const cachedBootstrap = readPrefetchedPlayFeedBootstrap("for-you");
-        const payload = cachedBootstrap || await prefetchPlayFeedBootstrap("for-you");
-        const target = payload?.window?.current;
+      if (normalizedPath === href) {
+        setPendingHref(null);
+        return;
+      }
 
-        startTransition(() => {
-          if (target?.dramaId && target?.episodeId) {
-            router.push(localizePath(`/drama/${target.dramaId}/play/${target.episodeId}`, locale));
-            return;
-          }
-          router.push(localizePath("/play", locale));
-        });
-      })();
+      setPendingHref("/play");
+      void prefetchPlayFeedBootstrap("for-you");
+      startTransition(() => {
+        router.push(localizePath("/play", locale));
+      });
       return;
     }
 

@@ -223,6 +223,7 @@ export async function unlockNativeScreenOrientation() {
 
 export async function syncNativeStatusBar(pathname: string) {
   if (!isNativeApp()) return;
+  void pathname;
 
   try {
     const { StatusBar, Style } = await import("@capacitor/status-bar");

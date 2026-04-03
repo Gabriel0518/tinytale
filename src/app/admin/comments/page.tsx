@@ -118,13 +118,11 @@ export default function CommentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [comments, setComments] = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   // ── Fetch comments from API ──
   const fetchComments = useCallback(async () => {
     try {
-      setLoading(true);
       const params: any = { page: 1, limit: 200 };
       if (statusFilter === "Pending") params.status = "pending";
       else if (statusFilter === "Visible") params.status = "approved";
@@ -147,8 +145,6 @@ export default function CommentsPage() {
       })));
     } catch {
       setComments([]);
-    } finally {
-      setLoading(false);
     }
   }, [statusFilter]);
 

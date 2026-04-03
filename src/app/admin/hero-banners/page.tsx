@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { createPortal } from "react-dom";
 import { adminApi } from "@/lib/adminApi";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -302,7 +303,7 @@ export default function AdminHeroBannersPage() {
           >
             {coverPreview ? (
               <>
-                <img src={coverPreview} alt="Cover preview" className="h-full w-full object-cover" />
+                <Image src={coverPreview} alt="Cover preview" fill unoptimized className="object-cover" />
                 <button
                   type="button"
                   onClick={() => {
@@ -407,7 +408,11 @@ export default function AdminHeroBannersPage() {
                     }}
                     className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-300 hover:bg-[#13131d]"
                   >
-                    {drama.cover && <img src={drama.cover} alt="" className="h-8 w-6 rounded object-cover" />}
+                    {drama.cover ? (
+                      <div className="relative h-8 w-6 shrink-0 overflow-hidden rounded">
+                        <Image src={drama.cover} alt="" fill unoptimized className="object-cover" />
+                      </div>
+                    ) : null}
                     <span className="truncate">{drama.title}</span>
                   </button>
                 ))}
@@ -524,8 +529,8 @@ export default function AdminHeroBannersPage() {
               key={item._id}
               className="flex items-center gap-4 rounded-xl border border-gray-700/50 bg-[#13131d] p-4 transition hover:border-gray-600"
             >
-              <div className="h-24 w-44 flex-shrink-0 overflow-hidden rounded-lg bg-gray-800">
-                {item.coverImage && <img src={item.coverImage} alt={item.title} className="h-full w-full object-cover" />}
+              <div className="relative h-24 w-44 flex-shrink-0 overflow-hidden rounded-lg bg-gray-800">
+                {item.coverImage ? <Image src={item.coverImage} alt={item.title} fill unoptimized className="object-cover" /> : null}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import Image from "next/image";
 import { COUNTRY_GROUPS } from "@/lib/countries";
 
 // ── Types ──────────────────────────────────────────────
@@ -599,7 +600,7 @@ function StepBasicInfo({
             >
               {form.verticalCover ? (
                 <>
-                  <img src={form.verticalCover} alt="Vertical cover" className="absolute inset-0 h-full w-full object-cover" />
+                  <Image src={form.verticalCover} alt="Vertical cover" fill unoptimized className="object-cover" />
                   {coverUploading === "verticalCover" ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-400 border-t-white" />
@@ -632,7 +633,7 @@ function StepBasicInfo({
             >
               {form.horizontalCover ? (
                 <>
-                  <img src={form.horizontalCover} alt="Horizontal cover" className="absolute inset-0 h-full w-full object-cover" />
+                  <Image src={form.horizontalCover} alt="Horizontal cover" fill unoptimized className="object-cover" />
                   {coverUploading === "horizontalCover" ? (
                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60">
                       <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-400 border-t-white" />
@@ -899,7 +900,9 @@ function StepPayment({ form, updateForm }: {
           <div className="mb-4 flex items-start gap-3">
             <div className="h-16 w-12 shrink-0 overflow-hidden rounded-lg bg-gray-800">
               {form.verticalCover ? (
-                <img src={form.verticalCover} alt="" className="h-full w-full object-cover" />
+                <div className="relative h-full w-full">
+                  <Image src={form.verticalCover} alt="" fill unoptimized className="object-cover" />
+                </div>
               ) : (
                 <div className="flex h-full items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

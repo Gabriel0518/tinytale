@@ -1,4 +1,6 @@
 import type {
+  Drama,
+  Episode,
   EpisodeAccessResult,
   FeedBootstrapPayload,
   FeedPlayableItem,
@@ -279,6 +281,42 @@ export type RechargeVerificationResponse = {
   };
 };
 
+export type ContinueWatchingEntry = {
+  _id: string;
+  dramaId: string;
+  episodeId: string | null;
+  drama: Drama;
+  episode: Episode | null;
+  progress: number;
+  resumeSeconds: number;
+  durationSeconds: number;
+  updatedAt: string;
+};
+
+export type PublicCreatorProfilePayload = {
+  creator: {
+    _id: string;
+    nickname: string;
+    avatar?: string;
+    joinedAt: string | null;
+    visibility: 'private' | 'team' | 'public';
+    bio: string;
+    twitter: string;
+    instagram: string;
+    portfolioUrl: string;
+    primaryLanguage: string;
+    genreFocus: string;
+    publicContactEmail: string;
+  };
+  stats: {
+    publishedSeries: number;
+    totalEpisodes: number;
+    totalViews: number;
+  };
+  featuredDrama: Drama | null;
+  dramas: Drama[];
+};
+
 type CreatorAutoSplitResponseData = {
   jobId?: string;
   status?: 'processing' | 'completed' | 'failed';
@@ -361,6 +399,11 @@ export const dramasApi = {
 
   getRelated: (id: string) =>
     api.get(`/api/dramas/${id}/related`),
+};
+
+export const publicCreatorApi = {
+  getProfile: (creatorId: string) =>
+    api.get<{ success: boolean; data: PublicCreatorProfilePayload }>(`/api/creators/${creatorId}/profile`),
 };
 
 // Episodes API
@@ -475,7 +518,7 @@ export const userApi = {
     api.get('/api/user/history', { token }),
 
   getContinueWatching: (token: string, limit = 24) =>
-    api.get(`/api/user/history/continue?limit=${limit}`, { token }),
+    api.get<{ success: boolean; data: ContinueWatchingEntry[] }>(`/api/user/history/continue?limit=${limit}`, { token }),
 
   addHistory: (token: string, dramaId: string, episodeId: string) =>
     api.post('/api/user/history', { dramaId, episodeId }, { token }),

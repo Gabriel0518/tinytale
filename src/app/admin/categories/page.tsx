@@ -144,12 +144,10 @@ export default function AdminCategoriesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CategoryFormData>(EMPTY_FORM);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   const fetchCategories = useCallback(async () => {
     try {
-      setLoading(true);
       const res: any = await adminApi.getCategories();
       const items = res.data?.categories || res.data || [];
       setCategories(items.map((c: any) => ({
@@ -165,8 +163,6 @@ export default function AdminCategoriesPage() {
       })));
     } catch {
       setCategories([]);
-    } finally {
-      setLoading(false);
     }
   }, []);
 

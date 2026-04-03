@@ -159,7 +159,7 @@ export default function RolesPage() {
     setModuleAccess(access);
   }
 
-  useEffect(() => { fetchRoles(); }, []);
+  useEffect(() => { void fetchRoles(); }, [fetchRoles]);
 
   // Select a role
   function selectRole(role: Role) {

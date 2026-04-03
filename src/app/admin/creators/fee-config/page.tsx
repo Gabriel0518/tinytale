@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, Pencil, Trash2, DollarSign, Globe, Calculator } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { adminApi } from "@/lib/adminApi";
@@ -55,7 +55,7 @@ export default function AirwallexFeeConfigPage() {
   const [submitting, setSubmitting] = useState(false);
   const [previewAmount, setPreviewAmount] = useState("100");
 
-  const fetchConfigs = async () => {
+  const fetchConfigs = useCallback(async () => {
     try {
       const res: any = await adminApi.getAirwallexFeeConfigs();
       if (res?.success) setConfigs(res.data || []);
@@ -64,9 +64,9 @@ export default function AirwallexFeeConfigPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
-  useEffect(() => { fetchConfigs(); }, []);
+  useEffect(() => { void fetchConfigs(); }, [fetchConfigs]);
 
   const openCreate = () => {
     setEditingId(null);
@@ -117,7 +117,7 @@ export default function AirwallexFeeConfigPage() {
         toast("Fee config created", "info");
       }
       setShowModal(false);
-      fetchConfigs();
+      void fetchConfigs();
     } catch (err: any) {
       toast(err?.message || "Failed to save", "error");
     } finally {

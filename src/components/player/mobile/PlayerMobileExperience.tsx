@@ -34,6 +34,7 @@ import type { NormalizedPlaybackSource, PlaybackAudioOption } from '@/lib/playba
 
 type FeedMode = 'for-you' | 'following';
 type OptionsView = 'root' | 'speed' | 'subtitles' | 'audio' | 'report';
+type PlaybackEntryMode = 'feed' | 'drama';
 const PLAYER_NAV_TOP_OFFSET = 'calc(4.75rem + env(safe-area-inset-bottom))';
 
 type PlayerFeedItem = {
@@ -78,6 +79,10 @@ interface PlayerMobileExperienceProps {
   hasPreviousEpisode?: boolean;
   onNextEpisode?: () => void;
   onPreviousEpisode?: () => void;
+  onRefreshFeed?: () => void;
+  playbackMode?: PlaybackEntryMode;
+  parentHref?: string;
+  onBackToParent?: () => void;
 }
 
 const PLAYBACK_SPEEDS = [0.75, 1, 1.25, 1.5, 2];
@@ -206,6 +211,10 @@ export default function PlayerMobileExperience({
   hasPreviousEpisode = false,
   onNextEpisode,
   onPreviousEpisode,
+  onRefreshFeed,
+  playbackMode = 'feed',
+  parentHref,
+  onBackToParent,
 }: PlayerMobileExperienceProps) {
   const copy = useMemo(() => getLocaleCopy(locale), [locale]);
   const router = useRouter();
@@ -231,33 +240,57 @@ export default function PlayerMobileExperience({
     duration: currentEpisode.duration || 0,
   });
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
-  const [swipeHint, setSwipeHint] = useState(false);
 
-  // 右侧边缘左滑进入剧集详情页
-  const swipeRef = useRef<{ startX: number; startY: number; edgeStart: boolean } | null>(null);
+  const canOpenDramaDetail = playbackMode === 'feed';
+  const canSwipeBackToParent = playbackMode === 'drama';
+  const edgeSwipeRef = useRef<{ startX: number; startY: number; edge: 'left' | 'right' | null } | null>(null);
 
   const handleSwipeTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
     const screenW = window.innerWidth;
-    // 只在屏幕右侧 15% 区域触发
+    const isLeftEdge = touch.clientX < screenW * 0.15;
     const isRightEdge = touch.clientX > screenW * 0.85;
-    swipeRef.current = { startX: touch.clientX, startY: touch.clientY, edgeStart: isRightEdge };
-  }, []);
+
+    if (canOpenDramaDetail && isRightEdge) {
+      edgeSwipeRef.current = { startX: touch.clientX, startY: touch.clientY, edge: 'right' };
+      return;
+    }
+
+    if (canSwipeBackToParent && isLeftEdge) {
+      edgeSwipeRef.current = { startX: touch.clientX, startY: touch.clientY, edge: 'left' };
+      return;
+    }
+
+    edgeSwipeRef.current = null;
+  }, [canOpenDramaDetail, canSwipeBackToParent]);
 
   const handleSwipeTouchEnd = useCallback((e: React.TouchEvent) => {
-    const ref = swipeRef.current;
-    swipeRef.current = null;
-    if (!ref?.edgeStart) return;
+    const ref = edgeSwipeRef.current;
+    edgeSwipeRef.current = null;
+    if (!ref?.edge) return;
 
     const touch = e.changedTouches[0];
-    const dx = ref.startX - touch.clientX;
+    const deltaX = touch.clientX - ref.startX;
     const dy = Math.abs(touch.clientY - ref.startY);
-    // 左滑超过 60px 且水平位移大于垂直位移
-    if (dx > 60 && dx > dy * 1.5) {
-      setSwipeHint(false);
-      router.push(localizePath(`/drama/${dramaId}`, locale));
+
+    if (ref.edge === 'right' && canOpenDramaDetail) {
+      const leftSwipeDistance = ref.startX - touch.clientX;
+      if (leftSwipeDistance > 60 && leftSwipeDistance > dy * 1.5) {
+        router.push(localizePath(`/drama/${dramaId}`, locale));
+      }
+      return;
     }
-  }, [dramaId, locale, router]);
+
+    if (ref.edge === 'left' && canSwipeBackToParent && deltaX > 60 && deltaX > dy * 1.5) {
+      if (onBackToParent) {
+        onBackToParent();
+        return;
+      }
+      if (parentHref) {
+        router.push(parentHref);
+      }
+    }
+  }, [canOpenDramaDetail, canSwipeBackToParent, dramaId, locale, onBackToParent, parentHref, router]);
 
   const currentFeedItem = useMemo(
     () => buildFeedItem(drama, currentEpisode),
@@ -586,11 +619,15 @@ export default function PlayerMobileExperience({
       onTouchStart={handleSwipeTouchStart}
       onTouchEnd={handleSwipeTouchEnd}
     >
-      {/* 右侧边缘滑动指示条 */}
-      <div className="pointer-events-none absolute right-0 top-1/2 z-[60] h-16 w-1 -translate-y-1/2 rounded-l-full bg-white/15" />
+      {canOpenDramaDetail ? (
+        <div className="pointer-events-none absolute right-0 top-1/2 z-[60] h-16 w-1 -translate-y-1/2 rounded-l-full bg-white/15" />
+      ) : null}
+      {canSwipeBackToParent ? (
+        <div className="pointer-events-none absolute left-0 top-1/2 z-[60] h-16 w-1 -translate-y-1/2 rounded-r-full bg-white/15" />
+      ) : null}
       <MobilePlayer
         streamVideoId={playbackSource.streamVideoId}
-        videoUrl={playbackSource.rawVideoUrl || playbackSource.playbackUrl}
+        videoUrl={playbackSource.playbackUrl || playbackSource.rawVideoUrl}
         signedToken={playbackSource.signedToken}
         quality="auto"
         subtitles={playbackSource.subtitles}
@@ -616,6 +653,7 @@ export default function PlayerMobileExperience({
         onPreviousEpisode={onPreviousEpisode}
         hasNextEpisode={hasNextEpisode}
         hasPreviousEpisode={hasPreviousEpisode}
+        onRefreshFeed={playbackMode === 'feed' ? onRefreshFeed : undefined}
         showInternalChrome={false}
         showInternalSpeedMenu={false}
         showInternalProgress={false}
@@ -624,30 +662,58 @@ export default function PlayerMobileExperience({
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_bottom,rgba(255,74,106,0.18),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0.28),transparent_24%,rgba(0,0,0,0.34)_72%,rgba(0,0,0,0.9)_100%)]" />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-[55] flex justify-center px-6 pt-[calc(0.9rem+10px+env(safe-area-inset-top))]">
-        <nav className="pointer-events-auto inline-flex items-center gap-8 text-lg font-bold tracking-tight">
+      {playbackMode === 'feed' ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[55] flex justify-center px-6 pt-[calc(0.9rem+10px+env(safe-area-inset-top))]">
+          <nav className="pointer-events-auto inline-flex items-center gap-8 text-lg font-bold tracking-tight">
+            <button
+              type="button"
+              disabled={isFeedLoading}
+              onClick={() => handleSelectFeed('for-you')}
+              className={cn(
+                'border-b-2 pb-1 transition disabled:opacity-45',
+                activeFeedMode === 'for-you' ? 'border-[#d8dbe1] text-[#e3e6ec]' : 'border-transparent text-[#8d93a0]'
+              )}
+            >
+              {copy.forYou}
+            </button>
+            <button
+              type="button"
+              disabled={isFeedLoading}
+              onClick={() => handleSelectFeed('following')}
+              className={cn(
+                'border-b-2 pb-1 transition disabled:opacity-45',
+                activeFeedMode === 'following' ? 'border-[#d8dbe1] text-[#e3e6ec]' : 'border-transparent text-[#8d93a0]'
+              )}
+            >
+              {copy.following}
+            </button>
+          </nav>
+        </div>
+      ) : (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[55] flex items-start justify-between px-4 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
             type="button"
-            onClick={() => handleSelectFeed('for-you')}
-            className={cn(
-              'border-b-2 pb-1 transition',
-              activeFeedMode === 'for-you' ? 'border-[#d8dbe1] text-[#e3e6ec]' : 'border-transparent text-[#8d93a0]'
-            )}
+            onClick={() => {
+              if (onBackToParent) {
+                onBackToParent();
+                return;
+              }
+              if (parentHref) {
+                router.push(parentHref);
+              }
+            }}
+            className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-[#e3e6ec] backdrop-blur-md"
+            aria-label="Back to drama"
           >
-            {copy.forYou}
+            <ChevronLeft className="h-5 w-5" />
           </button>
-          <button
-            type="button"
-            onClick={() => handleSelectFeed('following')}
-            className={cn(
-              'border-b-2 pb-1 transition',
-              activeFeedMode === 'following' ? 'border-[#d8dbe1] text-[#e3e6ec]' : 'border-transparent text-[#8d93a0]'
-            )}
-          >
-            {copy.following}
-          </button>
-        </nav>
-      </div>
+
+          <div className="pointer-events-none rounded-full border border-white/10 bg-black/30 px-3 py-1.5 text-right backdrop-blur-md">
+            <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">{currentFeedItem.dramaTitle}</p>
+            <p className="mt-1 text-sm font-semibold text-[#e0e4eb]">{currentFeedItem.episodeTitle}</p>
+          </div>
+        </div>
+      )}
 
       <div className="pointer-events-none absolute right-4 bottom-[calc(var(--player-nav-top-offset)+3rem)] z-[56] flex flex-col items-center gap-[15px]">
         <div className="pointer-events-auto relative">
@@ -1057,7 +1123,30 @@ export default function PlayerMobileExperience({
         ) : null}
       </MobileBottomSheet>
 
-      <BottomTabBar forceVisible />
+      {playbackMode === 'feed' ? (
+        <BottomTabBar forceVisible />
+      ) : (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 md:hidden">
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(100%+env(safe-area-inset-bottom))] bg-[#111116]/95" />
+          <div className="pointer-events-auto relative mx-auto max-w-md rounded-t-[28px] border-t border-white/10 bg-[#111116]/95 px-5 pb-safe-bottom pt-3 shadow-[0_-18px_36px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/42">{currentFeedItem.dramaTitle}</p>
+                <h2 className="mt-1 truncate text-sm font-semibold text-[#e0e4eb]">{currentFeedItem.episodeTitle}</h2>
+                <p className="mt-1 text-xs text-[#aeb4be]">
+                  Episode {currentEpisode.episodeNumber}
+                </p>
+              </div>
+              <div className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold text-[#d2d7df]">
+                {Math.max(0, Math.round(playbackProgress.duration || currentEpisode.duration || 0))}s
+              </div>
+            </div>
+            {currentFeedItem.description ? (
+              <p className="mt-2 line-clamp-1 text-xs text-[#8f97a3]">{currentFeedItem.description}</p>
+            ) : null}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

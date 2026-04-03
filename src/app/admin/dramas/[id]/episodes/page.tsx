@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { adminApi } from "@/lib/adminApi";
@@ -1005,7 +1006,7 @@ export default function EpisodesPage() {
                     <td className="px-4 py-3">
                       <div className="relative h-12 w-20 rounded-md bg-gray-800 flex items-center justify-center overflow-hidden">
                         {ep.cover ? (
-                          <img src={ep.cover} alt={ep.title} className="h-full w-full object-cover" />
+                          <Image src={ep.cover} alt={ep.title} fill unoptimized className="object-cover" />
                         ) : (
                           <svg className="h-5 w-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M8 5v14l11-7z" />

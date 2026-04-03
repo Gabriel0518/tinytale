@@ -154,6 +154,12 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
           // Ignore mode sync failures while tracks are still initialising.
         }
       }
+
+      const subtitleTrackCount = Array.from(textTracks || []).filter((track) => {
+        const kind = String(track?.kind || '').toLowerCase();
+        return kind === 'subtitles' || kind === 'captions';
+      }).length;
+      log(`subtitle-sync target=${target || 'off'} trackCount=${subtitleTrackCount}`);
     }, [activeSubtitleLanguage]);
 
     const publishAudioOptions = useCallback((options: PlaybackAudioOption[]) => {
@@ -345,6 +351,46 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
     }, [subtitles, activeSubtitleLanguage, syncSubtitleTrackModes]);
 
     useEffect(() => {
+      const video = videoRef.current;
+      if (!video) return undefined;
+
+      const trackElements = Array.from(video.querySelectorAll('track'));
+      if (trackElements.length === 0) {
+        syncSubtitleTrackModes();
+        return undefined;
+      }
+
+      const cleanupFns = trackElements.map((trackElement) => {
+        const handleLoad = () => {
+          const language = trackElement.getAttribute('srclang') || 'unknown';
+          log(`subtitle-track loaded lang=${language} src=${trackElement.getAttribute('src') || 'n/a'}`);
+          syncSubtitleTrackModes();
+        };
+        const handleError = () => {
+          const language = trackElement.getAttribute('srclang') || 'unknown';
+          log(`subtitle-track error lang=${language} src=${trackElement.getAttribute('src') || 'n/a'}`);
+        };
+
+        trackElement.addEventListener('load', handleLoad);
+        trackElement.addEventListener('error', handleError);
+
+        return () => {
+          trackElement.removeEventListener('load', handleLoad);
+          trackElement.removeEventListener('error', handleError);
+        };
+      });
+
+      const syncTimeoutId = window.setTimeout(() => {
+        syncSubtitleTrackModes();
+      }, 0);
+
+      return () => {
+        window.clearTimeout(syncTimeoutId);
+        cleanupFns.forEach((cleanup) => cleanup());
+      };
+    }, [subtitles, activeSubtitleLanguage, syncSubtitleTrackModes]);
+
+    useEffect(() => {
       const hls = hlsRef.current;
       if (!hls || selectedAudioId === undefined) return;
 
@@ -364,6 +410,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         <video
           ref={videoRef}
           poster={poster}
+          crossOrigin="anonymous"
           playsInline
           webkit-playsinline=""
           preload="auto"

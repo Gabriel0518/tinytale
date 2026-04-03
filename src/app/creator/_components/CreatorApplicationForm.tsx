@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -1635,9 +1636,12 @@ function UploadCard({
         <div className="mt-3 rounded-2xl border border-[#dbe2ea] bg-white p-3 shadow-sm">
           <div className="flex items-start gap-3">
             {previewIsImage && fileUrl ? (
-              <img
+              <Image
                 src={fileUrl}
                 alt={t("Uploaded file")}
+                width={64}
+                height={64}
+                unoptimized
                 className="h-16 w-16 rounded-xl border border-[#e2e8f0] object-cover"
               />
             ) : (
