@@ -553,6 +553,7 @@ export default function PlayEpisodePage() {
   const feedWindowsRef = useRef<Partial<Record<PlayFeedMode, FeedWindowState>>>({});
   const feedHistoryRef = useRef<Partial<Record<PlayFeedMode, FeedPlayableItem[]>>>({});
   const currentEpisodeRef = useRef<Episode | null>(seededPlaybackState?.currentEpisode || null);
+  const episodeSwitchRequestRef = useRef(0);
   const paywallTouchStartYRef = useRef<number | null>(null);
   const [autoplayNextEpisode, setAutoplayNextEpisode] = useState(
     () => readPlaybackRuntimeSettings()?.autoplayNextEpisode ?? true
@@ -1289,6 +1290,9 @@ export default function PlayEpisodePage() {
   ]);
 
   const goToEpisode = useCallback(async (targetEpisode: Episode) => {
+    const requestId = episodeSwitchRequestRef.current + 1;
+    episodeSwitchRequestRef.current = requestId;
+
     // Cancel all previous downloads to free bandwidth for new video
     cancelAllActiveDownloads();
     const nextRoute = buildPlayerRoute(activeDramaId, targetEpisode._id, locale, "drama");
@@ -1312,16 +1316,17 @@ export default function PlayEpisodePage() {
     replacePlaybackUrl(nextRoute);
     setActiveEpisodeId(targetEpisode._id);
     setActiveSeekTime(0);
-    router.push(nextRoute, { scroll: false });
 
     // Fetch stream info for the new episode
     try {
       const stream = await prefetchEpisodeStream(targetEpisode._id, token);
-      setStreamInfo(stream);
+      if (episodeSwitchRequestRef.current === requestId) {
+        setStreamInfo(stream);
+      }
     } catch {
       // Let the route-bound loader finish access checks and recover if needed.
     }
-  }, [activeDramaId, locale, router, token]);
+  }, [activeDramaId, locale, token]);
 
   const handlePreviousEpisode = useCallback(() => {
     if (hasPreviousEpisode) {
@@ -1678,8 +1683,8 @@ export default function PlayEpisodePage() {
       <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
         <div className="absolute inset-0">
           <SimplePlayer
-            key={currentEpisode._id}
             videoUrl={videoUrl || ''}
+            sourceIdentity={currentEpisode._id}
             poster={currentEpisode.thumbnail || drama?.cover}
             autoplay={true}
             initialSeekTime={activeSeekTime}

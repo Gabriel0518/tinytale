@@ -27,6 +27,7 @@ function formatMediaError(error: MediaError | null | undefined): string {
 
 interface SimplePlayerProps {
   videoUrl: string;
+  sourceIdentity?: string;
   poster?: string;
   autoplay?: boolean;
   muted?: boolean;
@@ -73,6 +74,7 @@ export interface SimplePlayerHandle {
 
 const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function SimplePlayer({
   videoUrl,
+  sourceIdentity,
   poster,
   autoplay = false,
   muted: mutedProp = false,
@@ -94,6 +96,7 @@ const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function 
 }, ref) {
   const playerRef = useRef<any>(null);
   const lastUrlRef = useRef<string>(videoUrl);
+  const lastSourceIdentityRef = useRef<string>(sourceIdentity || videoUrl);
   const resumeTimeRef = useRef<number>(0);
   const resumePlayingRef = useRef<boolean>(autoplay);
   const autoplayRetryTimeoutsRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
@@ -304,13 +307,26 @@ const SimplePlayer = forwardRef<SimplePlayerHandle, SimplePlayerProps>(function 
     onError?.(error?.message || 'Video playback error');
   };
 
-  // Keep playback position when switching quality (URL changes with query params).
+  // Preserve playback position for source updates within the same episode
+  // (for example quality changes), but reset it when the episode identity changes.
   useEffect(() => {
-    if (lastUrlRef.current === videoUrl) return;
-    resumeTimeRef.current = playerRef.current?.getCurrentTime?.() || 0;
-    resumePlayingRef.current = playing;
+    const nextSourceIdentity = sourceIdentity || videoUrl;
+    const didChangeUrl = lastUrlRef.current !== videoUrl;
+    const didChangeSourceIdentity = lastSourceIdentityRef.current !== nextSourceIdentity;
+
+    if (!didChangeUrl && !didChangeSourceIdentity) return;
+
+    if (didChangeUrl && !didChangeSourceIdentity) {
+      resumeTimeRef.current = playerRef.current?.getCurrentTime?.() || 0;
+      resumePlayingRef.current = playing;
+    } else {
+      resumeTimeRef.current = 0;
+      resumePlayingRef.current = autoplay;
+    }
+
     lastUrlRef.current = videoUrl;
-  }, [videoUrl, playing]);
+    lastSourceIdentityRef.current = nextSourceIdentity;
+  }, [autoplay, playing, sourceIdentity, videoUrl]);
 
   useEffect(() => {
     hasAppliedInitialSeekRef.current = false;
