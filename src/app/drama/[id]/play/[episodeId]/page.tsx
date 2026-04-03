@@ -8,7 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { coinsApi, dramasApi, episodesApi, playFeedApi, userApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
-import { deepPrefetchVideoSegments, getPreloadQueue } from "@/lib/playback-prefetch-enhanced";
+import { deepPrefetchVideoSegments, getPreloadQueue, cancelAllActiveDownloads } from "@/lib/playback-prefetch-enhanced";
 import { useToast } from "@/components/ui/Toast";
 import { Drama, Episode, EpisodeAccessResult, FeedPlayableItem, FeedWindowState } from "@/types";
 import type { StreamPlaybackInfo } from "@/types";
@@ -519,6 +519,7 @@ export default function PlayEpisodePage() {
   const [feedWindows, setFeedWindows] = useState<Partial<Record<PlayFeedMode, FeedWindowState>>>({});
   const [feedLoadingMode, setFeedLoadingMode] = useState<PlayFeedMode | null>(null);
   const feedWindowsRef = useRef<Partial<Record<PlayFeedMode, FeedWindowState>>>({});
+  const feedHistoryRef = useRef<Partial<Record<PlayFeedMode, FeedPlayableItem[]>>>({});
   const currentEpisodeRef = useRef<Episode | null>(seededPlaybackState?.currentEpisode || null);
   const paywallTouchStartYRef = useRef<number | null>(null);
   const [autoplayNextEpisode, setAutoplayNextEpisode] = useState(
@@ -877,6 +878,12 @@ export default function PlayEpisodePage() {
       ...feedWindowsRef.current,
       [mode]: nextWindow,
     };
+
+    // Update history stack (keep last 20 items)
+    const history = feedHistoryRef.current[mode] || [];
+    const newHistory = [...history, targetItem].slice(-20);
+    feedHistoryRef.current[mode] = newHistory;
+
     persistFeedSession(mode, nextWindows);
     void prefetchEpisodeStream(targetItem.episodeId, token).catch(() => {});
     void deepPrefetchVideoSegments(targetItem.playbackUrl, {
@@ -901,6 +908,32 @@ export default function PlayEpisodePage() {
 
   const handleFeedPreviousItem = useCallback(async () => {
     const window = feedWindowsRef.current[activeFeedMode];
+    const history = feedHistoryRef.current[activeFeedMode] || [];
+
+    // Try to get previous from history stack first
+    if (history.length > 1) {
+      // Pop current item, get previous
+      const previousItem = history[history.length - 2];
+      feedHistoryRef.current[activeFeedMode] = history.slice(0, -1);
+
+      const nextWindow: FeedWindowState = {
+        ...window!,
+        current: previousItem,
+        previous: history.length > 2 ? history[history.length - 3] : null,
+        next: dedupeFeedItems([window!.current, ...window!.next]),
+        loadingStates: {
+          current: "loaded",
+          next: dedupeFeedItems([window!.current, ...window!.next]).map(() => "loaded"),
+        },
+        canSwitchNext: true,
+        canSwitchPrev: history.length > 2,
+      };
+
+      navigateToFeedItem(activeFeedMode, previousItem, nextWindow);
+      return;
+    }
+
+    // Fallback to window.previous if no history
     if (!window?.previous) return;
 
     const nextWindow: FeedWindowState = {
@@ -1218,9 +1251,12 @@ export default function PlayEpisodePage() {
   ]);
 
   const goToEpisode = useCallback(async (targetEpisode: Episode) => {
+    // Cancel all previous downloads to free bandwidth for new video
+    cancelAllActiveDownloads();
+
     // Update state in-place instead of router.push to avoid loading flash
     setCurrentEpisode(targetEpisode);
-    setStreamInfo(null);
+    // DON'T clear streamInfo - keep old stream visible until new one loads
     lastProgressReportAtRef.current = 0;
 
     // Update URL without triggering re-render
@@ -1236,6 +1272,7 @@ export default function PlayEpisodePage() {
       setStreamInfo(stream);
     } catch {
       // Stream will be fetched by the main loadData effect as fallback
+      setStreamInfo(null);
     }
   }, [activeDramaId, locale, token]);
 
@@ -1261,22 +1298,41 @@ export default function PlayEpisodePage() {
 
     let attempts = 0;
     while (attempts < 3) {
-      const playableIndex = window.next.findIndex((item) => item.isFree);
+      // Find playable item: free OR unlocked
+      const playableIndex = window.next.findIndex((item) =>
+        item.isFree || unlockedEpisodeIds.has(item.episodeId)
+      );
       if (playableIndex >= 0) {
         return { window, playableIndex };
       }
 
-      if (!window.cursor) return null;
+      // Try fetching more items if Claude Code exists
+      if (!window.cursor) {
+        // No more items to fetch, return first item anyway (will show paywall)
+        if (window.next.length > 0) {
+          return { window, playableIndex: 0 };
+        }
+        return null;
+      }
+
       const hydratedWindow = await fetchMoreFeedItems(activeFeedMode, window);
       if (!hydratedWindow || hydratedWindow === window) {
+        // Fetch failed or no new items, return first available
+        if (window.next.length > 0) {
+          return { window, playableIndex: 0 };
+        }
         return null;
       }
       window = hydratedWindow;
       attempts += 1;
     }
 
+    // After 3 attempts, return first item if available
+    if (window.next.length > 0) {
+      return { window, playableIndex: 0 };
+    }
     return null;
-  }, [activeFeedMode, fetchFeedBootstrap, fetchMoreFeedItems]);
+  }, [activeFeedMode, fetchFeedBootstrap, fetchMoreFeedItems, unlockedEpisodeIds]);
 
   const handleLockedFeedSkip = useCallback(async () => {
     const result = await findNextPlayableFeedWindow();

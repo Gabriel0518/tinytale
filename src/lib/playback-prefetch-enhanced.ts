@@ -40,6 +40,16 @@ const prefetchStates = new Map<string, VideoPrefetchState>();
 const downloadingSegments = new Set<string>();
 const completedSegments = new Set<string>();
 const manifestCache = new Map<string, string[]>(); // 缓存已解析的 manifest
+const activeDownloads = new Map<string, AbortController>(); // 追踪活跃的下载任务
+
+/**
+ * 取消所有正在进行的下载（用于快速切换视频时）
+ */
+export function cancelAllActiveDownloads() {
+  activeDownloads.forEach((controller) => controller.abort());
+  activeDownloads.clear();
+  downloadingSegments.clear();
+}
 
 /**
  * 解析 HLS manifest 获取所有分片 URL（带缓存）
@@ -98,6 +108,7 @@ async function parseHlsManifest(manifestUrl: string): Promise<string[]> {
 async function downloadSegmentsConcurrently(
   segments: string[],
   concurrency: number = CONCURRENT_SEGMENTS,
+  taskId?: string,
 ): Promise<void> {
   const queue = [...segments];
   const active: Promise<void>[] = [];
@@ -106,20 +117,27 @@ async function downloadSegmentsConcurrently(
     if (completedSegments.has(url) || downloadingSegments.has(url)) return;
     downloadingSegments.add(url);
 
+    const controller = new AbortController();
+    const downloadId = `${taskId || 'default'}-${url}`;
+    activeDownloads.set(downloadId, controller);
+
     try {
       await fetch(url, {
         method: 'GET',
         mode: 'cors',
         credentials: 'omit',
         cache: 'force-cache',
-        // 使用 AbortController 防止超时
-        signal: AbortSignal.timeout(15000),
+        signal: controller.signal,
       });
       completedSegments.add(url);
-    } catch {
-      // 静默失败，不阻塞其他分片
+    } catch (error: any) {
+      // Ignore abort errors (expected when cancelling)
+      if (error.name !== 'AbortError') {
+        // Silent fail for other errors
+      }
     } finally {
       downloadingSegments.delete(url);
+      activeDownloads.delete(downloadId);
     }
   };
 
@@ -163,13 +181,14 @@ function calculateAdaptivePrefetchDepth(): number {
 
 /**
  * 深度预取视频分片
- * 核心优化：并发下载 + 自适应深度
+ * 核心优化：并发下载 + 自适应深度 + 可取消
  */
 export async function deepPrefetchVideoSegments(
   playbackUrl: string | undefined | null,
   options?: {
     startSeconds?: number;
     bufferSeconds?: number;
+    taskId?: string;
   },
 ): Promise<void> {
   if (!playbackUrl || typeof window === 'undefined') return;
@@ -189,7 +208,7 @@ export async function deepPrefetchVideoSegments(
       Math.min(startIndex + segmentCount, segmentUrls.length),
     );
 
-    await downloadSegmentsConcurrently(targetSegments, CONCURRENT_SEGMENTS);
+    await downloadSegmentsConcurrently(targetSegments, CONCURRENT_SEGMENTS, options?.taskId);
     completedSegments.add(cacheKey);
   } catch {
     // 静默失败
@@ -234,9 +253,13 @@ export class VideoPreloadQueue {
     // 按优先级排序
     this.queue.sort((a, b) => a.priority - b.priority);
 
-    // 如果新任务优先级更高，中断当前任务
+    // 如果新任务优先级更高，中断当前任务并取消所有低优先级下载
     if (priority < this.currentPriority && this.isProcessing) {
       this.abortController?.abort();
+      // Cancel background segment downloads from lower priority videos
+      if (priority === 0) {
+        cancelAllActiveDownloads();
+      }
     }
 
     if (!this.isProcessing) {
@@ -253,6 +276,8 @@ export class VideoPreloadQueue {
     this.abortController = null;
     this.isProcessing = false;
     this.currentPriority = Infinity;
+    // Cancel all background segment downloads from previous videos
+    cancelAllActiveDownloads();
   }
 
   /**
@@ -280,7 +305,7 @@ export class VideoPreloadQueue {
 
         // 后台预取分片，不阻塞队列继续处理下一个
         if (url) {
-          void deepPrefetchVideoSegments(url);
+          void deepPrefetchVideoSegments(url, { taskId: item.episodeId });
         }
       } catch {
         // 静默失败，继续处理下一个
