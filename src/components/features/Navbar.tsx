@@ -40,22 +40,21 @@ const MOBILE_QUICK_SEARCHES = [
   "Trending",
 ];
 
-const navLinks = [
+const desktopNavLinks = [
   { href: "/", key: "home" },
   { href: "/browse", key: "browse" },
-  { href: "/play", key: "play" },
-  { href: "/user/history", key: "history" },
-  { href: "/user/profile", key: "profile" },
+  { href: "/rankings", key: "rankings" },
+  { href: "/user/favorites", key: "myList" },
 ];
 
 export const NAV_LABELS: FlexibleRecord<SupportedLocale, Record<string, string>> = {
-  en: { home: "Home", browse: "Browse", play: "Play", history: "History", profile: "Profile", signIn: "Sign In", getStarted: "Get Started", search: "Search", notifications: "Notifications", add: "Add", balance: "Balance", openMenu: "Open menu", closeMenu: "Close menu", cancel: "Cancel", searchPlaceholder: "Search dramas, genres, actors...", recentSearches: "Recent searches", quickSearches: "Popular right now", searchHint: "Find your next vertical drama in one tap.", hotLabel: "Hot", inboxTitle: "Inbox", inboxEmpty: "Your latest release and system updates live here.", inboxUnread: "{{count}} unread updates waiting for you." },
-  es: { home: "Inicio", browse: "Explorar", play: "Play", history: "Historial", profile: "Perfil", signIn: "Entrar", getStarted: "Comenzar", search: "Buscar", notifications: "Notificaciones", add: "Recargar", balance: "Saldo", openMenu: "Abrir menú", closeMenu: "Cerrar menú", cancel: "Cerrar", searchPlaceholder: "Busca dramas, géneros, actores...", recentSearches: "Búsquedas recientes", quickSearches: "Popular ahora", searchHint: "Encuentra tu próximo vertical drama al instante.", hotLabel: "Hot", inboxTitle: "Inbox", inboxEmpty: "Tus novedades y avisos del sistema aparecen aquí.", inboxUnread: "Tienes {{count}} novedades sin leer." },
-  pt: { home: "Início", browse: "Explorar", play: "Play", history: "Histórico", profile: "Perfil", signIn: "Entrar", getStarted: "Começar", search: "Buscar", notifications: "Notificações", add: "Adicionar", balance: "Saldo", openMenu: "Abrir menu", closeMenu: "Fechar menu", cancel: "Fechar", searchPlaceholder: "Busque dramas, gêneros, atores...", recentSearches: "Buscas recentes", quickSearches: "Em alta agora", searchHint: "Encontre seu próximo drama vertical em um toque.", hotLabel: "Hot", inboxTitle: "Inbox", inboxEmpty: "Seus novos episódios e alertas do sistema aparecem aqui.", inboxUnread: "Você tem {{count}} atualizações não lidas." },
-  id: { home: "Beranda", browse: "Jelajahi", play: "Putar", history: "Riwayat", profile: "Profil", signIn: "Masuk", getStarted: "Mulai", search: "Cari", notifications: "Notifikasi", add: "Isi ulang", balance: "Saldo", openMenu: "Buka menu", closeMenu: "Tutup menu", cancel: "Tutup", searchPlaceholder: "Cari drama, genre, aktor...", recentSearches: "Pencarian terakhir", quickSearches: "Sedang populer", searchHint: "Temukan drama vertikal berikutnya dengan cepat.", hotLabel: "Hot", inboxTitle: "Inbox", inboxEmpty: "Rilis baru dan update sistemmu muncul di sini.", inboxUnread: "Ada {{count}} update belum dibaca untukmu." },
-  zh: { home: "首页", browse: "浏览", play: "播放", history: "历史", profile: "我的", signIn: "登录", getStarted: "开始使用", search: "搜索", notifications: "通知", add: "充值", balance: "余额", openMenu: "打开菜单", closeMenu: "关闭菜单", cancel: "关闭", searchPlaceholder: "搜索短剧、类型、演员...", recentSearches: "最近搜索", quickSearches: "现在热门", searchHint: "一键找到下一部竖屏短剧。", hotLabel: "热门", inboxTitle: "收件箱", inboxEmpty: "最新上新和系统提醒都会出现在这里。", inboxUnread: "你有 {{count}} 条未读更新。" },
-  ja: { home: "ホーム", browse: "閲覧", play: "再生", history: "履歴", profile: "マイ", signIn: "ログイン", getStarted: "はじめる", search: "検索", notifications: "通知", add: "追加", balance: "残高", openMenu: "メニューを開く", closeMenu: "メニューを閉じる", cancel: "閉じる", searchPlaceholder: "ドラマ、ジャンル、俳優を検索...", recentSearches: "最近の検索", quickSearches: "人気の検索", searchHint: "次に見る縦型ドラマをすぐ見つけよう。", hotLabel: "Hot", inboxTitle: "受信箱", inboxEmpty: "新着やシステム通知はここに表示されます。", inboxUnread: "{{count}} 件の未読アップデートがあります。" },
-  hi: { home: "होम", browse: "ब्राउज़", play: "चलाएँ", history: "इतिहास", profile: "प्रोफाइल", signIn: "साइन इन", getStarted: "शुरू करें", search: "खोजें", notifications: "सूचनाएं", add: "रिचार्ज", balance: "बैलेंस", openMenu: "मेनू खोलें", closeMenu: "मेनू बंद करें", cancel: "बंद करें", searchPlaceholder: "ड्रामा, जॉनर, अभिनेता खोजें...", recentSearches: "हाल की खोजें", quickSearches: "अभी लोकप्रिय", searchHint: "एक टैप में अगला वर्टिकल ड्रामा खोजें।", hotLabel: "Hot", inboxTitle: "Inbox", inboxEmpty: "आपके नए अपडेट और सिस्टम संदेश यहां दिखेंगे।", inboxUnread: "आपके लिए {{count}} अनरीड अपडेट हैं।" } };
+  en: { home: "Home", browse: "Browse", rankings: "Rankings", myList: "My List", play: "Play", history: "History", profile: "Profile", signIn: "Sign In", getStarted: "Get Started", search: "Search", notifications: "Notifications", add: "Add", balance: "Balance", openMenu: "Open menu", closeMenu: "Close menu", cancel: "Cancel", searchPlaceholder: "Search dramas, genres, actors...", recentSearches: "Recent searches", quickSearches: "Popular right now", searchHint: "Find your next vertical drama in one tap.", hotLabel: "Hot", inboxTitle: "Inbox", inboxEmpty: "Your latest release and system updates live here.", inboxUnread: "{{count}} unread updates waiting for you." },
+  es: { home: "Inicio", browse: "Explorar", rankings: "Rankings", myList: "Mi lista", play: "Play", history: "Historial", profile: "Perfil", signIn: "Entrar", getStarted: "Comenzar", search: "Buscar", notifications: "Notificaciones", add: "Recargar", balance: "Saldo", openMenu: "Abrir menú", closeMenu: "Cerrar menú", cancel: "Cerrar", searchPlaceholder: "Busca dramas, géneros, actores...", recentSearches: "Búsquedas recientes", quickSearches: "Popular ahora", searchHint: "Encuentra tu próximo vertical drama al instante.", hotLabel: "Hot", inboxTitle: "Inbox", inboxEmpty: "Tus novedades y avisos del sistema aparecen aquí.", inboxUnread: "Tienes {{count}} novedades sin leer." },
+  pt: { home: "Início", browse: "Explorar", rankings: "Rankings", myList: "Minha Lista", play: "Play", history: "Histórico", profile: "Perfil", signIn: "Entrar", getStarted: "Começar", search: "Buscar", notifications: "Notificações", add: "Adicionar", balance: "Saldo", openMenu: "Abrir menu", closeMenu: "Fechar menu", cancel: "Fechar", searchPlaceholder: "Busque dramas, gêneros, atores...", recentSearches: "Buscas recentes", quickSearches: "Em alta agora", searchHint: "Encontre seu próximo drama vertical em um toque.", hotLabel: "Hot", inboxTitle: "Inbox", inboxEmpty: "Seus novos episódios e alertas do sistema aparecem aqui.", inboxUnread: "Você tem {{count}} atualizações não lidas." },
+  id: { home: "Beranda", browse: "Jelajahi", rankings: "Peringkat", myList: "Daftar Saya", play: "Putar", history: "Riwayat", profile: "Profil", signIn: "Masuk", getStarted: "Mulai", search: "Cari", notifications: "Notifikasi", add: "Isi ulang", balance: "Saldo", openMenu: "Buka menu", closeMenu: "Tutup menu", cancel: "Tutup", searchPlaceholder: "Cari drama, genre, aktor...", recentSearches: "Pencarian terakhir", quickSearches: "Sedang populer", searchHint: "Temukan drama vertikal berikutnya dengan cepat.", hotLabel: "Hot", inboxTitle: "Inbox", inboxEmpty: "Rilis baru dan update sistemmu muncul di sini.", inboxUnread: "Ada {{count}} update belum dibaca untukmu." },
+  zh: { home: "首页", browse: "浏览", rankings: "榜单", myList: "我的收藏", play: "播放", history: "历史", profile: "我的", signIn: "登录", getStarted: "开始使用", search: "搜索", notifications: "通知", add: "充值", balance: "余额", openMenu: "打开菜单", closeMenu: "关闭菜单", cancel: "关闭", searchPlaceholder: "搜索短剧、类型、演员...", recentSearches: "最近搜索", quickSearches: "现在热门", searchHint: "一键找到下一部竖屏短剧。", hotLabel: "热门", inboxTitle: "收件箱", inboxEmpty: "最新上新和系统提醒都会出现在这里。", inboxUnread: "你有 {{count}} 条未读更新。" },
+  ja: { home: "ホーム", browse: "閲覧", rankings: "ランキング", myList: "マイリスト", play: "再生", history: "履歴", profile: "マイ", signIn: "ログイン", getStarted: "はじめる", search: "検索", notifications: "通知", add: "追加", balance: "残高", openMenu: "メニューを開く", closeMenu: "メニューを閉じる", cancel: "閉じる", searchPlaceholder: "ドラマ、ジャンル、俳優を検索...", recentSearches: "最近の検索", quickSearches: "人気の検索", searchHint: "次に見る縦型ドラマをすぐ見つけよう。", hotLabel: "Hot", inboxTitle: "受信箱", inboxEmpty: "新着やシステム通知はここに表示されます。", inboxUnread: "{{count}} 件の未読アップデートがあります。" },
+  hi: { home: "होम", browse: "ब्राउज़", rankings: "रैंकिंग", myList: "मेरी सूची", play: "चलाएँ", history: "इतिहास", profile: "प्रोफाइल", signIn: "साइन इन", getStarted: "शुरू करें", search: "खोजें", notifications: "सूचनाएं", add: "रिचार्ज", balance: "बैलेंस", openMenu: "मेनू खोलें", closeMenu: "मेनू बंद करें", cancel: "बंद करें", searchPlaceholder: "ड्रामा, जॉनर, अभिनेता खोजें...", recentSearches: "हाल की खोजें", quickSearches: "अभी लोकप्रिय", searchHint: "एक टैप में अगला वर्टिकल ड्रामा खोजें।", hotLabel: "Hot", inboxTitle: "Inbox", inboxEmpty: "आपके नए अपडेट और सिस्टम संदेश यहां दिखेंगे।", inboxUnread: "आपके लिए {{count}} अनरीड अपडेट हैं।" } };
 
 export const MOBILE_SEARCH_LABELS: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
@@ -212,7 +211,7 @@ export function Navbar({
   const mobileHeaderTitle = mobileTitle?.trim() || "";
   const usesBrandSearchHeader = isMobile && mobileHeaderVariant === "brand-search";
 
-  const desktopNavLinks = useMemo(() => navLinks, []);
+  const resolvedDesktopNavLinks = useMemo(() => desktopNavLinks, []);
 
   useEffect(() => {
     if (!token) {
@@ -366,16 +365,13 @@ export function Navbar({
                 <ChevronLeft className="h-5 w-5" />
               </button>
             ) : null}
-            <Link href={toLocalePath("/")} className="hidden items-center md:flex">
-              <Image
-                src="/logo.png"
-                alt="TinyTale"
-                width={378}
-                height={97}
-                className="h-9 w-auto md:h-[97px]"
-                style={{ width: "auto" }}
-                priority
-              />
+            <Link href={toLocalePath("/")} className="hidden items-center gap-3 md:flex">
+              <span className="inline-flex h-10 w-10 items-center justify-center rounded bg-red-600 text-lg font-black text-white shadow-[0_10px_24px_rgba(229,9,20,0.28)]">
+                T
+              </span>
+              <span className="text-[1.75rem] font-black tracking-tight text-white">
+                TinyTale
+              </span>
             </Link>
             {mobileShowBrand ? (
               <Link href={toLocalePath("/")} className="flex min-w-0 items-center gap-2 md:hidden">
@@ -392,13 +388,13 @@ export function Navbar({
           </div>
 
           {/* Desktop Nav Links */}
-          <div className="hidden items-center gap-6 md:flex">
-            {desktopNavLinks.map((link) => (
+          <div className="hidden items-center gap-8 md:flex">
+            {resolvedDesktopNavLinks.map((link) => (
               <Link
                 key={link.href}
                 href={toLocalePath(link.href)}
                 className={cn(
-                  "text-sm font-medium transition hover:text-white",
+                  "text-sm font-semibold tracking-[0.01em] transition hover:text-white",
                   (activePath || normalizedPath) === link.href ? "text-white" : "text-gray-300"
                 )}
               >
