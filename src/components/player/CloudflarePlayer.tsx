@@ -293,19 +293,21 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       getPlayer: () => playerRef.current,
     }), [applySubtitleSelection, getVideoElement]);
 
-    // Resolve base source (without quality param) — prefer backend-provided videoUrl.
+    // Resolve base source (without quality param) — prefer signed Cloudflare HLS when available.
     const getBaseSource = useCallback(() => {
+      // When streamVideoId is present, always build a signed HLS URL
+      if (streamVideoId) {
+        return {
+          src: buildHlsUrl(streamVideoId, signedToken),
+          type: 'application/x-mpegURL' as const,
+        };
+      }
+      // Fall back to explicit videoUrl only when no streamVideoId
       if (videoUrl) {
         const isHls = videoUrl.includes('.m3u8');
         return {
           src: videoUrl,
           type: isHls ? 'application/x-mpegURL' as const : 'video/mp4' as const,
-        };
-      }
-      if (streamVideoId) {
-        return {
-          src: buildHlsUrl(streamVideoId, signedToken),
-          type: 'application/x-mpegURL' as const,
         };
       }
       return null;

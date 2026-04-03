@@ -30,6 +30,7 @@ import {
   readPrefetchedStream,
   warmPlaybackManifest,
 } from "@/lib/playback-prefetch";
+import { readSavedPlaybackProgress } from "@/lib/playback-progress-cache";
 import { readPlayFeedSession, type PlayFeedMode, writePlayFeedSession } from "@/lib/play-feed-session";
 import {
   RUNTIME_SETTINGS_EVENT,
@@ -389,6 +390,15 @@ function buildProvisionalStreamFromFeedItem(item: FeedPlayableItem): StreamPlayb
   };
 }
 
+function canUseImmediatePlaybackSource(url?: string | null) {
+  if (!url) return false;
+  return (
+    url.includes('/api/episodes/') ||
+    url.includes('playbackToken=') ||
+    url.includes('/manifest/video.m3u8?token=')
+  );
+}
+
 function readSeededPlaybackState(
   dramaId: string,
   episodeId: string,
@@ -408,11 +418,59 @@ function readSeededPlaybackState(
     readPrefetchedStream(episodeId, token) ||
     readPrefetchedStream(episodeId);
 
+  const provisionalStream =
+    !prefetchedStream && canUseImmediatePlaybackSource(currentItem.playbackUrl)
+      ? buildProvisionalStreamFromFeedItem(currentItem)
+      : null;
+
   return {
     drama: buildProvisionalDramaFromFeedItem(currentItem),
     currentEpisode: buildProvisionalEpisodeFromFeedItem(currentItem),
-    streamInfo: prefetchedStream || buildProvisionalStreamFromFeedItem(currentItem),
+    streamInfo: prefetchedStream || provisionalStream,
   };
+}
+
+function buildPlayerRoute(
+  dramaId: string,
+  episodeId: string,
+  locale: SupportedLocale,
+  source: "feed" | "drama",
+  startSeconds?: number,
+) {
+  const url = new URL(
+    localizePath(`/drama/${dramaId}/play/${episodeId}`, locale),
+    "https://tinytale.local",
+  );
+  url.searchParams.set("source", source);
+
+  if (typeof startSeconds === "number" && Number.isFinite(startSeconds) && startSeconds > 0) {
+    url.searchParams.set("t", String(Math.floor(startSeconds)));
+  }
+
+  return `${url.pathname}${url.search}`;
+}
+
+function buildLoadedFeedWindow(window: FeedWindowState): FeedWindowState {
+  return {
+    ...window,
+    loadingStates: {
+      current: "loaded",
+      next: window.next.map(() => "loaded"),
+    },
+  };
+}
+
+function getFeedItemResumeTime(item: FeedPlayableItem | null | undefined) {
+  if (!item) return 0;
+  return readSavedPlaybackProgress({
+    streamVideoId: item.streamVideoId,
+    videoUrl: item.playbackUrl,
+  });
+}
+
+function replacePlaybackUrl(path: string) {
+  if (typeof window === "undefined") return;
+  window.history.replaceState(window.history.state, "", path);
 }
 
 export default function PlayEpisodePage() {
@@ -424,19 +482,28 @@ export default function PlayEpisodePage() {
   const { user, token, refreshUser } = useAuth();
   const { isMobile } = usePlatform();
   const { toast } = useToast();
-  const { startSession, updateSession, clearSession } = usePlaybackSession();
+  const { startSession, updateSession } = usePlaybackSession();
 
-  const dramaId = params.id as string;
-  const episodeId = params.episodeId as string;
-  const initialSeekTime = Math.max(
+  const routeDramaId = params.id as string;
+  const routeEpisodeId = params.episodeId as string;
+  const playbackSourceParam = searchParams.get("source");
+  const playbackMode = playbackSourceParam === "feed" ? "feed" : "drama";
+  const isFeedPlayback = playbackMode === "feed";
+  const routeSeekTime = Math.max(
     0,
     Number(searchParams.get("start") || searchParams.get("t") || 0) || 0
   );
+  const [activeDramaId, setActiveDramaId] = useState(routeDramaId);
+  const [activeEpisodeId, setActiveEpisodeId] = useState(routeEpisodeId);
+  const [activeSeekTime, setActiveSeekTime] = useState(routeSeekTime);
   const seededPlaybackState = useMemo(
-    () => readSeededPlaybackState(dramaId, episodeId, token),
-    [dramaId, episodeId, token]
+    () => (isFeedPlayback ? readSeededPlaybackState(routeDramaId, routeEpisodeId, token) : null),
+    [routeDramaId, routeEpisodeId, isFeedPlayback, token]
   );
-  const hasSeededPlayback = Boolean(seededPlaybackState?.currentEpisode);
+  const hasSeededPlayback = Boolean(
+    seededPlaybackState?.currentEpisode &&
+    (!isFeedPlayback || seededPlaybackState?.streamInfo)
+  );
 
   const [drama, setDrama] = useState<Drama | null>(seededPlaybackState?.drama || null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
@@ -452,17 +519,35 @@ export default function PlayEpisodePage() {
   const [feedWindows, setFeedWindows] = useState<Partial<Record<PlayFeedMode, FeedWindowState>>>({});
   const [feedLoadingMode, setFeedLoadingMode] = useState<PlayFeedMode | null>(null);
   const feedWindowsRef = useRef<Partial<Record<PlayFeedMode, FeedWindowState>>>({});
+  const currentEpisodeRef = useRef<Episode | null>(seededPlaybackState?.currentEpisode || null);
+  const paywallTouchStartYRef = useRef<number | null>(null);
   const [autoplayNextEpisode, setAutoplayNextEpisode] = useState(
     () => readPlaybackRuntimeSettings()?.autoplayNextEpisode ?? true
   );
+  const playerParentHref = useMemo(
+    () => localizePath(`/drama/${activeDramaId}`, locale),
+    [activeDramaId, locale]
+  );
+
+  useEffect(() => {
+    setActiveDramaId(routeDramaId);
+    setActiveEpisodeId(routeEpisodeId);
+    setActiveSeekTime(routeSeekTime);
+  }, [routeDramaId, routeEpisodeId, routeSeekTime]);
 
   useEffect(() => {
     if (!seededPlaybackState) return;
     setDrama(seededPlaybackState.drama);
     setCurrentEpisode(seededPlaybackState.currentEpisode);
-    setStreamInfo(seededPlaybackState.streamInfo);
-    setLoading(false);
+    setStreamInfo(seededPlaybackState.streamInfo || null);
+    if (seededPlaybackState.streamInfo) {
+      setLoading(false);
+    }
   }, [seededPlaybackState]);
+
+  useEffect(() => {
+    currentEpisodeRef.current = currentEpisode;
+  }, [currentEpisode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -480,43 +565,48 @@ export default function PlayEpisodePage() {
 
   // 加载短剧和剧集信息
   useEffect(() => {
+    let cancelled = false;
     const loadData = async () => {
       try {
-        if (!hasSeededPlayback) {
+        // Only show full loading screen on initial load (no episode data yet)
+        if (!currentEpisodeRef.current) {
           setLoading(true);
         }
 
         // 加载短剧信息
-        const dramaResponse = await dramasApi.getById(dramaId) as any;
+        const dramaResponse = await dramasApi.getById(activeDramaId) as any;
         const dramaPayload = dramaResponse?.data ?? dramaResponse;
         const dramaData = dramaPayload?.drama ?? dramaPayload;
         const episodeList: Episode[] = dramaPayload?.episodes || dramaData?.episodes || [];
+        if (cancelled) return;
         setDrama(dramaData);
         setEpisodes(episodeList);
 
         // 查找当前剧集
-        const episode = episodeList.find((ep: Episode) => ep._id === episodeId) || episodeList[0];
+        const episode = episodeList.find((ep: Episode) => ep._id === activeEpisodeId) || episodeList[0];
         if (!episode) {
           toast(t.episodeNotFound, "error");
-          router.push(localizePath(`/drama/${dramaId}`, locale));
+          router.push(localizePath(`/drama/${activeDramaId}`, locale));
           return;
         }
+        if (cancelled) return;
         setCurrentEpisode(episode);
 
         // 检查缓存的流信息
         const cachedStream =
-          readPrefetchedStream(episodeId, token) ||
-          readPrefetchedStream(episodeId);
+          readPrefetchedStream(activeEpisodeId, token) ||
+          readPrefetchedStream(activeEpisodeId);
         if (cachedStream) {
-          setStreamInfo(cachedStream);
+          if (!cancelled) setStreamInfo(cachedStream);
         }
 
         if (!episode.isFree && token) {
           // 并行执行访问检查和流获取
           const [accessResult, streamResult] = await Promise.allSettled([
             episodesApi.checkAccess(episode._id, token),
-            prefetchEpisodeStream(episodeId, token),
+            prefetchEpisodeStream(activeEpisodeId, token),
           ]);
+          if (cancelled) return;
 
           if (accessResult.status === 'fulfilled') {
             const access = (accessResult.value as any)?.data ?? accessResult.value;
@@ -545,21 +635,26 @@ export default function PlayEpisodePage() {
             setStreamInfo(streamResult.value);
           }
         } else if (episode.isFree) {
-          const stream = await prefetchEpisodeStream(episodeId, token);
-          setStreamInfo(stream);
+          const stream = await prefetchEpisodeStream(activeEpisodeId, token);
+          if (!cancelled) setStreamInfo(stream);
         }
       } catch (error: any) {
         console.error("Failed to load episode:", error);
-        toast(error.message || t.failedToLoad, "error");
+        if (!cancelled) toast(error.message || t.failedToLoad, "error");
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
-    if (dramaId && episodeId) {
+    if (activeDramaId && activeEpisodeId) {
       loadData();
     }
-  }, [dramaId, episodeId, hasSeededPlayback, token, router, toast, locale, t.episodeNotFound, t.failedToLoad]);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeDramaId, activeEpisodeId, token, router, toast, locale, t.episodeNotFound, t.failedToLoad]);
 
   useEffect(() => {
     if (!token || episodes.length === 0) {
@@ -567,7 +662,7 @@ export default function PlayEpisodePage() {
       return;
     }
     let cancelled = false;
-    userApi.getUnlockedEpisodes(token, dramaId)
+    userApi.getUnlockedEpisodes(token, activeDramaId)
       .then((res: any) => {
         if (cancelled) return;
         const ids: string[] = res?.data || [];
@@ -579,7 +674,7 @@ export default function PlayEpisodePage() {
     return () => {
       cancelled = true;
     };
-  }, [token, dramaId, episodes.length]);
+  }, [token, activeDramaId, episodes.length]);
 
   useEffect(() => {
     if (!token || episodes.length === 0) {
@@ -637,7 +732,7 @@ export default function PlayEpisodePage() {
   }, []);
 
   useEffect(() => {
-    if (!currentEpisode || episodes.length === 0) return;
+    if (!isFeedPlayback || !currentEpisode || episodes.length === 0) return;
 
     const persisted = readPlayFeedSession();
     const nextMode = persisted?.activeMode || "for-you";
@@ -649,7 +744,7 @@ export default function PlayEpisodePage() {
     }
 
     persistFeedSession(nextMode, nextWindows);
-  }, [currentEpisode, drama, episodes, persistFeedSession]);
+  }, [currentEpisode, drama, episodes, isFeedPlayback, persistFeedSession]);
 
   const fetchFeedBootstrap = useCallback(async (mode: PlayFeedMode) => {
     if (mode === "following" && !token) {
@@ -681,7 +776,7 @@ export default function PlayEpisodePage() {
       };
       persistFeedSession(activeFeedMode === mode ? mode : activeFeedMode, nextWindows);
       return window;
-    } catch (error) {
+    } catch {
       if (mode === "following") {
         toast(t.failedToLoad, "error");
       }
@@ -740,18 +835,55 @@ export default function PlayEpisodePage() {
     }
   }, [activeFeedMode, persistFeedSession, token]);
 
+  const applyFeedItemLocally = useCallback((
+    targetItem: FeedPlayableItem,
+    resumeTime: number,
+  ) => {
+    const provisionalEpisode = buildProvisionalEpisodeFromFeedItem(targetItem);
+    const prefetchedStream =
+      readPrefetchedStream(targetItem.episodeId, token) ||
+      readPrefetchedStream(targetItem.episodeId);
+
+    setActiveDramaId(targetItem.dramaId);
+    setActiveEpisodeId(targetItem.episodeId);
+    setActiveSeekTime(resumeTime);
+    setDrama(buildProvisionalDramaFromFeedItem(targetItem));
+    setCurrentEpisode(provisionalEpisode);
+    const provisionalStream =
+      !prefetchedStream && canUseImmediatePlaybackSource(targetItem.playbackUrl)
+        ? buildProvisionalStreamFromFeedItem(targetItem)
+        : null;
+
+    setStreamInfo(prefetchedStream || provisionalStream);
+    setEpisodes((currentEpisodes) => (
+      currentEpisodes.some((episode) => episode._id === targetItem.episodeId)
+        ? currentEpisodes
+        : [provisionalEpisode]
+    ));
+    lastProgressReportAtRef.current = 0;
+
+    replacePlaybackUrl(
+      buildPlayerRoute(targetItem.dramaId, targetItem.episodeId, locale, "feed", resumeTime),
+    );
+  }, [locale, token]);
+
   const navigateToFeedItem = useCallback((
     mode: PlayFeedMode,
     targetItem: FeedPlayableItem,
     nextWindow: FeedWindowState,
   ) => {
+    const resumeTime = getFeedItemResumeTime(targetItem);
     const nextWindows = {
       ...feedWindowsRef.current,
       [mode]: nextWindow,
     };
     persistFeedSession(mode, nextWindows);
-    router.push(localizePath(`/drama/${targetItem.dramaId}/play/${targetItem.episodeId}`, locale));
-  }, [locale, persistFeedSession, router]);
+    void prefetchEpisodeStream(targetItem.episodeId, token).catch(() => {});
+    void deepPrefetchVideoSegments(targetItem.playbackUrl, {
+      startSeconds: resumeTime,
+    });
+    applyFeedItemLocally(targetItem, resumeTime);
+  }, [applyFeedItemLocally, persistFeedSession, token]);
 
   const handleFeedModeChange = useCallback(async (mode: PlayFeedMode) => {
     const window = feedWindowsRef.current[mode] ?? await fetchFeedBootstrap(mode);
@@ -762,10 +894,10 @@ export default function PlayEpisodePage() {
       [mode]: window,
     });
 
-    if (window.current.dramaId !== dramaId || window.current.episodeId !== episodeId) {
-      router.push(localizePath(`/drama/${window.current.dramaId}/play/${window.current.episodeId}`, locale));
+    if (window.current.dramaId !== activeDramaId || window.current.episodeId !== activeEpisodeId) {
+      navigateToFeedItem(mode, window.current, window);
     }
-  }, [dramaId, episodeId, fetchFeedBootstrap, locale, persistFeedSession, router]);
+  }, [activeDramaId, activeEpisodeId, fetchFeedBootstrap, navigateToFeedItem, persistFeedSession]);
 
   const handleFeedPreviousItem = useCallback(async () => {
     const window = feedWindowsRef.current[activeFeedMode];
@@ -786,6 +918,74 @@ export default function PlayEpisodePage() {
 
     navigateToFeedItem(activeFeedMode, window.previous, nextWindow);
   }, [activeFeedMode, navigateToFeedItem]);
+
+  const handleRefreshFeedPool = useCallback(async () => {
+    let window = feedWindowsRef.current[activeFeedMode];
+    if (!window) {
+      const bootstrappedWindow = await fetchFeedBootstrap(activeFeedMode);
+      if (!bootstrappedWindow) return;
+      window = bootstrappedWindow;
+    }
+
+    try {
+      const excludeEpisodeIds = Array.from(new Set(
+        [
+          window.previous?.episodeId,
+          window.current.episodeId,
+          ...window.next.map((item) => item.episodeId),
+        ].filter(Boolean)
+      )) as string[];
+
+      const response = await playFeedApi.getNext({
+        mode: activeFeedMode,
+        count: 3,
+        cursor: window.cursor,
+        excludeEpisodeIds,
+        token: token ?? undefined,
+      });
+      const payload = (response as any)?.data ?? response;
+      const items = Array.isArray(payload?.items) ? payload.items as FeedPlayableItem[] : [];
+
+      if (items.length > 0) {
+        const [targetItem, ...remainingItems] = items;
+        const refreshedWindow = buildLoadedFeedWindow({
+          ...window,
+          current: targetItem,
+          previous: null,
+          next: remainingItems,
+          canSwitchNext: remainingItems.length > 0 || Boolean(window.cursor),
+          canSwitchPrev: false,
+        });
+        navigateToFeedItem(activeFeedMode, targetItem, refreshedWindow);
+        return;
+      }
+    } catch {
+      // Fall back to already buffered items below.
+    }
+
+    if (window.next.length > 0) {
+      const [targetItem, ...remainingItems] = window.next;
+      const refreshedWindow = buildLoadedFeedWindow({
+        ...window,
+        current: targetItem,
+        previous: null,
+        next: remainingItems,
+        canSwitchNext: remainingItems.length > 0 || Boolean(window.cursor),
+        canSwitchPrev: false,
+      });
+      navigateToFeedItem(activeFeedMode, targetItem, refreshedWindow);
+      return;
+    }
+
+    const bootstrappedWindow = await fetchFeedBootstrap(activeFeedMode);
+    if (!bootstrappedWindow?.current) return;
+    const refreshedWindow = buildLoadedFeedWindow({
+      ...bootstrappedWindow,
+      previous: null,
+      canSwitchPrev: false,
+    });
+    navigateToFeedItem(activeFeedMode, refreshedWindow.current, refreshedWindow);
+  }, [activeFeedMode, fetchFeedBootstrap, navigateToFeedItem, token]);
 
   const handleFeedNextItem = useCallback(async () => {
     let window = feedWindowsRef.current[activeFeedMode];
@@ -835,25 +1035,31 @@ export default function PlayEpisodePage() {
 
   const playbackQueue = useMemo(() => (
     episodes.map((episode) => ({
-      dramaId,
+      dramaId: activeDramaId,
       episodeId: episode._id,
       episodeTitle: episode.title,
       episodeNumber: episode.episodeNumber,
       poster: episode.thumbnail || drama?.cover,
       duration: episode.duration,
     }))
-  ), [drama?.cover, dramaId, episodes]);
+  ), [activeDramaId, drama?.cover, episodes]);
   const playbackQueueIndex = useMemo(() => (
     currentEpisode
       ? playbackQueue.findIndex((episode) => episode.episodeId === currentEpisode._id)
       : -1
   ), [currentEpisode, playbackQueue]);
+  const currentEpisodeIndex = currentEpisode
+    ? episodes.findIndex((episode) => episode._id === currentEpisode._id)
+    : -1;
+  const hasPreviousEpisode = currentEpisodeIndex > 0;
+  const hasNextEpisode = currentEpisodeIndex >= 0 && currentEpisodeIndex < episodes.length - 1;
+  const nextEpisode = hasNextEpisode ? episodes[currentEpisodeIndex + 1] : null;
   const activeFeedWindow = feedWindows[activeFeedMode];
   const mobileHasPreviousEpisode = isMobile
-    ? Boolean(activeFeedWindow?.previous)
+    ? (isFeedPlayback ? Boolean(activeFeedWindow?.previous) : hasPreviousEpisode)
     : false;
   const mobileHasNextEpisode = isMobile
-    ? Boolean(activeFeedWindow?.next.length || activeFeedWindow?.cursor)
+    ? (isFeedPlayback ? Boolean(activeFeedWindow?.next.length || activeFeedWindow?.cursor) : hasNextEpisode)
     : false;
 
   // 播放进度上报
@@ -923,64 +1129,67 @@ export default function PlayEpisodePage() {
     if (!drama || !currentEpisode || !canAccessCurrentEpisode) return;
 
     startSession({
-      dramaId,
+      dramaId: activeDramaId,
       episodeId: currentEpisode._id,
       dramaTitle: drama.title,
       episodeTitle: currentEpisode.title,
       episodeNumber: currentEpisode.episodeNumber,
       poster: currentEpisode.thumbnail || drama.cover,
-      currentTime: initialSeekTime,
+      currentTime: activeSeekTime,
       duration: currentEpisode.duration,
       isPlaying: true,
       updatedAt: Date.now(),
       queue: playbackQueue,
       currentIndex: playbackQueueIndex,
     });
-  }, [canAccessCurrentEpisode, currentEpisode, drama, dramaId, initialSeekTime, playbackQueue, playbackQueueIndex, startSession]);
-
-  const currentEpisodeIndex = currentEpisode
-    ? episodes.findIndex((episode) => episode._id === currentEpisode._id)
-    : -1;
-  const hasPreviousEpisode = currentEpisodeIndex > 0;
-  const hasNextEpisode = currentEpisodeIndex >= 0 && currentEpisodeIndex < episodes.length - 1;
-  const nextEpisode = hasNextEpisode ? episodes[currentEpisodeIndex + 1] : null;
+  }, [activeDramaId, activeSeekTime, canAccessCurrentEpisode, currentEpisode, drama, playbackQueue, playbackQueueIndex, startSession]);
 
   useEffect(() => {
-    if (isMobile && activeFeedWindow) {
+    if (isMobile && isFeedPlayback && activeFeedWindow) {
       const preloadQueue = getPreloadQueue();
-      const warmItems = [activeFeedWindow.current, ...activeFeedWindow.next.slice(0, 2)];
+      const currentItem = activeFeedWindow.current;
+      const previousItem = activeFeedWindow.previous;
+      const [nextItem, queuedItem] = activeFeedWindow.next;
+      const warmItems = [currentItem, previousItem, nextItem].filter(Boolean) as FeedPlayableItem[];
 
-      warmItems.forEach((item, index) => {
+      warmItems.forEach((item) => {
         router.prefetch(localizePath(`/drama/${item.dramaId}/play/${item.episodeId}`, locale));
         preloadImageAsset(item.poster);
-
-        // 优化策略：只对下一个视频使用深度预取
-        if (index === 1) {
-          // 下一个视频：深度预取（提前加载）
-          void deepPrefetchVideoSegments(item.playbackUrl);
-        } else if (index === 0) {
-          // 当前视频：使用标准预取（避免重复）
-          warmPlaybackManifest(item.playbackUrl);
-        } else {
-          // 下下个视频：加入队列（低优先级）
-          preloadQueue.enqueue(
-            item.episodeId,
-            item.playbackUrl,
-            item.streamVideoId,
-            index,
-            token,
-          );
-        }
-
-        // 预取流信息（获取签名 token）
+        warmPlaybackManifest(item.playbackUrl);
         void prefetchEpisodeStream(item.episodeId, token).catch(() => {});
       });
+
+      void deepPrefetchVideoSegments(currentItem.playbackUrl, {
+        startSeconds: getFeedItemResumeTime(currentItem),
+      });
+
+      if (previousItem) {
+        void deepPrefetchVideoSegments(previousItem.playbackUrl, {
+          startSeconds: getFeedItemResumeTime(previousItem),
+        });
+      }
+
+      if (nextItem) {
+        void deepPrefetchVideoSegments(nextItem.playbackUrl, {
+          startSeconds: getFeedItemResumeTime(nextItem),
+        });
+      }
+
+      if (queuedItem) {
+        preloadQueue.enqueue(
+          queuedItem.episodeId,
+          queuedItem.playbackUrl,
+          queuedItem.streamVideoId,
+          2,
+          token,
+        );
+      }
       return;
     }
 
     if (!nextEpisode) return;
 
-    router.prefetch(localizePath(`/drama/${dramaId}/play/${nextEpisode._id}`, locale));
+    router.prefetch(localizePath(`/drama/${activeDramaId}/play/${nextEpisode._id}`, locale));
     preloadImageAsset(nextEpisode.thumbnail || drama?.cover);
 
     // 桌面端：标准预取即可
@@ -996,20 +1205,39 @@ export default function PlayEpisodePage() {
     void prefetchEpisodeStream(nextEpisode._id, token).catch(() => {});
   }, [
     isMobile,
+    isFeedPlayback,
     activeFeedWindow,
     nextEpisode,
     router,
     locale,
-    dramaId,
+    activeDramaId,
     drama?.cover,
     token,
     unlockedEpisodeIds,
     episodeAccessMap,
   ]);
 
-  const goToEpisode = useCallback((targetEpisode: Episode) => {
-    router.push(localizePath(`/drama/${dramaId}/play/${targetEpisode._id}`, locale));
-  }, [dramaId, locale, router]);
+  const goToEpisode = useCallback(async (targetEpisode: Episode) => {
+    // Update state in-place instead of router.push to avoid loading flash
+    setCurrentEpisode(targetEpisode);
+    setStreamInfo(null);
+    lastProgressReportAtRef.current = 0;
+
+    // Update URL without triggering re-render
+    replacePlaybackUrl(
+      buildPlayerRoute(activeDramaId, targetEpisode._id, locale, "drama"),
+    );
+    setActiveEpisodeId(targetEpisode._id);
+    setActiveSeekTime(0);
+
+    // Fetch stream info for the new episode
+    try {
+      const stream = await prefetchEpisodeStream(targetEpisode._id, token);
+      setStreamInfo(stream);
+    } catch {
+      // Stream will be fetched by the main loadData effect as fallback
+    }
+  }, [activeDramaId, locale, token]);
 
   const handlePreviousEpisode = useCallback(() => {
     if (hasPreviousEpisode) {
@@ -1023,23 +1251,120 @@ export default function PlayEpisodePage() {
     }
   }, [currentEpisodeIndex, episodes, goToEpisode, hasNextEpisode]);
 
-  const handleEnded = useCallback(() => {
-    if (!autoplayNextEpisode) return;
-    const canAdvance = isMobile ? mobileHasNextEpisode : hasNextEpisode;
-    if (!canAdvance) return;
+  const findNextPlayableFeedWindow = useCallback(async () => {
+    let window = feedWindowsRef.current[activeFeedMode];
+    if (!window) {
+      const bootstrappedWindow = await fetchFeedBootstrap(activeFeedMode);
+      if (!bootstrappedWindow) return null;
+      window = bootstrappedWindow;
+    }
 
-    if (isMobile) {
+    let attempts = 0;
+    while (attempts < 3) {
+      const playableIndex = window.next.findIndex((item) => item.isFree);
+      if (playableIndex >= 0) {
+        return { window, playableIndex };
+      }
+
+      if (!window.cursor) return null;
+      const hydratedWindow = await fetchMoreFeedItems(activeFeedMode, window);
+      if (!hydratedWindow || hydratedWindow === window) {
+        return null;
+      }
+      window = hydratedWindow;
+      attempts += 1;
+    }
+
+    return null;
+  }, [activeFeedMode, fetchFeedBootstrap, fetchMoreFeedItems]);
+
+  const handleLockedFeedSkip = useCallback(async () => {
+    const result = await findNextPlayableFeedWindow();
+    if (!result) return;
+
+    const { window, playableIndex } = result;
+    const targetItem = window.next[playableIndex];
+    const remainingItems = window.next.filter((_, index) => index !== playableIndex);
+    const nextWindow: FeedWindowState = {
+      ...window,
+      previous: window.current,
+      current: targetItem,
+      next: remainingItems,
+      loadingStates: {
+        current: "loaded",
+        next: remainingItems.map(() => "loaded"),
+      },
+      canSwitchNext: remainingItems.length > 0 || Boolean(window.cursor),
+      canSwitchPrev: true,
+    };
+
+    navigateToFeedItem(activeFeedMode, targetItem, nextWindow);
+  }, [activeFeedMode, findNextPlayableFeedWindow, navigateToFeedItem]);
+
+  const handleEnded = useCallback(() => {
+    if (isFeedPlayback) {
+      if (!autoplayNextEpisode) return;
+      const canAdvance = isMobile ? mobileHasNextEpisode : hasNextEpisode;
+      if (!canAdvance) return;
       void handleFeedNextItem();
       return;
     }
 
-    handleNextEpisode();
-  }, [autoplayNextEpisode, handleFeedNextItem, handleNextEpisode, hasNextEpisode, isMobile, mobileHasNextEpisode]);
+    if (hasNextEpisode) {
+      if (!autoplayNextEpisode) return;
+      handleNextEpisode();
+      return;
+    }
+
+    router.push(playerParentHref);
+  }, [autoplayNextEpisode, handleFeedNextItem, handleNextEpisode, hasNextEpisode, isFeedPlayback, isMobile, mobileHasNextEpisode, playerParentHref, router]);
+
+  const handlePaywallTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    paywallTouchStartYRef.current = event.touches[0]?.clientY ?? null;
+  }, []);
+
+  const handlePaywallTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (paywallTouchStartYRef.current === null) return;
+
+    const dy = event.changedTouches[0].clientY - paywallTouchStartYRef.current;
+    paywallTouchStartYRef.current = null;
+    if (Math.abs(dy) < 60) return;
+
+    if (dy < 0) {
+      // Swipe up → skip to next
+      if (isFeedPlayback) {
+        void handleLockedFeedSkip();
+      } else if (hasNextEpisode) {
+        handleNextEpisode();
+      }
+      return;
+    }
+
+    // Swipe down → go to previous
+    if (isFeedPlayback) {
+      void handleFeedPreviousItem();
+    } else if (hasPreviousEpisode) {
+      handlePreviousEpisode();
+    }
+  }, [handleFeedPreviousItem, handleLockedFeedSkip, handleNextEpisode, handlePreviousEpisode, hasNextEpisode, hasPreviousEpisode, isFeedPlayback]);
+
+  const handleBackToParent = useCallback(() => {
+    router.push(playerParentHref);
+  }, [playerParentHref, router]);
+
+  const fallbackPlaybackUrl = useMemo(() => {
+    if (!currentEpisode) return undefined;
+    // Only use episode.videoUrl if it's a signed/safe URL
+    // Raw Cloudflare Stream URLs without tokens will fail with "Invalid token"
+    return canUseImmediatePlaybackSource(currentEpisode.videoUrl)
+      ? currentEpisode.videoUrl
+      : undefined;
+  }, [currentEpisode]);
 
   const videoUrl = useMemo(() => {
     if (!currentEpisode) return "";
 
-    const source = resolvePlaybackSource(streamInfo, currentEpisode.videoUrl) || currentEpisode.videoUrl;
+    const source = resolvePlaybackSource(streamInfo, fallbackPlaybackUrl) || fallbackPlaybackUrl;
     if (!source || !source.includes('.m3u8')) return source;
 
     try {
@@ -1049,27 +1374,21 @@ export default function PlayEpisodePage() {
     } catch {
       return source;
     }
-  }, [currentEpisode, selectedQuality, streamInfo]);
+  }, [currentEpisode, fallbackPlaybackUrl, selectedQuality, streamInfo]);
   const playbackSource = useMemo(
     () => {
-      const baseSource = createCloudflarePlaybackSource(streamInfo, currentEpisode?.videoUrl);
+      const baseSource = createCloudflarePlaybackSource(streamInfo, fallbackPlaybackUrl);
       return {
         ...baseSource,
         streamVideoId: streamInfo?.videoUid || currentEpisode?.streamVideoId || undefined,
         subtitles: baseSource.subtitles,
       };
     },
-    [currentEpisode, streamInfo]
+    [currentEpisode, fallbackPlaybackUrl, streamInfo]
   );
-  const hasPlayableSource = Boolean(playbackSource.streamVideoId || playbackSource.playbackUrl);
 
-  useEffect(() => {
-    return () => {
-      clearSession();
-    };
-  }, [clearSession]);
-
-  if (loading) {
+  // Only show loading screen on initial page load (no episode data at all)
+  if (loading && !currentEpisode) {
     return <div className="fixed inset-0 bg-black" />;
   }
 
@@ -1079,7 +1398,7 @@ export default function PlayEpisodePage() {
         <div className="text-center">
           <p className="text-gray-400 mb-4">{t.failedLoadVideo}</p>
           <Link
-            href={localizePath(`/drama/${dramaId}`, locale)}
+            href={playerParentHref}
             className="text-indigo-500 hover:text-indigo-400"
           >
             {t.backToDrama}
@@ -1131,7 +1450,11 @@ export default function PlayEpisodePage() {
     const coverImage = resolveSafeImageUrl(currentEpisode.thumbnail || drama?.cover);
 
     return (
-      <div className={isMobile ? "fixed inset-0 z-50 overflow-hidden bg-black" : "min-h-screen bg-[#0f0f17]"}>
+      <div
+        className={isMobile ? "fixed inset-0 z-50 overflow-hidden bg-black" : "min-h-screen bg-[#0f0f17]"}
+        onTouchStart={isMobile ? handlePaywallTouchStart : undefined}
+        onTouchEnd={isMobile ? handlePaywallTouchEnd : undefined}
+      >
         <div className="absolute inset-0">
           <Image
             src={coverImage}
@@ -1147,28 +1470,19 @@ export default function PlayEpisodePage() {
 
         <div className="relative z-10 flex min-h-screen flex-col justify-between px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-3">
-            <Link
-              href={localizePath(`/drama/${dramaId}`, locale)}
-              className="inline-flex items-center gap-2 rounded-full bg-black/45 px-3 py-2 text-sm font-medium text-white backdrop-blur-md"
-            >
-              <span aria-hidden="true">←</span>
-              <span>{t.backToDrama}</span>
-            </Link>
-            <div className="flex items-center gap-2">
-              {isMobile && mobileHasNextEpisode ? (
-                <button
-                  type="button"
-                  onClick={() => { void handleFeedNextItem(); }}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-2 text-sm font-medium text-white backdrop-blur-md transition active:scale-95"
-                >
-                  <span>Skip</span>
-                  <span aria-hidden="true">↓</span>
-                </button>
-              ) : null}
+            {isFeedPlayback ? (
               <div className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[11px] font-semibold text-white/75 backdrop-blur-md">
-                {currentEpisodeStatus}
+                Swipe up to skip
               </div>
-            </div>
+            ) : (
+              <Link
+                href={playerParentHref}
+                className="inline-flex items-center gap-2 rounded-full bg-black/45 px-3 py-2 text-sm font-medium text-white backdrop-blur-md"
+              >
+                <span aria-hidden="true">←</span>
+                <span>{t.backToDrama}</span>
+              </Link>
+            )}
           </div>
 
           <div className="mx-auto w-full max-w-md rounded-[32px] border border-white/10 bg-black/55 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.5)] backdrop-blur-xl">
@@ -1211,32 +1525,16 @@ export default function PlayEpisodePage() {
     );
   }
 
-  if (!hasPlayableSource) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0f0f17]">
-        <div className="text-center">
-          <p className="text-gray-400 mb-4">{t.failedLoadVideo}</p>
-          <Link
-            href={localizePath(`/drama/${dramaId}`, locale)}
-            className="text-indigo-500 hover:text-indigo-400"
-          >
-            {t.backToDrama}
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   if (isMobile) {
     return (
       <PlayerMobileExperience
-        dramaId={dramaId}
+        dramaId={activeDramaId}
         drama={drama}
         currentEpisode={currentEpisode}
         locale={locale}
         user={user}
         token={token}
-        initialSeekTime={initialSeekTime}
+        initialSeekTime={activeSeekTime}
         playbackSource={playbackSource}
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleEnded}
@@ -1247,13 +1545,17 @@ export default function PlayEpisodePage() {
         isFeedLoading={feedLoadingMode === activeFeedMode}
         canOpenFollowingFeed={Boolean(token)}
         onSelectFeedMode={handleFeedModeChange}
-        onSkipCurrentFeedItem={handleFeedNextItem}
+        onSkipCurrentFeedItem={isFeedPlayback ? handleFeedNextItem : undefined}
         autoplayNextEpisode={autoplayNextEpisode}
         onAutoplayNextEpisodeChange={handleAutoplayNextEpisodeChange}
         hasNextEpisode={mobileHasNextEpisode}
         hasPreviousEpisode={mobileHasPreviousEpisode}
-        onNextEpisode={mobileHasNextEpisode ? () => { void handleFeedNextItem(); } : undefined}
-        onPreviousEpisode={mobileHasPreviousEpisode ? () => { void handleFeedPreviousItem(); } : undefined}
+        onNextEpisode={mobileHasNextEpisode ? (isFeedPlayback ? () => { void handleFeedNextItem(); } : handleNextEpisode) : undefined}
+        onPreviousEpisode={mobileHasPreviousEpisode ? (isFeedPlayback ? () => { void handleFeedPreviousItem(); } : handlePreviousEpisode) : undefined}
+        onRefreshFeed={isFeedPlayback ? () => { void handleRefreshFeedPool(); } : undefined}
+        playbackMode={playbackMode}
+        parentHref={playerParentHref}
+        onBackToParent={handleBackToParent}
       />
     );
   }
@@ -1264,10 +1566,10 @@ export default function PlayEpisodePage() {
       <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
         <div className="absolute inset-0">
           <SimplePlayer
-            videoUrl={videoUrl}
+            videoUrl={videoUrl || ''}
             poster={currentEpisode.thumbnail || drama?.cover}
             autoplay={true}
-            initialSeekTime={initialSeekTime}
+            initialSeekTime={activeSeekTime}
             mediaSession={{
               title: currentEpisode.title,
               artist: drama?.title,
@@ -1292,7 +1594,7 @@ export default function PlayEpisodePage() {
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <Link
-            href={localizePath(`/drama/${dramaId}`, locale)}
+            href={playerParentHref}
             className="text-indigo-500 hover:text-indigo-400 mb-4 inline-block"
           >
             ← {t.backToDrama} {drama?.title}
@@ -1331,11 +1633,11 @@ export default function PlayEpisodePage() {
           <h2 className="text-xl font-semibold text-white mb-4">{t.episodes}</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {episodes.map((episode) => (
-              <Link
+              <button
                 key={episode._id}
-                href={localizePath(`/drama/${dramaId}/play/${episode._id}`, locale)}
-                className={`relative rounded-lg overflow-hidden border-2 transition-all ${
-                  episode._id === episodeId
+                onClick={() => goToEpisode(episode)}
+                className={`relative rounded-lg overflow-hidden border-2 transition-all text-left ${
+                  episode._id === activeEpisodeId
                     ? 'border-indigo-600'
                     : 'border-gray-700 hover:border-gray-600'
                 }`}
@@ -1371,7 +1673,7 @@ export default function PlayEpisodePage() {
                     )
                   )}
                 </div>
-              </Link>
+              </button>
             ))}
           </div>
         </div>
