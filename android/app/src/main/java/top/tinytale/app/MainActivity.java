@@ -1,5 +1,6 @@
 package top.tinytale.app;
 
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
@@ -12,6 +13,7 @@ import com.getcapacitor.BridgeActivity;
 import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
 
 public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
+    private static final String NATIVE_APP_USER_AGENT_TOKEN = "TinyTaleNativeApp";
 
     private void enableImmersiveMode() {
         Window window = getWindow();
@@ -39,6 +41,18 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getBridge().getWebView().setBackgroundColor(Color.parseColor("#141414"));
+        ((View) getBridge().getWebView().getParent()).setBackgroundColor(Color.parseColor("#141414"));
+        String currentUserAgent = getBridge().getWebView().getSettings().getUserAgentString();
+        if (currentUserAgent == null) {
+            currentUserAgent = "";
+        }
+        if (!currentUserAgent.contains(NATIVE_APP_USER_AGENT_TOKEN)) {
+            getBridge()
+                .getWebView()
+                .getSettings()
+                .setUserAgentString((currentUserAgent + " " + NATIVE_APP_USER_AGENT_TOKEN).trim());
+        }
         enableImmersiveMode();
 
         // Override Capacitor SystemBars plugin's insets listener.
