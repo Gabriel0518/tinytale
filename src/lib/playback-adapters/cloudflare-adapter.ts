@@ -4,7 +4,7 @@ import type { NormalizedPlaybackSource } from '@/lib/playback-adapters/types';
 
 export function createCloudflarePlaybackSource(
   streamInfo?: StreamPlaybackInfo | null,
-  _fallbackUrl?: string
+  fallbackUrl?: string
 ): NormalizedPlaybackSource {
   const fallbackSubtitleTrack =
     streamInfo?.subtitles?.length
@@ -19,15 +19,15 @@ export function createCloudflarePlaybackSource(
           ]
         : [];
 
-  // CRITICAL: Only use streamInfo-provided URLs, never fallback to unsigned feed URLs
-  // Feed URLs are raw episode.videoUrl which lack required signed tokens
-  const playbackUrl = resolvePlaybackSource(streamInfo, undefined);
+  // Only pass in already-vetted fallback URLs from the caller. These are
+  // either signed API playback URLs or tokenized Cloudflare manifests.
+  const playbackUrl = resolvePlaybackSource(streamInfo, fallbackUrl);
 
   return {
     platform: 'cloudflare',
     streamVideoId: streamInfo?.videoUid,
     playbackUrl,
-    rawVideoUrl: streamInfo?.videoUrl,
+    rawVideoUrl: streamInfo?.videoUrl || fallbackUrl,
     signedToken: streamInfo?.signedToken,
     subtitles: streamInfo?.subtitles?.length ? streamInfo.subtitles : fallbackSubtitleTrack,
     qualityOptions: streamInfo?.qualityOptions || [],

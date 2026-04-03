@@ -14,6 +14,10 @@ const APP_SHELL = [
   '/pwa/apple-touch-icon.png',
 ];
 
+function responseOrError(response) {
+  return response || Response.error();
+}
+
 function isStaticAsset(pathname) {
   return (
     pathname.startsWith('/_next/static/') ||
@@ -66,7 +70,8 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(async () => {
           const cachedPage = await caches.match(event.request);
-          return cachedPage || caches.match('/offline.html');
+          const offlinePage = await caches.match('/offline.html');
+          return responseOrError(cachedPage || offlinePage);
         })
     );
     return;
@@ -90,7 +95,7 @@ self.addEventListener('fetch', (event) => {
             }
             return response;
           })
-          .catch(() => cached);
+          .catch(() => responseOrError(cached));
 
         return cached || networkFetch;
       })
@@ -110,6 +115,6 @@ self.addEventListener('fetch', (event) => {
 
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(async () => responseOrError(await caches.match(event.request)))
   );
 });

@@ -390,6 +390,38 @@ function buildProvisionalStreamFromFeedItem(item: FeedPlayableItem): StreamPlayb
   };
 }
 
+function buildProvisionalStreamFromEpisode(
+  episode: Episode,
+  fallbackUrl?: string | null,
+): StreamPlaybackInfo | null {
+  const safeFallbackUrl = String(fallbackUrl || "").trim();
+  if (!safeFallbackUrl) return null;
+
+  const fallbackSubtitleTrack =
+    episode.subtitles?.length
+      ? episode.subtitles
+      : episode.subtitleUrl
+        ? [
+            {
+              language: episode.subtitleLanguage || "en",
+              label: episode.subtitleLanguage || "English",
+              src: episode.subtitleUrl,
+            },
+          ]
+        : [];
+
+  return {
+    videoUid: episode.streamVideoId || "",
+    videoUrl: safeFallbackUrl,
+    playbackUrl: safeFallbackUrl,
+    streamVideoId: episode.streamVideoId,
+    subtitleUrl: episode.subtitleUrl || null,
+    thumbnailUrl: episode.thumbnail,
+    duration: episode.duration,
+    subtitles: fallbackSubtitleTrack,
+  };
+}
+
 function canUseImmediatePlaybackSource(url?: string | null) {
   if (!url) return false;
   return (
@@ -594,11 +626,17 @@ export default function PlayEpisodePage() {
         setCurrentEpisode(episode);
 
         // 检查缓存的流信息
+        const safeFallbackUrl = canUseImmediatePlaybackSource(episode.videoUrl)
+          ? episode.videoUrl
+          : undefined;
         const cachedStream =
           readPrefetchedStream(activeEpisodeId, token) ||
           readPrefetchedStream(activeEpisodeId);
-        if (cachedStream) {
-          if (!cancelled) setStreamInfo(cachedStream);
+        const provisionalStream = cachedStream
+          ? null
+          : buildProvisionalStreamFromEpisode(episode, safeFallbackUrl);
+        if (!cancelled) {
+          setStreamInfo(cachedStream || provisionalStream);
         }
 
         if (!episode.isFree && token) {
@@ -1253,28 +1291,37 @@ export default function PlayEpisodePage() {
   const goToEpisode = useCallback(async (targetEpisode: Episode) => {
     // Cancel all previous downloads to free bandwidth for new video
     cancelAllActiveDownloads();
+    const nextRoute = buildPlayerRoute(activeDramaId, targetEpisode._id, locale, "drama");
+
+    const safeFallbackUrl = canUseImmediatePlaybackSource(targetEpisode.videoUrl)
+      ? targetEpisode.videoUrl
+      : undefined;
+    const cachedStream =
+      readPrefetchedStream(targetEpisode._id, token) ||
+      readPrefetchedStream(targetEpisode._id);
+    const provisionalStream = cachedStream
+      ? null
+      : buildProvisionalStreamFromEpisode(targetEpisode, safeFallbackUrl);
 
     // Update state in-place instead of router.push to avoid loading flash
     setCurrentEpisode(targetEpisode);
-    // DON'T clear streamInfo - keep old stream visible until new one loads
+    setStreamInfo(cachedStream || provisionalStream);
     lastProgressReportAtRef.current = 0;
 
     // Update URL without triggering re-render
-    replacePlaybackUrl(
-      buildPlayerRoute(activeDramaId, targetEpisode._id, locale, "drama"),
-    );
+    replacePlaybackUrl(nextRoute);
     setActiveEpisodeId(targetEpisode._id);
     setActiveSeekTime(0);
+    router.push(nextRoute, { scroll: false });
 
     // Fetch stream info for the new episode
     try {
       const stream = await prefetchEpisodeStream(targetEpisode._id, token);
       setStreamInfo(stream);
     } catch {
-      // Stream will be fetched by the main loadData effect as fallback
-      setStreamInfo(null);
+      // Let the route-bound loader finish access checks and recover if needed.
     }
-  }, [activeDramaId, locale, token]);
+  }, [activeDramaId, locale, router, token]);
 
   const handlePreviousEpisode = useCallback(() => {
     if (hasPreviousEpisode) {
@@ -1592,6 +1639,7 @@ export default function PlayEpisodePage() {
   if (isMobile) {
     return (
       <PlayerMobileExperience
+        key={currentEpisode._id}
         dramaId={activeDramaId}
         drama={drama}
         currentEpisode={currentEpisode}
@@ -1630,6 +1678,7 @@ export default function PlayEpisodePage() {
       <div className="relative w-full" style={{ paddingTop: '56.25%' }}>
         <div className="absolute inset-0">
           <SimplePlayer
+            key={currentEpisode._id}
             videoUrl={videoUrl || ''}
             poster={currentEpisode.thumbnail || drama?.cover}
             autoplay={true}
