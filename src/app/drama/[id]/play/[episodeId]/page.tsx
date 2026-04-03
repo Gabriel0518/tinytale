@@ -8,7 +8,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { coinsApi, dramasApi, episodesApi, playFeedApi, userApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
-import { deepPrefetchVideoSegments, getPreloadQueue, cancelAllActiveDownloads } from "@/lib/playback-prefetch-enhanced";
+import { deepPrefetchVideoSegments, getPreloadQueue, cancelAllActiveDownloads, cleanupPrefetchCache } from "@/lib/playback-prefetch-enhanced";
 import { useToast } from "@/components/ui/Toast";
 import { Drama, Episode, EpisodeAccessResult, FeedPlayableItem, FeedWindowState } from "@/types";
 import type { StreamPlaybackInfo } from "@/types";
@@ -1407,6 +1407,14 @@ export default function PlayEpisodePage() {
   const handleBackToParent = useCallback(() => {
     router.push(playerParentHref);
   }, [playerParentHref, router]);
+
+  // Cleanup caches on component unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup on unmount
+      cleanupPrefetchCache();
+    };
+  }, []);
 
   const fallbackPlaybackUrl = useMemo(() => {
     if (!currentEpisode) return undefined;

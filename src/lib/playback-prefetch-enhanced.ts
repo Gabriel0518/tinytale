@@ -17,6 +17,9 @@ const CONCURRENT_SEGMENTS = 6;           // 并发下载分片数（提升至 6 
 const INITIAL_BUFFER_SECONDS = 5;        // 初始缓冲秒数（降低至 5 秒以加快起播）
 const MAX_BUFFER_SECONDS = 20;           // 最大缓冲秒数（降低至 20 秒以减少内存占用）
 const SEGMENT_DURATION_ESTIMATE = 2;     // HLS 分片时长估算（秒）
+const MANIFEST_CACHE_TTL = 5 * 60 * 1000; // Manifest 缓存 5 分钟
+const MAX_COMPLETED_SEGMENTS = 1000;     // 最多缓存 1000 个已完成分片
+const MAX_MANIFEST_CACHE = 50;           // 最多缓存 50 个 manifest
 interface SegmentPrefetchTask {
   url: string;
   index: number;
@@ -39,8 +42,45 @@ interface VideoPrefetchState {
 const prefetchStates = new Map<string, VideoPrefetchState>();
 const downloadingSegments = new Set<string>();
 const completedSegments = new Set<string>();
-const manifestCache = new Map<string, string[]>(); // 缓存已解析的 manifest
+const manifestCache = new Map<string, { segments: string[]; timestamp: number }>(); // 带 TTL 的 manifest 缓存
 const activeDownloads = new Map<string, AbortController>(); // 追踪活跃的下载任务
+
+/**
+ * LRU 缓存管理：限制 completedSegments 大小
+ */
+function addCompletedSegment(url: string) {
+  completedSegments.add(url);
+  if (completedSegments.size > MAX_COMPLETED_SEGMENTS) {
+    // 删除最早添加的 20% 条目（LRU 近似）
+    const toDelete = Math.floor(MAX_COMPLETED_SEGMENTS * 0.2);
+    const iterator = completedSegments.values();
+    for (let i = 0; i < toDelete; i++) {
+      const value = iterator.next().value;
+      if (value) completedSegments.delete(value);
+    }
+  }
+}
+
+/**
+ * 清理过期的 manifest 缓存
+ */
+function cleanExpiredManifests() {
+  const now = Date.now();
+  const entries = Array.from(manifestCache.entries());
+  for (const [url, entry] of entries) {
+    if (now - entry.timestamp > MANIFEST_CACHE_TTL) {
+      manifestCache.delete(url);
+    }
+  }
+  // 如果仍然超过限制，删除最旧的
+  if (manifestCache.size > MAX_MANIFEST_CACHE) {
+    const sortedEntries = entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const toDelete = manifestCache.size - MAX_MANIFEST_CACHE;
+    for (let i = 0; i < toDelete; i++) {
+      manifestCache.delete(sortedEntries[i][0]);
+    }
+  }
+}
 
 /**
  * 取消所有正在进行的下载（用于快速切换视频时）
@@ -52,11 +92,16 @@ export function cancelAllActiveDownloads() {
 }
 
 /**
- * 解析 HLS manifest 获取所有分片 URL（带缓存）
+ * 解析 HLS manifest 获取所有分片 URL（带 TTL 缓存）
  */
 async function parseHlsManifest(manifestUrl: string): Promise<string[]> {
+  // 清理过期缓存
+  cleanExpiredManifests();
+
   const cached = manifestCache.get(manifestUrl);
-  if (cached) return cached;
+  if (cached && Date.now() - cached.timestamp < MANIFEST_CACHE_TTL) {
+    return cached.segments;
+  }
 
   try {
     const response = await fetch(manifestUrl, {
@@ -93,7 +138,7 @@ async function parseHlsManifest(manifestUrl: string): Promise<string[]> {
       }
     }
 
-    manifestCache.set(manifestUrl, segmentUrls);
+    manifestCache.set(manifestUrl, { segments: segmentUrls, timestamp: Date.now() });
     return segmentUrls;
   } catch (error) {
     console.error('Failed to parse HLS manifest:', error);
@@ -129,7 +174,7 @@ async function downloadSegmentsConcurrently(
         cache: 'force-cache',
         signal: controller.signal,
       });
-      completedSegments.add(url);
+      addCompletedSegment(url);
     } catch (error: any) {
       // Ignore abort errors (expected when cancelling)
       if (error.name !== 'AbortError') {
@@ -157,10 +202,23 @@ async function downloadSegmentsConcurrently(
 
 /**
  * 自适应预取深度计算
- * 根据网络状况动态调整预取分片数
+ * 根据网络状况和内存压力动态调整预取分片数
  */
 function calculateAdaptivePrefetchDepth(): number {
   if (typeof navigator === 'undefined') return INITIAL_BUFFER_SECONDS;
+
+  // 检测内存压力（移动端优化）
+  const memory = (performance as any).memory;
+  if (memory) {
+    const usedMemoryRatio = memory.usedJSHeapSize / memory.jsHeapSizeLimit;
+    // 如果内存使用超过 80%，减少预取深度
+    if (usedMemoryRatio > 0.8) {
+      return 3; // 极低预取，避免 OOM
+    }
+    if (usedMemoryRatio > 0.6) {
+      return 5; // 低预取
+    }
+  }
 
   const connection = (navigator as any).connection;
   if (!connection) return INITIAL_BUFFER_SECONDS;
@@ -170,7 +228,7 @@ function calculateAdaptivePrefetchDepth(): number {
 
   // 根据网络类型调整预取深度（更保守的策略）
   if (effectiveType === '4g' && downlink > 10) {
-    return MAX_BUFFER_SECONDS; // 高速网络：预取 30 秒
+    return MAX_BUFFER_SECONDS; // 高速网络：预取 20 秒
   } else if (effectiveType === '4g' || (effectiveType === '3g' && downlink > 2)) {
     return 15; // 中速网络：预取 15 秒
   } else if (effectiveType === '3g') {
