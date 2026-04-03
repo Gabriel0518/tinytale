@@ -190,7 +190,6 @@ export default function MobilePlayer({
   const [duration, setDuration] = useState(0);
   const [pictureInPictureSupported, setPictureInPictureSupported] = useState(false);
   const [pictureInPictureActive, setPictureInPictureActive] = useState(false);
-  const [preferSimplePlayerBackend, setPreferSimplePlayerBackend] = useState(false);
   const [playerMuted, setPlayerMuted] = useState(autoplay);
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
@@ -203,28 +202,14 @@ export default function MobilePlayer({
     return readSavedPlaybackProgress({ streamVideoId, videoUrl });
   }, [initialSeekTime, streamVideoId, videoUrl]);
 
-  useEffect(() => {
-    if (typeof navigator === 'undefined') return;
-
+  // Determine player backend synchronously to avoid re-render
+  const preferSimplePlayerBackend = useMemo(() => {
+    if (typeof navigator === 'undefined') return false;
     const userAgent = navigator.userAgent || '';
     const isAndroid = /Android/i.test(userAgent);
     const hasStreamId = Boolean(streamVideoId);
     const hasHlsUrl = Boolean(videoUrl?.includes('.m3u8'));
-
-    // On Android WebView, always prefer SimplePlayer (react-player + hls.js)
-    // for Cloudflare Stream content. The iframe embed SDK and Video.js are
-    // both unreliable inside Capacitor WebView.
-    // Detect Cloudflare by streamVideoId presence, NOT by URL pattern, because
-    // the playback URL may be proxied through our API server.
-    const shouldUseSimple = isAndroid && (hasStreamId || hasHlsUrl) && Boolean(videoUrl);
-
-    setPreferSimplePlayerBackend(shouldUseSimple);
-
-    if (isAndroid) {
-      console.log(
-        `[MobilePlayer] Android detected streamVideoId=${hasStreamId} hlsUrl=${hasHlsUrl} → backend=${shouldUseSimple ? 'SimplePlayer' : 'CloudflarePlayer'}`
-      );
-    }
+    return isAndroid && (hasStreamId || hasHlsUrl) && Boolean(videoUrl);
   }, [streamVideoId, videoUrl]);
 
   const dismissFeedback = useCallback(() => {

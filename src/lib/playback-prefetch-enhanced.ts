@@ -13,9 +13,9 @@ import { resolvePlaybackSource } from "@/lib/playback";
 import type { StreamPlaybackInfo } from "@/types";
 
 // 配置常量
-const CONCURRENT_SEGMENTS = 3;           // 并发下载分片数（平衡速度和资源）
-const INITIAL_BUFFER_SECONDS = 10;       // 初始缓冲秒数
-const MAX_BUFFER_SECONDS = 30;           // 最大缓冲秒数
+const CONCURRENT_SEGMENTS = 6;           // 并发下载分片数（提升至 6 以加快预加载）
+const INITIAL_BUFFER_SECONDS = 5;        // 初始缓冲秒数（降低至 5 秒以加快起播）
+const MAX_BUFFER_SECONDS = 20;           // 最大缓冲秒数（降低至 20 秒以减少内存占用）
 const SEGMENT_DURATION_ESTIMATE = 2;     // HLS 分片时长估算（秒）
 interface SegmentPrefetchTask {
   url: string;
@@ -39,11 +39,15 @@ interface VideoPrefetchState {
 const prefetchStates = new Map<string, VideoPrefetchState>();
 const downloadingSegments = new Set<string>();
 const completedSegments = new Set<string>();
+const manifestCache = new Map<string, string[]>(); // 缓存已解析的 manifest
 
 /**
- * 解析 HLS manifest 获取所有分片 URL
+ * 解析 HLS manifest 获取所有分片 URL（带缓存）
  */
 async function parseHlsManifest(manifestUrl: string): Promise<string[]> {
+  const cached = manifestCache.get(manifestUrl);
+  if (cached) return cached;
+
   try {
     const response = await fetch(manifestUrl, {
       method: 'GET',
@@ -79,6 +83,7 @@ async function parseHlsManifest(manifestUrl: string): Promise<string[]> {
       }
     }
 
+    manifestCache.set(manifestUrl, segmentUrls);
     return segmentUrls;
   } catch (error) {
     console.error('Failed to parse HLS manifest:', error);
@@ -193,7 +198,7 @@ export async function deepPrefetchVideoSegments(
 
 /**
  * 视频预加载队列管理器
- * 基于 DeLoad 论文的 Demand-Driven 策略
+ * 优化策略：高优先级任务立即中断低优先级任务
  */
 export class VideoPreloadQueue {
   private queue: Array<{
@@ -205,6 +210,7 @@ export class VideoPreloadQueue {
   }> = [];
   private isProcessing = false;
   private abortController: AbortController | null = null;
+  private currentPriority = Infinity;
 
   /**
    * 添加视频到预加载队列
@@ -228,6 +234,11 @@ export class VideoPreloadQueue {
     // 按优先级排序
     this.queue.sort((a, b) => a.priority - b.priority);
 
+    // 如果新任务优先级更高，中断当前任务
+    if (priority < this.currentPriority && this.isProcessing) {
+      this.abortController?.abort();
+    }
+
     if (!this.isProcessing) {
       void this.processQueue();
     }
@@ -241,6 +252,7 @@ export class VideoPreloadQueue {
     this.abortController?.abort();
     this.abortController = null;
     this.isProcessing = false;
+    this.currentPriority = Infinity;
   }
 
   /**
@@ -252,10 +264,10 @@ export class VideoPreloadQueue {
 
     while (this.queue.length > 0) {
       const item = this.queue.shift()!;
+      this.currentPriority = item.priority;
       this.abortController = new AbortController();
 
       try {
-        // 1. 预取流信息（如果没有 playbackUrl）
         let url = item.playbackUrl;
         if (!url && item.episodeId) {
           const streamInfo = await episodesApi.getStream(
@@ -266,9 +278,9 @@ export class VideoPreloadQueue {
           url = resolvePlaybackSource(data as StreamPlaybackInfo, (data as StreamPlaybackInfo)?.videoUrl);
         }
 
-        // 2. 深度预取分片
+        // 后台预取分片，不阻塞队列继续处理下一个
         if (url) {
-          await deepPrefetchVideoSegments(url);
+          void deepPrefetchVideoSegments(url);
         }
       } catch {
         // 静默失败，继续处理下一个
@@ -276,6 +288,7 @@ export class VideoPreloadQueue {
     }
 
     this.isProcessing = false;
+    this.currentPriority = Infinity;
   }
 }
 
@@ -296,4 +309,5 @@ export function cleanupPrefetchCache() {
   completedSegments.clear();
   downloadingSegments.clear();
   prefetchStates.clear();
+  manifestCache.clear();
 }
