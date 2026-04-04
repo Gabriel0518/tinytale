@@ -1299,17 +1299,9 @@ export default function PlayEpisodePage() {
         startSeconds: getFeedItemResumeTime(currentItem),
       });
 
-      if (previousItem) {
-        void deepPrefetchVideoSegments(previousItem.playbackUrl, {
-          startSeconds: getFeedItemResumeTime(previousItem),
-        });
-      }
-
-      if (nextItem) {
-        void deepPrefetchVideoSegments(nextItem.playbackUrl, {
-          startSeconds: getFeedItemResumeTime(nextItem),
-        });
-      }
+      // Only warm manifests for adjacent items — do NOT deep-prefetch their
+      // segments.  Concurrent segment downloads for multiple videos starve
+      // the current player of bandwidth and trigger playback stalls.
 
       if (queuedItem) {
         preloadQueue.enqueue(

@@ -13,9 +13,9 @@ import { resolvePlaybackSource } from "@/lib/playback";
 import type { StreamPlaybackInfo } from "@/types";
 
 // 配置常量
-const CONCURRENT_SEGMENTS = 6;           // 并发下载分片数（提升至 6 以加快预加载）
-const INITIAL_BUFFER_SECONDS = 5;        // 初始缓冲秒数（降低至 5 秒以加快起播）
-const MAX_BUFFER_SECONDS = 20;           // 最大缓冲秒数（降低至 20 秒以减少内存占用）
+const CONCURRENT_SEGMENTS = 2;           // 并发下载分片数（降低至 2 以避免阻塞播放器）
+const INITIAL_BUFFER_SECONDS = 3;        // 初始缓冲秒数（降低至 3 秒）
+const MAX_BUFFER_SECONDS = 10;           // 最大缓冲秒数（降低至 10 秒以减少资源占用）
 const SEGMENT_DURATION_ESTIMATE = 2;     // HLS 分片时长估算（秒）
 const MANIFEST_CACHE_TTL = 5 * 60 * 1000; // Manifest 缓存 5 分钟
 const MAX_COMPLETED_SEGMENTS = 1000;     // 最多缓存 1000 个已完成分片
