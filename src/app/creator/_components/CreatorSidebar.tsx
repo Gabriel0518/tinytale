@@ -5,7 +5,6 @@ import Image from "next/image";
 import {
   BarChart3,
   BookMarked,
-  FileBadge2,
   Home,
   LifeBuoy,
   MoreVertical,
@@ -48,12 +47,6 @@ const NAV_ITEMS: NavItem[] = [
     href: "/creator/analytics",
     icon: BarChart3,
     matcher: (path) => path.startsWith("/creator/analytics"),
-  },
-  {
-    label: "Contract",
-    href: "/creator/contract",
-    icon: FileBadge2,
-    matcher: (path) => path.startsWith("/creator/contract"),
   },
   {
     label: "Settlements",

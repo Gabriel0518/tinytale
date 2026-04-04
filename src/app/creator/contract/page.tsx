@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
-import CreatorAnalyticsExperience from '../_components/analytics/CreatorAnalyticsExperience';
+import { redirect } from 'next/navigation';
 
 export default function CreatorContractPage() {
-  return <CreatorAnalyticsExperience mode="contract" />;
+  redirect('/creator/analytics');
 }

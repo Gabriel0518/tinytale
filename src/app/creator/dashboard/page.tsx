@@ -10,7 +10,6 @@ import {
   BarChart3,
   Clock3,
   Eye,
-  FileBadge2,
   FilePlus2,
   Globe,
   LifeBuoy,
@@ -241,7 +240,7 @@ function QuickActionsCard({ locale }: { locale: ReturnType<typeof useLocale> }) 
   const actions = [
     { label: "New Drama", href: "/creator/dramas/new", icon: <FilePlus2 className="h-5 w-5" /> },
     { label: "Content List", href: "/creator/dramas", icon: <BarChart3 className="h-5 w-5" /> },
-    { label: "Contract", href: "/creator/contract", icon: <FileBadge2 className="h-5 w-5" /> },
+    { label: "Analytics", href: "/creator/analytics", icon: <Eye className="h-5 w-5" /> },
     { label: "Settlements", href: "/creator/settlements", icon: <ReceiptText className="h-5 w-5" /> },
     { label: "Support", href: "/creator/tickets/new", icon: <LifeBuoy className="h-5 w-5" /> },
   ];
@@ -351,15 +350,15 @@ function OperationsCard({ locale }: { locale: ReturnType<typeof useLocale> }) {
   return (
     <section className="rounded-[24px] bg-[#0f172a] p-5 text-white">
       <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#93c5fd]">{translateCreatorText("Operations", locale)}</p>
-      <h2 className="mt-3 text-[20px] font-black md:text-[24px]">{translateCreatorText("Contracts, bank review, and monthly USD settlements are now one workflow.", locale)}</h2>
+      <h2 className="mt-3 text-[20px] font-black md:text-[24px]">{translateCreatorText("Analytics, bank review, and monthly USD settlements are now one workflow.", locale)}</h2>
       <ul className="mt-4 space-y-2 text-[13px] leading-6 text-[#cbd5e1]">
         <li>{translateCreatorText("48-hour review target for creator application and content review queues", locale)}</li>
         <li>{translateCreatorText("USD settlement view with channel-fee deduction before creator split", locale)}</li>
         <li>{translateCreatorText("Bank-account verification is required before payout release", locale)}</li>
       </ul>
       <div className="mt-5 flex flex-wrap gap-3">
-        <Link href={localizePath("/creator/contract", locale)} className="rounded-2xl bg-[#1876f2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1669da]">
-          {translateCreatorText("Review Contract", locale)}
+        <Link href={localizePath("/creator/analytics", locale)} className="rounded-2xl bg-[#1876f2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#1669da]">
+          {translateCreatorText("Open Analytics", locale)}
         </Link>
         <Link href={localizePath("/creator/settlements", locale)} className="rounded-2xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/90 hover:bg-white/5">
           {translateCreatorText("Open Settlements", locale)}

@@ -78,6 +78,7 @@ export default function CreatorSettlementsPage() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [payoutActionLoading, setPayoutActionLoading] = useState(false);
   const [showBeneficiaryForm, setShowBeneficiaryForm] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
   const [beneficiaryDefaults, setBeneficiaryDefaults] = useState<Record<string, unknown> | null>(null);
   const [beneficiaryTransferMethods, setBeneficiaryTransferMethods] = useState<string[]>([]);
   const [filter, setFilter] = useState<StatementFilter>("all");
@@ -274,6 +275,14 @@ export default function CreatorSettlementsPage() {
 
       <section className={`${cardClassName} relative overflow-hidden p-6 md:p-7`}>
         <div className="absolute right-0 top-0 h-full w-[240px] bg-[linear-gradient(135deg,rgba(24,118,242,0.15),rgba(24,118,242,0.04))] [clip-path:polygon(30%_0,100%_0,100%_65%,10%_45%)]" />
+        <button
+          type="button"
+          onClick={() => setShowRulesModal(true)}
+          className="absolute right-5 top-5 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#dbe3ec] bg-white/90 text-[#475569] shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition hover:border-[#bfdbfe] hover:text-[#1876f2] md:right-6 md:top-6"
+          aria-label={t("Open settlement rules")}
+        >
+          <CircleHelp className="h-5 w-5" />
+        </button>
         <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-[14px] font-semibold uppercase tracking-[0.08em] text-[#64748b]">{t("Current Balance")}</p>
@@ -530,11 +539,6 @@ export default function CreatorSettlementsPage() {
         </div>
       </section>
 
-      {/* Settlement Rules Explanation */}
-      <section className={`${cardClassName} p-6 md:p-7`}>
-        <SettlementRulesExplanation />
-      </section>
-
       <div className="grid gap-6">
         <section className={`${cardClassName} p-6`}>
           <div className="flex items-start gap-4">
@@ -582,6 +586,35 @@ export default function CreatorSettlementsPage() {
               onSaved={handleAirwallexSaved}
               onClose={() => setShowBeneficiaryForm(false)}
             />
+          </div>
+        </div>
+      ) : null}
+
+      {showRulesModal ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#0f172a]/45 px-4 py-8 backdrop-blur-sm">
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowRulesModal(false)}
+            aria-hidden="true"
+          />
+          <div className="relative z-10 flex max-h-[calc(100vh-48px)] w-full max-w-[1040px] flex-col overflow-hidden rounded-[28px] border border-[#e2e8f0] bg-[#f8fafc] shadow-[0_28px_70px_rgba(15,23,42,0.22)]">
+            <div className="flex items-center justify-between border-b border-[#e2e8f0] bg-white px-5 py-4 md:px-6">
+              <div>
+                <h2 className="text-[20px] font-black tracking-[-0.03em] text-[#0f172a]">{t("Settlement Rules")}</h2>
+                <p className="mt-1 text-sm text-[#64748b]">{t("Review the payout logic without leaving the settlement workflow.")}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRulesModal(false)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#dbe3ec] bg-white text-[#475569] transition hover:border-[#bfdbfe] hover:text-[#1876f2]"
+                aria-label={t("Close settlement rules")}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-5 py-5 md:px-6 md:py-6">
+              <SettlementRulesExplanation />
+            </div>
           </div>
         </div>
       ) : null}

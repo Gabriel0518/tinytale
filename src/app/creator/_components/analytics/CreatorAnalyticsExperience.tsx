@@ -10,7 +10,6 @@ import {
   Clock3,
   Download,
   Eye,
-  FileBadge2,
   Globe2,
   LayoutGrid,
   MoreHorizontal,
@@ -136,9 +135,6 @@ function buildRangeHref(locale: ReturnType<typeof useLocale>, pathname: string, 
 }
 
 function buildTabHref(locale: ReturnType<typeof useLocale>, pathname: string, range: AnalyticsRange) {
-  if (pathname === '/creator/contract') {
-    return localizePath(pathname, locale);
-  }
   return `${localizePath(pathname, locale)}?range=${range}`;
 }
 
@@ -229,7 +225,6 @@ function AnalyticsPageShell({
     { key: 'overview' as const, label: 'Overview', href: '/creator/analytics', icon: <LayoutGrid className="h-[14px] w-[14px]" /> },
     { key: 'revenue' as const, label: 'Revenue', href: '/creator/analytics/revenue', icon: <CircleDollarSign className="h-[14px] w-[14px]" /> },
     { key: 'audience' as const, label: 'Audience', href: '/creator/analytics/audience', icon: <Users className="h-[14px] w-[14px]" /> },
-    { key: 'contract' as const, label: 'Contract', href: '/creator/contract', icon: <FileBadge2 className="h-[14px] w-[14px]" /> },
   ];
 
   return (
@@ -1075,7 +1070,7 @@ function RevenueContent({ range }: { range: AnalyticsRange }) {
       {!loading && !error && !remoteSnapshot ? <AnalyticsErrorState message={t('Revenue analytics API returned no data.')} /> : null}
       {!loading && !error && remoteSnapshot ? (
         <>
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          <div className={cx('grid gap-6 md:grid-cols-2', remoteSnapshot.metrics.length > 4 ? 'xl:grid-cols-5' : 'xl:grid-cols-4')}>
             {remoteSnapshot.metrics.map((metric) => (
               <AnalyticsMetricCard key={metric.label} metric={metric} />
             ))}

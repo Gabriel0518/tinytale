@@ -20,7 +20,6 @@ const APPROVED_ONLY_PREFIXES = [
   "/creator/dashboard",
   "/creator/dramas",
   "/creator/analytics",
-  "/creator/contract",
   "/creator/settlements",
   "/creator/tickets",
   "/creator/settings",
@@ -35,7 +34,6 @@ const MOBILE_NAV_ITEMS = [
   { label: "Dramas", href: "/creator/dramas" },
   { label: "Analytics", href: "/creator/analytics" },
   { label: "Settlements", href: "/creator/settlements" },
-  { label: "Contract", href: "/creator/contract" },
   { label: "Settings", href: "/creator/settings" },
   { label: "Tickets", href: "/creator/tickets" },
 ];
