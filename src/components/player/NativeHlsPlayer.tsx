@@ -447,7 +447,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         discoveredAudioTracksRef.current = [];
         publishAudioOptions([]);
       };
-    }, [publishAudioOptions, videoUrl]);
+    }, [autoplay, initialSeekTime, muted, publishAudioOptions, videoUrl]);
 
     // Sync muted prop
     useEffect(() => {
