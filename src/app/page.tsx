@@ -6,7 +6,7 @@ import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, use
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, Play, Plus, Star } from 'lucide-react';
+import { Check, ChevronRight, Play, Plus, Star } from 'lucide-react';
 import { dramasApi, categoriesApi, userApi } from '@/lib/api';
 import { Drama, Category, HomepageBanner, HomepageFeaturedBuckets, HomepageHeroBanner, HomepagePlaylist } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
@@ -23,6 +23,8 @@ import { resolveOptionalSafeImageUrl } from '@/lib/safe-image';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
 import { MobileScrollTabs } from '@/components/mobile/MobileScrollTabs';
 import { MobileHeroSkeleton, MobilePillRowSkeleton, MobileShelfSkeleton } from '@/components/mobile/MobileSkeletons';
+import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/lib/authContext';
 import { readViewCache, writeViewCache } from '@/lib/view-cache';
 
 function validCover(url?: string): string | undefined {
@@ -40,6 +42,52 @@ function formatSeconds(totalSeconds: number): string {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+function extractFavoriteDramaIds(payload: unknown): string[] {
+  const data = (payload as { data?: unknown })?.data ?? payload;
+  const rawItems = Array.isArray(data)
+    ? data
+    : Array.isArray((data as { favorites?: unknown[] })?.favorites)
+      ? (data as { favorites: unknown[] }).favorites
+      : Array.isArray((data as { items?: unknown[] })?.items)
+        ? (data as { items: unknown[] }).items
+        : Array.isArray((data as { dramas?: unknown[] })?.dramas)
+          ? (data as { dramas: unknown[] }).dramas
+          : [];
+
+  const ids = new Set<string>();
+
+  rawItems.forEach((item) => {
+    if (typeof item === 'string') {
+      ids.add(item);
+      return;
+    }
+
+    if (!item || typeof item !== 'object') return;
+
+    const record = item as {
+      _id?: unknown;
+      dramaId?: unknown;
+      drama?: { _id?: unknown };
+    };
+
+    if (typeof record.dramaId === 'string') {
+      ids.add(record.dramaId);
+      return;
+    }
+
+    if (typeof record.drama?._id === 'string') {
+      ids.add(record.drama._id);
+      return;
+    }
+
+    if (typeof record._id === 'string') {
+      ids.add(record._id);
+    }
+  });
+
+  return Array.from(ids);
+}
+
 const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
     all: 'All',
@@ -54,6 +102,10 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     continueWatching: 'Continue Watching',
     editorsChoice: "Editor's Choice",
     more: 'More',
+    inMyList: 'In My List',
+    addedToList: 'Added to My List',
+    removedFromList: 'Removed from My List',
+    signInFavorite: 'Please sign in to add favorites',
     episodesShort: 'eps',
     pullToRefresh: 'PULL TO REFRESH',
     releaseToRefresh: 'RELEASE TO REFRESH',
@@ -72,6 +124,10 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     continueWatching: '继续观看',
     editorsChoice: '编辑精选',
     more: '更多',
+    inMyList: '已在片单',
+    addedToList: '已加入片单',
+    removedFromList: '已从片单移除',
+    signInFavorite: '登录后即可收藏',
     episodesShort: '集',
     pullToRefresh: '下拉刷新',
     releaseToRefresh: '松开刷新',
@@ -90,6 +146,10 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     continueWatching: '視聴を続ける',
     editorsChoice: '編集部のおすすめ',
     more: 'もっと見る',
+    inMyList: 'マイリスト登録済み',
+    addedToList: 'マイリストに追加しました',
+    removedFromList: 'マイリストから削除しました',
+    signInFavorite: 'お気に入り追加にはログインが必要です',
     episodesShort: '話',
     pullToRefresh: '引っ張って更新',
     releaseToRefresh: '離して更新',
@@ -108,6 +168,10 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     continueWatching: 'Seguir viendo',
     editorsChoice: 'Selección del editor',
     more: 'Más',
+    inMyList: 'En mi lista',
+    addedToList: 'Añadido a Mi lista',
+    removedFromList: 'Eliminado de Mi lista',
+    signInFavorite: 'Inicia sesión para añadir favoritos',
     episodesShort: 'eps',
     pullToRefresh: 'DESLIZA PARA ACTUALIZAR',
     releaseToRefresh: 'SUELTA PARA ACTUALIZAR',
@@ -126,6 +190,10 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     continueWatching: 'Continuar assistindo',
     editorsChoice: 'Escolha do editor',
     more: 'Mais',
+    inMyList: 'Na Minha Lista',
+    addedToList: 'Adicionado à Minha Lista',
+    removedFromList: 'Removido da Minha Lista',
+    signInFavorite: 'Faça login para adicionar aos favoritos',
     episodesShort: 'eps',
     pullToRefresh: 'PUXE PARA ATUALIZAR',
     releaseToRefresh: 'SOLTE PARA ATUALIZAR',
@@ -144,6 +212,10 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     continueWatching: 'देखना जारी रखें',
     editorsChoice: 'एडिटर की पसंद',
     more: 'और',
+    inMyList: 'मेरी सूची में',
+    addedToList: 'मेरी सूची में जोड़ा गया',
+    removedFromList: 'मेरी सूची से हटाया गया',
+    signInFavorite: 'फेवरेट जोड़ने के लिए साइन इन करें',
     episodesShort: 'एप',
     pullToRefresh: 'रीफ्रेश करने के लिए खींचें',
     releaseToRefresh: 'रीफ्रेश करने के लिए छोड़ें',
@@ -162,6 +234,10 @@ const HOME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
     continueWatching: 'Lanjut menonton',
     editorsChoice: 'Pilihan editor',
     more: 'Lainnya',
+    inMyList: 'Sudah di daftar',
+    addedToList: 'Ditambahkan ke Daftar Saya',
+    removedFromList: 'Dihapus dari Daftar Saya',
+    signInFavorite: 'Masuk untuk menambahkan favorit',
     episodesShort: 'ep',
     pullToRefresh: 'TARIK UNTUK MEMUAT ULANG',
     releaseToRefresh: 'LEPAS UNTUK MEMUAT ULANG',
@@ -452,18 +528,17 @@ export default function Home() {
   const t = resolveLocaleCopy(HOME_TEXT, locale);
   const { isMobile } = usePlatform();
   const router = useRouter();
+  const { token } = useAuth();
+  const { toast } = useToast();
   const requestIdRef = useRef(0);
   const homeCacheKey = `home-view:${locale}:${isMobile ? 'mobile' : 'desktop'}`;
-  const cachedHomeView = useMemo(
-    () => readViewCache<HomeViewCache>(homeCacheKey, HOME_VIEW_CACHE_MAX_AGE_MS),
-    [homeCacheKey]
-  );
-  const [dramas, setDramas] = useState<Drama[]>(() => cachedHomeView?.dramas || []);
-  const [categories, setCategories] = useState<Category[]>(() => cachedHomeView?.categories || []);
-  const [hotRankings, setHotRankings] = useState<Drama[]>(() => cachedHomeView?.hotRankings || []);
-  const [recommendations, setRecommendations] = useState<Drama[]>(() => cachedHomeView?.recommendations || []);
-  const [featuredTrending, setFeaturedTrending] = useState<Drama[]>(() => cachedHomeView?.featuredTrending || []);
-  const [featuredNewReleases, setFeaturedNewReleases] = useState<Drama[]>(() => cachedHomeView?.featuredNewReleases || []);
+  const [cachedHomeView, setCachedHomeView] = useState<HomeViewCache | null>(null);
+  const [dramas, setDramas] = useState<Drama[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [hotRankings, setHotRankings] = useState<Drama[]>([]);
+  const [recommendations, setRecommendations] = useState<Drama[]>([]);
+  const [featuredTrending, setFeaturedTrending] = useState<Drama[]>([]);
+  const [featuredNewReleases, setFeaturedNewReleases] = useState<Drama[]>([]);
   const [continueWatching, setContinueWatching] = useState<Array<{
     _id: string;
     dramaId: string;
@@ -475,10 +550,12 @@ export default function Home() {
     durationSeconds: number;
     updatedAt?: string;
   }>>([]);
-  const [customPlaylists, setCustomPlaylists] = useState<HomepagePlaylist[]>(() => cachedHomeView?.customPlaylists || []);
-  const [banners, setBanners] = useState<HomepageBanner[]>(() => cachedHomeView?.banners || []);
-  const [heroBanners, setHeroBanners] = useState<HomepageHeroBanner[]>(() => cachedHomeView?.heroBanners || []);
-  const [loading, setLoading] = useState(() => !cachedHomeView);
+  const [customPlaylists, setCustomPlaylists] = useState<HomepagePlaylist[]>([]);
+  const [banners, setBanners] = useState<HomepageBanner[]>([]);
+  const [heroBanners, setHeroBanners] = useState<HomepageHeroBanner[]>([]);
+  const [favoriteDramaIds, setFavoriteDramaIds] = useState<Set<string>>(new Set());
+  const [heroFavoritePending, setHeroFavoritePending] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('all');
   const [heroIndex, setHeroIndex] = useState(0);
   const [mobileContentStage, setMobileContentStage] = useState<'critical' | 'full'>('critical');
@@ -495,6 +572,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    setCachedHomeView(readViewCache<HomeViewCache>(homeCacheKey, HOME_VIEW_CACHE_MAX_AGE_MS));
+  }, [homeCacheKey]);
+
+  useEffect(() => {
     if (!cachedHomeView) return;
     setDramas(cachedHomeView.dramas);
     setCategories(cachedHomeView.categories);
@@ -507,6 +588,30 @@ export default function Home() {
     setHeroBanners(cachedHomeView.heroBanners);
     setLoading(false);
   }, [cachedHomeView]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!token) {
+      setFavoriteDramaIds(new Set());
+      return;
+    }
+
+    userApi.getFavorites(token)
+      .then((res) => {
+        if (cancelled) return;
+        setFavoriteDramaIds(new Set(extractFavoriteDramaIds(res.data)));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFavoriteDramaIds(new Set());
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const fetchHomeData = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
     const requestId = requestIdRef.current + 1;
@@ -805,16 +910,48 @@ export default function Home() {
         .filter((drama): drama is Drama => Boolean(drama?._id)),
     [continueWatching]
   );
+  const currentHeroDramaId = currentHeroBanner?.dramaId || heroDrama?._id || null;
+  const isCurrentHeroInList = currentHeroDramaId ? favoriteDramaIds.has(currentHeroDramaId) : false;
   const handleAddToList = useCallback(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    if (token) {
-      router.push(localizePath('/user/favorites', locale));
+    const targetDramaId = currentHeroBanner?.dramaId || heroDrama?._id;
+    if (!targetDramaId) return;
+
+    if (!token) {
+      toast(t.signInFavorite, 'info');
+      const redirect = encodeURIComponent(localizePath('/user/favorites', locale));
+      router.push(`${localizePath('/auth/login', locale)}?redirect=${redirect}`);
       return;
     }
 
-    const redirect = encodeURIComponent(localizePath('/user/favorites', locale));
-    router.push(`${localizePath('/auth/login', locale)}?redirect=${redirect}`);
-  }, [locale, router]);
+    if (heroFavoritePending) return;
+
+    setHeroFavoritePending(true);
+
+    const isAlreadyInList = favoriteDramaIds.has(targetDramaId);
+    const request = isAlreadyInList
+      ? userApi.removeFavorite(token, targetDramaId)
+      : userApi.addFavorite(token, targetDramaId);
+
+    request
+      .then(() => {
+        setFavoriteDramaIds((prev) => {
+          const next = new Set(prev);
+          if (isAlreadyInList) {
+            next.delete(targetDramaId);
+          } else {
+            next.add(targetDramaId);
+          }
+          return next;
+        });
+        toast(isAlreadyInList ? t.removedFromList : t.addedToList, 'success');
+      })
+      .catch((error) => {
+        toast(error instanceof Error ? error.message : t.signInFavorite, 'error');
+      })
+      .finally(() => {
+        setHeroFavoritePending(false);
+      });
+  }, [currentHeroBanner?.dramaId, favoriteDramaIds, heroDrama?._id, heroFavoritePending, locale, router, t.addedToList, t.removedFromList, t.signInFavorite, toast, token]);
 
   const mobileCategoryPills = useMemo(
     () =>
@@ -1015,10 +1152,13 @@ export default function Home() {
               <button
                 type="button"
                 onClick={handleAddToList}
-                className="inline-flex min-h-[48px] items-center gap-2 rounded-full bg-white/10 px-5 py-3 text-sm font-bold text-white active:scale-[0.98]"
+                disabled={heroFavoritePending}
+                className={`inline-flex min-h-[48px] items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white active:scale-[0.98] ${
+                  isCurrentHeroInList ? 'bg-white/18' : 'bg-white/10'
+                } ${heroFavoritePending ? 'opacity-70' : ''}`}
               >
-                <Plus className="h-4 w-4" />
-                <span>{t.myList}</span>
+                {isCurrentHeroInList ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                <span>{isCurrentHeroInList ? t.inMyList : t.myList}</span>
               </button>
             </div>
           </div>
@@ -1066,21 +1206,21 @@ export default function Home() {
                   {t.watchNow}
                 </Link>
                 <button
-                  onClick={() => {
-                    const token = typeof window !== 'undefined' && localStorage.getItem('token');
-                    if (token) {
-                      router.push(localizePath('/user/favorites', locale));
-                    } else {
-                      const redirect = encodeURIComponent(localizePath('/user/favorites', locale));
-                      router.push(`${localizePath('/auth/login', locale)}?redirect=${redirect}`);
-                    }
-                  }}
-                  className="flex min-h-[48px] items-center gap-2 rounded-full border border-gray-500 px-5 py-3 font-medium text-white transition hover:border-white hover:bg-white/10"
+                  type="button"
+                  onClick={handleAddToList}
+                  disabled={heroFavoritePending}
+                  className={`flex min-h-[48px] items-center gap-2 rounded-full border px-5 py-3 font-medium text-white transition hover:border-white hover:bg-white/10 ${
+                    isCurrentHeroInList ? 'border-white/70 bg-white/10' : 'border-gray-500'
+                  } ${heroFavoritePending ? 'opacity-70' : ''}`}
                 >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  {t.myList}
+                  {isCurrentHeroInList ? (
+                    <Check className="h-5 w-5" />
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  )}
+                  {isCurrentHeroInList ? t.inMyList : t.myList}
                 </button>
               </div>
 
@@ -1154,21 +1294,21 @@ export default function Home() {
                   {t.watchNow}
                 </Link>
                 <button
-                  onClick={() => {
-                    const token = typeof window !== 'undefined' && localStorage.getItem('token');
-                    if (token) {
-                      router.push(localizePath('/user/favorites', locale));
-                    } else {
-                      const redirect = encodeURIComponent(localizePath('/user/favorites', locale));
-                      router.push(`${localizePath('/auth/login', locale)}?redirect=${redirect}`);
-                    }
-                  }}
-                  className="flex min-h-[48px] items-center gap-2 rounded-full border border-gray-500 px-5 py-3 font-medium text-white transition hover:border-white hover:bg-white/10"
+                  type="button"
+                  onClick={handleAddToList}
+                  disabled={heroFavoritePending}
+                  className={`flex min-h-[48px] items-center gap-2 rounded-full border px-5 py-3 font-medium text-white transition hover:border-white hover:bg-white/10 ${
+                    isCurrentHeroInList ? 'border-white/70 bg-white/10' : 'border-gray-500'
+                  } ${heroFavoritePending ? 'opacity-70' : ''}`}
                 >
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  {t.myList}
+                  {isCurrentHeroInList ? (
+                    <Check className="h-5 w-5" />
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  )}
+                  {isCurrentHeroInList ? t.inMyList : t.myList}
                 </button>
               </div>
 

@@ -116,14 +116,11 @@ function CategoryContent() {
   const router = useRouter();
   const categoryParam = searchParams.get('category');
   const cacheKey = `category-view:${locale}`;
-  const cachedView = useMemo(
-    () => readViewCache<CategoryViewCache>(cacheKey, CATEGORY_VIEW_CACHE_MAX_AGE_MS),
-    [cacheKey]
-  );
+  const [cachedView, setCachedView] = useState<CategoryViewCache | null>(null);
 
-  const [dramas, setDramas] = useState<Drama[]>(() => cachedView?.dramas || []);
-  const [categories, setCategories] = useState<Category[]>(() => cachedView?.categories || []);
-  const [loading, setLoading] = useState(() => !cachedView);
+  const [dramas, setDramas] = useState<Drama[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>(categoryParam || 'all');
   const [sortBy, setSortBy] = useState('newest');
@@ -131,6 +128,10 @@ function CategoryContent() {
   const [visibleCount, setVisibleCount] = useState(12);
 
   const ITEMS_PER_PAGE = 12;
+
+  useEffect(() => {
+    setCachedView(readViewCache<CategoryViewCache>(cacheKey, CATEGORY_VIEW_CACHE_MAX_AGE_MS));
+  }, [cacheKey]);
 
   /* Sync selectedCategory from URL search params */
   useEffect(() => {

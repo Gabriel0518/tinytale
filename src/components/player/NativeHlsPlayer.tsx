@@ -14,6 +14,36 @@ function log(msg: string) {
   console.log(`[NativeHls] ${msg}`);
 }
 
+function serializeHlsErrorData(data: any): string {
+  const summary = {
+    type: data?.type,
+    details: data?.details,
+    fatal: data?.fatal,
+    error: data?.error?.message || data?.error || undefined,
+    fragUrl: data?.frag?.url,
+    partUrl: data?.part?.url,
+    contextUrl: data?.context?.url,
+    responseUrl:
+      data?.response?.url
+      || data?.networkDetails?.responseURL
+      || data?.networkDetails?.url,
+    responseCode: data?.response?.code,
+    responseText: data?.response?.text,
+    networkType: data?.networkDetails?.constructor?.name,
+  };
+
+  try {
+    return JSON.stringify(summary);
+  } catch {
+    return String(summary);
+  }
+}
+
+function shouldForceHlsJsOnCurrentDevice() {
+  if (typeof navigator === 'undefined') return false;
+  return /Android/i.test(navigator.userAgent || '');
+}
+
 interface NativeHlsPlayerProps {
   videoUrl: string;
   poster?: string;
@@ -84,6 +114,9 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
     const onReadyRef = useRef(onReady);
     const onPlayRef = useRef(onPlay);
     const onPauseRef = useRef(onPause);
+    const autoplayRef = useRef(autoplay);
+    const mutedRef = useRef(muted);
+    const initialSeekTimeRef = useRef(initialSeekTime);
 
     useEffect(() => {
       onAvailableAudioOptionsChangeRef.current = onAvailableAudioOptionsChange;
@@ -94,6 +127,12 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
       onPlayRef.current = onPlay;
       onPauseRef.current = onPause;
     }, [onAvailableAudioOptionsChange, onEnded, onError, onPause, onPlay, onReady, onTimeUpdate]);
+
+    useEffect(() => {
+      autoplayRef.current = autoplay;
+      mutedRef.current = muted;
+      initialSeekTimeRef.current = initialSeekTime;
+    }, [autoplay, initialSeekTime, muted]);
 
     useImperativeHandle(ref, () => ({
       play: () => {
@@ -171,15 +210,16 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
     useEffect(() => {
       const video = videoRef.current;
       if (!video || !videoUrl) return undefined;
+      let disposed = false;
 
-      log(`init url=${videoUrl.slice(0, 100)} autoplay=${autoplay} muted=${muted}`);
+      log(`init url=${videoUrl.slice(0, 100)} autoplay=${autoplayRef.current} muted=${mutedRef.current}`);
 
       // Event listeners
       const events: Array<[string, () => void]> = [
         ['loadstart', () => log(`loadstart readyState=${video.readyState} networkState=${video.networkState}`)],
         ['loadedmetadata', () => {
           log(`loadedmetadata duration=${video.duration?.toFixed(2)} readyState=${video.readyState}`);
-          if (initialSeekTime > 0) video.currentTime = initialSeekTime;
+          if (initialSeekTimeRef.current > 0) video.currentTime = initialSeekTimeRef.current;
         }],
         ['canplay', () => {
           log(`canplay duration=${video.duration?.toFixed(2)} currentTime=${video.currentTime.toFixed(2)}`);
@@ -200,7 +240,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         ['error', () => {
           const e = video.error;
           const msg = e ? `MEDIA_ERR_${e.code} ${e.message || ''}` : 'unknown';
-          log(`error ${msg}`);
+          log(`error ${msg} currentSrc=${video.currentSrc || 'n/a'}`);
           onErrorRef.current?.(msg);
         }],
         ['timeupdate', () => {
@@ -218,15 +258,32 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
       events.forEach(([name, handler]) => video.addEventListener(name, handler));
 
       const isHls = videoUrl.includes('.m3u8');
+      const shouldUseHlsJs = isHls && (
+        shouldForceHlsJsOnCurrentDevice() ||
+        !(video as any).canPlayType?.('application/vnd.apple.mpegurl')
+      );
 
-      if (isHls && !(video as any).canPlayType?.('application/vnd.apple.mpegurl')) {
-        // Android WebView: needs HLS.js
-        log('loading hls.js (no native HLS support)');
+      if (shouldUseHlsJs) {
+        log(
+          shouldForceHlsJsOnCurrentDevice()
+            ? 'loading hls.js (forcing Android/WebView HLS path)'
+            : 'loading hls.js (no native HLS support)'
+        );
         import('hls.js').then((mod) => {
+          if (disposed) return;
+
           const Hls = mod.default;
           if (!Hls.isSupported()) {
-            log('hls.js NOT supported on this browser');
-            onErrorRef.current?.('HLS not supported');
+            if (disposed) return;
+            log('hls.js NOT supported on this browser, falling back to native playback');
+            publishAudioOptions([
+              { id: 'default', label: 'Original', isDefault: true },
+            ]);
+            video.src = videoUrl;
+            if (autoplayRef.current) {
+              video.muted = mutedRef.current;
+              void video.play().catch((err: any) => log(`autoplay rejected: ${err.message || err}`));
+            }
             return;
           }
 
@@ -235,7 +292,25 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
             enableWorker: true,
             lowLatencyMode: false,
             renderTextTracksNatively: true,
+            // Generous timeouts for proxied playback — the API proxy adds
+            // round-trip latency to Cloudflare, so defaults are too tight.
+            fragLoadingTimeOut: 30000,
+            fragLoadingMaxRetry: 5,
+            fragLoadingRetryDelay: 1000,
+            fragLoadingMaxRetryTimeout: 32000,
+            manifestLoadingTimeOut: 20000,
+            manifestLoadingMaxRetry: 4,
+            manifestLoadingRetryDelay: 1000,
+            manifestLoadingMaxRetryTimeout: 32000,
+            levelLoadingTimeOut: 20000,
+            levelLoadingMaxRetry: 4,
+            levelLoadingRetryDelay: 1000,
+            levelLoadingMaxRetryTimeout: 32000,
           });
+          if (disposed) {
+            hls.destroy();
+            return;
+          }
           hlsRef.current = hls;
 
           hls.on(Hls.Events.MANIFEST_PARSED, (_event: any, data: any) => {
@@ -253,14 +328,28 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
                 { id: 'default', label: 'Original', isDefault: true },
               ]);
             }
-            if (autoplay) {
-              video.muted = muted;
+            if (autoplayRef.current) {
+              video.muted = mutedRef.current;
               void video.play().catch((err: any) => log(`autoplay rejected: ${err.message || err}`));
             }
           });
 
           hls.on(Hls.Events.ERROR, (_event: any, data: any) => {
-            log(`hls-error type=${data.type} details=${data.details} fatal=${data.fatal}`);
+            const errorSummary = serializeHlsErrorData(data);
+            log(`hls-error ${errorSummary}`);
+
+            // Extra diagnostic for network errors — log the exact URL that failed
+            if (data?.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              const failedUrl =
+                data?.frag?.url
+                || data?.context?.url
+                || data?.networkDetails?.responseURL
+                || data?.response?.url
+                || 'unknown';
+              const responseCode = data?.response?.code ?? data?.networkDetails?.status ?? 'n/a';
+              log(`hls-network-fail url=${String(failedUrl).slice(0, 200)} status=${responseCode} detail=${data?.details}`);
+            }
+
             if (data.fatal) {
               switch (data.type) {
                 case Hls.ErrorTypes.NETWORK_ERROR:
@@ -284,6 +373,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
           hls.attachMedia(video);
           log(`hls attached src=${videoUrl.slice(0, 80)}`);
         }).catch((err) => {
+          if (disposed) return;
           log(`failed to import hls.js: ${err.message || err}`);
           onErrorRef.current?.('Failed to load HLS library');
         });
@@ -294,13 +384,14 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
           { id: 'default', label: 'Original', isDefault: true },
         ]);
         video.src = videoUrl;
-        if (autoplay) {
-          video.muted = muted;
+        if (autoplayRef.current) {
+          video.muted = mutedRef.current;
           void video.play().catch((err) => log(`autoplay rejected: ${err.message || err}`));
         }
       }
 
       return () => {
+        disposed = true;
         events.forEach(([name, handler]) => video.removeEventListener(name, handler));
         try {
           video.pause();
@@ -339,7 +430,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         discoveredAudioTracksRef.current = [];
         publishAudioOptions([]);
       };
-    }, [autoplay, initialSeekTime, muted, publishAudioOptions, videoUrl]);
+    }, [publishAudioOptions, videoUrl]);
 
     // Sync muted prop
     useEffect(() => {

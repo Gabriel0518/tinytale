@@ -19,7 +19,7 @@ interface BottomTabBarProps {
 
 type TabItem = {
   href: string;
-  key: "home" | "browse" | "play" | "history" | "me";
+  key: "home" | "browse" | "play" | "watchlist" | "me";
   icon: LucideIcon;
 };
 
@@ -27,18 +27,18 @@ const TAB_ITEMS: TabItem[] = [
   { href: "/", key: "home", icon: Home },
   { href: "/browse", key: "browse", icon: Compass },
   { href: "/play", key: "play", icon: PlayCircle },
-  { href: "/user/history", key: "history", icon: Bookmark },
+  { href: "/user/favorites", key: "watchlist", icon: Bookmark },
   { href: "/user/profile", key: "me", icon: User },
 ];
 
 const TAB_LABELS: FlexibleRecord<SupportedLocale, Record<TabItem["key"], string>> = {
-  en: { home: "Home", browse: "Browse", play: "Play", history: "History", me: "Me" },
-  es: { home: "Inicio", browse: "Explorar", play: "Play", history: "Historial", me: "Yo" },
-  pt: { home: "Início", browse: "Explorar", play: "Play", history: "Histórico", me: "Eu" },
-  id: { home: "Beranda", browse: "Jelajahi", play: "Putar", history: "Riwayat", me: "Saya" },
-  zh: { home: "首页", browse: "浏览", play: "播放", history: "历史", me: "我的" },
-  ja: { home: "ホーム", browse: "閲覧", play: "再生", history: "履歴", me: "マイ" },
-  hi: { home: "होम", browse: "ब्राउज़", play: "चलाएँ", history: "इतिहास", me: "मैं" },
+  en: { home: "Home", browse: "Browse", play: "Play", watchlist: "Watchlist", me: "Me" },
+  es: { home: "Inicio", browse: "Explorar", play: "Play", watchlist: "Mi lista", me: "Yo" },
+  pt: { home: "Início", browse: "Explorar", play: "Play", watchlist: "Minha lista", me: "Eu" },
+  id: { home: "Beranda", browse: "Jelajahi", play: "Putar", watchlist: "Daftar tontonan", me: "Saya" },
+  zh: { home: "首页", browse: "浏览", play: "播放", watchlist: "片单", me: "我的" },
+  ja: { home: "ホーム", browse: "閲覧", play: "再生", watchlist: "マイリスト", me: "マイ" },
+  hi: { home: "होम", browse: "ब्राउज़", play: "चलाएँ", watchlist: "वॉचलिस्ट", me: "मैं" },
 };
 
 const HIDDEN_PREFIXES = ["/admin", "/affiliate", "/auth"];
@@ -65,7 +65,34 @@ const CREATOR_WORKSPACE_SEGMENTS = new Set([
   "tickets",
 ]);
 
-const TAB_NAVIGATION_MASK_TIMEOUT_MS = 3000;
+const TAB_NAVIGATION_MASK_TIMEOUT_MS = 10000;
+const TAB_NAVIGATION_STATE_EVENT = "tinytale:bottom-tab-state";
+
+type BottomTabNavigationState = {
+  selectedHref: string | null;
+  maskHref: string | null;
+};
+
+let bottomTabNavigationState: BottomTabNavigationState = {
+  selectedHref: null,
+  maskHref: null,
+};
+
+function readBottomTabNavigationState(): BottomTabNavigationState {
+  return bottomTabNavigationState;
+}
+
+function writeBottomTabNavigationState(nextState: BottomTabNavigationState) {
+  bottomTabNavigationState = nextState;
+
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(
+    new CustomEvent<BottomTabNavigationState>(TAB_NAVIGATION_STATE_EVENT, {
+      detail: nextState,
+    })
+  );
+}
 
 function isCreatorWorkspacePath(pathname: string) {
   if (pathname === "/creator") return true;
@@ -107,7 +134,7 @@ function resolveActiveTab(pathname: string) {
     return "/browse";
   }
   if (pathname === "/play" || pathname.includes("/play/")) return "/play";
-  if (pathname.startsWith("/user/history")) return "/user/history";
+  if (pathname.startsWith("/user/favorites")) return "/user/favorites";
   if (pathname.startsWith("/user")) return "/user/profile";
   return "";
 }
@@ -120,11 +147,17 @@ export function BottomTabBar({ notificationCount = 0, forceVisible = false }: Bo
   const { isMobile } = usePlatform();
   const normalizedPath = removeLocalePrefix(pathname || "/");
   const pendingResetRef = useRef<number | null>(null);
-  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [navigationState, setNavigationState] = useState<BottomTabNavigationState>(readBottomTabNavigationState);
 
   const isVisible = isMobile && (forceVisible || shouldShowTabBar(normalizedPath));
   const activeTab = useMemo(() => resolveActiveTab(normalizedPath), [normalizedPath]);
-  const displayActiveTab = pendingHref ?? activeTab;
+  const displayActiveTab = navigationState.selectedHref ?? activeTab;
+  const showNavigationMask = Boolean(
+    isVisible &&
+      navigationState.maskHref &&
+      normalizedPath !== navigationState.maskHref &&
+      activeTab !== navigationState.maskHref
+  );
 
   useEffect(() => {
     TAB_ITEMS.forEach((item) => {
@@ -143,13 +176,32 @@ export function BottomTabBar({ notificationCount = 0, forceVisible = false }: Bo
   }, [isVisible]);
 
   useEffect(() => {
-    if (pendingHref && (normalizedPath === pendingHref || activeTab === pendingHref)) {
-      setPendingHref(null);
-    }
-  }, [activeTab, normalizedPath, pendingHref]);
+    const handleNavigationState = (event: Event) => {
+      const customEvent = event as CustomEvent<BottomTabNavigationState>;
+      setNavigationState(customEvent.detail || readBottomTabNavigationState());
+    };
+
+    window.addEventListener(TAB_NAVIGATION_STATE_EVENT, handleNavigationState as EventListener);
+    return () => {
+      window.removeEventListener(TAB_NAVIGATION_STATE_EVENT, handleNavigationState as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
-    if (!pendingHref) {
+    if (
+      navigationState.selectedHref &&
+      (normalizedPath === navigationState.selectedHref || activeTab === navigationState.selectedHref)
+    ) {
+      writeBottomTabNavigationState({
+        selectedHref: null,
+        maskHref: null,
+      });
+      return;
+    }
+  }, [activeTab, navigationState.selectedHref, normalizedPath]);
+
+  useEffect(() => {
+    if (!navigationState.maskHref) {
       if (pendingResetRef.current !== null) {
         window.clearTimeout(pendingResetRef.current);
         pendingResetRef.current = null;
@@ -158,7 +210,10 @@ export function BottomTabBar({ notificationCount = 0, forceVisible = false }: Bo
     }
 
     pendingResetRef.current = window.setTimeout(() => {
-      setPendingHref(null);
+      writeBottomTabNavigationState({
+        selectedHref: readBottomTabNavigationState().selectedHref,
+        maskHref: null,
+      });
       pendingResetRef.current = null;
     }, TAB_NAVIGATION_MASK_TIMEOUT_MS);
 
@@ -168,33 +223,45 @@ export function BottomTabBar({ notificationCount = 0, forceVisible = false }: Bo
         pendingResetRef.current = null;
       }
     };
-  }, [pendingHref]);
+  }, [navigationState.maskHref]);
 
   const handleTabNavigation = (href: string) => {
     void triggerHaptic("selection");
 
     if (href === "/play") {
       if (normalizedPath === href) {
-        setPendingHref(null);
+        writeBottomTabNavigationState({
+          selectedHref: null,
+          maskHref: null,
+        });
         return;
       }
 
-      setPendingHref("/play");
+      writeBottomTabNavigationState({
+        selectedHref: "/play",
+        maskHref: "/play",
+      });
       void prefetchPlayFeedBootstrap("for-you");
       startTransition(() => {
-        router.push(localizePath("/play", locale));
+        router.replace(localizePath("/play", locale), { scroll: false });
       });
       return;
     }
 
     if (normalizedPath === href) {
-      setPendingHref(null);
+      writeBottomTabNavigationState({
+        selectedHref: null,
+        maskHref: null,
+      });
       return;
     }
 
-    setPendingHref(href);
+    writeBottomTabNavigationState({
+      selectedHref: href,
+      maskHref: href,
+    });
     startTransition(() => {
-      router.push(localizePath(href, locale));
+      router.replace(localizePath(href, locale), { scroll: false });
     });
   };
 
@@ -202,7 +269,35 @@ export function BottomTabBar({ notificationCount = 0, forceVisible = false }: Bo
 
   return (
     <>
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 md:hidden">
+      {showNavigationMask ? (
+        <div className="pointer-events-auto fixed inset-0 z-[60] bg-[#0f1115] md:hidden" aria-hidden="true">
+          <div className="mx-auto flex h-full max-w-md flex-col px-4 pt-[calc(env(safe-area-inset-top)+18px)]">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="h-11 flex-1 animate-pulse rounded-2xl bg-white/8" />
+              <div className="h-11 w-20 animate-pulse rounded-2xl bg-white/8" />
+            </div>
+            <div className="mb-8 space-y-3">
+              <div className="h-7 w-32 animate-pulse rounded-full bg-white/10" />
+              <div className="h-4 w-52 animate-pulse rounded-full bg-white/6" />
+            </div>
+            <div className="mb-5 flex gap-3 overflow-hidden">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="h-9 w-20 shrink-0 animate-pulse rounded-full bg-white/8" />
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-4 pb-32">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="space-y-3">
+                  <div className="aspect-[2/3] animate-pulse rounded-[20px] bg-white/6" />
+                  <div className="h-4 w-4/5 animate-pulse rounded-full bg-white/8" />
+                  <div className="h-3 w-2/5 animate-pulse rounded-full bg-white/6" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[70] md:hidden">
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(100%+env(safe-area-inset-bottom))] bg-[#111116]/95" />
         <nav
           aria-label="Mobile navigation"

@@ -22,6 +22,7 @@ import {
 } from '@/lib/playback-progress-cache';
 
 interface MobilePlayerProps {
+  episodeId?: string;
   videoUrl?: string;
   streamVideoId?: string;
   signedToken?: string;
@@ -137,7 +138,19 @@ const DEFAULT_LABELS: NonNullable<MobilePlayerProps['labels']> = {
   speedBoost: (rate) => `${rate}x speed`,
 };
 
+function shouldPreferSimplePlayerBackend(videoUrl?: string, streamVideoId?: string) {
+  if (typeof navigator === 'undefined') return false;
+
+  const userAgent = navigator.userAgent || '';
+  const isAndroid = /Android/i.test(userAgent);
+  const hasStreamId = Boolean(streamVideoId);
+  const hasHlsUrl = Boolean(videoUrl?.includes('.m3u8'));
+
+  return isAndroid && (hasStreamId || hasHlsUrl) && Boolean(videoUrl);
+}
+
 export default function MobilePlayer({
+  episodeId,
   videoUrl,
   streamVideoId,
   signedToken,
@@ -199,22 +212,17 @@ export default function MobilePlayer({
   const [showPauseButton, setShowPauseButton] = useState(!autoplay);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubTime, setScrubTime] = useState(initialSeekTime);
+  const [preferSimplePlayerBackend, setPreferSimplePlayerBackend] = useState(false);
   const pauseButtonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const labels = labelsProp || DEFAULT_LABELS;
   const playbackRate = playbackRateProp ?? playbackRateState;
   const restoredSeekTime = useMemo(() => {
     if (initialSeekTime > 0) return initialSeekTime;
-    return readSavedPlaybackProgress({ streamVideoId, videoUrl });
-  }, [initialSeekTime, streamVideoId, videoUrl]);
+    return readSavedPlaybackProgress({ episodeId, streamVideoId, videoUrl });
+  }, [episodeId, initialSeekTime, streamVideoId, videoUrl]);
 
-  // Determine player backend synchronously to avoid re-render
-  const preferSimplePlayerBackend = useMemo(() => {
-    if (typeof navigator === 'undefined') return false;
-    const userAgent = navigator.userAgent || '';
-    const isAndroid = /Android/i.test(userAgent);
-    const hasStreamId = Boolean(streamVideoId);
-    const hasHlsUrl = Boolean(videoUrl?.includes('.m3u8'));
-    return isAndroid && (hasStreamId || hasHlsUrl) && Boolean(videoUrl);
+  useEffect(() => {
+    setPreferSimplePlayerBackend(shouldPreferSimplePlayerBackend(videoUrl, streamVideoId));
   }, [streamVideoId, videoUrl]);
 
   const dismissFeedback = useCallback(() => {
@@ -276,8 +284,8 @@ export default function MobilePlayer({
 
   // === 功能 1: 播放进度记忆 ===
   const progressKey = useMemo(() => {
-    return buildPlaybackProgressKey({ streamVideoId, videoUrl });
-  }, [streamVideoId, videoUrl]);
+    return buildPlaybackProgressKey({ episodeId, streamVideoId, videoUrl });
+  }, [episodeId, streamVideoId, videoUrl]);
 
   // 恢复进度
   useEffect(() => {
@@ -291,17 +299,17 @@ export default function MobilePlayer({
   const progressTick = Math.floor(currentTime / 5);
   useEffect(() => {
     if (!progressKey || !isPlaying || currentTime < 1) return;
-    writeSavedPlaybackProgress({ streamVideoId, videoUrl }, currentTime);
-  }, [currentTime, isPlaying, progressKey, progressTick, streamVideoId, videoUrl]);
+    writeSavedPlaybackProgress({ episodeId, streamVideoId, videoUrl }, currentTime);
+  }, [currentTime, episodeId, isPlaying, progressKey, progressTick, streamVideoId, videoUrl]);
 
   // 离开前保存
   useEffect(() => {
     return () => {
       if (progressKey && currentTime > 1) {
-        writeSavedPlaybackProgress({ streamVideoId, videoUrl }, currentTime);
+        writeSavedPlaybackProgress({ episodeId, streamVideoId, videoUrl }, currentTime);
       }
     };
-  }, [currentTime, progressKey, streamVideoId, videoUrl]);
+  }, [currentTime, episodeId, progressKey, streamVideoId, videoUrl]);
 
   // === 功能 2: 暂停按钮显示逻辑 ===
   useEffect(() => {
@@ -513,6 +521,7 @@ export default function MobilePlayer({
   }, [clearLongPress, clearPendingTap, endSpeedBoost]);
 
   const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (isScrubbing) return;
     const touch = event.touches[0];
     touchStartRef.current = { x: touch.clientX, y: touch.clientY, at: Date.now() };
 
@@ -520,9 +529,10 @@ export default function MobilePlayer({
     longPressTimerRef.current = setTimeout(() => {
       beginSpeedBoost();
     }, LONG_PRESS_MS);
-  }, [beginSpeedBoost, clearLongPress]);
+  }, [beginSpeedBoost, clearLongPress, isScrubbing]);
 
   const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (isScrubbing) return;
     const touch = event.touches[0];
     const start = touchStartRef.current;
     if (!start) return;
@@ -535,9 +545,10 @@ export default function MobilePlayer({
       clearLongPress();
       endSpeedBoost();
     }
-  }, [clearLongPress, endSpeedBoost]);
+  }, [clearLongPress, endSpeedBoost, isScrubbing]);
 
   const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (isScrubbing) return;
     clearLongPress();
 
     const start = touchStartRef.current;
@@ -598,17 +609,19 @@ export default function MobilePlayer({
     handleDoubleTap,
     handleSingleTap,
     hasStartedPlayback,
+    isScrubbing,
     performEpisodeNavigation,
     resolveZone,
     endSpeedBoost,
   ]);
 
   const handleTouchCancel = useCallback(() => {
+    if (isScrubbing) return;
     clearLongPress();
     clearPendingTap();
     touchStartRef.current = null;
     endSpeedBoost();
-  }, [clearLongPress, clearPendingTap, endSpeedBoost]);
+  }, [clearLongPress, clearPendingTap, endSpeedBoost, isScrubbing]);
 
   const timeLabel = useMemo(() => {
     const displayedTime = isScrubbing ? scrubTime : currentTime;
@@ -637,42 +650,53 @@ export default function MobilePlayer({
     setScrubTime(nextTime);
   }, []);
 
+  const beginScrub = useCallback((clientX: number) => {
+    if (!duration || duration <= 0) return;
+    setShowChrome(true);
+    setShowSpeedMenu(false);
+    setIsScrubbing(true);
+    applySeek(resolveSeekTimeFromClientX(clientX));
+  }, [applySeek, duration, resolveSeekTimeFromClientX]);
+
+  const updateScrub = useCallback((clientX: number) => {
+    if (!isScrubbing) return;
+    applySeek(resolveSeekTimeFromClientX(clientX));
+  }, [applySeek, isScrubbing, resolveSeekTimeFromClientX]);
+
+  const endScrub = useCallback((clientX: number) => {
+    if (!isScrubbing) return;
+    applySeek(resolveSeekTimeFromClientX(clientX));
+    setIsScrubbing(false);
+  }, [applySeek, isScrubbing, resolveSeekTimeFromClientX]);
+
   const handleProgressPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
     if (!duration || duration <= 0) return;
 
     event.currentTarget.setPointerCapture(event.pointerId);
-    setShowChrome(true);
-    setShowSpeedMenu(false);
-
-    const nextTime = resolveSeekTimeFromClientX(event.clientX);
-    setIsScrubbing(true);
-    applySeek(nextTime);
-  }, [applySeek, duration, resolveSeekTimeFromClientX]);
+    beginScrub(event.clientX);
+  }, [beginScrub, duration]);
 
   const handleProgressPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (!isScrubbing) return;
     event.preventDefault();
     event.stopPropagation();
 
-    const nextTime = resolveSeekTimeFromClientX(event.clientX);
-    applySeek(nextTime);
-  }, [applySeek, isScrubbing, resolveSeekTimeFromClientX]);
+    updateScrub(event.clientX);
+  }, [isScrubbing, updateScrub]);
 
   const finishProgressScrub = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (!isScrubbing) return;
     event.preventDefault();
     event.stopPropagation();
 
-    const nextTime = resolveSeekTimeFromClientX(event.clientX);
-    applySeek(nextTime);
-    setIsScrubbing(false);
+    endScrub(event.clientX);
 
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-  }, [applySeek, isScrubbing, resolveSeekTimeFromClientX]);
+  }, [endScrub, isScrubbing]);
 
   const cancelProgressScrub = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (!isScrubbing) return;
@@ -683,6 +707,33 @@ export default function MobilePlayer({
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+  }, [isScrubbing]);
+
+  const handleProgressTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    beginScrub(event.touches[0].clientX);
+  }, [beginScrub]);
+
+  const handleProgressTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (!isScrubbing) return;
+    event.preventDefault();
+    event.stopPropagation();
+    updateScrub(event.touches[0].clientX);
+  }, [isScrubbing, updateScrub]);
+
+  const handleProgressTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (!isScrubbing) return;
+    event.preventDefault();
+    event.stopPropagation();
+    endScrub(event.changedTouches[0].clientX);
+  }, [endScrub, isScrubbing]);
+
+  const handleProgressTouchCancel = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (!isScrubbing) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setIsScrubbing(false);
   }, [isScrubbing]);
 
   return (
@@ -847,7 +898,7 @@ export default function MobilePlayer({
       ) : null}
       {showInternalProgress ? (
       <div
-        className="absolute inset-x-0 z-[11] px-3"
+        className="absolute inset-x-0 z-[11]"
         style={{ bottom: progressBarOffset }}
       >
         <div
@@ -857,25 +908,22 @@ export default function MobilePlayer({
           onPointerMove={handleProgressPointerMove}
           onPointerUp={finishProgressScrub}
           onPointerCancel={cancelProgressScrub}
-          onTouchStart={(event) => event.stopPropagation()}
-          onTouchMove={(event) => event.stopPropagation()}
-          onTouchEnd={(event) => event.stopPropagation()}
+          onTouchStart={handleProgressTouchStart}
+          onTouchMove={handleProgressTouchMove}
+          onTouchEnd={handleProgressTouchEnd}
+          onTouchCancel={handleProgressTouchCancel}
           role="slider"
           aria-label="Playback progress"
           aria-valuemin={0}
           aria-valuemax={Math.max(duration, 0)}
           aria-valuenow={Math.max(0, Math.min(isScrubbing ? scrubTime : currentTime, duration || 0))}
         >
-        <div className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 rounded-full bg-white/15">
-          <div
-            className="h-full rounded-full bg-red-500 shadow-[0_0_16px_rgba(239,68,68,0.55)] transition-[width] duration-150"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-        <div
-          className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/70 bg-white shadow-[0_0_10px_rgba(255,255,255,0.45)] transition-opacity duration-150"
-          style={{ left: `${progressPercent}%`, opacity: showChrome || isScrubbing ? 1 : 0 }}
-        />
+          <div className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 overflow-hidden rounded-full bg-white/18">
+            <div
+              className="h-full rounded-full bg-red-500 transition-[width] duration-150"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
         </div>
       </div>
       ) : null}

@@ -1,20 +1,29 @@
 import type { StreamPlaybackInfo } from '@/types';
-import { resolvePlaybackSource } from '@/lib/playback';
+import { resolvePlaybackAssetUrl, resolvePlaybackSource } from '@/lib/playback';
 import type { NormalizedPlaybackSource } from '@/lib/playback-adapters/types';
 
 export function createCloudflarePlaybackSource(
   streamInfo?: StreamPlaybackInfo | null,
   fallbackUrl?: string
 ): NormalizedPlaybackSource {
+  const normalizedSubtitleTracks = (streamInfo?.subtitles || []).flatMap((track) => {
+    const resolvedSrc = resolvePlaybackAssetUrl(track?.src);
+    if (!resolvedSrc) return [];
+    return [{
+      ...track,
+      src: resolvedSrc,
+    }];
+  });
+
   const fallbackSubtitleTrack =
-    streamInfo?.subtitles?.length
+    normalizedSubtitleTracks.length
       ? []
       : streamInfo?.subtitleUrl
         ? [
             {
               language: 'en',
               label: 'English',
-              src: streamInfo.subtitleUrl,
+              src: resolvePlaybackAssetUrl(streamInfo.subtitleUrl) || streamInfo.subtitleUrl,
             },
           ]
         : [];
@@ -29,7 +38,7 @@ export function createCloudflarePlaybackSource(
     playbackUrl,
     rawVideoUrl: streamInfo?.videoUrl || fallbackUrl,
     signedToken: streamInfo?.signedToken,
-    subtitles: streamInfo?.subtitles?.length ? streamInfo.subtitles : fallbackSubtitleTrack,
+    subtitles: normalizedSubtitleTracks.length ? normalizedSubtitleTracks : fallbackSubtitleTrack,
     qualityOptions: streamInfo?.qualityOptions || [],
     audioOptions: [
       {

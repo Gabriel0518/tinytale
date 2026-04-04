@@ -225,18 +225,19 @@ function BrowseContent() {
   const categoryParam = searchParams.get('category');
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const cacheKey = `browse-view:${locale}`;
-  const cachedView = useMemo(
-    () => readViewCache<BrowseViewCache>(cacheKey, BROWSE_VIEW_CACHE_MAX_AGE_MS),
-    [cacheKey]
-  );
+  const [cachedView, setCachedView] = useState<BrowseViewCache | null>(null);
 
-  const [dramas, setDramas] = useState<Drama[]>(() => cachedView?.dramas || []);
-  const [categories, setCategories] = useState<Category[]>(() => cachedView?.categories || []);
-  const [loading, setLoading] = useState(() => !cachedView);
+  const [dramas, setDramas] = useState<Drama[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState(categoryParam || 'all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('popular');
   const [visibleCount, setVisibleCount] = useState(isMobile ? 12 : 18);
+
+  useEffect(() => {
+    setCachedView(readViewCache<BrowseViewCache>(cacheKey, BROWSE_VIEW_CACHE_MAX_AGE_MS));
+  }, [cacheKey]);
 
   useEffect(() => {
     if (!cachedView) return;

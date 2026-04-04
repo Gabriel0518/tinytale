@@ -82,7 +82,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const htmlLang = resolveHtmlLang();
 
   return (
-    <html lang={htmlLang} className="dark">
+    <html lang={htmlLang} className="dark" suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -122,7 +122,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="TinyTale" />
       </head>
-      <body className={inter.className}>
+      <body className={inter.className} suppressHydrationWarning>
         <div id="native-app-launch-overlay" aria-hidden="true">
           <div className="native-app-launch-shell">
             <div className="native-app-launch-glow" />

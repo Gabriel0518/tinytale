@@ -47,6 +47,47 @@ const STORAGE_KEY = 'tinytale:playback-session';
 const HISTORY_STORAGE_KEY = 'tinytale:playback-history';
 const MAX_RECENT_SESSIONS = 8;
 
+function readStorageValue(key: string) {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const sessionValue = window.sessionStorage.getItem(key);
+    if (sessionValue) return sessionValue;
+  } catch {
+    // Ignore session storage availability issues.
+  }
+
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorageValue(key: string, value: string | null) {
+  if (typeof window === 'undefined') return;
+
+  try {
+    if (value === null) {
+      window.sessionStorage.removeItem(key);
+    } else {
+      window.sessionStorage.setItem(key, value);
+    }
+  } catch {
+    // Ignore session storage availability issues.
+  }
+
+  try {
+    if (value === null) {
+      window.localStorage.removeItem(key);
+    } else {
+      window.localStorage.setItem(key, value);
+    }
+  } catch {
+    // Ignore local storage availability issues.
+  }
+}
+
 const PlaybackSessionContext = createContext<PlaybackSessionContextValue>({
   session: null,
   recentSessions: [],
@@ -77,13 +118,13 @@ function normalizeRecentSessions(sessions: PlaybackSession[]) {
 
 function readStoredJson<T>(key: string): T | null {
   if (typeof window === 'undefined') return null;
-  const raw = window.sessionStorage.getItem(key);
+  const raw = readStorageValue(key);
   if (!raw) return null;
 
   try {
     return JSON.parse(raw) as T;
   } catch {
-    window.sessionStorage.removeItem(key);
+    writeStorageValue(key, null);
     return null;
   }
 }
@@ -116,22 +157,22 @@ export function PlaybackSessionProvider({ children }: { children: ReactNode }) {
     if (typeof window === 'undefined') return;
 
     if (!session) {
-      window.sessionStorage.removeItem(STORAGE_KEY);
+      writeStorageValue(STORAGE_KEY, null);
       return;
     }
 
-    window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    writeStorageValue(STORAGE_KEY, JSON.stringify(session));
   }, [session]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
     if (!recentSessions.length) {
-      window.sessionStorage.removeItem(HISTORY_STORAGE_KEY);
+      writeStorageValue(HISTORY_STORAGE_KEY, null);
       return;
     }
 
-    window.sessionStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(recentSessions));
+    writeStorageValue(HISTORY_STORAGE_KEY, JSON.stringify(recentSessions));
   }, [recentSessions]);
 
   const syncRecentSessions = useCallback((nextSession: PlaybackSession) => {

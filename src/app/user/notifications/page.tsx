@@ -356,7 +356,29 @@ export default function NotificationsPage() {
     }
   };
 
-  if (authLoading) return null;
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <Navbar />
+        <main className="mx-auto max-w-4xl px-4 pb-16 pt-24">
+          <div className="mb-8 space-y-3">
+            <div className="h-8 w-40 animate-pulse rounded-full bg-white/8" />
+            <div className="h-4 w-64 animate-pulse rounded-full bg-white/6" />
+          </div>
+          <div className="space-y-4">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="rounded-3xl border border-white/8 bg-white/[0.03] p-5">
+                <div className="mb-3 h-4 w-40 animate-pulse rounded-full bg-white/8" />
+                <div className="mb-2 h-3 w-3/4 animate-pulse rounded-full bg-white/6" />
+                <div className="h-3 w-1/2 animate-pulse rounded-full bg-white/6" />
+              </div>
+            ))}
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const pushEnabled = serverPush?.enabled ?? runtimeSettings?.notifications?.push.enabled !== false;

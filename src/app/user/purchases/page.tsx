@@ -316,7 +316,31 @@ export default function PurchasesPage() {
     );
   };
 
-  if (authLoading || !user) return null;
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <Navbar />
+        <div className="max-w-5xl mx-auto px-4 pt-24 pb-16">
+          <div className="mb-8 flex items-center justify-between">
+            <div className="space-y-3">
+              <div className="h-8 w-44 animate-pulse rounded-full bg-white/8" />
+              <div className="h-4 w-64 animate-pulse rounded-full bg-white/6" />
+            </div>
+            <div className="h-12 w-32 animate-pulse rounded-full bg-white/6" />
+          </div>
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="rounded-3xl border border-white/8 bg-white/[0.03] p-5">
+                <div className="mb-3 h-4 w-48 animate-pulse rounded-full bg-white/8" />
+                <div className="mb-2 h-3 w-2/3 animate-pulse rounded-full bg-white/6" />
+                <div className="h-3 w-1/3 animate-pulse rounded-full bg-white/6" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">

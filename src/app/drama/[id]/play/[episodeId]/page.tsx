@@ -495,6 +495,8 @@ function buildLoadedFeedWindow(window: FeedWindowState): FeedWindowState {
 function getFeedItemResumeTime(item: FeedPlayableItem | null | undefined) {
   if (!item) return 0;
   return readSavedPlaybackProgress({
+    progressKeyId: item.episodeId,
+    episodeId: item.episodeId,
     streamVideoId: item.streamVideoId,
     videoUrl: item.playbackUrl,
   });
@@ -505,6 +507,8 @@ function replacePlaybackUrl(path: string) {
   window.history.replaceState(window.history.state, "", path);
 }
 
+type SeededPlaybackState = ReturnType<typeof readSeededPlaybackState>;
+
 export default function PlayEpisodePage() {
   const locale = useLocale();
   const t = resolveLocaleCopy(PLAY_TEXT, locale);
@@ -514,7 +518,7 @@ export default function PlayEpisodePage() {
   const { user, token, refreshUser } = useAuth();
   const { isMobile } = usePlatform();
   const { toast } = useToast();
-  const { startSession, updateSession } = usePlaybackSession();
+  const { session, startSession, updateSession } = usePlaybackSession();
 
   const routeDramaId = params.id as string;
   const routeEpisodeId = params.episodeId as string;
@@ -527,22 +531,29 @@ export default function PlayEpisodePage() {
   );
   const [activeDramaId, setActiveDramaId] = useState(routeDramaId);
   const [activeEpisodeId, setActiveEpisodeId] = useState(routeEpisodeId);
-  const [activeSeekTime, setActiveSeekTime] = useState(routeSeekTime);
-  const seededPlaybackState = useMemo(
-    () => (isFeedPlayback ? readSeededPlaybackState(routeDramaId, routeEpisodeId, token) : null),
-    [routeDramaId, routeEpisodeId, isFeedPlayback, token]
-  );
-  const hasSeededPlayback = Boolean(
-    seededPlaybackState?.currentEpisode &&
-    (!isFeedPlayback || seededPlaybackState?.streamInfo)
-  );
+  const resolveRouteResumeTime = useCallback(() => {
+    if (routeSeekTime > 0) return routeSeekTime;
+    if (
+      session?.episodeId === routeEpisodeId &&
+      session?.dramaId === routeDramaId &&
+      session.currentTime > 0
+    ) {
+      return session.currentTime;
+    }
 
-  const [drama, setDrama] = useState<Drama | null>(seededPlaybackState?.drama || null);
+    return readSavedPlaybackProgress({
+      progressKeyId: routeEpisodeId,
+      episodeId: routeEpisodeId,
+    });
+  }, [routeDramaId, routeEpisodeId, routeSeekTime, session]);
+  const [activeSeekTime, setActiveSeekTime] = useState(routeSeekTime);
+  const [seededPlaybackState, setSeededPlaybackState] = useState<SeededPlaybackState>(null);
+  const [drama, setDrama] = useState<Drama | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(seededPlaybackState?.currentEpisode || null);
-  const [streamInfo, setStreamInfo] = useState<StreamPlaybackInfo | null>(seededPlaybackState?.streamInfo || null);
-  const [selectedQuality, setSelectedQuality] = useState<string>("1080p");
-  const [loading, setLoading] = useState(!hasSeededPlayback);
+  const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
+  const [streamInfo, setStreamInfo] = useState<StreamPlaybackInfo | null>(null);
+  const [selectedQuality, setSelectedQuality] = useState<string>("auto");
+  const [loading, setLoading] = useState(true);
   const [unlockingEpisode, setUnlockingEpisode] = useState(false);
   const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
   const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
@@ -552,12 +563,10 @@ export default function PlayEpisodePage() {
   const [feedLoadingMode, setFeedLoadingMode] = useState<PlayFeedMode | null>(null);
   const feedWindowsRef = useRef<Partial<Record<PlayFeedMode, FeedWindowState>>>({});
   const feedHistoryRef = useRef<Partial<Record<PlayFeedMode, FeedPlayableItem[]>>>({});
-  const currentEpisodeRef = useRef<Episode | null>(seededPlaybackState?.currentEpisode || null);
+  const currentEpisodeRef = useRef<Episode | null>(null);
   const episodeSwitchRequestRef = useRef(0);
   const paywallTouchStartYRef = useRef<number | null>(null);
-  const [autoplayNextEpisode, setAutoplayNextEpisode] = useState(
-    () => readPlaybackRuntimeSettings()?.autoplayNextEpisode ?? true
-  );
+  const [autoplayNextEpisode, setAutoplayNextEpisode] = useState(true);
   const playerParentHref = useMemo(
     () => localizePath(`/drama/${activeDramaId}`, locale),
     [activeDramaId, locale]
@@ -568,6 +577,47 @@ export default function PlayEpisodePage() {
     setActiveEpisodeId(routeEpisodeId);
     setActiveSeekTime(routeSeekTime);
   }, [routeDramaId, routeEpisodeId, routeSeekTime]);
+
+  useEffect(() => {
+    setActiveSeekTime(resolveRouteResumeTime());
+  }, [resolveRouteResumeTime]);
+
+  useEffect(() => {
+    if (!isFeedPlayback) {
+      setSeededPlaybackState(null);
+      return;
+    }
+
+    setSeededPlaybackState(readSeededPlaybackState(routeDramaId, routeEpisodeId, token));
+  }, [isFeedPlayback, routeDramaId, routeEpisodeId, token]);
+
+  const resolveEpisodeResumeTime = useCallback((
+    episodeId: string,
+    dramaId: string,
+    streamVideoId?: string | null,
+    videoUrl?: string | null,
+  ) => {
+    if (!episodeId) return 0;
+
+    if (routeSeekTime > 0 && routeEpisodeId === episodeId && routeDramaId === dramaId) {
+      return routeSeekTime;
+    }
+
+    if (
+      session?.episodeId === episodeId &&
+      session?.dramaId === dramaId &&
+      session.currentTime > 0
+    ) {
+      return session.currentTime;
+    }
+
+    return readSavedPlaybackProgress({
+      progressKeyId: episodeId,
+      episodeId,
+      streamVideoId,
+      videoUrl,
+    });
+  }, [routeDramaId, routeEpisodeId, routeSeekTime, session]);
 
   useEffect(() => {
     if (!seededPlaybackState) return;
@@ -625,6 +675,14 @@ export default function PlayEpisodePage() {
         }
         if (cancelled) return;
         setCurrentEpisode(episode);
+        setActiveSeekTime(
+          resolveEpisodeResumeTime(
+            episode._id,
+            activeDramaId,
+            episode.streamVideoId,
+            episode.videoUrl,
+          )
+        );
 
         // 检查缓存的流信息
         const safeFallbackUrl = canUseImmediatePlaybackSource(episode.videoUrl)
@@ -694,7 +752,7 @@ export default function PlayEpisodePage() {
     return () => {
       cancelled = true;
     };
-  }, [activeDramaId, activeEpisodeId, token, router, toast, locale, t.episodeNotFound, t.failedToLoad]);
+  }, [activeDramaId, activeEpisodeId, token, router, toast, locale, resolveEpisodeResumeTime, t.episodeNotFound, t.failedToLoad]);
 
   useEffect(() => {
     if (!token || episodes.length === 0) {
@@ -912,7 +970,13 @@ export default function PlayEpisodePage() {
     targetItem: FeedPlayableItem,
     nextWindow: FeedWindowState,
   ) => {
-    const resumeTime = getFeedItemResumeTime(targetItem);
+    const resumeTime = (
+      session?.episodeId === targetItem.episodeId &&
+      session?.dramaId === targetItem.dramaId &&
+      session.currentTime > 0
+    )
+      ? session.currentTime
+      : getFeedItemResumeTime(targetItem);
     const nextWindows = {
       ...feedWindowsRef.current,
       [mode]: nextWindow,
@@ -929,7 +993,7 @@ export default function PlayEpisodePage() {
       startSeconds: resumeTime,
     });
     applyFeedItemLocally(targetItem, resumeTime);
-  }, [applyFeedItemLocally, persistFeedSession, token]);
+  }, [applyFeedItemLocally, persistFeedSession, session, token]);
 
   const handleFeedModeChange = useCallback(async (mode: PlayFeedMode) => {
     const window = feedWindowsRef.current[mode] ?? await fetchFeedBootstrap(mode);
@@ -1315,7 +1379,14 @@ export default function PlayEpisodePage() {
     // Update URL without triggering re-render
     replacePlaybackUrl(nextRoute);
     setActiveEpisodeId(targetEpisode._id);
-    setActiveSeekTime(0);
+    setActiveSeekTime(
+      resolveEpisodeResumeTime(
+        targetEpisode._id,
+        activeDramaId,
+        targetEpisode.streamVideoId,
+        targetEpisode.videoUrl,
+      )
+    );
 
     // Fetch stream info for the new episode
     try {
@@ -1326,7 +1397,7 @@ export default function PlayEpisodePage() {
     } catch {
       // Let the route-bound loader finish access checks and recover if needed.
     }
-  }, [activeDramaId, locale, token]);
+  }, [activeDramaId, locale, resolveEpisodeResumeTime, token]);
 
   const handlePreviousEpisode = useCallback(() => {
     if (hasPreviousEpisode) {

@@ -235,10 +235,6 @@ export default function PlayerMobileExperience({
   const [activeSubtitleLanguage, setActiveSubtitleLanguage] = useState<string | null>(null);
   const [selectedAudioId, setSelectedAudioId] = useState(playbackSource.audioOptions[0]?.id || 'default');
   const [availableAudioOptions, setAvailableAudioOptions] = useState<PlaybackAudioOption[]>(playbackSource.audioOptions);
-  const [playbackProgress, setPlaybackProgress] = useState({
-    currentTime: initialSeekTime,
-    duration: currentEpisode.duration || 0,
-  });
   const [likedCommentIds, setLikedCommentIds] = useState<Set<string>>(new Set());
 
   const canOpenDramaDetail = playbackMode === 'feed';
@@ -308,11 +304,7 @@ export default function PlayerMobileExperience({
     setActiveSubtitleLanguage(null);
     setSelectedAudioId(playbackSource.audioOptions[0]?.id || 'default');
     setAvailableAudioOptions(playbackSource.audioOptions);
-    setPlaybackProgress({
-      currentTime: initialSeekTime,
-      duration: currentEpisode.duration || 0,
-    });
-  }, [currentEpisode._id, currentEpisode.duration, initialSeekTime, playbackSource.audioOptions]);
+  }, [currentEpisode._id, playbackSource.audioOptions]);
 
   useEffect(() => {
     if (availableAudioOptions.some((track) => track.id === selectedAudioId)) return;
@@ -623,6 +615,7 @@ export default function PlayerMobileExperience({
         <div className="pointer-events-none absolute left-0 top-1/2 z-[60] h-16 w-1 -translate-y-1/2 rounded-r-full bg-white/15" />
       ) : null}
       <MobilePlayer
+        episodeId={currentEpisode._id}
         streamVideoId={playbackSource.streamVideoId}
         videoUrl={playbackSource.playbackUrl || playbackSource.rawVideoUrl}
         signedToken={playbackSource.signedToken}
@@ -639,7 +632,6 @@ export default function PlayerMobileExperience({
         title={currentFeedItem.dramaTitle}
         subtitle={currentFeedItem.episodeTitle}
         onTimeUpdate={(time, duration) => {
-          setPlaybackProgress({ currentTime: time, duration });
           onTimeUpdate?.(time, duration);
         }}
         onEnded={onEnded}
@@ -1109,30 +1101,7 @@ export default function PlayerMobileExperience({
         ) : null}
       </MobileBottomSheet>
 
-      {playbackMode === 'feed' ? (
-        <BottomTabBar forceVisible />
-      ) : (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 md:hidden">
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[calc(100%+env(safe-area-inset-bottom))] bg-[#111116]/95" />
-          <div className="pointer-events-auto relative mx-auto max-w-md rounded-t-[28px] border-t border-white/10 bg-[#111116]/95 px-5 pb-safe-bottom pt-3 shadow-[0_-18px_36px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/42">{currentFeedItem.dramaTitle}</p>
-                <h2 className="mt-1 truncate text-sm font-semibold text-[#e0e4eb]">{currentFeedItem.episodeTitle}</h2>
-                <p className="mt-1 text-xs text-[#aeb4be]">
-                  Episode {currentEpisode.episodeNumber}
-                </p>
-              </div>
-              <div className="shrink-0 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-semibold text-[#d2d7df]">
-                {Math.max(0, Math.round(playbackProgress.duration || currentEpisode.duration || 0))}s
-              </div>
-            </div>
-            {currentFeedItem.description ? (
-              <p className="mt-2 line-clamp-1 text-xs text-[#8f97a3]">{currentFeedItem.description}</p>
-            ) : null}
-          </div>
-        </div>
-      )}
+      {playbackMode === 'feed' ? <BottomTabBar forceVisible /> : null}
     </div>
   );
 }

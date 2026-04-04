@@ -13,6 +13,7 @@ import { Footer } from "@/components/features/Footer";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { readViewCache, writeViewCache } from "@/lib/view-cache";
 
 interface HistoryItem {
   _id?: string;
@@ -26,6 +27,10 @@ interface HistoryItem {
   progress?: number;
   lastEpisode?: number;
 }
+
+type HistoryViewCache = {
+  history: HistoryItem[];
+};
 
 type HistoryCopy = {
   title: string;
@@ -231,6 +236,8 @@ const COPY: FlexibleRecord<SupportedLocale, HistoryCopy> = {
     cancel: "Batal",
     clearAll: "Hapus semua" } };
 
+const HISTORY_VIEW_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
+
 function groupByTime(items: HistoryItem[], t: HistoryCopy) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -266,12 +273,32 @@ function updatedAgo(dateStr: string, t: HistoryCopy) {
 export default function HistoryPage() {
   const locale = useLocale();
   const t = resolveLocaleCopy(COPY, locale);
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const { toast } = useToast();
+  const cacheKey = useMemo(() => {
+    if (!user?._id) return "";
+    return `history-view:${user._id}:${locale}`;
+  }, [locale, user?._id]);
+  const [cachedView, setCachedView] = useState<HistoryViewCache | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  useEffect(() => {
+    setCachedView(cacheKey ? readViewCache<HistoryViewCache>(cacheKey, HISTORY_VIEW_CACHE_MAX_AGE_MS) : null);
+  }, [cacheKey]);
+
+  useEffect(() => {
+    if (!cachedView) return;
+    setHistory(cachedView.history);
+    setLoading(false);
+  }, [cachedView]);
+
+  useEffect(() => {
+    if (!cacheKey || loading) return;
+    writeViewCache<HistoryViewCache>(cacheKey, { history });
+  }, [cacheKey, history, loading]);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -281,13 +308,16 @@ export default function HistoryPage() {
         setHistory(res.data?.history || res.data || []);
       } catch (err) {
         console.error("Failed to fetch history:", err);
+        if (!cachedView) {
+          setHistory([]);
+        }
       } finally {
         setLoading(false);
       }
     };
     if (token) fetchHistory();
     else setLoading(false);
-  }, [token]);
+  }, [cachedView, token]);
 
   const handleRemove = async (id: string) => {
     if (!token) return;
@@ -315,7 +345,32 @@ export default function HistoryPage() {
 
   const groups = useMemo(() => groupByTime(history, t), [history, t]);
 
-  if (authLoading) return null;
+  if (authLoading || !user) {
+    return (
+      <div className="min-h-screen bg-[#0F1014]">
+        <Navbar />
+        <main className="mx-auto max-w-7xl px-4 pt-24 pb-16">
+          <div className="mb-8 space-y-2">
+            <div className="h-8 w-44 animate-pulse rounded-full bg-white/8" />
+            <div className="h-4 w-72 animate-pulse rounded-full bg-white/6" />
+          </div>
+          <div className="space-y-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex gap-4 animate-pulse">
+                <div className="h-32 w-24 rounded-lg bg-white/5" />
+                <div className="flex-1 space-y-3 py-2">
+                  <div className="h-4 w-48 rounded bg-white/5" />
+                  <div className="h-3 w-32 rounded bg-white/5" />
+                  <div className="h-2 w-full rounded bg-white/5" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0F1014]">

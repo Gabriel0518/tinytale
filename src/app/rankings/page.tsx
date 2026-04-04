@@ -178,13 +178,14 @@ export default function Rankings() {
   const locale = useLocale();
   const t = resolveLocaleCopy(RANKINGS_TEXT, locale);
   const cacheKey = `rankings-view:${locale}`;
-  const cachedView = useMemo(
-    () => readViewCache<RankingsViewCache>(cacheKey, RANKINGS_VIEW_CACHE_MAX_AGE_MS),
-    [cacheKey]
-  );
-  const [allDramas, setAllDramas] = useState<Drama[]>(() => cachedView?.dramas || []);
-  const [loading, setLoading] = useState(() => !cachedView);
+  const [cachedView, setCachedView] = useState<RankingsViewCache | null>(null);
+  const [allDramas, setAllDramas] = useState<Drama[]>([]);
+  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<TimePeriod>('daily');
+
+  useEffect(() => {
+    setCachedView(readViewCache<RankingsViewCache>(cacheKey, RANKINGS_VIEW_CACHE_MAX_AGE_MS));
+  }, [cacheKey]);
 
   useEffect(() => {
     if (!cachedView) return;

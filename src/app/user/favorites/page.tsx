@@ -5,8 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Search, X } from "lucide-react";
-import { BottomTabBar } from "@/components/mobile/BottomTabBar";
+import { X } from "lucide-react";
 import { Footer } from "@/components/features/Footer";
 import { Navbar } from "@/components/features/Navbar";
 import { useToast } from "@/components/ui/Toast";
@@ -15,9 +14,11 @@ import { useLocale } from "@/hooks/useLocale";
 import { usePlatform } from "@/hooks/usePlatform";
 import { dramasApi, userApi } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
+import { isNativeApp } from "@/lib/capacitor-bridge";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { resolveLocaleCopy } from "@/lib/locale-copy";
 import { resolveDramaMode } from "@/lib/utils";
+import { readViewCache, writeViewCache } from "@/lib/view-cache";
 import { Drama } from "@/types";
 
 type SortOption = "newest" | "oldest" | "title-az" | "title-za";
@@ -27,6 +28,10 @@ type FavoriteEntry = {
   favoriteId?: string;
   savedAt?: string;
   updatedAt?: string;
+};
+
+type FavoritesViewCache = {
+  favorites: FavoriteEntry[];
 };
 
 type FavoritesCopy = {
@@ -289,6 +294,9 @@ const COPY: FlexibleRecord<SupportedLocale, FavoritesCopy> = {
   },
 };
 
+const FAVORITES_VIEW_CACHE_MAX_AGE_MS = 1000 * 60 * 15;
+const FAVORITES_ACTIVE_PATH = "/user/favorites";
+
 function isDramaCandidate(value: unknown): value is Drama {
   if (!value || typeof value !== "object") return false;
 
@@ -417,15 +425,36 @@ function timeAgo(dateStr: string | undefined, t: FavoritesCopy) {
 export default function FavoritesPage() {
   const locale = useLocale();
   const t = resolveLocaleCopy(COPY, locale);
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const { toast } = useToast();
   const { isApp } = usePlatform();
+  const isNativeRuntime = isApp || (typeof window !== "undefined" && isNativeApp());
+  const cacheKey = useMemo(() => {
+    if (!user?._id) return "";
+    return `favorites-view:${user._id}:${locale}:${isNativeRuntime ? "app" : "web"}`;
+  }, [isNativeRuntime, locale, user?._id]);
+  const [cachedView, setCachedView] = useState<FavoritesViewCache | null>(null);
   const [favorites, setFavorites] = useState<FavoriteEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortOption>("newest");
   const [appVisibleCount, setAppVisibleCount] = useState(8);
   const [webVisibleCount, setWebVisibleCount] = useState(10);
+
+  useEffect(() => {
+    setCachedView(cacheKey ? readViewCache<FavoritesViewCache>(cacheKey, FAVORITES_VIEW_CACHE_MAX_AGE_MS) : null);
+  }, [cacheKey]);
+
+  useEffect(() => {
+    if (!cachedView) return;
+    setFavorites(cachedView.favorites);
+    setLoading(false);
+  }, [cachedView]);
+
+  useEffect(() => {
+    if (!cacheKey || loading) return;
+    writeViewCache<FavoritesViewCache>(cacheKey, { favorites });
+  }, [cacheKey, favorites, loading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -468,7 +497,7 @@ export default function FavoritesPage() {
         }
       } catch (error) {
         console.error("Failed to fetch favorites:", error);
-        if (!cancelled) {
+        if (!cancelled && !cachedView) {
           setFavorites([]);
         }
       } finally {
@@ -483,7 +512,7 @@ export default function FavoritesPage() {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [cachedView, token]);
 
   const handleRemove = async (dramaId: string) => {
     if (!token) return;
@@ -542,11 +571,57 @@ export default function FavoritesPage() {
     }
   }, [favorites, sort]);
 
-  if (authLoading) {
-    return null;
+  const showAppLayout = isNativeRuntime;
+  const renderLoadingShell = () => (
+    showAppLayout ? (
+      <div className="min-h-screen bg-[#0f1115] text-white">
+        <Navbar activePath={FAVORITES_ACTIVE_PATH} />
+
+        <main
+          className="mx-auto max-w-md px-4 pb-32"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 74px)" }}
+        >
+          <section className="mb-8 space-y-3">
+            <div className="h-8 w-40 animate-pulse rounded-full bg-white/10" />
+            <div className="h-4 w-36 animate-pulse rounded-full bg-white/8" />
+          </section>
+          <div className="grid grid-cols-2 gap-4">
+            {Array.from({ length: 8 }).map((_, index) => (
+              <div key={index} className="space-y-2">
+                <div className="aspect-[2/3] animate-pulse rounded-[18px] bg-white/6" />
+                <div className="h-2.5 w-14 animate-pulse rounded-full bg-white/6" />
+                <div className="h-3.5 w-24 animate-pulse rounded-full bg-white/6" />
+              </div>
+            ))}
+          </div>
+        </main>
+      </div>
+    ) : (
+      <div className="min-h-screen bg-[#0F1014]">
+        <Navbar activePath={FAVORITES_ACTIVE_PATH} />
+        <main className="mx-auto max-w-7xl px-4 pb-16 pt-24">
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-2">
+              <div className="h-8 w-52 animate-pulse rounded-full bg-white/8" />
+              <div className="h-4 w-28 animate-pulse rounded-full bg-white/6" />
+            </div>
+            <div className="h-10 w-44 animate-pulse rounded-lg bg-white/6" />
+          </div>
+          <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-5">
+            {Array.from({ length: 10 }).map((_, index) => (
+              <div key={index} className="aspect-[2/3] animate-pulse rounded-xl bg-white/5" />
+            ))}
+          </div>
+        </main>
+        <Footer />
+      </div>
+    )
+  );
+
+  if (authLoading || !user) {
+    return renderLoadingShell();
   }
 
-  const showAppLayout = isApp;
   const visibleCount = showAppLayout ? appVisibleCount : webVisibleCount;
   const visible = sorted.slice(0, visibleCount);
   const hasMore = visibleCount < sorted.length;
@@ -554,33 +629,11 @@ export default function FavoritesPage() {
   if (showAppLayout) {
     return (
       <div className="min-h-screen bg-[#0f1115] text-white">
-        <header className="fixed inset-x-0 top-0 z-40 border-b border-white/8 bg-[linear-gradient(180deg,rgba(15,17,21,0.98)_0%,rgba(15,17,21,0.92)_78%,rgba(15,17,21,0.68)_100%)] backdrop-blur-2xl">
-          <div
-            className="mx-auto flex max-w-md items-center justify-between px-4 pb-3"
-            style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
-          >
-            <Link href={localizePath("/", locale)} className="flex items-center gap-2.5">
-              <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-[#ff3b5c] text-[10px] font-black text-white shadow-[0_8px_18px_rgba(255,59,92,0.28)]">
-                T
-              </span>
-              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#ff4d6d]">
-                TinyTale
-              </span>
-            </Link>
-
-            <Link
-              href={localizePath("/search", locale)}
-              aria-label={t.search}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/5 text-white/75 transition hover:bg-white/10 hover:text-white"
-            >
-              <Search className="h-[18px] w-[18px]" />
-            </Link>
-          </div>
-        </header>
+        <Navbar activePath={FAVORITES_ACTIVE_PATH} />
 
         <main
           className="mx-auto max-w-md px-4 pb-32"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 94px)" }}
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 74px)" }}
         >
           <section className="mb-8">
             <h1 className="text-[2rem] font-bold tracking-[-0.03em] text-white">
@@ -682,15 +735,13 @@ export default function FavoritesPage() {
             </div>
           )}
         </main>
-
-        <BottomTabBar />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-[#0F1014]">
-      <Navbar />
+      <Navbar activePath={FAVORITES_ACTIVE_PATH} />
 
       <main className="mx-auto max-w-7xl px-4 pb-16 pt-24">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">

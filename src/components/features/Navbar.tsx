@@ -180,7 +180,7 @@ export const MOBILE_SEARCH_LABELS: FlexibleRecord<SupportedLocale, Record<string
   },
 };
 
-const TOP_LEVEL_MOBILE_ROUTES = new Set(["/", "/browse", "/play", "/search", "/user/history", "/user/profile"]);
+const TOP_LEVEL_MOBILE_ROUTES = new Set(["/", "/browse", "/play", "/search", "/user/favorites", "/user/profile"]);
 
 export function Navbar({
   activePath,
