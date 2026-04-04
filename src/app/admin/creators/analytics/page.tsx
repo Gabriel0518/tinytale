@@ -200,7 +200,7 @@ export default function CreatorAnalyticsPage() {
                       {config.label}
                     </span>
                     <span className="text-sm text-gray-500">
-                      ({tierStat.shareRate}% share)
+                      ({config.shareRate}% share)
                     </span>
                   </div>
                   <div className="flex items-center gap-4">
@@ -244,7 +244,7 @@ export default function CreatorAnalyticsPage() {
                   </span>
                 </div>
                 <span className="text-xs text-gray-500">
-                  {tierStat.shareRate}% share
+                  {config.shareRate}% share
                 </span>
               </div>
 
