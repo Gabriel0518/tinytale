@@ -37,12 +37,15 @@ export default function CreatorPoliciesPageV2() {
   const [data, setData] = useState<CreatorAdminPolicyOverview>(mockCreatorPolicyOverview);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [feeConfigs, setFeeConfigs] = useState<any[]>([]);
+  const [actualPaymentFeeRate, setActualPaymentFeeRate] = useState<number>(0.05);
 
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
+        // 加载政策配置
         const response: any = await adminApi.getCreatorPolicies();
         const next = response?.data?.policy || response?.data || response;
         if (!cancelled && next?.version) {
@@ -58,6 +61,23 @@ export default function CreatorPoliciesPageV2() {
             next.paymentChannelFeeRate = next.platformFeeRate;
           }
           setData(next);
+        }
+
+        // 加载 fee-config 数据
+        const feeConfigResponse: any = await adminApi.getAirwallexFeeConfigs();
+        if (!cancelled && feeConfigResponse?.success) {
+          const configs = feeConfigResponse.data || [];
+          setFeeConfigs(configs);
+
+          // 查找 payment_channel 类型的配置
+          const paymentChannelConfig = configs.find(
+            (c: any) => c.type === 'payment_channel' && c.isActive
+          );
+
+          if (paymentChannelConfig) {
+            // 使用实际的费率
+            setActualPaymentFeeRate(paymentChannelConfig.feeRate);
+          }
         }
       } catch {
         if (!cancelled) setData(mockCreatorPolicyOverview);
@@ -103,6 +123,15 @@ export default function CreatorPoliciesPageV2() {
   // 计算平台分成比例（示例：基于 Gold 等级）
   const platformShareRate = 1 - data.creatorTierRates.gold;
 
+  // 计算示例金额（基于实际费率）
+  const exampleGrossRevenue = 1000;
+  const examplePaymentFee = exampleGrossRevenue * actualPaymentFeeRate;
+  const exampleDistributable = exampleGrossRevenue - examplePaymentFee;
+  const exampleCreatorShare = exampleDistributable * data.creatorTierRates.gold;
+  const examplePlatformShare = exampleDistributable * platformShareRate;
+  const exampleReserve = exampleGrossRevenue * data.refundReserveRate;
+  const exampleNetSettlement = exampleCreatorShare - exampleReserve;
+
   return (
     <div className="space-y-6 text-gray-200">
       <section className="rounded-2xl border border-gray-700/50 bg-[#13131d] p-6">
@@ -143,11 +172,17 @@ export default function CreatorPoliciesPageV2() {
             Payment Channel Fee
           </p>
           <p className="mt-3 text-3xl font-bold text-orange-300">
-            {Math.round(data.paymentChannelFeeRate * 100)}%
+            {(actualPaymentFeeRate * 100).toFixed(1)}%
           </p>
           <p className="mt-2 text-sm text-gray-400">
-            Stripe/payment processor fees deducted first.
+            From fee-config (Airwallex/Stripe fees).
           </p>
+          <Link
+            href="/admin/creators/fee-config"
+            className="mt-2 inline-block text-xs text-indigo-400 hover:text-indigo-300"
+          >
+            Manage fee config →
+          </Link>
         </article>
         <article className={panelClassName}>
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-500">
@@ -205,34 +240,56 @@ export default function CreatorPoliciesPageV2() {
             </p>
             <div className="mt-4 space-y-2 text-sm">
               <div className="flex items-center justify-between rounded-lg bg-[#0f0f17] px-4 py-2">
-                <span className="text-gray-400">Gross Revenue</span>
-                <span className="font-mono font-semibold text-white">$1,000.00</span>
+                <span className="text-gray-400">总收入 Revenue</span>
+                <span className="font-mono font-semibold text-white">
+                  ${exampleGrossRevenue.toFixed(2)}
+                </span>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-[#0f0f17] px-4 py-2">
-                <span className="text-gray-400">Payment Channel Fee (5%)</span>
-                <span className="font-mono font-semibold text-orange-300">-$50.00</span>
+                <span className="text-gray-400">
+                  Payment Channel Fee ({(actualPaymentFeeRate * 100).toFixed(1)}%)
+                </span>
+                <span className="font-mono font-semibold text-orange-300">
+                  -${examplePaymentFee.toFixed(2)}
+                </span>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-[#0f0f17] px-4 py-2 font-medium">
                 <span className="text-gray-300">Distributable Amount</span>
-                <span className="font-mono font-semibold text-white">$950.00</span>
+                <span className="font-mono font-semibold text-white">
+                  ${exampleDistributable.toFixed(2)}
+                </span>
               </div>
               <div className="ml-4 space-y-2 border-l-2 border-gray-700 pl-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Creator Share (70%)</span>
-                  <span className="font-mono font-semibold text-emerald-300">$665.00</span>
+                  <span className="text-gray-400">
+                    Creator Share ({Math.round(data.creatorTierRates.gold * 100)}%)
+                  </span>
+                  <span className="font-mono font-semibold text-emerald-300">
+                    ${exampleCreatorShare.toFixed(2)}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Platform Share (30%)</span>
-                  <span className="font-mono font-semibold text-indigo-300">$285.00</span>
+                  <span className="text-gray-400">
+                    Platform Share ({Math.round(platformShareRate * 100)}%)
+                  </span>
+                  <span className="font-mono font-semibold text-indigo-300">
+                    ${examplePlatformShare.toFixed(2)}
+                  </span>
                 </div>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-[#0f0f17] px-4 py-2">
-                <span className="text-gray-400">Refund Reserve (10% of gross)</span>
-                <span className="font-mono font-semibold text-violet-300">-$100.00</span>
+                <span className="text-gray-400">
+                  Refund Reserve ({Math.round(data.refundReserveRate * 100)}% of gross)
+                </span>
+                <span className="font-mono font-semibold text-violet-300">
+                  -${exampleReserve.toFixed(2)}
+                </span>
               </div>
               <div className="flex items-center justify-between rounded-lg bg-emerald-500/10 px-4 py-2 font-bold">
                 <span className="text-emerald-300">Creator Net Settlement</span>
-                <span className="font-mono text-lg text-emerald-300">$565.00</span>
+                <span className="font-mono text-lg text-emerald-300">
+                  ${exampleNetSettlement.toFixed(2)}
+                </span>
               </div>
             </div>
           </div>
@@ -249,27 +306,47 @@ export default function CreatorPoliciesPageV2() {
           {/* Payment Channel Fee */}
           <div className="mt-5">
             <h3 className="text-sm font-semibold text-white">Payment Processing</h3>
-            <div className="mt-3 grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-gray-300">
-                  Payment Channel Fee Rate
-                </span>
-                <input
-                  type="number"
-                  step="0.001"
-                  value={data.paymentChannelFeeRate}
-                  onChange={(event) =>
-                    setData((current) => ({
-                      ...current,
-                      paymentChannelFeeRate: Number(event.target.value) || 0,
-                    }))
-                  }
-                  className="h-11 w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 text-sm text-gray-200 outline-none focus:border-indigo-500"
-                />
-                <p className="mt-1 text-xs text-gray-500">
-                  Stripe/payment processor fees (typically 3-5%)
-                </p>
-              </label>
+            <div className="mt-3">
+              <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="block text-sm font-medium text-gray-300">
+                      Payment Channel Fee Rate
+                    </span>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Managed in Fee Config (Airwallex/Stripe fees)
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold text-orange-300">
+                      {(actualPaymentFeeRate * 100).toFixed(1)}%
+                    </p>
+                    <Link
+                      href="/admin/creators/fee-config"
+                      className="mt-1 inline-block text-xs text-indigo-400 hover:text-indigo-300"
+                    >
+                      Edit in Fee Config →
+                    </Link>
+                  </div>
+                </div>
+                {feeConfigs.filter(c => c.type === 'payment_channel' && c.isActive).length > 0 && (
+                  <div className="mt-3 space-y-2 border-t border-gray-700/50 pt-3">
+                    <p className="text-xs font-medium text-gray-400">Active Configurations:</p>
+                    {feeConfigs
+                      .filter(c => c.type === 'payment_channel' && c.isActive)
+                      .map((config, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs">
+                          <span className="text-gray-500">
+                            {config.provider} ({config.countryCode})
+                          </span>
+                          <span className="font-mono text-gray-400">
+                            {(config.feeRate * 100).toFixed(1)}% + ${config.fixedFee.toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

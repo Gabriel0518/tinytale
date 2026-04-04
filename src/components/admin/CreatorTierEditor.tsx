@@ -49,6 +49,7 @@ export function CreatorTierEditor({
   const [selectedTier, setSelectedTier] = useState<CreatorTier>(currentTier);
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState("");
+  const [sendNotification, setSendNotification] = useState(true);
 
   const handleSave = async () => {
     if (selectedTier === currentTier) {
@@ -62,6 +63,7 @@ export function CreatorTierEditor({
       await adminApi.updateCreatorTier(creatorId, {
         tier: selectedTier,
         notes: notes.trim(),
+        sendNotification,
       });
 
       toast(`Creator tier updated to ${tierConfig[selectedTier].label}`, "success");
@@ -219,6 +221,26 @@ export function CreatorTierEditor({
           placeholder="Reason for tier change..."
           className="min-h-[100px] w-full rounded-xl border border-gray-700/50 bg-[#0f0f17] px-4 py-3 text-sm text-gray-200 outline-none focus:border-indigo-500"
         />
+      </div>
+
+      {/* Email Notification */}
+      <div className="rounded-xl border border-gray-700/50 bg-[#0f0f17] p-4">
+        <label className="flex items-start gap-3 Claude Code-pointer">
+          <input
+            type="checkbox"
+            checked={sendNotification}
+            onChange={(e) => setSendNotification(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-700 text-indigo-600 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-0"
+          />
+          <div className="flex-1">
+            <span className="block text-sm font-medium text-gray-200">
+              Send email notification
+            </span>
+            <span className="mt-1 block text-xs text-gray-400">
+              Creator will receive an email about this tier change with details about their new revenue share rate.
+            </span>
+          </div>
+        </label>
       </div>
 
       {/* Actions */}

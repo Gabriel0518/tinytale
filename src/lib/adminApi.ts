@@ -698,11 +698,22 @@ export const adminApi = {
     api.put('/api/admin/creator-policies', data, { token }),
 
   // Creator tier management
-  updateCreatorTier: (creatorId: string, data: { tier: string; notes?: string }, token = getAdminToken()) =>
+  updateCreatorTier: (creatorId: string, data: { tier: string; notes?: string; sendNotification?: boolean }, token = getAdminToken()) =>
     api.patch(`/api/admin/creators/${creatorId}/tier`, data, { token }),
 
-  batchUpdateCreatorTiers: (updates: Array<{ creatorId: string; tier: string }>, token = getAdminToken()) =>
-    api.post('/api/admin/creators/tier/batch', { updates }, { token }),
+  batchUpdateCreatorTiers: (updates: Array<{ creatorId: string; tier: string; notes?: string }>, sendNotification = true, token = getAdminToken()) =>
+    api.post('/api/admin/creators/tier/batch', { updates, sendNotification }, { token }),
+
+  // Creator analytics
+  getCreatorAnalytics: (token = getAdminToken()) =>
+    api.get('/api/admin/creators/analytics', { token }),
+
+  getCreatorTierChanges: (params?: { limit?: number; offset?: number }, token = getAdminToken()) => {
+    const query = params ? new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)]))
+    ).toString() : '';
+    return api.get(`/api/admin/creators/tier-changes${query ? `?${query}` : ''}`, { token });
+  },
 
   // Withdrawal management
   getWithdrawals: (params?: Record<string, any>, token = getAdminToken()) => {
