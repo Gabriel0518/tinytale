@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { FileSliders, Info } from "lucide-react";
 import { useToast } from "@/components/ui/Toast";
 import { adminApi } from "@/lib/adminApi";
-import type { CreatorAdminPolicyOverview, CreatorTierRates } from "@/types/creator";
+import type { CreatorAdminPolicyOverview } from "@/types/creator";
 import { formatAdminDate } from "../_lib/mockData";
 
 const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";

@@ -42,6 +42,12 @@ export const mockCreatorRevenueOverview: CreatorAdminRevenueOverview = {
 
 export const mockCreatorPolicyOverview: CreatorAdminPolicyOverview = {
   version: "",
+  paymentChannelFeeRate: 0,
+  creatorTierRates: {
+    bronze: 0.5,
+    silver: 0.6,
+    gold: 0.7,
+  },
   creatorShareRate: 0,
   platformFeeRate: 0,
   refundReserveRate: 0,
