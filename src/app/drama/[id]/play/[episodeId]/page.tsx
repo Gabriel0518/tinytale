@@ -516,7 +516,7 @@ export default function PlayEpisodePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, token, refreshUser } = useAuth();
-  const { isMobile } = usePlatform();
+  const { isMobile, isReady: isPlatformReady } = usePlatform();
   const { toast } = useToast();
   const { session, startSession, updateSession } = usePlaybackSession();
 
@@ -1593,6 +1593,10 @@ export default function PlayEpisodePage() {
         </div>
       </div>
     );
+  }
+
+  if (!isPlatformReady) {
+    return <div className="fixed inset-0 bg-black" />;
   }
 
   const currentEpisodeStatus = currentEpisode.isFree

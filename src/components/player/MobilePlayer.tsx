@@ -206,24 +206,23 @@ export default function MobilePlayer({
   const [duration, setDuration] = useState(0);
   const [pictureInPictureSupported, setPictureInPictureSupported] = useState(false);
   const [pictureInPictureActive, setPictureInPictureActive] = useState(false);
-  const [playerMuted, setPlayerMuted] = useState(autoplay);
+  const [playerMuted, setPlayerMuted] = useState(() => Boolean(shouldPreferSimplePlayerBackend(videoUrl, streamVideoId) && autoplay));
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [showPauseButton, setShowPauseButton] = useState(!autoplay);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [scrubTime, setScrubTime] = useState(initialSeekTime);
-  const [preferSimplePlayerBackend, setPreferSimplePlayerBackend] = useState(false);
   const pauseButtonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const labels = labelsProp || DEFAULT_LABELS;
   const playbackRate = playbackRateProp ?? playbackRateState;
+  const preferSimplePlayerBackend = useMemo(
+    () => shouldPreferSimplePlayerBackend(videoUrl, streamVideoId),
+    [streamVideoId, videoUrl]
+  );
   const restoredSeekTime = useMemo(() => {
     if (initialSeekTime > 0) return initialSeekTime;
     return readSavedPlaybackProgress({ episodeId, streamVideoId, videoUrl });
   }, [episodeId, initialSeekTime, streamVideoId, videoUrl]);
-
-  useEffect(() => {
-    setPreferSimplePlayerBackend(shouldPreferSimplePlayerBackend(videoUrl, streamVideoId));
-  }, [streamVideoId, videoUrl]);
 
   const dismissFeedback = useCallback(() => {
     setFeedback(null);
@@ -269,6 +268,11 @@ export default function MobilePlayer({
     setPlaybackRateState(playbackRateProp);
     playerRef.current?.setPlaybackRate(playbackRateProp);
   }, [playbackRateProp]);
+
+  useEffect(() => {
+    if (!preferSimplePlayerBackend || !isLandscape) return;
+    setIsLandscape(false);
+  }, [isLandscape, preferSimplePlayerBackend]);
 
   useEffect(() => {
     const currentPlayer = playerRef.current;
@@ -973,7 +977,7 @@ export default function MobilePlayer({
       ) : null}
 
       {/* 横屏翻转按钮 - 显示在进度条上方 */}
-      {showInternalChrome && showChrome && !isLandscape ? (
+      {showInternalChrome && showChrome && !isLandscape && !preferSimplePlayerBackend ? (
         <button
           type="button"
           onClick={enterLandscape}

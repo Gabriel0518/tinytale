@@ -10,6 +10,7 @@ type PlatformState = {
   isApp: boolean;
   isAndroid: boolean;
   isIOS: boolean;
+  isReady: boolean;
 };
 
 const INITIAL_PLATFORM_STATE: PlatformState = {
@@ -17,6 +18,7 @@ const INITIAL_PLATFORM_STATE: PlatformState = {
   isApp: false,
   isAndroid: false,
   isIOS: false,
+  isReady: false,
 };
 
 let cachedClientPlatformState: PlatformState | null = null;
@@ -37,6 +39,7 @@ function readPlatformState(): PlatformState {
     isApp,
     isAndroid: nativePlatform === "android",
     isIOS: nativePlatform === "ios",
+    isReady: true,
   };
 }
 

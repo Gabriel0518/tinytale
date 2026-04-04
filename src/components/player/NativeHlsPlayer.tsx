@@ -501,7 +501,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         <video
           ref={videoRef}
           poster={poster}
-          crossOrigin="anonymous"
+          {...(!shouldForceHlsJsOnCurrentDevice() ? { crossOrigin: 'anonymous' as const } : {})}
           playsInline
           webkit-playsinline=""
           preload="auto"
