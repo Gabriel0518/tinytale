@@ -40,8 +40,10 @@ function serializeHlsErrorData(data: any): string {
 }
 
 function shouldForceHlsJsOnCurrentDevice() {
-  if (typeof navigator === 'undefined') return false;
-  return /Android/i.test(navigator.userAgent || '');
+  // Android WebView supports native HLS playback and handles it without the
+  // NdkImageReader surface exhaustion that hls.js + MSE triggers.  Only force
+  // hls.js on platforms that genuinely lack native HLS support.
+  return false;
 }
 
 interface NativeHlsPlayerProps {
@@ -306,14 +308,6 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
             levelLoadingMaxRetry: 4,
             levelLoadingRetryDelay: 1000,
             levelLoadingMaxRetryTimeout: 32000,
-            // On Android WebView, limit the forward buffer to reduce decoder
-            // surface pressure from concurrent video+audio SourceBuffers.
-            ...(shouldForceHlsJsOnCurrentDevice() ? {
-              maxBufferLength: 15,
-              maxMaxBufferLength: 30,
-              maxBufferSize: 30 * 1000 * 1000,
-              backBufferLength: 5,
-            } : {}),
           });
           if (disposed) {
             hls.destroy();
