@@ -306,6 +306,14 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
             levelLoadingMaxRetry: 4,
             levelLoadingRetryDelay: 1000,
             levelLoadingMaxRetryTimeout: 32000,
+            // On Android WebView, limit the forward buffer to reduce decoder
+            // surface pressure from concurrent video+audio SourceBuffers.
+            ...(shouldForceHlsJsOnCurrentDevice() ? {
+              maxBufferLength: 15,
+              maxMaxBufferLength: 30,
+              maxBufferSize: 30 * 1000 * 1000,
+              backBufferLength: 5,
+            } : {}),
           });
           if (disposed) {
             hls.destroy();
@@ -369,6 +377,19 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
             }
           });
 
+          // Diagnostic: track SourceBuffer health on Android to detect
+          // decoder surface exhaustion (NdkImageReader stalls).
+          if (shouldForceHlsJsOnCurrentDevice()) {
+            hls.on(Hls.Events.BUFFER_APPENDED, () => {
+              const vBuf = video.buffered;
+              const bufferedEnd = vBuf.length > 0 ? vBuf.end(vBuf.length - 1).toFixed(2) : '0';
+              log(`buffer-appended buffered=${bufferedEnd} currentTime=${video.currentTime.toFixed(2)} readyState=${video.readyState}`);
+            });
+            hls.on(Hls.Events.FRAG_LOADED, (_e: any, d: any) => {
+              log(`frag-loaded type=${d?.frag?.type} sn=${d?.frag?.sn} size=${d?.frag?.stats?.total ?? '?'}`);
+            });
+          }
+
           hls.loadSource(videoUrl);
           hls.attachMedia(video);
           log(`hls attached src=${videoUrl.slice(0, 80)}`);
@@ -422,7 +443,9 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         }
         try {
           video.removeAttribute('src');
-          video.load();
+          // Do NOT call video.load() here — on Android WebView it can trigger
+          // a spurious decoder re-init that competes for surface buffers with
+          // the next hls.js attach cycle.
         } catch {
           // Ignore src cleanup failures.
         }
