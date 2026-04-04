@@ -108,7 +108,10 @@ async function parseHlsManifest(manifestUrl: string): Promise<string[]> {
       method: 'GET',
       mode: 'cors',
       credentials: 'omit',
-      cache: 'force-cache',
+      // Do NOT use 'force-cache' — it breaks HLS playback when the player
+      // later requests the same URL. Cached responses lack proper headers
+      // for Range requests and cause playback stalls.
+      cache: 'default',
     });
 
     if (!response.ok) return [];
@@ -171,7 +174,10 @@ async function downloadSegmentsConcurrently(
         method: 'GET',
         mode: 'cors',
         credentials: 'omit',
-        cache: 'force-cache',
+        // Do NOT use 'force-cache' — it breaks HLS playback when the player
+        // later requests the same segment with Range headers. The cached full
+        // response lacks Content-Range and causes the player to stall.
+        cache: 'default',
         signal: controller.signal,
       });
       addCompletedSegment(url);

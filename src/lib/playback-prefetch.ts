@@ -153,7 +153,7 @@ async function fetchWarmResource(url: string) {
       method: "GET",
       mode: "cors",
       credentials: "omit",
-      cache: "force-cache",
+      cache: "default",
     });
   } catch {
     warmedPlaybackResourceUrls.delete(url);
