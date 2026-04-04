@@ -461,16 +461,17 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
     }, [muted]);
 
     useEffect(() => {
+      if (!subtitles.length && !activeSubtitleLanguage) return;
       syncSubtitleTrackModes();
     }, [subtitles, activeSubtitleLanguage, syncSubtitleTrackModes]);
 
     useEffect(() => {
       const video = videoRef.current;
       if (!video) return undefined;
+      if (!subtitles.length && !activeSubtitleLanguage) return undefined;
 
       const trackElements = Array.from(video.querySelectorAll('track'));
       if (trackElements.length === 0) {
-        syncSubtitleTrackModes();
         return undefined;
       }
 
