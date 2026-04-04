@@ -697,6 +697,13 @@ export const adminApi = {
   updateCreatorPolicies: (data: any, token = getAdminToken()) =>
     api.put('/api/admin/creator-policies', data, { token }),
 
+  // Creator tier management
+  updateCreatorTier: (creatorId: string, data: { tier: string; notes?: string }, token = getAdminToken()) =>
+    api.patch(`/api/admin/creators/${creatorId}/tier`, data, { token }),
+
+  batchUpdateCreatorTiers: (updates: Array<{ creatorId: string; tier: string }>, token = getAdminToken()) =>
+    api.post('/api/admin/creators/tier/batch', { updates }, { token }),
+
   // Withdrawal management
   getWithdrawals: (params?: Record<string, any>, token = getAdminToken()) => {
     const query = params ? new URLSearchParams(

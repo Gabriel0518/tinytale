@@ -12,6 +12,8 @@ import {
   mockCreators,
 } from "../_lib/mockData";
 import type { CreatorAdminCreatorListItem } from "@/types/creator";
+import type { CreatorTier } from "@/types/creator";
+import { CreatorTierEditor } from "@/components/admin/CreatorTierEditor";
 
 const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";
 
@@ -21,6 +23,7 @@ export default function CreatorListPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [bankStatus, setBankStatus] = useState("all");
+  const [editingCreator, setEditingCreator] = useState<CreatorAdminCreatorListItem | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +65,30 @@ export default function CreatorListPage() {
     pendingBank: items.filter((item) => item.bankStatus === "pending_review" || item.bankStatus === "missing").length,
     highRiskLoad: items.filter((item) => item.openTickets > 0 || item.dmcaStrikes > 0).length,
   }), [items]);
+
+  const handleTierUpdate = (creatorId: string, newTier: CreatorTier) => {
+    setItems((current) =>
+      current.map((item) =>
+        item.id === creatorId ? { ...item, tier: newTier } : item
+      )
+    );
+    setEditingCreator(null);
+  };
+
+  const getTierDisplay = (tier?: CreatorTier) => {
+    const tierConfig = {
+      bronze: { emoji: "🥉", label: "Bronze", color: "text-amber-400" },
+      silver: { emoji: "🥈", label: "Silver", color: "text-gray-300" },
+      gold: { emoji: "🥇", label: "Gold", color: "text-yellow-400" },
+    };
+    const config = tierConfig[tier || "bronze"];
+    return (
+      <span className={`flex items-center gap-1.5 ${config.color}`}>
+        <span>{config.emoji}</span>
+        <span className="text-xs font-semibold">{config.label}</span>
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-6 text-gray-200">
@@ -123,6 +150,7 @@ export default function CreatorListPage() {
             <thead>
               <tr className="border-b border-gray-700/50 text-left text-xs uppercase tracking-[0.12em] text-gray-500">
                 <th className="pb-3 pr-4 font-medium">Creator</th>
+                <th className="pb-3 pr-4 font-medium">Tier</th>
                 <th className="pb-3 pr-4 font-medium">Status</th>
                 <th className="pb-3 pr-4 font-medium">Bank</th>
                 <th className="pb-3 pr-4 font-medium">Titles / Episodes</th>
@@ -135,11 +163,11 @@ export default function CreatorListPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-gray-500">Loading creators...</td>
+                  <td colSpan={9} className="py-10 text-center text-gray-500">Loading creators...</td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-gray-500">No creators match the current filters.</td>
+                  <td colSpan={9} className="py-10 text-center text-gray-500">No creators match the current filters.</td>
                 </tr>
               ) : filtered.map((item) => {
                 const statusMeta = getCreatorLifecycleMeta(item.status);
@@ -151,6 +179,15 @@ export default function CreatorListPage() {
                       <p className="mt-1 text-xs text-gray-500">{item.legalName}</p>
                       <p className="mt-1 text-xs text-gray-500">{item.email}</p>
                       <p className="mt-2 text-xs text-gray-400">{item.creatorType === "company" ? "Company / Studio" : "Individual"} · {item.country} · Joined {formatAdminDate(item.joinedAt)}</p>
+                    </td>
+                    <td className="py-4 pr-4">
+                      {getTierDisplay(item.tier)}
+                      <button
+                        onClick={() => setEditingCreator(item)}
+                        className="mt-2 text-xs text-indigo-400 hover:text-indigo-300"
+                      >
+                        Edit tier
+                      </button>
                     </td>
                     <td className="py-4 pr-4">
                       <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusMeta.className}`}>{statusMeta.label}</span>
@@ -196,6 +233,26 @@ export default function CreatorListPage() {
           </article>
         </div>
       </section>
+
+      {/* Tier Editor Modal */}
+      {editingCreator && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+          <div
+            className="absolute inset-0"
+            onClick={() => setEditingCreator(null)}
+            aria-hidden="true"
+          />
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700/50 bg-[#13131d] p-6">
+            <CreatorTierEditor
+              creatorId={editingCreator.id}
+              creatorName={editingCreator.displayName}
+              currentTier={editingCreator.tier || "bronze"}
+              onUpdate={(newTier) => handleTierUpdate(editingCreator.id, newTier)}
+              onClose={() => setEditingCreator(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

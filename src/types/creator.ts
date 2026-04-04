@@ -608,6 +608,12 @@ export interface CreatorSettlementStatement {
 }
 
 export interface CreatorSettlementOverview {
+  tier?: CreatorTier;  // 创作者等级
+  reserveBalance?: {
+    currentReserveUsd: number;
+    expectedReturnDate: string;
+    lastMonthRefundsUsd: number;
+  };
   summary: {
     settlementCurrency: string;
     minimumPayoutUsd: number;
@@ -881,6 +887,7 @@ export interface CreatorAdminCreatorListItem {
   country: string;
   status: CreatorAdminLifecycleStatus;
   level: string;
+  tier?: CreatorTier;  // 创作者等级
   publishedTitles: number;
   totalEpisodes: number;
   monthlyRevenueUsd: number;
@@ -1294,11 +1301,19 @@ export interface CreatorAdminTicketDetail extends CreatorAdminTicketItem {
   messages: CreatorTicketMessage[];
 }
 
+export type CreatorTier = "bronze" | "silver" | "gold";
+
+export interface CreatorTierRates {
+  bronze: number;  // 50%
+  silver: number;  // 60%
+  gold: number;    // 70%
+}
+
 export interface CreatorAdminPolicyOverview {
   version: string;
-  creatorShareRate: number;
-  platformFeeRate: number;
-  refundReserveRate: number;
+  paymentChannelFeeRate: number;        // 支付渠道手续费（如 Stripe）
+  creatorTierRates: CreatorTierRates;   // 创作者分级分成比例
+  refundReserveRate: number;            // 退款储备金比例
   holdDays: number;
   minimumPayoutUsd: number;
   reviewSlaHours: number;
@@ -1306,6 +1321,10 @@ export interface CreatorAdminPolicyOverview {
   autoReleaseRequiresVerifiedBank: boolean;
   notes: string[];
   lastUpdatedAt: string | null;
+
+  // 向后兼容（已废弃）
+  creatorShareRate?: number;
+  platformFeeRate?: number;
 }
 
 // ─── Creator Withdrawal & Fee Types ──────────────────────────────────────────
@@ -1361,6 +1380,8 @@ export interface CreatorWithdrawalBalance {
 
 export interface AirwallexFeeConfigItem {
   _id: string;
+  type: "payment_channel" | "airwallex_transfer";
+  provider: string;
   countryCode: string;
   currency: string;
   transferMethod: "LOCAL" | "SWIFT";

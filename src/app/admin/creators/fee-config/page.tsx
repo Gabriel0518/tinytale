@@ -11,6 +11,8 @@ import type { AirwallexFeeConfigItem } from "@/types/creator";
 const panelClassName = "rounded-2xl border border-gray-700/50 bg-[#13131d] p-5";
 
 type FormData = {
+  type: "payment_channel" | "airwallex_transfer";
+  provider: string;
   countryCode: string;
   currency: string;
   transferMethod: "LOCAL" | "SWIFT";
@@ -23,6 +25,8 @@ type FormData = {
 };
 
 const emptyForm: FormData = {
+  type: "airwallex_transfer",
+  provider: "airwallex",
   countryCode: "",
   currency: "*",
   transferMethod: "LOCAL",
@@ -77,6 +81,8 @@ export default function AirwallexFeeConfigPage() {
   const openEdit = (item: AirwallexFeeConfigItem) => {
     setEditingId(item._id);
     setForm({
+      type: item.type || "airwallex_transfer",
+      provider: item.provider || "airwallex",
       countryCode: item.countryCode,
       currency: item.currency,
       transferMethod: item.transferMethod,
@@ -98,6 +104,8 @@ export default function AirwallexFeeConfigPage() {
     setSubmitting(true);
     try {
       const payload = {
+        type: form.type,
+        provider: form.provider.toLowerCase().trim() || "airwallex",
         countryCode: form.countryCode.toUpperCase().trim(),
         currency: form.currency.toUpperCase().trim() || "*",
         transferMethod: form.transferMethod,
@@ -142,9 +150,9 @@ export default function AirwallexFeeConfigPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100">Airwallex Fee Configuration</h1>
+          <h1 className="text-2xl font-bold text-gray-100">Fee Configuration</h1>
           <p className="mt-1 text-sm text-gray-400">
-            Configure transfer fees by country and transfer method. Fees are borne by creators.
+            Configure payment channel fees and transfer fees by provider, country, and method.
           </p>
         </div>
         <button
@@ -205,6 +213,8 @@ export default function AirwallexFeeConfigPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-700/50 text-left text-xs uppercase text-gray-500">
+                  <th className="px-3 py-3">Type</th>
+                  <th className="px-3 py-3">Provider</th>
                   <th className="px-3 py-3">Country</th>
                   <th className="px-3 py-3">Currency</th>
                   <th className="px-3 py-3">Method</th>
@@ -219,6 +229,18 @@ export default function AirwallexFeeConfigPage() {
               <tbody>
                 {configs.map((item) => (
                   <tr key={item._id} className="border-b border-gray-800/50 hover:bg-[#1a1a2e]/50">
+                    <td className="px-3 py-3">
+                      <span className={`rounded px-2 py-0.5 text-xs font-medium ${
+                        item.type === 'payment_channel'
+                          ? 'bg-blue-500/20 text-blue-300'
+                          : 'bg-purple-500/20 text-purple-300'
+                      }`}>
+                        {item.type === 'payment_channel' ? 'Payment' : 'Transfer'}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 font-medium text-gray-200">
+                      {item.provider || 'airwallex'}
+                    </td>
                     <td className="px-3 py-3 font-medium text-gray-200">
                       {item.countryCode === "DEFAULT" ? (
                         <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">DEFAULT</span>
@@ -280,6 +302,32 @@ export default function AirwallexFeeConfigPage() {
             </h2>
 
             <div className="space-y-4">
+              {/* Type and Provider */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Fee Type</label>
+                  <select
+                    value={form.type}
+                    onChange={(e) => setForm({ ...form, type: e.target.value as "payment_channel" | "airwallex_transfer" })}
+                    disabled={!!editingId}
+                    className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-2 text-sm text-gray-200 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+                  >
+                    <option value="payment_channel">Payment Channel (收款费用)</option>
+                    <option value="airwallex_transfer">Airwallex Transfer (转账费用)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-gray-400">Provider</label>
+                  <input
+                    value={form.provider}
+                    onChange={(e) => setForm({ ...form, provider: e.target.value })}
+                    placeholder="airwallex, stripe, paypal..."
+                    disabled={!!editingId}
+                    className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-2 text-sm text-gray-200 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1 block text-xs text-gray-400">Country Code</label>

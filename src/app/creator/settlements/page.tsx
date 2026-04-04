@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import { creatorApi } from "@/lib/api";
 import { CreatorAirwallexBeneficiaryForm } from "@/components/features/CreatorAirwallexBeneficiaryForm";
+import { SettlementRulesExplanation } from "@/components/features/SettlementRulesExplanation";
+import { CreatorTierBadge } from "@/components/creator/CreatorTierBadge";
+import { ReserveBalanceDisplay } from "@/components/creator/ReserveBalanceDisplay";
 import { getAirwallexVerificationDetail } from "@/lib/airwallex";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
@@ -310,6 +313,24 @@ export default function CreatorSettlementsPage() {
         </div>
       </section>
 
+      {/* Creator Tier Badge */}
+      {overview?.tier && (
+        <section className={`${cardClassName} p-6 md:p-7`}>
+          <CreatorTierBadge tier={overview.tier} showDetails={true} />
+        </section>
+      )}
+
+      {/* Reserve Balance Display */}
+      {overview?.reserveBalance && (
+        <section className={`${cardClassName} p-6 md:p-7`}>
+          <ReserveBalanceDisplay
+            currentReserveUsd={overview.reserveBalance.currentReserveUsd}
+            expectedReturnDate={overview.reserveBalance.expectedReturnDate}
+            lastMonthRefundsUsd={overview.reserveBalance.lastMonthRefundsUsd}
+          />
+        </section>
+      )}
+
       <section className={`${cardClassName} p-6 md:p-7`}>
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-[22px] font-bold tracking-[-0.02em] text-[#0f172a]">{t("Bank Account")}</h2>
@@ -507,6 +528,11 @@ export default function CreatorSettlementsPage() {
             <button type="button" className="flex h-9 w-9 items-center justify-center rounded-full border border-[#dbe3ec] bg-white text-[#475569]">›</button>
           </div>
         </div>
+      </section>
+
+      {/* Settlement Rules Explanation */}
+      <section className={`${cardClassName} p-6 md:p-7`}>
+        <SettlementRulesExplanation />
       </section>
 
       <div className="grid gap-6">
