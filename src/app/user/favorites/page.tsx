@@ -1,22 +1,33 @@
 "use client";
-export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useMemo } from "react";
-import Link from "next/link";
+export const dynamic = "force-dynamic";
+
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { useAuth } from "@/lib/authContext";
-import { useAuthGuard } from "@/hooks/useAuthGuard";
-import { useToast } from "@/components/ui/Toast";
-import { userApi, dramasApi } from "@/lib/api";
-import { Drama } from "@/types";
-import { Navbar } from "@/components/features/Navbar";
+import Link from "next/link";
+import { Search, X } from "lucide-react";
+import { BottomTabBar } from "@/components/mobile/BottomTabBar";
 import { Footer } from "@/components/features/Footer";
-import { resolveDramaMode } from "@/lib/utils";
-import {localizePath, SupportedLocale } from "@/lib/i18n";
+import { Navbar } from "@/components/features/Navbar";
+import { useToast } from "@/components/ui/Toast";
+import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useLocale } from "@/hooks/useLocale";
-import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { usePlatform } from "@/hooks/usePlatform";
+import { dramasApi, userApi } from "@/lib/api";
+import { useAuth } from "@/lib/authContext";
+import { localizePath, SupportedLocale } from "@/lib/i18n";
+import { resolveLocaleCopy } from "@/lib/locale-copy";
+import { resolveDramaMode } from "@/lib/utils";
+import { Drama } from "@/types";
 
 type SortOption = "newest" | "oldest" | "title-az" | "title-za";
+
+type FavoriteEntry = {
+  drama: Drama;
+  favoriteId?: string;
+  savedAt?: string;
+  updatedAt?: string;
+};
 
 type FavoritesCopy = {
   title: string;
@@ -33,14 +44,18 @@ type FavoritesCopy = {
   defaultCategory: string;
   epsShort: string;
   loadMore: string;
+  loadMoreTitles: string;
   emptyTitle: string;
   emptyDesc: string;
   browseDramas: string;
   vip: string;
+  curated: string;
+  search: string;
   statusHot: string;
   statusOngoing: string;
   statusNew: string;
   statusCompleted: string;
+  statusPremium: string;
   timeToday: string;
   timeDaysAgo: (days: number) => string;
   timeWeeksAgo: (weeks: number) => string;
@@ -63,18 +78,23 @@ const COPY: FlexibleRecord<SupportedLocale, FavoritesCopy> = {
     defaultCategory: "Drama",
     epsShort: "eps",
     loadMore: "Load More",
+    loadMoreTitles: "Load More Titles",
     emptyTitle: "No Favorites Yet",
     emptyDesc: "Start adding dramas to your watchlist to see them here",
     browseDramas: "Browse Dramas",
     vip: "VIP",
+    curated: "CURATED",
+    search: "Search",
     statusHot: "HOT",
     statusOngoing: "ONGOING",
     statusNew: "NEW",
     statusCompleted: "COMPLETED",
+    statusPremium: "PREMIUM",
     timeToday: "Today",
     timeDaysAgo: (days) => `${days}d ago`,
     timeWeeksAgo: (weeks) => `${weeks}w ago`,
-    timeMonthsAgo: (months) => `${months}mo ago` },
+    timeMonthsAgo: (months) => `${months}mo ago`,
+  },
   zh: {
     title: "我的片单",
     savedTitles: "个已收藏",
@@ -90,18 +110,23 @@ const COPY: FlexibleRecord<SupportedLocale, FavoritesCopy> = {
     defaultCategory: "短剧",
     epsShort: "集",
     loadMore: "加载更多",
+    loadMoreTitles: "加载更多片单",
     emptyTitle: "还没有收藏",
     emptyDesc: "去添加你喜欢的短剧吧",
     browseDramas: "浏览短剧",
     vip: "VIP",
+    curated: "精选",
+    search: "搜索",
     statusHot: "热门",
     statusOngoing: "连载中",
     statusNew: "新上架",
     statusCompleted: "已完结",
+    statusPremium: "会员精选",
     timeToday: "今天",
     timeDaysAgo: (days) => `${days}天前`,
     timeWeeksAgo: (weeks) => `${weeks}周前`,
-    timeMonthsAgo: (months) => `${months}个月前` },
+    timeMonthsAgo: (months) => `${months}个月前`,
+  },
   ja: {
     title: "マイリスト",
     savedTitles: "件を保存",
@@ -117,18 +142,23 @@ const COPY: FlexibleRecord<SupportedLocale, FavoritesCopy> = {
     defaultCategory: "ドラマ",
     epsShort: "話",
     loadMore: "もっと見る",
+    loadMoreTitles: "作品をもっと見る",
     emptyTitle: "お気に入りはまだありません",
     emptyDesc: "ドラマを追加するとここに表示されます",
     browseDramas: "ドラマを探す",
     vip: "VIP",
+    curated: "CURATED",
+    search: "検索",
     statusHot: "人気",
     statusOngoing: "配信中",
     statusNew: "新着",
     statusCompleted: "完結",
+    statusPremium: "プレミアム",
     timeToday: "今日",
     timeDaysAgo: (days) => `${days}日前`,
     timeWeeksAgo: (weeks) => `${weeks}週間前`,
-    timeMonthsAgo: (months) => `${months}か月前` },
+    timeMonthsAgo: (months) => `${months}か月前`,
+  },
   es: {
     title: "Mi Lista",
     savedTitles: "títulos guardados",
@@ -144,18 +174,23 @@ const COPY: FlexibleRecord<SupportedLocale, FavoritesCopy> = {
     defaultCategory: "Drama",
     epsShort: "epis",
     loadMore: "Cargar más",
+    loadMoreTitles: "Cargar más títulos",
     emptyTitle: "Aún no tienes favoritos",
     emptyDesc: "Agrega dramas para verlos aquí",
     browseDramas: "Explorar dramas",
     vip: "VIP",
+    curated: "CURATED",
+    search: "Buscar",
     statusHot: "HOT",
     statusOngoing: "EN EMISIÓN",
     statusNew: "NUEVO",
     statusCompleted: "COMPLETADO",
+    statusPremium: "PREMIUM",
     timeToday: "Hoy",
     timeDaysAgo: (days) => `hace ${days} d`,
     timeWeeksAgo: (weeks) => `hace ${weeks} sem`,
-    timeMonthsAgo: (months) => `hace ${months} mes` },
+    timeMonthsAgo: (months) => `hace ${months} mes`,
+  },
   pt: {
     title: "Minha Lista",
     savedTitles: "títulos salvos",
@@ -171,18 +206,23 @@ const COPY: FlexibleRecord<SupportedLocale, FavoritesCopy> = {
     defaultCategory: "Drama",
     epsShort: "eps",
     loadMore: "Carregar mais",
+    loadMoreTitles: "Carregar mais títulos",
     emptyTitle: "Sem favoritos ainda",
     emptyDesc: "Adicione dramas para ver aqui",
     browseDramas: "Explorar dramas",
     vip: "VIP",
+    curated: "CURATED",
+    search: "Buscar",
     statusHot: "HOT",
     statusOngoing: "EM EXIBIÇÃO",
     statusNew: "NOVO",
     statusCompleted: "CONCLUÍDO",
+    statusPremium: "PREMIUM",
     timeToday: "Hoje",
     timeDaysAgo: (days) => `há ${days}d`,
     timeWeeksAgo: (weeks) => `há ${weeks} sem`,
-    timeMonthsAgo: (months) => `há ${months} meses` },
+    timeMonthsAgo: (months) => `há ${months} meses`,
+  },
   hi: {
     title: "मेरी वॉचलिस्ट",
     savedTitles: "टाइटल सेव किए गए",
@@ -198,18 +238,23 @@ const COPY: FlexibleRecord<SupportedLocale, FavoritesCopy> = {
     defaultCategory: "ड्रामा",
     epsShort: "एपि",
     loadMore: "और लोड करें",
+    loadMoreTitles: "और टाइटल लोड करें",
     emptyTitle: "अभी कोई फेवरेट नहीं",
     emptyDesc: "ड्रामा जोड़ें, यहाँ दिखेंगे",
     browseDramas: "ड्रामा ब्राउज़ करें",
     vip: "VIP",
+    curated: "क्यूरेटेड",
+    search: "खोजें",
     statusHot: "हॉट",
     statusOngoing: "जारी",
     statusNew: "नया",
     statusCompleted: "पूर्ण",
+    statusPremium: "प्रीमियम",
     timeToday: "आज",
     timeDaysAgo: (days) => `${days} दिन पहले`,
     timeWeeksAgo: (weeks) => `${weeks} हफ्ते पहले`,
-    timeMonthsAgo: (months) => `${months} महीने पहले` },
+    timeMonthsAgo: (months) => `${months} महीने पहले`,
+  },
   id: {
     title: "Daftar Tonton Saya",
     savedTitles: "judul disimpan",
@@ -225,33 +270,144 @@ const COPY: FlexibleRecord<SupportedLocale, FavoritesCopy> = {
     defaultCategory: "Drama",
     epsShort: "eps",
     loadMore: "Muat lebih banyak",
+    loadMoreTitles: "Muat lebih banyak judul",
     emptyTitle: "Belum ada favorit",
     emptyDesc: "Tambahkan drama ke daftar tontonmu",
     browseDramas: "Jelajahi drama",
     vip: "VIP",
+    curated: "CURATED",
+    search: "Cari",
     statusHot: "HOT",
     statusOngoing: "BERLANJUT",
     statusNew: "BARU",
     statusCompleted: "SELESAI",
+    statusPremium: "PREMIUM",
     timeToday: "Hari ini",
     timeDaysAgo: (days) => `${days}h lalu`,
     timeWeeksAgo: (weeks) => `${weeks}mgg lalu`,
-    timeMonthsAgo: (months) => `${months}bln lalu` } };
+    timeMonthsAgo: (months) => `${months}bln lalu`,
+  },
+};
+
+function isDramaCandidate(value: unknown): value is Drama {
+  if (!value || typeof value !== "object") return false;
+
+  const candidate = value as Partial<Drama>;
+  return typeof candidate._id === "string" && typeof candidate.title === "string" && typeof candidate.cover === "string";
+}
+
+function extractFavoriteSource(payload: unknown): unknown[] {
+  const data = (payload as { data?: unknown })?.data ?? payload;
+
+  if (Array.isArray(data)) return data;
+  if (Array.isArray((data as { favorites?: unknown[] })?.favorites)) return (data as { favorites: unknown[] }).favorites;
+  if (Array.isArray((data as { items?: unknown[] })?.items)) return (data as { items: unknown[] }).items;
+  if (Array.isArray((data as { dramas?: unknown[] })?.dramas)) return (data as { dramas: unknown[] }).dramas;
+
+  return [];
+}
+
+function normalizeFavoriteEntries(payload: unknown): FavoriteEntry[] {
+  const rawItems = extractFavoriteSource(payload);
+  const deduped = new Map<string, FavoriteEntry>();
+
+  rawItems.forEach((item) => {
+    if (!item || typeof item !== "object") return;
+
+    const record = item as {
+      _id?: string;
+      drama?: unknown;
+      dramaId?: unknown;
+      createdAt?: string;
+      updatedAt?: string;
+    };
+
+    const drama =
+      (isDramaCandidate(record.dramaId) ? record.dramaId : null) ||
+      (isDramaCandidate(record.drama) ? record.drama : null) ||
+      (isDramaCandidate(record) ? record : null);
+
+    if (!drama) return;
+
+    deduped.set(drama._id, {
+      favoriteId: typeof record._id === "string" ? record._id : undefined,
+      drama,
+      savedAt: typeof record.createdAt === "string" ? record.createdAt : undefined,
+      updatedAt: typeof record.updatedAt === "string" ? record.updatedAt : undefined,
+    });
+  });
+
+  return Array.from(deduped.values());
+}
+
+function extractFavoriteDramaIds(payload: unknown): string[] {
+  const rawItems = extractFavoriteSource(payload);
+  const ids = new Set<string>();
+
+  rawItems.forEach((item) => {
+    if (typeof item === "string") {
+      ids.add(item);
+      return;
+    }
+
+    if (!item || typeof item !== "object") return;
+
+    const record = item as { dramaId?: unknown };
+    if (typeof record.dramaId === "string") {
+      ids.add(record.dramaId);
+    }
+  });
+
+  return Array.from(ids);
+}
+
+function getEntryTimestamp(entry: FavoriteEntry) {
+  return entry.savedAt || entry.updatedAt || entry.drama.createdAt || "";
+}
 
 function getStatusBadge(drama: Drama, t: FavoritesCopy) {
   const mode = resolveDramaMode(drama);
-  if (mode !== "completed" && drama.viewCount && drama.viewCount > 5000)
+
+  if (mode !== "completed" && drama.viewCount && drama.viewCount > 5000) {
     return { label: t.statusHot, color: "bg-red-500" };
-  if (mode !== "completed") return { label: t.statusOngoing, color: "bg-green-600" };
-  if (drama.createdAt && Date.now() - new Date(drama.createdAt).getTime() < 30 * 86400000)
+  }
+
+  if (mode !== "completed") {
+    return { label: t.statusOngoing, color: "bg-green-600" };
+  }
+
+  if (drama.createdAt && Date.now() - new Date(drama.createdAt).getTime() < 30 * 86400000) {
     return { label: t.statusNew, color: "bg-blue-500" };
+  }
+
   return { label: t.statusCompleted, color: "bg-gray-600" };
+}
+
+function getAppStatusText(drama: Drama, t: FavoritesCopy) {
+  const hasPremiumEpisodes = Boolean(drama.episodes?.some((episode) => !episode.isFree));
+  const mode = resolveDramaMode(drama);
+
+  if (hasPremiumEpisodes) {
+    return { label: t.statusPremium, color: "text-[#f4c95d]" };
+  }
+
+  if (mode === "completed") {
+    return { label: t.statusCompleted, color: "text-white/45" };
+  }
+
+  if (drama.viewCount && drama.viewCount > 5000) {
+    return { label: t.statusHot, color: "text-[#ff6b86]" };
+  }
+
+  return { label: t.statusOngoing, color: "text-[#ff6b86]" };
 }
 
 function timeAgo(dateStr: string | undefined, t: FavoritesCopy) {
   if (!dateStr) return "";
+
   const diff = Date.now() - new Date(dateStr).getTime();
   const days = Math.floor(diff / 86400000);
+
   if (days < 1) return t.timeToday;
   if (days < 7) return t.timeDaysAgo(days);
   if (days < 30) return t.timeWeeksAgo(Math.floor(days / 7));
@@ -264,81 +420,279 @@ export default function FavoritesPage() {
   const { token } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const { toast } = useToast();
-  const [favorites, setFavorites] = useState<Drama[]>([]);
+  const { isApp } = usePlatform();
+  const [favorites, setFavorites] = useState<FavoriteEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortOption>("newest");
-  const [visibleCount, setVisibleCount] = useState(10);
+  const [appVisibleCount, setAppVisibleCount] = useState(8);
+  const [webVisibleCount, setWebVisibleCount] = useState(10);
 
   useEffect(() => {
+    let cancelled = false;
+
     const fetchFavorites = async () => {
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
       try {
         const res = await userApi.getFavorites(token);
-        const favData = res.data;
-        if (Array.isArray(favData)) {
-          setFavorites(favData);
-        } else if (favData?.favorites) {
-          const dramaResults = await Promise.all(
-            favData.favorites.map((fav: { dramaId: string }) => dramasApi.getById(fav.dramaId))
-          );
-          setFavorites(dramaResults.map((r: { data?: { drama?: Drama } }) => r.data?.drama).filter((d): d is Drama => Boolean(d)));
+        const normalized = normalizeFavoriteEntries(res.data);
+        const normalizedIds = new Set(normalized.map((entry) => entry.drama._id));
+        const unresolvedIds = extractFavoriteDramaIds(res.data).filter((dramaId) => !normalizedIds.has(dramaId));
+
+        if (!unresolvedIds.length) {
+          if (!cancelled) {
+            setFavorites(normalized);
+          }
+          return;
         }
-      } catch (err) {
-        console.error("Failed to fetch favorites:", err);
+
+        const dramaResults = await Promise.all(
+          unresolvedIds.map(async (dramaId) => {
+            try {
+              const dramaRes = await dramasApi.getById(dramaId);
+              const drama = (dramaRes.data as { drama?: Drama })?.drama;
+              return drama ? ({ drama, savedAt: undefined } as FavoriteEntry) : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const fetchedEntries = dramaResults.filter((item): item is FavoriteEntry => item !== null);
+
+        if (!cancelled) {
+          setFavorites([...normalized, ...fetchedEntries]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch favorites:", error);
+        if (!cancelled) {
+          setFavorites([]);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
-    if (token) fetchFavorites();
-    else setLoading(false);
+
+    void fetchFavorites();
+
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   const handleRemove = async (dramaId: string) => {
     if (!token) return;
-    const removedDrama = favorites.find((d) => d._id === dramaId);
+
+    const removedEntry = favorites.find((entry) => entry.drama._id === dramaId);
+
     try {
       await userApi.removeFavorite(token, dramaId);
-      setFavorites((prev) => prev.filter((d) => d._id !== dramaId));
+      setFavorites((prev) => prev.filter((entry) => entry.drama._id !== dramaId));
       toast(t.removed, "success");
-      if (removedDrama) {
+
+      if (removedEntry) {
         (window as unknown as { __lastRemovedFavorite?: unknown }).__lastRemovedFavorite = {
-          drama: removedDrama,
+          drama: removedEntry.drama,
           restore: async () => {
             try {
               await userApi.addFavorite(token, dramaId);
-              setFavorites((prev) => [...prev, removedDrama]);
+              setFavorites((prev) => [
+                {
+                  ...removedEntry,
+                  savedAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                },
+                ...prev,
+              ]);
               toast(t.restored, "success");
             } catch {
               toast(t.restoreFailed, "error");
             }
-          } };
+          },
+        };
       }
-    } catch (err) {
-      console.error("Failed to remove favorite:", err);
+    } catch (error) {
+      console.error("Failed to remove favorite:", error);
     }
   };
 
   const sorted = useMemo(() => {
-    const arr = [...favorites];
+    const entries = [...favorites];
+
     switch (sort) {
-      case "newest": return arr.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-      case "oldest": return arr.sort((a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime());
-      case "title-az": return arr.sort((a, b) => a.title.localeCompare(b.title));
-      case "title-za": return arr.sort((a, b) => b.title.localeCompare(a.title));
-      default: return arr;
+      case "newest":
+        return entries.sort(
+          (a, b) => new Date(getEntryTimestamp(b) || 0).getTime() - new Date(getEntryTimestamp(a) || 0).getTime()
+        );
+      case "oldest":
+        return entries.sort(
+          (a, b) => new Date(getEntryTimestamp(a) || 0).getTime() - new Date(getEntryTimestamp(b) || 0).getTime()
+        );
+      case "title-az":
+        return entries.sort((a, b) => a.drama.title.localeCompare(b.drama.title));
+      case "title-za":
+        return entries.sort((a, b) => b.drama.title.localeCompare(a.drama.title));
+      default:
+        return entries;
     }
   }, [favorites, sort]);
 
-  if (authLoading) return null;
+  if (authLoading) {
+    return null;
+  }
 
+  const showAppLayout = isApp;
+  const visibleCount = showAppLayout ? appVisibleCount : webVisibleCount;
   const visible = sorted.slice(0, visibleCount);
   const hasMore = visibleCount < sorted.length;
+
+  if (showAppLayout) {
+    return (
+      <div className="min-h-screen bg-[#0f1115] text-white">
+        <header className="fixed inset-x-0 top-0 z-40 border-b border-white/8 bg-[linear-gradient(180deg,rgba(15,17,21,0.98)_0%,rgba(15,17,21,0.92)_78%,rgba(15,17,21,0.68)_100%)] backdrop-blur-2xl">
+          <div
+            className="mx-auto flex max-w-md items-center justify-between px-4 pb-3"
+            style={{ paddingTop: "calc(env(safe-area-inset-top) + 14px)" }}
+          >
+            <Link href={localizePath("/", locale)} className="flex items-center gap-2.5">
+              <span className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-[#ff3b5c] text-[10px] font-black text-white shadow-[0_8px_18px_rgba(255,59,92,0.28)]">
+                T
+              </span>
+              <span className="text-[11px] font-black uppercase tracking-[0.2em] text-[#ff4d6d]">
+                TinyTale
+              </span>
+            </Link>
+
+            <Link
+              href={localizePath("/search", locale)}
+              aria-label={t.search}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/8 bg-white/5 text-white/75 transition hover:bg-white/10 hover:text-white"
+            >
+              <Search className="h-[18px] w-[18px]" />
+            </Link>
+          </div>
+        </header>
+
+        <main
+          className="mx-auto max-w-md px-4 pb-32"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 94px)" }}
+        >
+          <section className="mb-8">
+            <h1 className="text-[2rem] font-bold tracking-[-0.03em] text-white">
+              {t.title}
+            </h1>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-sm font-medium text-white/60">
+                {favorites.length.toLocaleString()} {t.savedTitles}
+              </span>
+              <span className="h-1 w-1 rounded-full bg-[#ff3b5c]" />
+              <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#f6c65b]">
+                {t.curated}
+              </span>
+            </div>
+          </section>
+
+          {loading ? (
+            <div className="grid grid-cols-2 gap-4">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="space-y-2">
+                  <div className="aspect-[2/3] animate-pulse rounded-[18px] bg-white/6" />
+                  <div className="h-2.5 w-14 animate-pulse rounded-full bg-white/6" />
+                  <div className="h-3.5 w-24 animate-pulse rounded-full bg-white/6" />
+                </div>
+              ))}
+            </div>
+          ) : favorites.length > 0 ? (
+            <>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                {visible.map((entry) => {
+                  const drama = entry.drama;
+                  const status = getAppStatusText(drama, t);
+
+                  return (
+                    <article key={drama._id} className="relative">
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(drama._id)}
+                        title={t.removeTitle}
+                        aria-label={t.removeTitle}
+                        className="absolute right-2.5 top-2.5 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-black/45 text-white/85 shadow-[0_8px_20px_rgba(0,0,0,0.28)] backdrop-blur-md transition hover:bg-black/65"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+
+                      <Link href={localizePath(`/drama/${drama._id}`, locale)} className="block">
+                        <div className="relative aspect-[2/3] overflow-hidden rounded-[18px] border border-white/10 bg-[#171a20] shadow-[0_18px_30px_rgba(0,0,0,0.3)]">
+                          <Image
+                            src={drama.cover}
+                            alt={drama.title}
+                            fill
+                            sizes="50vw"
+                            className="object-cover"
+                          />
+                          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.04)_12%,rgba(0,0,0,0.08)_34%,rgba(0,0,0,0.66)_100%)]" />
+                        </div>
+
+                        <div className="px-1 pt-2.5">
+                          <p className={`text-[10px] font-bold uppercase tracking-[0.18em] ${status.color}`}>
+                            {status.label}
+                          </p>
+                          <h2 className="mt-1 truncate text-[13px] font-medium leading-[1.2] text-white/95">
+                            {drama.title}
+                          </h2>
+                        </div>
+                      </Link>
+                    </article>
+                  );
+                })}
+              </div>
+
+              {hasMore ? (
+                <div className="mt-8 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setAppVisibleCount((count) => count + 8)}
+                    className="rounded-full border border-white/10 bg-[#1b1f27] px-6 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#242936]"
+                  >
+                    {t.loadMoreTitles}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="rounded-[24px] border border-white/8 bg-white/[0.03] px-6 py-10 text-center shadow-[0_24px_42px_rgba(0,0,0,0.24)]">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#ff3b5c]/12 text-[#ff5c79]">
+                <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                </svg>
+              </div>
+              <h2 className="mt-5 text-xl font-semibold text-white">{t.emptyTitle}</h2>
+              <p className="mt-2 text-sm leading-6 text-white/55">{t.emptyDesc}</p>
+              <Link
+                href={localizePath("/browse", locale)}
+                className="mt-6 inline-flex rounded-full bg-[#ff3b5c] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(255,59,92,0.32)] transition hover:bg-[#ff4a6a]"
+              >
+                {t.browseDramas}
+              </Link>
+            </div>
+          )}
+        </main>
+
+        <BottomTabBar />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0F1014]">
       <Navbar />
 
-      <main className="mx-auto max-w-7xl px-4 pt-24 pb-16">
+      <main className="mx-auto max-w-7xl px-4 pb-16 pt-24">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-white" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -348,11 +702,12 @@ export default function FavoritesPage() {
               {favorites.length} {t.savedTitles}
             </p>
           </div>
+
           <div className="relative">
             <select
               value={sort}
-              onChange={(e) => setSort(e.target.value as SortOption)}
-              className="appearance-none rounded-lg border border-white/10 bg-white/5 py-2 pl-4 pr-10 text-sm text-gray-300 focus:border-[#D4AF37] focus:outline-none transition"
+              onChange={(event) => setSort(event.target.value as SortOption)}
+              className="appearance-none rounded-lg border border-white/10 bg-white/5 py-2 pl-4 pr-10 text-sm text-gray-300 transition focus:border-[#D4AF37] focus:outline-none"
             >
               <option value="newest">{t.sortNewest}</option>
               <option value="oldest">{t.sortOldest}</option>
@@ -367,15 +722,17 @@ export default function FavoritesPage() {
 
         {loading ? (
           <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-5">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className="aspect-[2/3] animate-pulse rounded-xl bg-white/5" />
+            {Array.from({ length: 10 }).map((_, index) => (
+              <div key={index} className="aspect-[2/3] animate-pulse rounded-xl bg-white/5" />
             ))}
           </div>
         ) : favorites.length > 0 ? (
           <>
             <div className="grid grid-cols-2 gap-5 md:grid-cols-3 lg:grid-cols-5">
-              {visible.map((drama) => {
+              {visible.map((entry) => {
+                const drama = entry.drama;
                 const badge = getStatusBadge(drama, t);
+
                 return (
                   <div key={drama._id} className="group relative">
                     <Link href={localizePath(`/drama/${drama._id}`, locale)}>
@@ -393,22 +750,25 @@ export default function FavoritesPage() {
                           {badge.label}
                         </span>
 
-                        {drama.episodes?.some((ep) => !ep.isFree) && (
+                        {drama.episodes?.some((episode) => !episode.isFree) ? (
                           <span className="absolute right-2.5 top-2.5 rounded bg-yellow-500/90 px-1.5 py-0.5 text-[10px] font-bold text-black">
                             {t.vip}
                           </span>
-                        )}
+                        ) : null}
 
                         <div className="absolute bottom-3 left-3 right-3 flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                          <svg className="h-3.5 w-3.5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                          <svg className="h-3.5 w-3.5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                          </svg>
                           <span className="text-xs font-medium text-white">{drama.rating?.toFixed(1)}</span>
                         </div>
                       </div>
                     </Link>
 
                     <button
+                      type="button"
                       onClick={() => handleRemove(drama._id)}
-                      className="absolute right-2.5 bottom-[4.5rem] rounded-full bg-black/70 p-1.5 text-white opacity-0 transition group-hover:opacity-100 hover:bg-red-600"
+                      className="absolute bottom-[4.5rem] right-2.5 rounded-full bg-black/70 p-1.5 text-white opacity-0 transition hover:bg-red-600 group-hover:opacity-100"
                       title={t.removeTitle}
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -417,10 +777,10 @@ export default function FavoritesPage() {
                     </button>
 
                     <div className="mt-2.5 px-0.5">
-                      <h3 className="text-sm font-medium text-white truncate">{drama.title}</h3>
-                      <p className="mt-0.5 text-xs text-gray-500 truncate">
+                      <h3 className="truncate text-sm font-medium text-white">{drama.title}</h3>
+                      <p className="mt-0.5 truncate text-xs text-gray-500">
                         {drama.categories?.[0] || t.defaultCategory} · {drama.totalEpisodes || "?"} {t.epsShort}
-                        {drama.createdAt ? ` · ${timeAgo(drama.createdAt, t)}` : ""}
+                        {getEntryTimestamp(entry) ? ` · ${timeAgo(getEntryTimestamp(entry), t)}` : ""}
                       </p>
                     </div>
                   </div>
@@ -428,16 +788,17 @@ export default function FavoritesPage() {
               })}
             </div>
 
-            {hasMore && (
+            {hasMore ? (
               <div className="mt-10 text-center">
                 <button
-                  onClick={() => setVisibleCount((c) => c + 10)}
+                  type="button"
+                  onClick={() => setWebVisibleCount((count) => count + 10)}
                   className="rounded-lg border border-white/10 bg-white/5 px-8 py-2.5 text-sm font-medium text-white transition hover:bg-white/10"
                 >
                   {t.loadMore}
                 </button>
               </div>
-            )}
+            ) : null}
           </>
         ) : (
           <div className="py-24 text-center">
@@ -446,7 +807,10 @@ export default function FavoritesPage() {
             </svg>
             <h2 className="text-xl font-semibold text-white">{t.emptyTitle}</h2>
             <p className="mt-2 text-sm text-gray-500">{t.emptyDesc}</p>
-            <Link href={localizePath("/browse", locale)} className="mt-6 inline-block rounded-lg bg-red-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-red-700">
+            <Link
+              href={localizePath("/browse", locale)}
+              className="mt-6 inline-block rounded-lg bg-red-600 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-red-700"
+            >
               {t.browseDramas}
             </Link>
           </div>
