@@ -1331,7 +1331,7 @@ export default function SettingsPage() {
 
   return (
     <div className="keyboard-safe-form min-h-screen bg-black text-white">
-      <Navbar />
+      <Navbar mobileTitle={copy.title} />
 
       <div className="keyboard-safe-form max-w-6xl mx-auto px-4 pt-24 pb-16">
         <h1 className={`font-bold ${isMobile ? "mb-4 text-xl" : "mb-8 text-2xl"}`}>{copy.title}</h1>

@@ -348,7 +348,7 @@ export default function HistoryPage() {
   if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-[#0F1014]">
-        <Navbar />
+        <Navbar mobileTitle={t.title} />
         <main className="mx-auto max-w-7xl px-4 pt-24 pb-16">
           <div className="mb-8 space-y-2">
             <div className="h-8 w-44 animate-pulse rounded-full bg-white/8" />
@@ -374,7 +374,7 @@ export default function HistoryPage() {
 
   return (
     <div className="min-h-screen bg-[#0F1014]">
-      <Navbar />
+      <Navbar mobileTitle={t.title} />
 
       <main className="mx-auto max-w-7xl px-4 pt-24 pb-16">
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">

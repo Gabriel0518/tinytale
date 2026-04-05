@@ -359,7 +359,7 @@ export default function NotificationsPage() {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-black text-white">
-        <Navbar />
+        <Navbar mobileTitle={t.title} />
         <main className="mx-auto max-w-4xl px-4 pb-16 pt-24">
           <div className="mb-8 space-y-3">
             <div className="h-8 w-40 animate-pulse rounded-full bg-white/8" />
@@ -485,7 +485,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-950 text-white">
-      <Navbar />
+      <Navbar mobileTitle={t.title} />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
         <div className="mb-6 flex items-center justify-between">
           <h1 className="text-2xl font-bold">{t.title}</h1>

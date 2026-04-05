@@ -575,15 +575,16 @@ export default function FavoritesPage() {
   const renderLoadingShell = () => (
     showAppLayout ? (
       <div className="min-h-screen bg-[#0f1115] text-white">
-        <Navbar activePath={FAVORITES_ACTIVE_PATH} />
+        <Navbar activePath={FAVORITES_ACTIVE_PATH} mobileTitle={t.title} />
 
         <main
           className="mx-auto max-w-md px-4 pb-32"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 74px)" }}
         >
-          <section className="mb-8 space-y-3">
-            <div className="h-8 w-40 animate-pulse rounded-full bg-white/10" />
-            <div className="h-4 w-36 animate-pulse rounded-full bg-white/8" />
+          <section className="mb-6 flex items-center gap-2">
+            <div className="h-6 w-24 animate-pulse rounded-full bg-white/10" />
+            <div className="h-1 w-1 animate-pulse rounded-full bg-white/8" />
+            <div className="h-5 w-16 animate-pulse rounded-full bg-white/8" />
           </section>
           <div className="grid grid-cols-2 gap-4">
             {Array.from({ length: 8 }).map((_, index) => (
@@ -598,7 +599,7 @@ export default function FavoritesPage() {
       </div>
     ) : (
       <div className="min-h-screen bg-[#0F1014]">
-        <Navbar activePath={FAVORITES_ACTIVE_PATH} />
+        <Navbar activePath={FAVORITES_ACTIVE_PATH} mobileTitle={t.title} />
         <main className="mx-auto max-w-7xl px-4 pb-16 pt-24">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="space-y-2">
@@ -629,25 +630,20 @@ export default function FavoritesPage() {
   if (showAppLayout) {
     return (
       <div className="min-h-screen bg-[#0f1115] text-white">
-        <Navbar activePath={FAVORITES_ACTIVE_PATH} />
+        <Navbar activePath={FAVORITES_ACTIVE_PATH} mobileTitle={t.title} />
 
         <main
           className="mx-auto max-w-md px-4 pb-32"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 74px)" }}
         >
-          <section className="mb-8">
-            <h1 className="text-[2rem] font-bold tracking-[-0.03em] text-white">
-              {t.title}
-            </h1>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-sm font-medium text-white/60">
-                {favorites.length.toLocaleString()} {t.savedTitles}
-              </span>
-              <span className="h-1 w-1 rounded-full bg-[#ff3b5c]" />
-              <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#f6c65b]">
-                {t.curated}
-              </span>
-            </div>
+          <section className="mb-6 flex items-center gap-2">
+            <span className="text-sm font-medium text-white/60">
+              {favorites.length.toLocaleString()} {t.savedTitles}
+            </span>
+            <span className="h-1 w-1 rounded-full bg-[#ff3b5c]" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#f6c65b]">
+              {t.curated}
+            </span>
           </section>
 
           {loading ? (
@@ -741,7 +737,7 @@ export default function FavoritesPage() {
 
   return (
     <div className="min-h-screen bg-[#0F1014]">
-      <Navbar activePath={FAVORITES_ACTIVE_PATH} />
+      <Navbar activePath={FAVORITES_ACTIVE_PATH} mobileTitle={t.title} />
 
       <main className="mx-auto max-w-7xl px-4 pb-16 pt-24">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">

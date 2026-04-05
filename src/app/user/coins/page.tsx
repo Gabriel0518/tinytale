@@ -1099,7 +1099,7 @@ export default function CoinsPage() {
 
   return (
     <div className="keyboard-safe-form min-h-screen bg-black text-white">
-      <Navbar />
+      <Navbar mobileTitle={t.title} />
 
       <div className="mx-auto max-w-6xl px-4 pb-16 pt-24">
         <div className="mb-8">

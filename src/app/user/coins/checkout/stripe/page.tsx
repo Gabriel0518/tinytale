@@ -318,7 +318,7 @@ export default function StripeCheckoutPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <Navbar />
+      <Navbar mobileTitle={t.title} />
       <div className="mx-auto max-w-3xl px-4 pb-16 pt-28">
         <div className="rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top,rgba(29,78,216,0.24),rgba(8,8,8,0.96)_45%)] p-8 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
           <p className="text-xs uppercase tracking-[0.28em] text-blue-300/80">{t.providerTitle}</p>

@@ -319,7 +319,7 @@ export default function PurchasesPage() {
   if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-black text-white">
-        <Navbar />
+        <Navbar mobileTitle={copy.title} />
         <div className="max-w-5xl mx-auto px-4 pt-24 pb-16">
           <div className="mb-8 flex items-center justify-between">
             <div className="space-y-3">
@@ -344,7 +344,7 @@ export default function PurchasesPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <Navbar />
+      <Navbar mobileTitle={copy.title} />
 
       <div className="max-w-5xl mx-auto px-4 pt-24 pb-16">
         {/* Header with Balance */}

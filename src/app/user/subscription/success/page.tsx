@@ -203,9 +203,12 @@ function VIPSuccessContent() {
 }
 
 export default function VIPSuccessPage() {
+  const locale = useLocale();
+  const t = resolveLocaleCopy(COPY, locale);
+
   return (
     <div className="min-h-screen bg-black text-white">
-      <Navbar />
+      <Navbar mobileTitle={t.title} />
       <Suspense fallback={<div className="max-w-lg mx-auto px-4 pt-32 pb-20 text-center"><div className="w-10 h-10 mx-auto border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" /></div>}>
         <VIPSuccessContent />
       </Suspense>
