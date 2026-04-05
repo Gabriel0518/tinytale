@@ -66,7 +66,10 @@ function isPublicPath(pathname: string): boolean {
   if (normalized.startsWith('/auth/')) return true;
   if (normalized.startsWith('/creator-home/')) return true;
   if (isPublicCreatorProfilePath(normalized)) return true;
-  if (normalized.startsWith('/drama/')) return true;
+  // Drama detail pages are public, but play pages require auth
+  if (normalized.startsWith('/drama/')) {
+    return !normalized.includes('/play/');
+  }
   if (normalized.startsWith('/ref/')) return true;
   return false;
 }
