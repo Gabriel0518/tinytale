@@ -64,8 +64,13 @@ export function resolvePlaybackSource(
   streamInfo?: StreamPlaybackInfo | null,
   fallbackUrl?: string
 ): string | undefined {
+  // Prefer direct Cloudflare URL (videoUrl) over API proxy (playbackPath).
+  // The API proxy adds latency and Android WebView's native HLS player
+  // encounters DEMUXER_ERROR_COULD_NOT_PARSE with proxied fMP4 segments.
   let source = fallbackUrl;
-  if (streamInfo?.playbackPath) {
+  if (streamInfo?.videoUrl) {
+    source = streamInfo.videoUrl;
+  } else if (streamInfo?.playbackPath) {
     source = joinOriginAndPath(getApiBaseUrl(), streamInfo.playbackPath);
   } else if (streamInfo?.playbackUrl) {
     source = resolveClientPlaybackUrl(streamInfo.playbackUrl);
