@@ -258,29 +258,6 @@ export async function deepPrefetchVideoSegments(
   // Temporarily disabled: segment prefetch interferes with the native HLS
   // player's own segment fetching, causing DEMUXER_ERROR_COULD_NOT_PARSE
   // and playback stalls on Android WebView and other platforms.
-  return;
-  if (!playbackUrl || typeof window === 'undefined') return;
-  const startSeconds = Math.max(0, options?.startSeconds || 0);
-  const bufferSeconds = Math.max(5, options?.bufferSeconds || calculateAdaptivePrefetchDepth());
-  const segmentCount = Math.ceil(bufferSeconds / SEGMENT_DURATION_ESTIMATE);
-  const startIndex = Math.max(0, Math.floor(startSeconds / SEGMENT_DURATION_ESTIMATE) - 1);
-  const cacheKey = `deep:${playbackUrl}:${startIndex}:${segmentCount}`;
-  if (completedSegments.has(cacheKey)) return;
-
-  try {
-    const segmentUrls = await parseHlsManifest(playbackUrl);
-    if (segmentUrls.length === 0) return;
-
-    const targetSegments = segmentUrls.slice(
-      startIndex,
-      Math.min(startIndex + segmentCount, segmentUrls.length),
-    );
-
-    await downloadSegmentsConcurrently(targetSegments, CONCURRENT_SEGMENTS, options?.taskId);
-    completedSegments.add(cacheKey);
-  } catch {
-    // 静默失败
-  }
 }
 
 /**
