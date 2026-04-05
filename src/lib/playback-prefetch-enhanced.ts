@@ -255,6 +255,10 @@ export async function deepPrefetchVideoSegments(
     taskId?: string;
   },
 ): Promise<void> {
+  // Temporarily disabled: segment prefetch interferes with the native HLS
+  // player's own segment fetching, causing DEMUXER_ERROR_COULD_NOT_PARSE
+  // and playback stalls on Android WebView and other platforms.
+  return;
   if (!playbackUrl || typeof window === 'undefined') return;
   const startSeconds = Math.max(0, options?.startSeconds || 0);
   const bufferSeconds = Math.max(5, options?.bufferSeconds || calculateAdaptivePrefetchDepth());

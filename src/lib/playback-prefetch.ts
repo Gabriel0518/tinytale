@@ -191,9 +191,9 @@ async function warmMediaSegments(playlistUrl: string, segmentCount = 2) {
 }
 
 export function warmPlaybackManifest(playbackUrl?: string | null) {
-  if (shouldSkipWarm(playbackUrl) || warmedPlaybackManifestUrls.has(playbackUrl!)) {
-    return;
-  }
+  // Temporarily disabled: segment warming interferes with the native HLS
+  // player's own segment fetching, causing playback stalls.
+  return;
 
   warmedPlaybackManifestUrls.add(playbackUrl!);
 
