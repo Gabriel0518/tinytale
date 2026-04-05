@@ -533,19 +533,10 @@ export default function PlayEpisodePage() {
   const [activeEpisodeId, setActiveEpisodeId] = useState(routeEpisodeId);
   const resolveRouteResumeTime = useCallback(() => {
     if (routeSeekTime > 0) return routeSeekTime;
-    if (
-      session?.episodeId === routeEpisodeId &&
-      session?.dramaId === routeDramaId &&
-      session.currentTime > 0
-    ) {
-      return session.currentTime;
-    }
-
-    return readSavedPlaybackProgress({
-      progressKeyId: routeEpisodeId,
-      episodeId: routeEpisodeId,
-    });
-  }, [routeDramaId, routeEpisodeId, routeSeekTime, session]);
+    // Temporarily disabled: progress restore causes seek-related playback
+    // stalls across all platforms.  Always start from 0.
+    return 0;
+  }, [routeSeekTime]);
   const [activeSeekTime, setActiveSeekTime] = useState(routeSeekTime);
   const [seededPlaybackState, setSeededPlaybackState] = useState<SeededPlaybackState>(null);
   const [drama, setDrama] = useState<Drama | null>(null);
@@ -603,21 +594,9 @@ export default function PlayEpisodePage() {
       return routeSeekTime;
     }
 
-    if (
-      session?.episodeId === episodeId &&
-      session?.dramaId === dramaId &&
-      session.currentTime > 0
-    ) {
-      return session.currentTime;
-    }
-
-    return readSavedPlaybackProgress({
-      progressKeyId: episodeId,
-      episodeId,
-      streamVideoId,
-      videoUrl,
-    });
-  }, [routeDramaId, routeEpisodeId, routeSeekTime, session]);
+    // Temporarily disabled: progress restore causes seek-related playback stalls.
+    return 0;
+  }, [routeDramaId, routeEpisodeId, routeSeekTime]);
 
   useEffect(() => {
     if (!seededPlaybackState) return;

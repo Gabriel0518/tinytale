@@ -64,17 +64,11 @@ export function buildPlaybackProgressKey({ progressKeyId, episodeId, streamVideo
 }
 
 export function readSavedPlaybackProgress(input: PlaybackProgressKeyInput) {
-  if (typeof window === 'undefined') return 0;
-  const progressKey = buildPlaybackProgressKey(input);
-  if (!progressKey) return 0;
-
-  try {
-    const saved = readStorageValue(progressKey);
-    const time = saved ? parseFloat(saved) : 0;
-    return Number.isFinite(time) ? Math.max(0, time) : 0;
-  } catch {
-    return 0;
-  }
+  // Temporarily disabled: seek-to-saved-position triggers NdkImageReader
+  // surface exhaustion on Android WebView and playback stalls on other
+  // platforms.  Always start from the beginning until the root cause of
+  // the seek-related stall is resolved.
+  return 0;
 }
 
 export function writeSavedPlaybackProgress(input: PlaybackProgressKeyInput, currentTime: number) {
