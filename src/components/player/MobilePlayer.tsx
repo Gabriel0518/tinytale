@@ -9,7 +9,6 @@ import { cn, formatDuration } from '@/lib/utils';
 import type { SubtitleTrack } from '@/types';
 import type { PlaybackAudioOption } from '@/lib/playback-adapters';
 import {
-  isNativeApp,
   lockNativeScreenOrientation,
   setNativeKeepAwake,
   triggerHaptic,
@@ -252,7 +251,7 @@ export default function MobilePlayer({
   }, [autoplay, preferSimplePlayerBackend, streamVideoId, videoUrl]);
 
   useEffect(() => {
-    if (!preferSimplePlayerBackend || !autoplay || !playerMuted || !isNativeApp()) return;
+    if (!preferSimplePlayerBackend || !autoplay || !playerMuted) return;
 
     const timeoutId = setTimeout(() => {
       playerRef.current?.setMuted(false);
@@ -781,7 +780,7 @@ export default function MobilePlayer({
           onPlay={() => {
             setHasStartedPlayback(true);
             setIsPlaying(true);
-            if (playerMuted && isNativeApp()) {
+            if (playerMuted) {
               playerRef.current?.setMuted(false);
               setPlayerMuted(false);
             }
