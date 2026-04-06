@@ -124,9 +124,7 @@ function resolveKeyboardScrollContainer(target: HTMLElement): HTMLElement | null
 }
 
 function scrollKeyboardTargetIntoView(target: HTMLElement) {
-  const keyboardState = (window as Window & {
-    __tinytaleLastKeyboardState__?: KeyboardState;
-  }).__tinytaleLastKeyboardState__;
+  const keyboardState = window.__tinytaleLastKeyboardState__;
   const keyboardHeight = keyboardState?.height ?? 0;
   const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
   const scrollContainer = resolveKeyboardScrollContainer(target);
@@ -162,6 +160,17 @@ function scrollKeyboardTargetIntoView(target: HTMLElement) {
     top: delta,
     behavior: 'smooth',
   });
+}
+
+function resetKeyboardVisualState() {
+  if (typeof window === 'undefined') return;
+
+  document.body.classList.remove('keyboard-open');
+  document.documentElement.style.setProperty('--tinytale-keyboard-inset', '0px');
+  window.__tinytaleLastKeyboardState__ = {
+    visible: false,
+    height: 0,
+  };
 }
 
 export function AppRuntime() {
@@ -405,13 +414,7 @@ export function AppRuntime() {
   useEffect(() => {
     if (!isMobile || typeof window === 'undefined') return;
 
-    void dismissActiveKeyboard();
-    document.body.classList.remove('keyboard-open');
-    document.documentElement.style.setProperty('--tinytale-keyboard-inset', '0px');
-    (window as Window & { __tinytaleLastKeyboardState__?: KeyboardState }).__tinytaleLastKeyboardState__ = {
-      visible: false,
-      height: 0,
-    };
+    resetKeyboardVisualState();
 
     const pendingTimers = new Set<number>();
 
@@ -449,6 +452,10 @@ export function AppRuntime() {
       window.removeEventListener('tinytale:keyboard-state', handleKeyboardState as EventListener);
       document.body.classList.remove('keyboard-open');
       document.documentElement.style.removeProperty('--tinytale-keyboard-inset');
+      window.__tinytaleLastKeyboardState__ = {
+        visible: false,
+        height: 0,
+      };
     };
   }, [isMobile]);
 
@@ -456,12 +463,7 @@ export function AppRuntime() {
     if (!isMobile || typeof window === 'undefined') return;
 
     void dismissActiveKeyboard();
-    document.body.classList.remove('keyboard-open');
-    document.documentElement.style.setProperty('--tinytale-keyboard-inset', '0px');
-    (window as Window & { __tinytaleLastKeyboardState__?: KeyboardState }).__tinytaleLastKeyboardState__ = {
-      visible: false,
-      height: 0,
-    };
+    resetKeyboardVisualState();
   }, [isMobile, pathname]);
 
   useEffect(() => {

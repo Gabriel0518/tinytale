@@ -31,6 +31,7 @@ interface CapacitorRuntime {
 declare global {
   interface Window {
     Capacitor?: CapacitorRuntime;
+    __tinytaleLastKeyboardState__?: KeyboardState;
   }
 }
 
@@ -260,9 +261,18 @@ export async function exitNativeApp() {
 }
 
 export async function dismissActiveKeyboard(waitMs = 0) {
+  const activeElement = typeof document !== "undefined" ? document.activeElement : null;
+  const hasFocusedTextInput =
+    activeElement instanceof HTMLInputElement ||
+    activeElement instanceof HTMLTextAreaElement ||
+    activeElement instanceof HTMLSelectElement ||
+    (activeElement instanceof HTMLElement && activeElement.isContentEditable);
+  const shouldHideNativeKeyboard =
+    hasFocusedTextInput || (typeof window !== "undefined" && window.__tinytaleLastKeyboardState__?.visible === true);
+
   blurActiveTextInput();
 
-  if (isNativeApp()) {
+  if (isNativeApp() && shouldHideNativeKeyboard) {
     try {
       const { Keyboard } = await import("@capacitor/keyboard");
       await Keyboard.hide();
