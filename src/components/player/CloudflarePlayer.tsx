@@ -27,6 +27,7 @@ interface CloudflarePlayerProps {
   onReady?: () => void;
   onPlay?: () => void;
   onPause?: () => void;
+  onBuffering?: (isBuffering: boolean) => void;
   className?: string;
 }
 
@@ -124,6 +125,7 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       onReady,
       onPlay,
       onPause,
+      onBuffering,
       className,
     },
     ref,
@@ -140,12 +142,13 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
       onReady,
       onPlay,
       onPause,
+      onBuffering,
     });
 
     // Keep callbacks ref in sync without re-initialising the player
     useEffect(() => {
-      callbacksRef.current = { onTimeUpdate, onEnded, onError, onReady, onPlay, onPause };
-    }, [onTimeUpdate, onEnded, onError, onReady, onPlay, onPause]);
+      callbacksRef.current = { onTimeUpdate, onEnded, onError, onReady, onPlay, onPause, onBuffering };
+    }, [onTimeUpdate, onEnded, onError, onReady, onPlay, onPause, onBuffering]);
 
     // Expose imperative methods to parent via ref
     const applySubtitleSelection = useCallback((language: string | null) => {
@@ -397,6 +400,9 @@ const CloudflarePlayer = forwardRef<CloudflarePlayerHandle, CloudflarePlayerProp
         player.on('loadeddata', syncSubtitleSelection);
         player.on('play', () => callbacksRef.current.onPlay?.());
         player.on('pause', () => callbacksRef.current.onPause?.());
+        player.on('waiting', () => callbacksRef.current.onBuffering?.(true));
+        player.on('playing', () => callbacksRef.current.onBuffering?.(false));
+        player.on('canplay', () => callbacksRef.current.onBuffering?.(false));
 
         syncRemoteSubtitleTracks(subtitles);
 

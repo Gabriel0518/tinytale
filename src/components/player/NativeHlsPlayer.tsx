@@ -10,6 +10,9 @@ import {
 import type { SubtitleTrack } from '@/types';
 import type { PlaybackAudioOption } from '@/lib/playback-adapters';
 
+const MAX_DEMUXER_RECOVERY_RETRIES = 3;
+const DEMUXER_RECOVERY_DELAY_MS = 500;
+
 function log(msg: string) {
   console.log(`[NativeHls] ${msg}`);
 }
@@ -63,6 +66,7 @@ interface NativeHlsPlayerProps {
   onReady?: () => void;
   onPlay?: () => void;
   onPause?: () => void;
+  onBuffering?: (isBuffering: boolean) => void;
   className?: string;
 }
 
@@ -100,6 +104,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
       onReady,
       onPlay,
       onPause,
+      onBuffering,
       className = '',
     },
     ref,
@@ -116,9 +121,11 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
     const onReadyRef = useRef(onReady);
     const onPlayRef = useRef(onPlay);
     const onPauseRef = useRef(onPause);
+    const onBufferingRef = useRef(onBuffering);
     const autoplayRef = useRef(autoplay);
     const mutedRef = useRef(muted);
     const initialSeekTimeRef = useRef(initialSeekTime);
+    const demuxerRetryCountRef = useRef(0);
 
     useEffect(() => {
       onAvailableAudioOptionsChangeRef.current = onAvailableAudioOptionsChange;
@@ -128,7 +135,8 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
       onReadyRef.current = onReady;
       onPlayRef.current = onPlay;
       onPauseRef.current = onPause;
-    }, [onAvailableAudioOptionsChange, onEnded, onError, onPause, onPlay, onReady, onTimeUpdate]);
+      onBufferingRef.current = onBuffering;
+    }, [onAvailableAudioOptionsChange, onEnded, onError, onPause, onPlay, onReady, onTimeUpdate, onBuffering]);
 
     useEffect(() => {
       autoplayRef.current = autoplay;
@@ -225,30 +233,67 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         }],
         ['canplay', () => {
           log(`canplay duration=${video.duration?.toFixed(2)} currentTime=${video.currentTime.toFixed(2)}`);
+          onBufferingRef.current?.(false);
           onReadyRef.current?.();
         }],
         ['play', () => {
           log(`play currentTime=${video.currentTime.toFixed(2)}`);
           onPlayRef.current?.();
         }],
-        ['playing', () => log(`playing currentTime=${video.currentTime.toFixed(2)}`)],
+        ['playing', () => {
+          log(`playing currentTime=${video.currentTime.toFixed(2)}`);
+          onBufferingRef.current?.(false);
+        }],
         ['pause', () => {
           log(`pause currentTime=${video.currentTime.toFixed(2)}`);
           onPauseRef.current?.();
         }],
-        ['waiting', () => log(`waiting currentTime=${video.currentTime.toFixed(2)} readyState=${video.readyState}`)],
-        ['stalled', () => log(`stalled networkState=${video.networkState}`)],
+        ['waiting', () => {
+          log(`waiting currentTime=${video.currentTime.toFixed(2)} readyState=${video.readyState}`);
+          onBufferingRef.current?.(true);
+        }],
+        ['stalled', () => {
+          log(`stalled networkState=${video.networkState}`);
+          onBufferingRef.current?.(true);
+        }],
         ['ended', () => { log('ended'); onEndedRef.current?.(); }],
         ['error', () => {
           const e = video.error;
           const msg = e ? `MEDIA_ERR_${e.code} ${e.message || ''}` : 'unknown';
           log(`error ${msg} currentSrc=${video.currentSrc || 'n/a'}`);
+          onBufferingRef.current?.(false);
+
+          // Auto-recover from DEMUXER_ERROR_COULD_NOT_PARSE (MEDIA_ERR_4)
+          if (e?.code === 4 && demuxerRetryCountRef.current < MAX_DEMUXER_RECOVERY_RETRIES) {
+            demuxerRetryCountRef.current += 1;
+            const savedTime = video.currentTime;
+            const retryNum = demuxerRetryCountRef.current;
+            log(`demuxer-recovery #${retryNum}/${MAX_DEMUXER_RECOVERY_RETRIES} from t=${savedTime.toFixed(2)}`);
+            onBufferingRef.current?.(true);
+
+            video.removeAttribute('src');
+            setTimeout(() => {
+              if (disposed) return;
+              log(`demuxer-recovery #${retryNum} reloading src`);
+              video.src = videoUrl;
+              video.currentTime = Math.max(0, savedTime - 2);
+              void video.play().catch((err: any) =>
+                log(`demuxer-recovery play rejected: ${err.message || err}`)
+              );
+            }, DEMUXER_RECOVERY_DELAY_MS);
+            return;
+          }
+
           onErrorRef.current?.(msg);
         }],
         ['timeupdate', () => {
           const t = video.currentTime;
           const d = video.duration || 0;
           onTimeUpdateRef.current?.(t, d);
+          // Reset retry counter on successful playback progress
+          if (demuxerRetryCountRef.current > 0 && t > 0) {
+            demuxerRetryCountRef.current = 0;
+          }
           const sec = Math.floor(t);
           if (sec !== lastLogSecRef.current && (sec <= 5 || sec % 10 === 0)) {
             lastLogSecRef.current = sec;
@@ -445,6 +490,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         }
         lastLogSecRef.current = -1;
         discoveredAudioTracksRef.current = [];
+        demuxerRetryCountRef.current = 0;
         publishAudioOptions([]);
       };
     }, [autoplay, initialSeekTime, muted, publishAudioOptions, videoUrl]);

@@ -196,6 +196,7 @@ export default function MobilePlayer({
   const isLongPressActiveRef = useRef(false);
 
   const [isPlaying, setIsPlaying] = useState(autoplay);
+  const [isBuffering, setIsBuffering] = useState(false);
   const [showChrome, setShowChrome] = useState(true);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [playbackRateState, setPlaybackRateState] = useState(playbackRateProp ?? 1);
@@ -253,9 +254,11 @@ export default function MobilePlayer({
   useEffect(() => {
     if (!preferSimplePlayerBackend || !autoplay || !playerMuted) return;
 
+    // Unmute via imperative handle only — do NOT call setPlayerMuted here.
+    // Changing playerMuted would re-trigger NativeHlsPlayer's main useEffect
+    // (which has `muted` in its deps), causing a double init + autoplay race.
     const timeoutId = setTimeout(() => {
       playerRef.current?.setMuted(false);
-      setPlayerMuted(false);
       console.log('[MobilePlayer] native autoplay unmute attempt');
     }, 220);
 
@@ -760,6 +763,7 @@ export default function MobilePlayer({
           activeSubtitleLanguage={activeSubtitleLanguage}
           selectedAudioId={selectedAudioId}
           onAvailableAudioOptionsChange={onAvailableAudioOptionsChange}
+          onBuffering={setIsBuffering}
           onTimeUpdate={(time, playerDuration) => {
             setCurrentTime(time);
             setDuration(playerDuration);
@@ -781,8 +785,9 @@ export default function MobilePlayer({
             setHasStartedPlayback(true);
             setIsPlaying(true);
             if (playerMuted) {
+              // Unmute imperatively only — don't call setPlayerMuted(false)
+              // to avoid re-triggering NativeHlsPlayer's main useEffect.
               playerRef.current?.setMuted(false);
-              setPlayerMuted(false);
             }
             onPlay?.();
           }}
@@ -803,6 +808,7 @@ export default function MobilePlayer({
           activeSubtitleLanguage={activeSubtitleLanguage}
           poster={poster}
           autoplay={autoplay}
+          onBuffering={setIsBuffering}
           onTimeUpdate={(time, playerDuration) => {
             setCurrentTime(time);
             setDuration(playerDuration);
@@ -834,6 +840,13 @@ export default function MobilePlayer({
       )}
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/50" />
+
+      {/* Buffering spinner */}
+      {isBuffering && hasStartedPlayback ? (
+        <div className="pointer-events-none absolute inset-0 z-[15] flex items-center justify-center">
+          <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-white/20 border-t-white" />
+        </div>
+      ) : null}
 
       {/* 暂停时居中播放按钮 */}
       {showPauseButton && !isPlaying && hasStartedPlayback ? (
