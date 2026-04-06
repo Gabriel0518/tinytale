@@ -206,7 +206,11 @@ export default function MobilePlayer({
   const [duration, setDuration] = useState(0);
   const [pictureInPictureSupported, setPictureInPictureSupported] = useState(false);
   const [pictureInPictureActive, setPictureInPictureActive] = useState(false);
-  const [playerMuted, setPlayerMuted] = useState(() => Boolean(shouldPreferSimplePlayerBackend(videoUrl, streamVideoId) && autoplay));
+  // Always start muted for Android autoplay to avoid SSR/hydration mismatch.
+  // shouldPreferSimplePlayerBackend returns false during SSR (no navigator),
+  // then true on client — changing playerMuted re-triggers NativeHlsPlayer init.
+  // Using a stable initial value prevents the double init race.
+  const [playerMuted, setPlayerMuted] = useState(autoplay);
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [showPauseButton, setShowPauseButton] = useState(!autoplay);
@@ -247,9 +251,9 @@ export default function MobilePlayer({
     setHasStartedPlayback(false);
   }, [videoUrl, streamVideoId, restoredSeekTime, playbackRateProp]);
 
-  useEffect(() => {
-    setPlayerMuted(Boolean(preferSimplePlayerBackend && autoplay));
-  }, [autoplay, preferSimplePlayerBackend, streamVideoId, videoUrl]);
+  // playerMuted is now stable (initialized to `autoplay`) and only changed
+  // imperatively — no need for the setPlayerMuted sync effect that caused
+  // SSR→hydration double-init.
 
   useEffect(() => {
     if (!preferSimplePlayerBackend || !autoplay || !playerMuted) return;

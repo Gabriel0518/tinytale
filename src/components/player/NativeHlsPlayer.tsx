@@ -12,6 +12,7 @@ import type { PlaybackAudioOption } from '@/lib/playback-adapters';
 
 const MAX_DEMUXER_RECOVERY_RETRIES = 3;
 const DEMUXER_RECOVERY_DELAY_MS = 500;
+const STALL_TIMEOUT_MS = 15_000;
 
 function log(msg: string) {
   console.log(`[NativeHls] ${msg}`);
@@ -126,6 +127,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
     const mutedRef = useRef(muted);
     const initialSeekTimeRef = useRef(initialSeekTime);
     const demuxerRetryCountRef = useRef(0);
+    const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
       onAvailableAudioOptionsChangeRef.current = onAvailableAudioOptionsChange;
@@ -234,6 +236,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         ['canplay', () => {
           log(`canplay duration=${video.duration?.toFixed(2)} currentTime=${video.currentTime.toFixed(2)}`);
           onBufferingRef.current?.(false);
+          if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
           onReadyRef.current?.();
         }],
         ['play', () => {
@@ -243,6 +246,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         ['playing', () => {
           log(`playing currentTime=${video.currentTime.toFixed(2)}`);
           onBufferingRef.current?.(false);
+          if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
         }],
         ['pause', () => {
           log(`pause currentTime=${video.currentTime.toFixed(2)}`);
@@ -251,6 +255,30 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         ['waiting', () => {
           log(`waiting currentTime=${video.currentTime.toFixed(2)} readyState=${video.readyState}`);
           onBufferingRef.current?.(true);
+          // Start stall timeout — if waiting persists for STALL_TIMEOUT_MS without
+          // resuming, force a recovery reload.
+          if (!stallTimerRef.current) {
+            stallTimerRef.current = setTimeout(() => {
+              stallTimerRef.current = null;
+              if (disposed || video.paused || video.readyState >= 4) return;
+              if (demuxerRetryCountRef.current >= MAX_DEMUXER_RECOVERY_RETRIES) return;
+              demuxerRetryCountRef.current += 1;
+              const savedTime = video.currentTime;
+              const retryNum = demuxerRetryCountRef.current;
+              log(`stall-timeout-recovery #${retryNum}/${MAX_DEMUXER_RECOVERY_RETRIES} from t=${savedTime.toFixed(2)}`);
+              onBufferingRef.current?.(true);
+              video.removeAttribute('src');
+              setTimeout(() => {
+                if (disposed) return;
+                log(`stall-timeout-recovery #${retryNum} reloading src`);
+                video.src = videoUrl;
+                video.currentTime = Math.max(0, savedTime - 2);
+                void video.play().catch((err: any) =>
+                  log(`stall-timeout-recovery play rejected: ${err.message || err}`)
+                );
+              }, DEMUXER_RECOVERY_DELAY_MS);
+            }, STALL_TIMEOUT_MS);
+          }
         }],
         ['stalled', () => {
           log(`stalled networkState=${video.networkState}`);
@@ -491,6 +519,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         lastLogSecRef.current = -1;
         discoveredAudioTracksRef.current = [];
         demuxerRetryCountRef.current = 0;
+        if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
         publishAudioOptions([]);
       };
     }, [autoplay, initialSeekTime, muted, publishAudioOptions, videoUrl]);
