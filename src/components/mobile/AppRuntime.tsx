@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { useLocale } from '@/hooks/useLocale';
@@ -43,14 +43,18 @@ const RUNTIME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   id: { offline: 'Kamu sedang offline. Beberapa fitur mungkin tidak tersedia.', online: 'Koneksi kembali normal.', backAgain: 'Tekan kembali sekali lagi untuk keluar.' },
 };
 
-function routeToNativePath(path: string, locale: SupportedLocale) {
+function routeToNativePath(
+  path: string,
+  locale: SupportedLocale,
+  replaceRoute: (target: string) => void,
+) {
   if (typeof window === 'undefined' || !path.startsWith('/')) return;
 
   const target = localizePath(path, locale);
   const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   if (current === target) return;
 
-  window.location.assign(target);
+  replaceRoute(target);
 }
 
 function resolveNotificationTarget(payload: any) {
@@ -360,9 +364,13 @@ export function AppRuntime() {
     if (!isApp) return;
 
     return observeAppUrlOpen((path) => {
-      routeToNativePath(path, locale);
+      routeToNativePath(path, locale, (target) => {
+        startTransition(() => {
+          router.replace(target, { scroll: false });
+        });
+      });
     });
-  }, [isApp, locale]);
+  }, [isApp, locale, router]);
 
   useEffect(() => {
     if (!isApp) return;
@@ -661,7 +669,11 @@ export function AppRuntime() {
     void registerPushNotifications((notification) => {
       if (cancelled) return;
       if (typeof window === 'undefined') return;
-      routeToNativePath(resolveNotificationTarget(notification), locale);
+      routeToNativePath(resolveNotificationTarget(notification), locale, (target) => {
+        startTransition(() => {
+          router.replace(target, { scroll: false });
+        });
+      });
     }).then((result) => {
       if (cancelled) {
         result.remove();
@@ -681,7 +693,7 @@ export function AppRuntime() {
       }
       remove();
     };
-  }, [isApp, locale, runtimeSettings?.notifications?.push.enabled, toast, token]);
+  }, [isApp, locale, router, runtimeSettings?.notifications?.push.enabled, toast, token]);
 
   useEffect(() => {
     if (!isApp || !token) return;
