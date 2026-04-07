@@ -1,6 +1,8 @@
 package top.tinytale.app;
 
+import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -22,6 +24,18 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
     private static final String TAG = "TinyTaleStartup";
     private static final long STARTUP_WATCHDOG_DELAY_MS = 6000L;
     private static final long STARTUP_WATCHDOG_RECHECK_MS = 5000L;
+    private static final String APP_SCHEME_PREFIX = "top.tinytale.app://";
+    private static final String WEB_BASE_URL = "https://tinytale.top";
+    private static final String[] ROUTE_EXTRA_KEYS = {
+        "route",
+        "path",
+        "href",
+        "targetPath",
+        "link"
+    };
+    private static final String[] URL_EXTRA_KEYS = {
+        "url"
+    };
     private static final String CAPACITOR_TRIGGER_EVENT_SHIM =
         "(function(){"
             + "var cap=window.Capacitor=window.Capacitor||{};"
@@ -63,6 +77,132 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
     private boolean startupReloadAttempted = false;
     private final Runnable startupWatchdogRunnable = this::runStartupWatchdog;
 
+    private Intent normalizeNotificationIntent(Intent intent) {
+        if (intent == null) {
+            return intent;
+        }
+
+        Uri data = intent.getData();
+        if (data != null) {
+            Uri normalizedData = normalizeIncomingUri(data);
+            if (normalizedData != null) {
+                intent.setData(normalizedData);
+            }
+            return intent;
+        }
+
+        String url = firstNonBlank(getFirstMatchingExtra(intent, URL_EXTRA_KEYS));
+        String route = firstNonBlank(getFirstMatchingExtra(intent, ROUTE_EXTRA_KEYS));
+
+        if (url != null) {
+            intent.setData(Uri.parse(url));
+            return intent;
+        }
+
+        if (route == null) {
+            return intent;
+        }
+
+        String normalizedRoute = route.startsWith("/") ? route.substring(1) : route;
+        intent.setData(Uri.parse(APP_SCHEME_PREFIX + normalizedRoute));
+        return intent;
+    }
+
+    private Uri normalizeIncomingUri(Uri data) {
+        String scheme = data.getScheme();
+        if (scheme == null) {
+            return data;
+        }
+
+        if (!"top.tinytale.app".equalsIgnoreCase(scheme) && !"tinytale".equalsIgnoreCase(scheme)) {
+            return data;
+        }
+
+        String host = data.getHost();
+        String path = data.getEncodedPath();
+        String query = data.getEncodedQuery();
+        String fragment = data.getEncodedFragment();
+        String normalizedPath = remapNativePath(host, path);
+
+        StringBuilder routeBuilder = new StringBuilder(WEB_BASE_URL);
+        if (normalizedPath == null || normalizedPath.isEmpty()) {
+            routeBuilder.append('/');
+        } else {
+            if (normalizedPath.charAt(0) != '/') {
+                routeBuilder.append('/');
+            }
+            routeBuilder.append(normalizedPath);
+        }
+        if (query != null && !query.isEmpty()) {
+            routeBuilder.append('?').append(query);
+        }
+        if (fragment != null && !fragment.isEmpty()) {
+            routeBuilder.append('#').append(fragment);
+        }
+
+        return Uri.parse(routeBuilder.toString());
+    }
+
+    private String remapNativePath(String host, String path) {
+        String safeHost = host == null ? "" : host.trim();
+        String safePath = path == null ? "" : path.trim();
+
+        if ("play".equalsIgnoreCase(safeHost)) {
+            String[] segments = safePath.replaceAll("^/+", "").split("/");
+            if (segments.length >= 2 && !segments[0].isEmpty() && !segments[1].isEmpty()) {
+                return "/drama/" + segments[0] + "/play/" + segments[1];
+            }
+            return "/play";
+        }
+
+        StringBuilder builder = new StringBuilder("/");
+        if (!safeHost.isEmpty()) {
+            builder.append(safeHost);
+        }
+        if (!safePath.isEmpty()) {
+            if (safePath.charAt(0) != '/') {
+                builder.append('/');
+            }
+            builder.append(safePath);
+        }
+
+        return builder.toString();
+    }
+
+    private String getFirstMatchingExtra(Intent intent, String[] extraNames) {
+        Bundle extras = intent.getExtras();
+        if (extras == null) {
+            return null;
+        }
+
+        for (String extraName : extraNames) {
+            Object value = extras.get(extraName);
+            if (value == null) {
+                continue;
+            }
+
+            String stringValue = String.valueOf(value).trim();
+            if (!stringValue.isEmpty()) {
+                return stringValue;
+            }
+        }
+
+        return null;
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null) {
+                String trimmed = value.trim();
+                if (!trimmed.isEmpty()) {
+                    return trimmed;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private void enableImmersiveMode() {
         Window window = getWindow();
         View decorView = window.getDecorView();
@@ -88,6 +228,8 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Intent launchIntent = normalizeNotificationIntent(getIntent());
+        setIntent(launchIntent);
         super.onCreate(savedInstanceState);
         getBridge().getWebView().setBackgroundColor(Color.parseColor("#141414"));
         ((View) getBridge().getWebView().getParent()).setBackgroundColor(Color.parseColor("#141414"));
@@ -127,6 +269,13 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
 
         injectCapacitorTriggerEventShim();
         scheduleStartupWatchdog(STARTUP_WATCHDOG_DELAY_MS);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        Intent nextIntent = normalizeNotificationIntent(intent);
+        super.onNewIntent(nextIntent);
+        setIntent(nextIntent);
     }
 
     @Override

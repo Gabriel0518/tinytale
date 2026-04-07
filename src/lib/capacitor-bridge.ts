@@ -436,6 +436,16 @@ export function observeAppState(onChange: (isActive: boolean) => void) {
 }
 
 export function resolveNativeAppUrl(url: string) {
+  const remapPlaybackPath = (path: string) => {
+    const playbackMatch = path.match(/^\/play\/([^/?#]+)\/([^/?#]+)(.*)?$/);
+    if (!playbackMatch) {
+      return path;
+    }
+
+    const [, dramaId, episodeId, suffix = ""] = playbackMatch;
+    return `/drama/${dramaId}/play/${episodeId}${suffix}`;
+  };
+
   try {
     const parsed = new URL(url);
     const scheme = parsed.protocol.replace(":", "");
@@ -444,11 +454,11 @@ export function resolveNativeAppUrl(url: string) {
       const pathParts = [parsed.hostname, parsed.pathname.replace(/^\/+/, "")]
         .filter(Boolean)
         .join("/");
-      return `/${pathParts}${parsed.search}${parsed.hash}`.replace(/\/{2,}/g, "/");
+      return remapPlaybackPath(`/${pathParts}${parsed.search}${parsed.hash}`.replace(/\/{2,}/g, "/"));
     }
 
     if ((scheme === "https" || scheme === "http") && APP_LINK_HOSTS.has(parsed.hostname)) {
-      return `${parsed.pathname || "/"}${parsed.search}${parsed.hash}`;
+      return remapPlaybackPath(`${parsed.pathname || "/"}${parsed.search}${parsed.hash}`);
     }
   } catch {
     // Ignore malformed incoming URLs from native wrappers.
