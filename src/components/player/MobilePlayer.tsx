@@ -194,9 +194,17 @@ export default function MobilePlayer({
   });
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPressActiveRef = useRef(false);
+  const isPlayingRef = useRef(autoplay);
+  const hasStartedPlaybackRef = useRef(false);
+  const hasAdvancedPlaybackRef = useRef(false);
+  const lastPlaybackPositionRef = useRef(initialSeekTime);
+  const lastPlaybackProgressAtRef = useRef(Date.now());
+  const bufferSignalAtRef = useRef<number | null>(null);
+  const bufferSpinnerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(autoplay);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [showBufferSpinner, setShowBufferSpinner] = useState(false);
   const [showChrome, setShowChrome] = useState(true);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [playbackRateState, setPlaybackRateState] = useState(playbackRateProp ?? 1);
@@ -250,9 +258,78 @@ export default function MobilePlayer({
     setScrubTime(restoredSeekTime);
     setIsScrubbing(false);
     setIsBuffering(false);
+    setShowBufferSpinner(false);
     setHasStartedPlayback(false);
     setHasAdvancedPlayback(false);
+    isPlayingRef.current = autoplay;
+    hasStartedPlaybackRef.current = false;
+    hasAdvancedPlaybackRef.current = false;
+    lastPlaybackPositionRef.current = restoredSeekTime;
+    lastPlaybackProgressAtRef.current = Date.now();
+    bufferSignalAtRef.current = null;
+    if (bufferSpinnerTimerRef.current) {
+      clearTimeout(bufferSpinnerTimerRef.current);
+      bufferSpinnerTimerRef.current = null;
+    }
   }, [videoUrl, streamVideoId, restoredSeekTime, playbackRateProp]);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
+    hasStartedPlaybackRef.current = hasStartedPlayback;
+  }, [hasStartedPlayback]);
+
+  useEffect(() => {
+    hasAdvancedPlaybackRef.current = hasAdvancedPlayback;
+  }, [hasAdvancedPlayback]);
+
+  const clearBufferSpinnerTimer = useCallback(() => {
+    if (!bufferSpinnerTimerRef.current) return;
+    clearTimeout(bufferSpinnerTimerRef.current);
+    bufferSpinnerTimerRef.current = null;
+  }, []);
+
+  const dismissBuffering = useCallback((clearSignal = true) => {
+    clearBufferSpinnerTimer();
+    setShowBufferSpinner(false);
+    setIsBuffering(false);
+    if (clearSignal) {
+      bufferSignalAtRef.current = null;
+    }
+  }, [clearBufferSpinnerTimer]);
+
+  const handleBufferingChange = useCallback((nextBuffering: boolean) => {
+    if (!nextBuffering) {
+      dismissBuffering();
+      return;
+    }
+
+    const signaledAt = Date.now();
+    bufferSignalAtRef.current = signaledAt;
+    setIsBuffering(true);
+    setShowBufferSpinner(false);
+    clearBufferSpinnerTimer();
+
+    bufferSpinnerTimerRef.current = setTimeout(() => {
+      const latestSignalAt = bufferSignalAtRef.current;
+      const lastProgressAt = lastPlaybackProgressAtRef.current;
+      const hasPlaybackActuallyStalled =
+        latestSignalAt !== null &&
+        latestSignalAt === signaledAt &&
+        lastProgressAt <= signaledAt;
+
+      if (
+        hasPlaybackActuallyStalled &&
+        isPlayingRef.current &&
+        hasStartedPlaybackRef.current &&
+        hasAdvancedPlaybackRef.current
+      ) {
+        setShowBufferSpinner(true);
+      }
+    }, 850);
+  }, [clearBufferSpinnerTimer, dismissBuffering]);
 
   // playerMuted is now stable (initialized to `autoplay`) and only changed
   // imperatively — no need for the setPlayerMuted sync effect that caused
@@ -530,8 +607,9 @@ export default function MobilePlayer({
       clearLongPress();
       clearPendingTap();
       endSpeedBoost();
+      clearBufferSpinnerTimer();
     };
-  }, [clearLongPress, clearPendingTap, endSpeedBoost]);
+  }, [clearBufferSpinnerTimer, clearLongPress, clearPendingTap, endSpeedBoost]);
 
   const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     if (isScrubbing) return;
@@ -774,8 +852,15 @@ export default function MobilePlayer({
           activeSubtitleLanguage={activeSubtitleLanguage}
           selectedAudioId={selectedAudioId}
           onAvailableAudioOptionsChange={onAvailableAudioOptionsChange}
-          onBuffering={setIsBuffering}
+          onBuffering={handleBufferingChange}
           onTimeUpdate={(time, playerDuration) => {
+            if (time > lastPlaybackPositionRef.current + 0.05) {
+              lastPlaybackPositionRef.current = time;
+              lastPlaybackProgressAtRef.current = Date.now();
+              if (bufferSignalAtRef.current !== null) {
+                dismissBuffering();
+              }
+            }
             setCurrentTime(time);
             setDuration(playerDuration);
             if (!hasAdvancedPlayback && time > restoredSeekTime + 0.15) {
@@ -798,6 +883,7 @@ export default function MobilePlayer({
           onPlay={() => {
             setHasStartedPlayback(true);
             setIsPlaying(true);
+            dismissBuffering(false);
             if (playerMuted) {
               // Unmute imperatively only — don't call setPlayerMuted(false)
               // to avoid re-triggering NativeHlsPlayer's main useEffect.
@@ -807,6 +893,7 @@ export default function MobilePlayer({
           }}
           onPause={() => {
             setIsPlaying(false);
+            dismissBuffering();
             onPause?.();
           }}
           className="h-full w-full"
@@ -822,8 +909,15 @@ export default function MobilePlayer({
           activeSubtitleLanguage={activeSubtitleLanguage}
           poster={poster}
           autoplay={autoplay}
-          onBuffering={setIsBuffering}
+          onBuffering={handleBufferingChange}
           onTimeUpdate={(time, playerDuration) => {
+            if (time > lastPlaybackPositionRef.current + 0.05) {
+              lastPlaybackPositionRef.current = time;
+              lastPlaybackProgressAtRef.current = Date.now();
+              if (bufferSignalAtRef.current !== null) {
+                dismissBuffering();
+              }
+            }
             setCurrentTime(time);
             setDuration(playerDuration);
             if (!hasAdvancedPlayback && time > restoredSeekTime + 0.15) {
@@ -846,10 +940,12 @@ export default function MobilePlayer({
           onPlay={() => {
             setHasStartedPlayback(true);
             setIsPlaying(true);
+            dismissBuffering(false);
             onPlay?.();
           }}
           onPause={() => {
             setIsPlaying(false);
+            dismissBuffering();
             onPause?.();
           }}
           className="h-full w-full"
@@ -859,7 +955,7 @@ export default function MobilePlayer({
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/50" />
 
       {/* Buffering spinner */}
-      {isBuffering && hasStartedPlayback && hasAdvancedPlayback && isPlaying ? (
+      {showBufferSpinner && isBuffering && hasStartedPlayback && hasAdvancedPlayback && isPlaying ? (
         <div className="pointer-events-none absolute inset-0 z-[15] flex items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-white/20 border-t-white" />
         </div>
