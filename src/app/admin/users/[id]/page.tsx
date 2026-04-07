@@ -134,7 +134,8 @@ function StarRating({ rating }: { rating: number }) {
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════
 export default function UserDetailPage() {
-  const { id } = useParams();
+  const params = useParams<{ id: string }>();
+  const id = params?.id || "";
   const { locale } = useAdminLocale();
 
   // ─── State ─────────────────────────────────────────────

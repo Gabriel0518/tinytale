@@ -124,16 +124,16 @@ function shouldShowTabBar(pathname: string) {
 
 function resolveActiveTab(pathname: string) {
   if (pathname === "/") return "/";
+  if (pathname === "/play" || pathname.includes("/play/")) return "/play";
+  if (pathname.startsWith("/drama/")) return "";
   if (
     pathname.startsWith("/browse") ||
     pathname.startsWith("/search") ||
     pathname.startsWith("/category") ||
-    isPublicCreatorProfilePath(pathname) ||
-    (pathname.startsWith("/drama") && !pathname.includes("/play/"))
+    isPublicCreatorProfilePath(pathname)
   ) {
     return "/browse";
   }
-  if (pathname === "/play" || pathname.includes("/play/")) return "/play";
   if (pathname.startsWith("/user/favorites")) return "/user/favorites";
   if (pathname.startsWith("/user")) return "/user/profile";
   return "";

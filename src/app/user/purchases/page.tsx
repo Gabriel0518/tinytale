@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect} from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter} from "next/navigation";
+import { usePathname, useRouter} from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { profileApi } from "@/lib/api";
@@ -14,6 +14,7 @@ import { Footer } from "@/components/features/Footer";
 import {localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { resolveParentPath } from "@/lib/mobile-navigation";
 
 interface Transaction {
   _id: string;
@@ -237,6 +238,7 @@ export default function PurchasesPage() {
   const { user, token } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const router = useRouter();
+  const pathname = usePathname();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<FilterType>("all");
@@ -350,7 +352,7 @@ export default function PurchasesPage() {
         {/* Header with Balance */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-400 hover:text-white transition mb-3">
+            <button onClick={() => router.replace(localizePath(resolveParentPath(pathname || "/user/purchases"), locale), { scroll: false })} className="flex items-center gap-2 text-gray-400 hover:text-white transition mb-3">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
               <span className="text-sm">{copy.back}</span>
             </button>

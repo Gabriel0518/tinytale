@@ -37,7 +37,7 @@ resolve_device() {
   fi
 
   local devices
-  devices="$("$ADB_BIN" devices | awk 'NR>1 && $2=="device" {print $1}')"
+  devices="$("$ADB_BIN" devices | awk -F '\t' 'NR>1 && $2=="device" {print $1}')"
   local count
   count="$(echo "$devices" | awk 'NF {count++} END {print count+0}')"
 

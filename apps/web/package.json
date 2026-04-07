@@ -1,0 +1,10 @@
+{
+  "name": "web",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix ../.. run dev:frontend",
+    "build": "npm --prefix ../.. run build",
+    "lint": "npm --prefix ../.. run lint",
+    "typecheck": "npm --prefix ../.. run typecheck:web"
+  }
+}

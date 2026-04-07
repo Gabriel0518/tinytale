@@ -31,14 +31,14 @@ export function MobileScrollTabs({
     <div className={cn('relative', className)}>
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-6 bg-gradient-to-r from-[#141414] to-transparent"
+        className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-6 bg-gradient-to-r from-[#0f1115] to-transparent"
       />
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-6 bg-gradient-to-l from-[#141414] to-transparent"
+        className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-6 bg-gradient-to-l from-[#0f1115] to-transparent"
       />
       <div
-        className="flex gap-2 overflow-x-auto pb-1 mobile-scroll [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        className="flex gap-3 overflow-x-auto py-2 mobile-scroll [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         {items.map((item) => {
           const active = item.key === value;
@@ -52,7 +52,7 @@ export function MobileScrollTabs({
               }}
               aria-pressed={active}
               className={cn(
-                'rounded-full px-4 py-2.5 text-sm font-medium whitespace-nowrap transition',
+                'rounded-full px-5 py-2 text-sm font-bold whitespace-nowrap transition active:scale-95',
                 tabClassName,
                 active ? activeTabClassName : inactiveTabClassName
               )}

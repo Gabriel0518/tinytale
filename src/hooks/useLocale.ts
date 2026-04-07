@@ -6,17 +6,17 @@ import { detectClientLocale, SupportedLocale } from "@/lib/i18n";
 
 export function useLocale(): SupportedLocale {
   const pathname = usePathname();
-  const [locale, setLocale] = useState<SupportedLocale>(() => detectClientLocale(pathname));
+  const [locale, setLocale] = useState<SupportedLocale>(() => detectClientLocale(pathname ?? undefined));
 
   useEffect(() => {
-    setLocale(detectClientLocale(pathname));
+    setLocale(detectClientLocale(pathname ?? undefined));
   }, [pathname]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const syncLocale = () => {
-      setLocale(detectClientLocale(pathname));
+      setLocale(detectClientLocale(pathname ?? undefined));
     };
 
     window.addEventListener("tinytale:language-changed", syncLocale as EventListener);

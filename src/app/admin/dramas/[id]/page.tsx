@@ -21,7 +21,8 @@ const TRANSLATION_LANGUAGES = [
 ] as const;
 
 export default function DramaDetailPage() {
-  const { id } = useParams();
+  const params = useParams<{ id: string }>();
+  const id = params?.id || "";
   const { toast } = useToast();
   const confirmDialog = useConfirm();
   const [drama, setDrama] = useState<any>(null);

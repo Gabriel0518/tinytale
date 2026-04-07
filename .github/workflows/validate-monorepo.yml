@@ -1,0 +1,45 @@
+name: Validate Monorepo
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'codex/**'
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check import boundaries
+        run: npm run check:boundaries
+
+      - name: Typecheck shared packages
+        run: npm run typecheck:shared
+
+      - name: Typecheck native shell
+        run: npm run typecheck:native-shell
+
+      - name: Typecheck web shell
+        run: npm run typecheck:web
+
+      - name: Build native shell
+        run: npm run build:native-shell
+
+      - name: Build web shell
+        run: npm run build:web

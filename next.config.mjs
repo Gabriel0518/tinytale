@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   distDir: process.env.NEXT_DIST_DIR || '.next',
+  experimental: {
+    externalDir: true,
+  },
   // NOTE: Do NOT add ignoreBuildErrors or ignoreDuringBuilds
   // All errors must be properly fixed, not ignored
   images: {

@@ -212,6 +212,7 @@ export default function MobilePlayer({
   // Using a stable initial value prevents the double init race.
   const [playerMuted, setPlayerMuted] = useState(autoplay);
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
+  const [hasAdvancedPlayback, setHasAdvancedPlayback] = useState(false);
   const [isLandscape, setIsLandscape] = useState(false);
   const [showPauseButton, setShowPauseButton] = useState(!autoplay);
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -248,7 +249,9 @@ export default function MobilePlayer({
     setCurrentTime(restoredSeekTime);
     setScrubTime(restoredSeekTime);
     setIsScrubbing(false);
+    setIsBuffering(false);
     setHasStartedPlayback(false);
+    setHasAdvancedPlayback(false);
   }, [videoUrl, streamVideoId, restoredSeekTime, playbackRateProp]);
 
   // playerMuted is now stable (initialized to `autoplay`) and only changed
@@ -637,6 +640,10 @@ export default function MobilePlayer({
     const displayedTime = isScrubbing ? scrubTime : currentTime;
     return `${formatDuration(displayedTime)} / ${formatDuration(duration || 0)}`;
   }, [currentTime, duration, isScrubbing, scrubTime]);
+  const scrubTimeLabel = useMemo(
+    () => `${formatDuration(scrubTime)} / ${formatDuration(duration || 0)}`,
+    [duration, scrubTime]
+  );
   const progressPercent = useMemo(() => {
     const displayedTime = isScrubbing ? scrubTime : currentTime;
     if (!duration || duration <= 0) return 0;
@@ -771,6 +778,9 @@ export default function MobilePlayer({
           onTimeUpdate={(time, playerDuration) => {
             setCurrentTime(time);
             setDuration(playerDuration);
+            if (!hasAdvancedPlayback && time > restoredSeekTime + 0.15) {
+              setHasAdvancedPlayback(true);
+            }
             onTimeUpdate?.(time, playerDuration);
           }}
           onReady={() => {
@@ -816,6 +826,9 @@ export default function MobilePlayer({
           onTimeUpdate={(time, playerDuration) => {
             setCurrentTime(time);
             setDuration(playerDuration);
+            if (!hasAdvancedPlayback && time > restoredSeekTime + 0.15) {
+              setHasAdvancedPlayback(true);
+            }
             onTimeUpdate?.(time, playerDuration);
           }}
           onReady={() => {
@@ -846,7 +859,7 @@ export default function MobilePlayer({
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/50" />
 
       {/* Buffering spinner */}
-      {isBuffering && hasStartedPlayback ? (
+      {isBuffering && hasStartedPlayback && hasAdvancedPlayback && isPlaying ? (
         <div className="pointer-events-none absolute inset-0 z-[15] flex items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-white/20 border-t-white" />
         </div>
@@ -952,6 +965,14 @@ export default function MobilePlayer({
         <div className="pointer-events-none absolute inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 flex justify-center px-4">
           <div className="rounded-full border border-white/10 bg-black/35 px-3 py-1.5 text-[11px] font-medium text-white/80 backdrop-blur-md">
             {isSpeedBoosting ? labels.speedBoost(2) : labels.holdForSpeed}
+          </div>
+        </div>
+      ) : null}
+
+      {isScrubbing ? (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+          <div className="rounded-full border border-white/10 bg-black/58 px-4 py-2 text-sm font-semibold text-white shadow-2xl backdrop-blur-md">
+            {scrubTimeLabel}
           </div>
         </div>
       ) : null}

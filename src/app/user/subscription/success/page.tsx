@@ -101,7 +101,7 @@ function VIPSuccessContent() {
   const t = resolveLocaleCopy(COPY, locale);
   const { token, refreshUser } = useAuth();
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get("session_id");
+  const sessionId = searchParams?.get("session_id");
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [amount, setAmount] = useState(0);
   const [currency, setCurrency] = useState("USD");

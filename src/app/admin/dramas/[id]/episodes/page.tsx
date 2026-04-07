@@ -812,7 +812,8 @@ function EditCommentsModal({ episode, onClose }: { episode: Episode; onClose: ()
 
 export default function EpisodesPage() {
   const confirmDialog = useConfirm();
-  const { id: dramaId } = useParams();
+  const params = useParams<{ id: string }>();
+  const dramaId = params?.id || "";
   const [search, setSearch] = useState("");
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [modalEpisode, setModalEpisode] = useState<Episode | null>(null);

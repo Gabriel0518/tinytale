@@ -1,3 +1,4 @@
+import { createApiClient, createAuthApi } from '@api';
 import type {
   Drama,
   Episode,
@@ -223,6 +224,10 @@ class ApiClient {
 }
 
 export const api = new ApiClient(API_URL);
+const sharedApiClient = createApiClient(() => ({
+  baseUrl: getApiBaseUrl(),
+  locale: getClientLanguageHint(),
+}));
 
 export type RechargeProvider = 'stripe' | 'airwallex';
 export type RechargePaymentChannel = {
@@ -347,27 +352,7 @@ type CreatorAutoSplitResponseData = {
 };
 
 // Auth API
-export const authApi = {
-  login: (email: string, password: string, turnstileToken?: string) =>
-    api.post('/api/auth/login', { email, password, turnstileToken }),
-
-  checkEmailAvailability: (email: string) =>
-    api.get<{ success: boolean; data: { email: string; available: boolean; registered: boolean } }>(
-      `/api/auth/check-email?email=${encodeURIComponent(email)}`
-    ),
-
-  register: (email: string, password: string, nickname: string, referredBy?: string) =>
-    api.post('/api/auth/register', { email, password, nickname, referredBy }),
-
-  googleLogin: (credential: string | { credential?: string; accessToken?: string; idToken?: string }) =>
-    api.post('/api/auth/google', typeof credential === 'string' ? { credential } : credential),
-
-  facebookLogin: (accessToken: string) =>
-    api.post('/api/auth/facebook', { accessToken }),
-
-  getMe: (token: string) =>
-    api.get('/api/auth/me', { token }),
-};
+export const authApi = createAuthApi(sharedApiClient);
 
 // Dramas API
 export const dramasApi = {

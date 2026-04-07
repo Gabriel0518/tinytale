@@ -77,7 +77,7 @@ function NewPasswordContent() {
   const t = resolveLocaleCopy(VERIFY_RESET_TEXT, locale);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
+  const email = searchParams?.get("email") || "";
 
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");

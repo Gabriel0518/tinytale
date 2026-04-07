@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { useLocale } from '@/hooks/useLocale';
 import { usePlatform } from '@/hooks/usePlatform';
@@ -31,6 +31,7 @@ import {
   RuntimeSettingsSnapshot,
 } from '@/lib/runtime-settings';
 import { upsertInAppNotification } from '@/lib/in-app-notifications';
+import { canNavigateToParent, resolveParentPath } from '@/lib/mobile-navigation';
 
 const RUNTIME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: { offline: 'You are offline. Some features may be unavailable.', online: 'Back online.', backAgain: 'Tap back again to exit.' },
@@ -175,6 +176,7 @@ function resetKeyboardVisualState() {
 
 export function AppRuntime() {
   const pathname = usePathname();
+  const router = useRouter();
   const locale = useLocale();
   const text = resolveLocaleCopy(RUNTIME_TEXT, locale);
   const { toast } = useToast();
@@ -188,6 +190,8 @@ export function AppRuntime() {
   const launchReadyRef = useRef(false);
   const launchBrandTimerRef = useRef<number | null>(null);
   const [runtimeSettings, setRuntimeSettings] = useState<RuntimeSettingsSnapshot | null>(null);
+  const normalizedPath = removeLocalePrefix(pathname || '/') || '/';
+  const parentPath = resolveParentPath(normalizedPath);
 
   useEffect(() => {
     runtimeSettingsRef.current = runtimeSettings;
@@ -469,9 +473,7 @@ export function AppRuntime() {
   useEffect(() => {
     if (!isApp) return;
 
-    const normalizedPath = removeLocalePrefix(pathname || '/') || '/';
-
-    return observeBackButton((canGoBack) => {
+    return observeBackButton((_canGoBack) => {
       void triggerHaptic('light');
 
       if (typeof window === 'undefined') return;
@@ -488,15 +490,75 @@ export function AppRuntime() {
         return;
       }
 
-      const shouldGoBack = canGoBack || window.history.length > 1;
-      if (shouldGoBack) {
-        window.history.back();
+      if (parentPath !== normalizedPath) {
+        router.replace(localizePath(parentPath, locale), { scroll: false });
         return;
       }
 
       window.location.assign(localizePath('/', locale));
     });
-  }, [isApp, locale, pathname, text.backAgain, toast]);
+  }, [isApp, locale, normalizedPath, parentPath, router, text.backAgain, toast]);
+
+  useEffect(() => {
+    if (!isApp || !isMobile || typeof window === 'undefined') return;
+    if (!canNavigateToParent(normalizedPath)) return;
+
+    const edgeThreshold = Math.max(28, window.innerWidth * 0.1);
+    let startX = 0;
+    let startY = 0;
+    let armed = false;
+
+    const isIgnoredTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) return false;
+      return Boolean(
+        target.closest(
+          'input, textarea, select, button, a, [role="button"], [role="slider"], [data-swipe-ignore="true"]'
+        )
+      );
+    };
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) {
+        armed = false;
+        return;
+      }
+
+      const touch = event.touches[0];
+      if (touch.clientX > edgeThreshold || isIgnoredTarget(event.target)) {
+        armed = false;
+        return;
+      }
+
+      startX = touch.clientX;
+      startY = touch.clientY;
+      armed = true;
+    };
+
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (!armed || event.changedTouches.length !== 1) {
+        armed = false;
+        return;
+      }
+
+      const touch = event.changedTouches[0];
+      const deltaX = touch.clientX - startX;
+      const deltaY = Math.abs(touch.clientY - startY);
+      armed = false;
+
+      if (deltaX < 72 || deltaX <= deltaY * 1.35) return;
+
+      void triggerHaptic('light');
+      router.replace(localizePath(parentPath, locale), { scroll: false });
+    };
+
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isApp, isMobile, locale, normalizedPath, parentPath, router]);
 
   useEffect(() => {
     if (!isApp) return;

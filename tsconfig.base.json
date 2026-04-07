@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@web/*": ["./src/*"],
+      "@domain": ["./packages/shared-domain/src/index.ts"],
+      "@domain/*": ["./packages/shared-domain/src/*"],
+      "@i18n": ["./packages/shared-i18n/src/index.ts"],
+      "@i18n/*": ["./packages/shared-i18n/src/*"],
+      "@storage": ["./packages/shared-storage/src/index.ts"],
+      "@storage/*": ["./packages/shared-storage/src/*"],
+      "@runtime": ["./packages/shared-runtime/src/index.ts"],
+      "@runtime/*": ["./packages/shared-runtime/src/*"],
+      "@api": ["./packages/shared-api/src/index.ts"],
+      "@api/*": ["./packages/shared-api/src/*"],
+      "@auth": ["./packages/shared-auth/src/index.ts"],
+      "@auth/*": ["./packages/shared-auth/src/*"],
+      "@player": ["./packages/shared-player/src/index.ts"],
+      "@player/*": ["./packages/shared-player/src/*"]
+    }
+  }
+}

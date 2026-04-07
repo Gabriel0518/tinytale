@@ -101,9 +101,9 @@ function PaymentSuccessContent() {
   const t = resolveLocaleCopy(COPY, locale);
   const { token, refreshUser } = useAuth();
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get("session_id");
-  const airwallexIntentId = searchParams.get("id");
-  const provider = searchParams.get("provider");
+  const sessionId = searchParams?.get("session_id");
+  const airwallexIntentId = searchParams?.get("id");
+  const provider = searchParams?.get("provider");
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [coins, setCoins] = useState(0);
   const [bonus, setBonus] = useState(0);

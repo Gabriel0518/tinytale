@@ -35,7 +35,7 @@ import type { NormalizedPlaybackSource, PlaybackAudioOption } from '@/lib/playba
 type FeedMode = 'for-you' | 'following';
 type OptionsView = 'root' | 'speed' | 'subtitles' | 'audio' | 'report';
 type PlaybackEntryMode = 'feed' | 'drama';
-const PLAYER_NAV_TOP_OFFSET = 'calc(4.75rem + env(safe-area-inset-bottom))';
+const PLAYER_NAV_TOP_OFFSET = 'calc(70px + env(safe-area-inset-bottom))';
 
 type PlayerFeedItem = {
   key: string;
@@ -283,7 +283,7 @@ export default function PlayerMobileExperience({
         return;
       }
       if (parentHref) {
-        router.push(parentHref);
+        router.replace(parentHref, { scroll: false });
       }
     }
   }, [canOpenDramaDetail, canSwipeBackToParent, dramaId, locale, onBackToParent, parentHref, router]);
@@ -680,7 +680,8 @@ export default function PlayerMobileExperience({
           </nav>
         </div>
       ) : (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-[55] flex items-start justify-between px-4 pt-[calc(0.75rem+env(safe-area-inset-top))]">
+        <>
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-[55] flex items-start px-4 pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <button
             type="button"
             onClick={() => {
@@ -689,7 +690,7 @@ export default function PlayerMobileExperience({
                 return;
               }
               if (parentHref) {
-                router.push(parentHref);
+                router.replace(parentHref, { scroll: false });
               }
             }}
             className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-[#e3e6ec] backdrop-blur-md"
@@ -697,12 +698,12 @@ export default function PlayerMobileExperience({
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
-
-          <div className="pointer-events-none rounded-full border border-white/10 bg-black/30 px-3 py-1.5 text-right backdrop-blur-md">
-            <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">{currentFeedItem.dramaTitle}</p>
-            <p className="mt-1 text-sm font-semibold text-[#e0e4eb]">{currentFeedItem.episodeTitle}</p>
-          </div>
         </div>
+        <div className="pointer-events-none absolute bottom-[calc(env(safe-area-inset-bottom)+10px)] right-4 z-[55] rounded-full border border-white/10 bg-black/30 px-3 py-1.5 text-right backdrop-blur-md">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">{currentFeedItem.dramaTitle}</p>
+          <p className="mt-1 text-sm font-semibold text-[#e0e4eb]">{currentFeedItem.episodeTitle}</p>
+        </div>
+        </>
       )}
 
       <div className="pointer-events-none absolute right-4 bottom-[calc(var(--player-nav-top-offset)+3rem)] z-[56] flex flex-col items-center gap-[15px]">

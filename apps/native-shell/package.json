@@ -1,0 +1,44 @@
+{
+  "name": "native-shell",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "sync:android:assets": "node ./scripts/sync-android-assets.mjs",
+    "preview": "vite preview",
+    "cap:sync:dev": "CAP_SERVER_URL=http://localhost:5173 npx cap sync android",
+    "cap:sync:prod": "npm run build && npm run sync:android:assets",
+    "android:run": "npx cap run android",
+    "android:open": "npx cap open android",
+    "android:assemble": "../../scripts/with-android-studio-jdk.sh sh -lc 'cd android && ./gradlew assembleDebug'",
+    "android:install": "../../scripts/with-android-studio-jdk.sh sh -lc 'cd android && ./gradlew installDebug'",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@capgo/capacitor-social-login": "^8.3.9",
+    "@capacitor-community/keep-awake": "^8.0.0",
+    "@capacitor/android": "^8.3.0",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/cli": "^8.3.0",
+    "@capacitor/core": "^8.3.0",
+    "@capacitor/haptics": "^8.0.1",
+    "@capacitor/keyboard": "^8.0.2",
+    "@capacitor/network": "^8.0.1",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/push-notifications": "^8.0.3",
+    "@capacitor/screen-orientation": "^8.0.1",
+    "@capacitor/share": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
+    "@tanstack/react-query": "^5.90.5",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-router-dom": "^6.30.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5",
+    "vite": "^5.4.19"
+  }
+}

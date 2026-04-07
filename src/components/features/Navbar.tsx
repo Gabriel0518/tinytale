@@ -16,6 +16,7 @@ import { usePlatform } from "@/hooks/usePlatform";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
 import { dismissActiveKeyboard } from "@/lib/capacitor-bridge";
+import { resolveParentPath } from "@/lib/mobile-navigation";
 
 interface NavbarProps {
   activePath?: string;
@@ -293,19 +294,8 @@ export function Navbar({
       : "bg-[#141414]/95";
 
   const handleMobileBack = () => {
-    if (typeof window === "undefined") {
-      router.push(toLocalePath("/"));
-      return;
-    }
-
     void dismissActiveKeyboard();
-
-    if (window.history.length > 1) {
-      router.back();
-      return;
-    }
-
-    router.push(toLocalePath("/"));
+    router.replace(toLocalePath(resolveParentPath(normalizedPath)), { scroll: false });
   };
 
   return (

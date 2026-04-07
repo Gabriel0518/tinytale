@@ -264,11 +264,11 @@ export default function StripeCheckoutPage() {
     return fallback;
   };
 
-  const packageId = searchParams.get("packageId") || "";
-  const coins = Number(searchParams.get("coins") || 0);
-  const bonus = Number(searchParams.get("bonus") || 0);
-  const price = Number(searchParams.get("price") || 0);
-  const paymentOption = searchParams.get("paymentOption") || "card";
+  const packageId = searchParams?.get("packageId") || "";
+  const coins = Number(searchParams?.get("coins") || 0);
+  const bonus = Number(searchParams?.get("bonus") || 0);
+  const price = Number(searchParams?.get("price") || 0);
+  const paymentOption = searchParams?.get("paymentOption") || "card";
 
   const amountLocale = ({
     en: "en-US",

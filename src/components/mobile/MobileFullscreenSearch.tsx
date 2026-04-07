@@ -56,6 +56,10 @@ const badgeStyles: Record<string, string> = {
   new: 'bg-green-600 text-white',
 };
 
+const SEARCH_DEBOUNCE_MS = 120;
+const MIN_SEARCH_QUERY_LENGTH = 2;
+const searchResultCache = new Map<string, Drama[]>();
+
 export function MobileFullscreenSearch({
   open,
   value,
@@ -67,6 +71,7 @@ export function MobileFullscreenSearch({
 }: MobileFullscreenSearchProps) {
   const locale = useLocale();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const requestIdRef = useRef(0);
   const [results, setResults] = useState<Drama[]>([]);
   const [searchState, setSearchState] = useState<SearchState>('idle');
   const query = value.trim();
@@ -95,30 +100,53 @@ export function MobileFullscreenSearch({
     if (!open) return undefined;
 
     if (!query) {
+      requestIdRef.current += 1;
       setResults([]);
       setSearchState('idle');
       return undefined;
     }
 
-    let cancelled = false;
+    if (query.length < MIN_SEARCH_QUERY_LENGTH) {
+      requestIdRef.current += 1;
+      setResults([]);
+      setSearchState('idle');
+      return undefined;
+    }
+
+    const normalizedQuery = query.toLowerCase();
+    const cachedResults = searchResultCache.get(normalizedQuery);
+    if (cachedResults) {
+      requestIdRef.current += 1;
+      setResults(cachedResults);
+      setSearchState('resolved');
+      return undefined;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     const timer = window.setTimeout(async () => {
       setSearchState('loading');
       try {
         const res = await dramasApi.getAll({ search: query, limit: 20 });
-        if (cancelled) return;
-        setResults(res.data?.dramas || []);
+        if (requestIdRef.current !== requestId) return;
+        const nextResults = Array.isArray(res?.data?.dramas)
+          ? res.data.dramas
+          : Array.isArray(res?.data)
+            ? res.data
+            : [];
+        searchResultCache.set(normalizedQuery, nextResults);
+        setResults(nextResults);
       } catch {
-        if (cancelled) return;
+        if (requestIdRef.current !== requestId) return;
         setResults([]);
       } finally {
-        if (!cancelled) {
+        if (requestIdRef.current === requestId) {
           setSearchState('resolved');
         }
       }
-    }, 180);
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => {
-      cancelled = true;
       window.clearTimeout(timer);
     };
   }, [open, query]);
@@ -199,7 +227,7 @@ export function MobileFullscreenSearch({
                 </div>
               </section>
 
-              {searchState === 'loading' ? (
+              {searchState === 'loading' && results.length === 0 ? (
                 <div className="grid grid-cols-2 gap-4">
                   {[...Array(4)].map((_, i) => (
                     <div

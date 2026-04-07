@@ -1356,7 +1356,7 @@ export default function CreatorAnalyticsExperience({ mode, dramaId }: CreatorAna
   const locale = useLocale();
   const { t } = useCreatorI18n();
   const { token } = useAuth();
-  const range = normalizeAnalyticsRange(searchParams.get('range'));
+  const range = normalizeAnalyticsRange(searchParams?.get('range') || undefined);
   const [remoteOverview, setRemoteOverview] = useState<CreatorOverviewAnalytics | null>(null);
   const [dramaTitle, setDramaTitle] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(mode === 'overview');

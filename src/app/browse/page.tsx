@@ -222,7 +222,7 @@ function BrowseContent() {
   const { isMobile } = usePlatform();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const categoryParam = searchParams.get('category');
+  const categoryParam = searchParams?.get('category');
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const cacheKey = `browse-view:${locale}`;
   const [cachedView, setCachedView] = useState<BrowseViewCache | null>(null);

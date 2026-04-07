@@ -442,11 +442,11 @@ export default function AirwallexCheckoutPage() {
   const [sdkFailed, setSdkFailed] = useState(false);
   const [showHttpsWarning, setShowHttpsWarning] = useState(false);
 
-  const packageId = searchParams.get("packageId") || "";
-  const coins = Number(searchParams.get("coins") || 0);
-  const bonus = Number(searchParams.get("bonus") || 0);
-  const price = Number(searchParams.get("price") || 0);
-  const paymentOption = searchParams.get("paymentOption") || "cards";
+  const packageId = searchParams?.get("packageId") || "";
+  const coins = Number(searchParams?.get("coins") || 0);
+  const bonus = Number(searchParams?.get("bonus") || 0);
+  const price = Number(searchParams?.get("price") || 0);
+  const paymentOption = searchParams?.get("paymentOption") || "cards";
 
   const amountLocale = ({
     en: "en-US",

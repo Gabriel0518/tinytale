@@ -24,7 +24,7 @@ export default function CreatorApplyStatusPage() {
   const { token } = useAuth();
   const locale = useLocale();
   const { t, formatRelativeTime } = useCreatorI18n();
-  const [status, setStatus] = useState<CreatorApplicationStatus>(searchParams.get("result") === "failed" ? "rejected" : "under_review");
+  const [status, setStatus] = useState<CreatorApplicationStatus>(searchParams?.get("result") === "failed" ? "rejected" : "under_review");
   const [updatedAt, setUpdatedAt] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
 

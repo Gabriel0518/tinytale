@@ -9,13 +9,13 @@ import {localizePath } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 
 export default function RefPage() {
-  const params = useParams();
+  const params = useParams<{ code: string; params?: string[] }>();
   const locale = useLocale();
   const router = useRouter();
 
   useEffect(() => {
-    const code = params.code as string;
-    const extraParams = params.params as string[] | undefined;
+    const code = params?.code || "";
+    const extraParams = params?.params;
     const dramaId = extraParams?.[0];
 
     if (code) {

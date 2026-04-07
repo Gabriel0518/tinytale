@@ -512,7 +512,7 @@ type SeededPlaybackState = ReturnType<typeof readSeededPlaybackState>;
 export default function PlayEpisodePage() {
   const locale = useLocale();
   const t = resolveLocaleCopy(PLAY_TEXT, locale);
-  const params = useParams();
+  const params = useParams<{ id: string; episodeId: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, token, refreshUser } = useAuth();
@@ -520,14 +520,14 @@ export default function PlayEpisodePage() {
   const { toast } = useToast();
   const { session, startSession, updateSession } = usePlaybackSession();
 
-  const routeDramaId = params.id as string;
-  const routeEpisodeId = params.episodeId as string;
-  const playbackSourceParam = searchParams.get("source");
+  const routeDramaId = params?.id || "";
+  const routeEpisodeId = params?.episodeId || "";
+  const playbackSourceParam = searchParams?.get("source");
   const playbackMode = playbackSourceParam === "feed" ? "feed" : "drama";
   const isFeedPlayback = playbackMode === "feed";
   const routeSeekTime = Math.max(
     0,
-    Number(searchParams.get("start") || searchParams.get("t") || 0) || 0
+    Number(searchParams?.get("start") || searchParams?.get("t") || 0) || 0
   );
   const [activeDramaId, setActiveDramaId] = useState(routeDramaId);
   const [activeEpisodeId, setActiveEpisodeId] = useState(routeEpisodeId);
@@ -1499,7 +1499,7 @@ export default function PlayEpisodePage() {
   }, [handleFeedPreviousItem, handleLockedFeedSkip, handleNextEpisode, handlePreviousEpisode, hasNextEpisode, hasPreviousEpisode, isFeedPlayback]);
 
   const handleBackToParent = useCallback(() => {
-    router.push(playerParentHref);
+    router.replace(playerParentHref, { scroll: false });
   }, [playerParentHref, router]);
 
   // Cleanup caches on component unmount

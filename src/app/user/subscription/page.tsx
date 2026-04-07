@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useRouter} from "next/navigation";
+import { usePathname, useRouter} from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useToast } from "@/components/ui/Toast";
@@ -13,6 +13,7 @@ import { Footer } from "@/components/features/Footer";
 import {localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
+import { resolveParentPath } from "@/lib/mobile-navigation";
 
 interface Plan {
   _id: string;
@@ -405,6 +406,7 @@ export default function SubscriptionPage() {
   const { loading: authLoading } = useAuthGuard();
   const { toast } = useToast();
   const router = useRouter();
+  const pathname = usePathname();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState("sp2");
   const [processing, setProcessing] = useState(false);
@@ -521,7 +523,7 @@ export default function SubscriptionPage() {
       `}</style>
       <Navbar mobileTitle={isVip ? t.activeVip : t.selectPlan} />
 
-      <button onClick={() => router.back()} className="fixed top-24 right-6 z-50 w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition" aria-label={t.close}>
+      <button onClick={() => router.replace(localizePath(resolveParentPath(pathname || "/user/subscription"), locale), { scroll: false })} className="fixed top-24 right-6 z-50 w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition" aria-label={t.close}>
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
       </button>
 

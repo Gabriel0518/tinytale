@@ -285,12 +285,12 @@ function getEpisodeWindow(episodes: Episode[], activeEpisodeId: string | null) {
 }
 
 export default function CreatorProfilePage() {
-  const params = useParams();
+  const params = useParams<{ id: string }>();
   const locale = useLocale();
   const { isMobile } = usePlatform();
   const { token } = useAuth();
   const { toast } = useToast();
-  const creatorId = String(params.id || "");
+  const creatorId = String(params?.id || "");
   const t = resolveLocaleCopy(CREATOR_PROFILE_TEXT, locale);
 
   const [loading, setLoading] = useState(true);

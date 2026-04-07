@@ -114,7 +114,7 @@ function CategoryContent() {
   const t = resolveLocaleCopy(CATEGORY_TEXT, locale);
   const searchParams = useSearchParams();
   const router = useRouter();
-  const categoryParam = searchParams.get('category');
+  const categoryParam = searchParams?.get('category');
   const cacheKey = `category-view:${locale}`;
   const [cachedView, setCachedView] = useState<CategoryViewCache | null>(null);
 
@@ -142,7 +142,7 @@ function CategoryContent() {
   }, [cachedView]);
 
   useEffect(() => {
-    const cat = searchParams.get('category');
+    const cat = searchParams?.get('category');
     if (cat && cat !== selectedCategory) {
       setSelectedCategory(cat);
       return;

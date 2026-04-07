@@ -19,10 +19,10 @@ function extractDrama(payload: unknown): Drama | null {
 }
 
 export default function CreatorHomeRedirectPage() {
-  const params = useParams();
+  const params = useParams<{ dramaId: string }>();
   const router = useRouter();
   const locale = useLocale();
-  const dramaId = String(params.dramaId || "");
+  const dramaId = String(params?.dramaId || "");
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {

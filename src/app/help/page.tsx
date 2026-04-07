@@ -747,8 +747,8 @@ export default function HelpPage() {
   }, []);
 
   useEffect(() => {
-    const tab = (searchParams.get("tab") || "").toLowerCase();
-    const section = (searchParams.get("section") || "").toLowerCase().trim();
+    const tab = (searchParams?.get("tab") || "").toLowerCase();
+    const section = (searchParams?.get("section") || "").toLowerCase().trim();
 
     if (tab === "privacy" || tab === "cookies") setActiveTab("privacy");
     else if (tab === "terms") setActiveTab("terms");

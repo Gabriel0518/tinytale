@@ -42,7 +42,8 @@ interface OrderData {
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════
 export default function OrderDetailPage() {
-  const { id } = useParams();
+  const params = useParams<{ id: string }>();
+  const id = params?.id || "";
   const { locale } = useAdminLocale();
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);

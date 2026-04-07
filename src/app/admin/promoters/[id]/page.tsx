@@ -81,7 +81,8 @@ const EMPTY_PROMOTER: PromoterData = {
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════
 export default function PromoterDetailPage() {
-  const { id } = useParams();
+  const params = useParams<{ id: string }>();
+  const id = params?.id || "";
   const { locale } = useAdminLocale();
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("promoted");

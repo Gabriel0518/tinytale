@@ -200,6 +200,45 @@ function normalizeReview(raw: unknown, fallback?: Partial<Review>): Review {
   };
 }
 
+function extractDramaDetailPayload(payload: unknown): { drama: Drama | null; episodes: Episode[] } {
+  const root = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
+  const data = (root.data && typeof root.data === "object" ? root.data : root) as Record<string, unknown>;
+  const drama = (data.drama && typeof data.drama === "object" ? data.drama : data) as Drama | null;
+  const episodes = Array.isArray(data.episodes)
+    ? (data.episodes as Episode[])
+    : Array.isArray((drama as Drama | null)?.episodes)
+      ? ((drama as Drama).episodes as Episode[])
+      : [];
+
+  if (!drama || typeof drama._id !== "string") {
+    return { drama: null, episodes };
+  }
+
+  return { drama, episodes };
+}
+
+function extractReviewList(payload: unknown): { reviews: Review[]; total: number } {
+  const root = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
+  const data = (root.data && typeof root.data === "object" ? root.data : root) as Record<string, unknown>;
+  const reviewItems = Array.isArray(data.reviews)
+    ? data.reviews
+    : Array.isArray(data.comments)
+      ? data.comments
+      : [];
+  const total = typeof data.total === "number" ? data.total : reviewItems.length;
+
+  return {
+    reviews: reviewItems.map((review) => normalizeReview(review)),
+    total,
+  };
+}
+
+function extractRelatedDramaList(payload: unknown): Drama[] {
+  const root = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
+  const data = root.data ?? root;
+  return Array.isArray(data) ? (data as Drama[]) : [];
+}
+
 /** Inner player component that consumes PlayerRoot context */
 function PlayerInner({
   playerRef,
@@ -387,13 +426,14 @@ function DramaDetailContent() {
   const locale = useLocale();
   const t = resolveLocaleCopy(DRAMA_TEXT, locale);
   const { isMobile } = usePlatform();
-  const params = useParams();
+  const params = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, token, refreshUser } = useAuth();
   const { toast } = useToast();
   const confirmDialog = useConfirm();
-  const dramaId = params.id as string;
+  const dramaId = params?.id || "";
+  const selectedEpisodeId = searchParams?.get("ep") || "";
   const playerRef = useRef<CloudflarePlayerHandle>(null) as React.RefObject<CloudflarePlayerHandle>;
   const lastProgressReportAtRef = useRef<number>(0);
 
@@ -417,37 +457,98 @@ function DramaDetailContent() {
   const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
   // Fetch drama data
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [dramaRes, reviewsRes, relatedRes] = await Promise.all([
-          dramasApi.getById(dramaId),
-          reviewsApi.getByDrama(dramaId),
-          dramasApi.getRelated(dramaId),
-        ]);
+    if (!dramaId) {
+      setDrama(null);
+      setEpisodes([]);
+      setReviews([]);
+      setReviewTotal(0);
+      setRelatedDramas([]);
+      setActiveEpisode(null);
+      setStreamInfo(null);
+      setLoading(false);
+      return;
+    }
 
-        const dramaData = dramaRes.data?.drama || null;
-        const episodesData: Episode[] = dramaRes.data?.episodes || [];
+    let cancelled = false;
+    const fetchData = async () => {
+      setLoading(true);
+      setDrama(null);
+      setEpisodes([]);
+      setActiveEpisode(null);
+      setStreamInfo(null);
+      setReviews([]);
+      setReviewTotal(0);
+      setRelatedDramas([]);
+      setUnlockedEpisodeIds(new Set());
+      setEpisodeAccessMap({});
+
+      try {
+        const dramaRes = await dramasApi.getById(dramaId);
+        if (cancelled) return;
+
+        const { drama: dramaData, episodes: episodesData } = extractDramaDetailPayload(dramaRes);
         setDrama(dramaData);
         setEpisodes(episodesData);
-        setReviews(((reviewsRes.data?.reviews || []) as unknown[]).map((review) => normalizeReview(review)));
-        setReviewTotal(reviewsRes.data?.total || 0);
-        setRelatedDramas(relatedRes.data || []);
-
-        // Set active episode from URL param or first free episode
-        const epParam = searchParams.get("ep");
-        const targetEp = epParam
-          ? episodesData.find((e) => e._id === epParam)
-          : episodesData.find((e) => e.isFree) || episodesData[0];
-        if (targetEp) setActiveEpisode(targetEp);
+        if (!dramaData) {
+          return;
+        }
       } catch (error) {
         console.error("Failed to fetch drama:", error);
-        toast(t.failedLoadDrama, "error");
+        if (!cancelled) {
+          setDrama(null);
+          setEpisodes([]);
+          setActiveEpisode(null);
+          toast(t.failedLoadDrama, "error");
+        }
+        return;
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+
+      const [reviewsRes, relatedRes] = await Promise.allSettled([
+        reviewsApi.getByDrama(dramaId),
+        dramasApi.getRelated(dramaId),
+      ]);
+
+      if (cancelled) return;
+
+      if (reviewsRes.status === "fulfilled") {
+        const nextReviews = extractReviewList(reviewsRes.value);
+        setReviews(nextReviews.reviews);
+        setReviewTotal(nextReviews.total);
+      }
+
+      if (relatedRes.status === "fulfilled") {
+        setRelatedDramas(extractRelatedDramaList(relatedRes.value));
       }
     };
     fetchData();
-  }, [dramaId, searchParams, t.failedLoadDrama, toast]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dramaId, t.failedLoadDrama, toast]);
+
+  useEffect(() => {
+    if (episodes.length === 0) {
+      setActiveEpisode(null);
+      return;
+    }
+
+    const targetEpisode = (
+      selectedEpisodeId
+        ? episodes.find((episode) => episode._id === selectedEpisodeId)
+        : null
+    ) || episodes.find((episode) => episode.isFree) || episodes[0];
+
+    setActiveEpisode((currentEpisode) => {
+      if (!targetEpisode) return currentEpisode ?? null;
+      if (currentEpisode?._id === targetEpisode._id) return currentEpisode;
+      return targetEpisode;
+    });
+  }, [episodes, selectedEpisodeId]);
 
   // Initialize favorite state from API on mount (P1-17)
   useEffect(() => {

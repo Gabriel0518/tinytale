@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { GoogleLoginButton } from "@/components/auth/GoogleLoginButton";
@@ -15,6 +15,7 @@ import { useLocale } from "@/hooks/useLocale";
 import { usePlatform } from "@/hooks/usePlatform";
 import { resolveLocaleCopy } from '@/lib/locale-copy';
 import { dismissActiveKeyboard } from "@/lib/capacitor-bridge";
+import { resolveParentPath } from "@/lib/mobile-navigation";
 import { loginWithNativeFacebook, loginWithNativeGoogle } from "@/lib/native-social-login";
 
 // Type declaration for Turnstile
@@ -37,6 +38,7 @@ const REMEMBERED_LOGIN_EMAIL_KEY = "tinytale.remembered-login-email";
 
 export default function LoginPage() {
   const locale = useLocale();
+  const pathname = usePathname();
   const t = resolveLocaleCopy(LOGIN_TEXT, locale);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -53,7 +55,7 @@ export default function LoginPage() {
   const turnstileRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const postLoginTarget = useMemo(() => {
-    const redirect = (searchParams.get("redirect") || searchParams.get("returnUrl") || "").trim();
+    const redirect = (searchParams?.get("redirect") || searchParams?.get("returnUrl") || "").trim();
     if (redirect.startsWith("/") && !redirect.startsWith("//")) {
       return redirect;
     }
@@ -138,12 +140,8 @@ export default function LoginPage() {
 
   const handleClose = useCallback(() => {
     void dismissActiveKeyboard();
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back();
-      return;
-    }
-    router.push(localizePath("/", locale));
-  }, [locale, router]);
+    router.replace(localizePath(resolveParentPath(pathname || "/auth/login"), locale), { scroll: false });
+  }, [locale, pathname, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

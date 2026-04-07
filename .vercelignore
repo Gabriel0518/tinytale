@@ -1,0 +1,14 @@
+android
+.next
+node_modules
+.git
+.codex-assets
+.codex-artifacts
+coverage
+build
+tmp
+.tmp
+*.apk
+*.aab
+*.log
+*.tsbuildinfo

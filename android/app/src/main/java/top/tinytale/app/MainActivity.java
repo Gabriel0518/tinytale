@@ -2,8 +2,12 @@ package top.tinytale.app;
 
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.view.Window;
+import android.webkit.WebView;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -11,9 +15,53 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import com.getcapacitor.BridgeActivity;
 import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
+import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
     private static final String NATIVE_APP_USER_AGENT_TOKEN = "TinyTaleNativeApp";
+    private static final String TAG = "TinyTaleStartup";
+    private static final long STARTUP_WATCHDOG_DELAY_MS = 6000L;
+    private static final long STARTUP_WATCHDOG_RECHECK_MS = 5000L;
+    private static final String CAPACITOR_TRIGGER_EVENT_SHIM =
+        "(function(){"
+            + "var cap=window.Capacitor=window.Capacitor||{};"
+            + "if(typeof cap.createEvent!=='function'){"
+            + "cap.createEvent=function(eventName,eventData){"
+            + "var doc=window.document;"
+            + "if(!doc||typeof doc.createEvent!=='function'){return null;}"
+            + "var ev=doc.createEvent('Events');"
+            + "ev.initEvent(eventName,false,false);"
+            + "if(eventData&&typeof eventData==='object'){"
+            + "for(var key in eventData){"
+            + "if(Object.prototype.hasOwnProperty.call(eventData,key)){ev[key]=eventData[key];}"
+            + "}"
+            + "}"
+            + "return ev;"
+            + "};"
+            + "}"
+            + "if(typeof cap.triggerEvent!=='function'){"
+            + "cap.triggerEvent=function(eventName,target,eventData){"
+            + "eventData=eventData||{};"
+            + "var ev=cap.createEvent?cap.createEvent(eventName,eventData):null;"
+            + "if(!ev){return false;}"
+            + "if(target==='document'&&document&&typeof document.dispatchEvent==='function'){"
+            + "return document.dispatchEvent(ev);"
+            + "}"
+            + "if(target==='window'&&typeof window.dispatchEvent==='function'){"
+            + "return window.dispatchEvent(ev);"
+            + "}"
+            + "var els=document&&document.querySelectorAll?document.querySelectorAll(target):[];"
+            + "if(!els||!els.length){return false;}"
+            + "for(var i=0;i<els.length;i++){els[i].dispatchEvent(ev);}"
+            + "return true;"
+            + "};"
+            + "}"
+            + "})();";
+
+    private final Handler startupHandler = new Handler(Looper.getMainLooper());
+    private boolean startupWatchdogPassed = false;
+    private boolean startupReloadAttempted = false;
+    private final Runnable startupWatchdogRunnable = this::runStartupWatchdog;
 
     private void enableImmersiveMode() {
         Window window = getWindow();
@@ -76,12 +124,20 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
             });
             ViewCompat.requestApplyInsets(webViewParent);
         });
+
+        injectCapacitorTriggerEventShim();
+        scheduleStartupWatchdog(STARTUP_WATCHDOG_DELAY_MS);
     }
 
     @Override
     public void onResume() {
+        injectCapacitorTriggerEventShim();
         super.onResume();
         enableImmersiveMode();
+
+        if (!startupWatchdogPassed) {
+            scheduleStartupWatchdog(STARTUP_WATCHDOG_DELAY_MS);
+        }
     }
 
     @Override
@@ -89,6 +145,156 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         super.onWindowFocusChanged(hasFocus);
         if (hasFocus) {
             enableImmersiveMode();
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        startupHandler.removeCallbacks(startupWatchdogRunnable);
+        super.onDestroy();
+    }
+
+    private void scheduleStartupWatchdog(long delayMs) {
+        startupHandler.removeCallbacks(startupWatchdogRunnable);
+        startupHandler.postDelayed(startupWatchdogRunnable, delayMs);
+    }
+
+    private void injectCapacitorTriggerEventShim() {
+        if (getBridge() == null) {
+            return;
+        }
+
+        WebView webView = getBridge().getWebView();
+        if (webView == null) {
+            return;
+        }
+
+        webView.evaluateJavascript(CAPACITOR_TRIGGER_EVENT_SHIM, null);
+    }
+
+    private void runStartupWatchdog() {
+        if (startupWatchdogPassed || getBridge() == null) {
+            return;
+        }
+
+        WebView webView = getBridge().getWebView();
+        if (webView == null) {
+            return;
+        }
+
+        webView.evaluateJavascript(
+            "(function(){try{"
+                + "var body=document.body;"
+                + "var overlay=document.getElementById('native-app-launch-overlay');"
+                + "var computed=overlay?window.getComputedStyle(overlay):null;"
+                + "return JSON.stringify({"
+                + "readyState:document.readyState,"
+                + "textLength:body&&body.innerText?body.innerText.replace(/\\s+/g,'').length:0,"
+                + "childCount:body&&body.children?body.children.length:0,"
+                + "hasMain:!!document.querySelector('main,nav,footer,[data-native-route-ready]'),"
+                + "overlayVisible:!!(computed&&computed.display!=='none'&&computed.opacity!=='0'),"
+                + "href:String(location.href||'')"
+                + "});"
+                + "}catch(error){return JSON.stringify({error:String(error)})}})();",
+            value -> {
+                StartupSnapshot snapshot = StartupSnapshot.fromEvaluateJavascript(value);
+                if (snapshot == null) {
+                    Log.w(TAG, "Unable to inspect startup state; keeping watchdog active.");
+                    scheduleStartupWatchdog(STARTUP_WATCHDOG_RECHECK_MS);
+                    return;
+                }
+
+                if (snapshot.isHealthy()) {
+                    startupWatchdogPassed = true;
+                    startupHandler.removeCallbacks(startupWatchdogRunnable);
+                    Log.d(
+                        TAG,
+                        "Startup content detected. href=" + snapshot.href
+                            + " textLength=" + snapshot.textLength
+                            + " childCount=" + snapshot.childCount
+                    );
+                    return;
+                }
+
+                Log.w(
+                    TAG,
+                    "Detected blank startup state. href=" + snapshot.href
+                        + " readyState=" + snapshot.readyState
+                        + " textLength=" + snapshot.textLength
+                        + " childCount=" + snapshot.childCount
+                        + " overlayVisible=" + snapshot.overlayVisible
+                        + " reloadAttempted=" + startupReloadAttempted
+                );
+
+                if (!startupReloadAttempted) {
+                    startupReloadAttempted = true;
+                    webView.reload();
+                }
+
+                scheduleStartupWatchdog(STARTUP_WATCHDOG_RECHECK_MS);
+            }
+        );
+    }
+
+    private static final class StartupSnapshot {
+        final String readyState;
+        final String href;
+        final int textLength;
+        final int childCount;
+        final boolean hasMain;
+        final boolean overlayVisible;
+
+        private StartupSnapshot(
+            String readyState,
+            String href,
+            int textLength,
+            int childCount,
+            boolean hasMain,
+            boolean overlayVisible
+        ) {
+            this.readyState = readyState;
+            this.href = href;
+            this.textLength = textLength;
+            this.childCount = childCount;
+            this.hasMain = hasMain;
+            this.overlayVisible = overlayVisible;
+        }
+
+        static StartupSnapshot fromEvaluateJavascript(String value) {
+            try {
+                String decoded = decodeEvaluateJavascriptValue(value);
+                JSONObject json = new JSONObject(decoded);
+                return new StartupSnapshot(
+                    json.optString("readyState", ""),
+                    json.optString("href", ""),
+                    json.optInt("textLength", 0),
+                    json.optInt("childCount", 0),
+                    json.optBoolean("hasMain", false),
+                    json.optBoolean("overlayVisible", false)
+                );
+            } catch (Exception error) {
+                Log.e(TAG, "Failed to parse startup snapshot: " + value, error);
+                return null;
+            }
+        }
+
+        boolean isHealthy() {
+            boolean domReady = "interactive".equals(readyState) || "complete".equals(readyState);
+            boolean hasVisibleAppShell = textLength >= 120 || (hasMain && textLength >= 40);
+            boolean hasRealDom = childCount >= 2;
+            return domReady && hasVisibleAppShell && hasRealDom;
+        }
+
+        private static String decodeEvaluateJavascriptValue(String value) throws Exception {
+            if (value == null || "null".equals(value)) {
+                return "{}";
+            }
+
+            if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
+                return new JSONObject("{\"value\":" + value + "}").getString("value");
+            }
+
+            return value;
         }
     }
 }

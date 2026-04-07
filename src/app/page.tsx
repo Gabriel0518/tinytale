@@ -397,11 +397,11 @@ function MobileSectionHeader({
   actionLabel: string;
 }) {
   return (
-    <div className="mb-4 flex items-center justify-between px-4">
-      <h2 className="text-[1.15rem] font-bold tracking-[-0.03em] text-white">{title}</h2>
+    <div className="mb-4 flex items-center justify-between px-6">
+      <h2 className="text-xl font-bold tracking-tight text-white">{title}</h2>
       <Link
         href={sectionActionHref(locale)}
-        className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#ff6c82]"
+        className="text-xs font-bold uppercase tracking-widest text-[#ff3b5c]"
       >
         {actionLabel}
       </Link>
@@ -431,7 +431,7 @@ function MobileCuratedRail({
   return (
     <section className="mt-8 md:hidden">
       <MobileSectionHeader title={title} locale={locale} actionLabel={actionLabel} />
-      <div className="no-scrollbar flex gap-4 overflow-x-auto px-4 pb-1">
+      <div className="no-scrollbar flex gap-4 overflow-x-auto px-6 pb-1">
         {items.map((item) => (
           <Link
             key={item.key}
@@ -439,31 +439,30 @@ function MobileCuratedRail({
             className="group flex-none active:scale-[0.98]"
           >
             <div className="w-36">
-              <div className="relative mb-2 aspect-[3/4] overflow-hidden rounded-[22px] bg-[#1a1c21] shadow-[0_10px_24px_rgba(0,0,0,0.18)]">
+              <div className="relative mb-2 aspect-[3/4] overflow-hidden rounded-xl bg-[#1a1c21]">
                 <Image
                   src={item.cover}
                   alt={item.title}
                   fill
-                  className="object-cover"
+                  className="object-cover transition-transform duration-500 group-hover:scale-110"
                   sizes="144px"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                 {item.rating ? (
-                  <div className="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/75 px-1.5 py-1 text-[10px] font-semibold text-white">
-                    <Star className="h-3 w-3 fill-[#ffd24d] text-[#ffd24d]" />
-                    <span>{item.rating}</span>
+                  <div className="absolute right-2 top-2 flex items-center gap-0.5 rounded bg-black/60 backdrop-blur-md px-1.5 py-0.5">
+                    <Star className="h-2.5 w-2.5 fill-[#ffd700] text-[#ffd700]" />
+                    <span className="text-[10px] font-bold text-white">{item.rating}</span>
                   </div>
                 ) : null}
                 {item.badge ? (
                   <div className="absolute bottom-2 left-2">
-                    <span className={`rounded-md px-1.5 py-1 text-[9px] font-extrabold uppercase tracking-[0.16em] ${badgeToneClassName[item.badge.tone]}`}>
+                    <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold uppercase ${badgeToneClassName[item.badge.tone]}`}>
                       {item.badge.label}
                     </span>
                   </div>
                 ) : null}
               </div>
               <h3 className="truncate text-sm font-bold text-white">{item.title}</h3>
-              <p className="mt-1 text-[11px] font-medium text-white/45">{item.meta}</p>
+              <p className="text-[10px] font-medium text-white/40">{item.meta}</p>
             </div>
           </Link>
         ))}
@@ -494,31 +493,102 @@ function MobileWeeklyTopPicks({
   };
 
   return (
-    <section className="mt-10 px-4 md:hidden">
+    <section className="mt-10 px-6 md:hidden">
       <Link
         href={content.href}
-        className="relative flex h-48 items-center overflow-hidden rounded-[28px] bg-[#1b1e25] px-7 shadow-[0_12px_30px_rgba(0,0,0,0.2)]"
+        className="relative flex h-48 items-center overflow-hidden rounded-2xl bg-[#25282e]"
       >
-        <Image
-          src={content.cover}
-          alt={content.title}
-          fill
-          className="object-cover opacity-24"
-          sizes="100vw"
-        />
-        <div className="relative z-10 max-w-[220px]">
-          <h2 className="text-[1.6rem] font-extrabold italic tracking-[-0.04em] text-white">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,59,92,0.15),transparent)]" />
+          <Image
+            src={content.cover}
+            alt={content.title}
+            fill
+            className="object-cover opacity-30 mix-blend-overlay"
+            sizes="100vw"
+          />
+        </div>
+        <div className="relative z-10 space-y-3 p-8">
+          <h2 className="text-2xl font-extrabold italic tracking-tighter text-white">
             {content.title}
           </h2>
-          <p className="mt-3 text-xs font-medium leading-5 text-white/60">
+          <p className="max-w-[200px] text-xs font-medium text-white/60">
             {content.description}
           </p>
-          <div className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-[#ff7086]">
+          <div className="inline-flex items-center gap-1 text-sm font-bold text-[#ff3b5c]">
             <span>{content.actionLabel}</span>
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </div>
         </div>
+        <div className="absolute bottom-[-20px] right-[-20px] h-40 w-40 rounded-full bg-[#ff3b5c]/20 blur-3xl" />
       </Link>
+    </section>
+  );
+}
+
+function MobileEditorsChoiceBento({
+  items,
+  locale,
+  dramas,
+  title,
+}: {
+  items: MobileCuratedCard[];
+  locale: SupportedLocale;
+  dramas: Drama[];
+  title: string;
+}) {
+  if (items.length < 3) return null;
+
+  const bentoItems = items.slice(0, 3);
+
+  return (
+    <section className="mt-12 mb-12 px-6 md:hidden">
+      <h3 className="mb-4 text-xl font-bold tracking-tight text-white">{title}</h3>
+      <div className="grid h-[400px] grid-cols-2 gap-4">
+        {/* Left: tall card */}
+        <Link
+          href={resolveMobileHref(bentoItems[0], dramas, locale, '/browse')}
+          className="group relative overflow-hidden rounded-2xl"
+        >
+          <Image
+            src={bentoItems[0].cover}
+            alt={bentoItems[0].title}
+            fill
+            className="object-cover transition-transform duration-700 group-hover:scale-110"
+            sizes="50vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4">
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[#ff3b5c]">
+              Editor&apos;s Pick
+            </p>
+            <h4 className="text-lg font-bold leading-tight text-white">{bentoItems[0].title}</h4>
+          </div>
+        </Link>
+
+        {/* Right: two stacked cards */}
+        <div className="grid grid-rows-2 gap-4">
+          {bentoItems.slice(1, 3).map((item) => (
+            <Link
+              key={item.key}
+              href={resolveMobileHref(item, dramas, locale, '/browse')}
+              className="group relative overflow-hidden rounded-2xl"
+            >
+              <Image
+                src={item.cover}
+                alt={item.title}
+                fill
+                className="object-cover transition-transform duration-700 group-hover:scale-110"
+                sizes="50vw"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+              <div className="absolute bottom-3 left-3">
+                <h4 className="text-sm font-bold text-white">{item.title}</h4>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
@@ -1144,7 +1214,7 @@ export default function Home() {
             <div className="mt-6 flex items-center gap-3">
               <Link
                 href={mobileHeroData.href}
-                className="inline-flex min-h-[48px] items-center gap-2 rounded-full bg-[#ff3b5c] px-6 py-3 text-sm font-bold text-white active:scale-[0.98]"
+                className="inline-flex min-h-[48px] items-center gap-2 rounded-full bg-[#ff3b5c] px-8 py-3 text-sm font-bold text-white shadow-[0_0_20px_rgba(255,59,92,0.3)] active:scale-[0.98]"
               >
                 <Play className="h-4 w-4 fill-current text-white" />
                 <span>{t.watchNow}</span>
@@ -1153,14 +1223,33 @@ export default function Home() {
                 type="button"
                 onClick={handleAddToList}
                 disabled={heroFavoritePending}
-                className={`inline-flex min-h-[48px] items-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-white active:scale-[0.98] ${
-                  isCurrentHeroInList ? 'bg-white/18' : 'bg-white/10'
+                className={`inline-flex min-h-[48px] items-center gap-2 rounded-full backdrop-blur-md px-6 py-3 text-sm font-bold text-white active:scale-[0.98] ${
+                  isCurrentHeroInList ? 'bg-white/20 hover:bg-white/25' : 'bg-white/10 hover:bg-white/20'
                 } ${heroFavoritePending ? 'opacity-70' : ''}`}
               >
                 {isCurrentHeroInList ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                 <span>{isCurrentHeroInList ? t.inMyList : t.myList}</span>
               </button>
             </div>
+            {/* Hero Indicator Dots */}
+            {(() => {
+              const total = heroBanners.length > 0 ? heroBanners.length : hotRankings.length;
+              if (total <= 1) return null;
+              return (
+                <div className="mt-5 flex items-center gap-2">
+                  {Array.from({ length: total }, (_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setHeroIndex(i)}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        i === heroIndex ? 'w-7 bg-white' : 'w-3.5 bg-white/40'
+                      }`}
+                      aria-label={`${t.slideLabel} ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </section>
@@ -1340,13 +1429,13 @@ export default function Home() {
       {loading && categories.length === 0 && isMobile ? (
         <MobilePillRowSkeleton />
       ) : (
-        <section className="mx-auto max-w-7xl px-4 py-6">
+        <section className={`mx-auto max-w-7xl py-4 ${isMobile ? 'px-6' : 'px-4 py-6'}`}>
           <MobileScrollTabs
             items={visibleCategoryPills}
             value={activeCategory}
             onChange={setActiveCategory}
             activeTabClassName="bg-white text-black"
-            inactiveTabClassName={isMobile ? 'bg-[#2b2f37] text-white/68 hover:bg-[#353a45] hover:text-white' : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a] hover:text-white'}
+            inactiveTabClassName={isMobile ? 'bg-[#2c2f36] text-white/70 hover:text-white' : 'bg-[#2a2a2a] text-gray-300 hover:bg-[#3a3a3a] hover:text-white'}
           />
         </section>
       )}
@@ -1380,6 +1469,13 @@ export default function Home() {
               ) : null}
               {loading && mobileEditorsChoiceCards.length === 0 ? (
                 <MobileShelfSkeleton titleWidthClass="w-36" />
+              ) : mobileEditorsChoiceCards.length >= 3 ? (
+                <MobileEditorsChoiceBento
+                  title={t.editorsChoice}
+                  items={mobileEditorsChoiceCards}
+                  locale={locale}
+                  dramas={dramas}
+                />
               ) : mobileEditorsChoiceCards.length > 0 ? (
                 <MobileCuratedRail
                   title={t.editorsChoice}

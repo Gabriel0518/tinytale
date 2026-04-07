@@ -19,8 +19,8 @@ function VerifyOTPContent() {
   const searchParams = useSearchParams();
   const { register: authRegister } = useAuth();
 
-  const email = searchParams.get('email');
-  const purpose = searchParams.get('purpose') as 'register' | 'login' | 'reset-password' | 'email-change';
+  const email = searchParams?.get('email');
+  const purpose = searchParams?.get('purpose') as 'register' | 'login' | 'reset-password' | 'email-change' | null;
 
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
