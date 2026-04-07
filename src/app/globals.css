@@ -261,6 +261,10 @@ body.keyboard-open .mobile-mini-player {
   display: none !important;
 }
 
+.video-js .vjs-loading-spinner {
+  display: none !important;
+}
+
 .video-js .vjs-text-track-display {
   bottom: 5rem !important;
   pointer-events: none;
