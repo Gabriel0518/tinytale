@@ -37,9 +37,9 @@ import type {
 import { serializeCreatorApplicationDraft } from '@/lib/creator';
 import type { CountryCatalogItem } from '@/lib/countries';
 import { detectClientLocale } from '@/lib/i18n';
+import { DEFAULT_API_URL as RUNTIME_DEFAULT_API_URL } from '@/lib/runtime-env';
 
-const DEFAULT_API_URL = process.env.NEXT_PUBLIC_API_URL
-  || (process.env.NODE_ENV === 'production' ? 'https://api.tinytale.top' : 'http://localhost:7002');
+const DEFAULT_API_URL = RUNTIME_DEFAULT_API_URL;
 
 // Cloudflare Turnstile site key (get from Cloudflare Dashboard)
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '';

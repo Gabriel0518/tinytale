@@ -1,5 +1,6 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL
-  || (process.env.NODE_ENV === 'production' ? 'https://api.tinytale.top' : 'http://localhost:7002');
+import { DEFAULT_API_URL } from '@/lib/runtime-env';
+
+const API_URL = DEFAULT_API_URL;
 
 interface FetchOptions extends RequestInit {
   token?: string;

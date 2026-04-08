@@ -4,7 +4,7 @@ import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { translateAdminText, useAdminLocale } from "@/lib/admin-i18n";
 
-const ADMIN_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7002";
+const ADMIN_API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.tinytale.top";
 
 export default function AdminLoginPage() {
   const router = useRouter();

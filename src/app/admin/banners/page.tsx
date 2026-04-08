@@ -87,7 +87,7 @@ export default function AdminBannersPage() {
   const handleImageUpload = async (file: File) => {
     setUploading(true);
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7002";
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://api.tinytale.top";
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
       const fd = new FormData();
       fd.append("file", file);

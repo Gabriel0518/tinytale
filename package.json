@@ -33,10 +33,13 @@
     "dev:native-shell": "npm --workspace native-shell run dev",
     "android:copy": "npx cap copy android",
     "android:sync": "npx cap sync android",
+    "android:sync:prod": "npm run build:web && npm run android:sync",
     "android:open": "npx cap open android",
     "android:run": "npx cap run android",
     "android:assemble": "./scripts/with-android-studio-jdk.sh sh -lc 'cd android && ./gradlew assembleDebug'",
-    "android:install": "./scripts/with-android-studio-jdk.sh sh -lc 'cd android && ./gradlew installDebug'"
+    "android:install": "./scripts/with-android-studio-jdk.sh sh -lc 'cd android && ./gradlew installDebug'",
+    "android:package:prod": "npm run android:sync:prod && npm run android:assemble",
+    "verify:prod:web": "npm run typecheck:web && npm run build:web"
   },
   "dependencies": {
     "@airwallex/components-sdk": "^1.28.3",

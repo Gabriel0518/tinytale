@@ -315,7 +315,7 @@ export default function EditDramaModal({ drama, onClose, onSave }: EditDramaModa
     setCoverUploading(field);
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.tinytale.top';
       const fd = new FormData();
       fd.append('file', file);
       const res = await fetch(`${API_BASE}/api/admin/upload/image`, {

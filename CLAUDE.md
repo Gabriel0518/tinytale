@@ -10,12 +10,29 @@
 ## Command Rules
 
 - To build or install the main app, use root commands only:
-  - `npm run android:assemble`
+  - `npm run verify:prod:web`
+  - `npm run android:sync:prod`
+  - `npm run android:package:prod`
   - `npm run android:install`
 - To build the native shell, use workspace commands only:
   - `npm --workspace native-shell run build`
   - `npm --workspace native-shell run sync:android:assets`
   - `npm --workspace native-shell run android:assemble`
+
+## Production Data Rules
+
+- Main site pages and the main Android app must default to production endpoints, never `localhost`.
+- The main Android app must load the production website entry at `https://tinytale.top`.
+- The default API fallback for website and admin pages must be `https://api.tinytale.top`.
+- Do not use `CAP_SERVER_URL`, `localhost:7001`, or `localhost:7002` for the main app packaging flow.
+
+## Test And Deploy Rules
+
+- Before any production website deploy, run `npm run verify:prod:web`.
+- Before any main Android package build, run `npm run android:sync:prod` so Capacitor picks up the latest production web build and production config.
+- After packaging the main Android app, install and smoke test on device before calling it ready.
+- For native-shell work, validate separately with `npm --workspace native-shell run typecheck`, `npm --workspace native-shell run build`, and `npm --workspace native-shell run android:assemble`.
+- Production website deploys should come from the root project on `main`, not from `apps/native-shell`.
 
 ## Safety Rules
 

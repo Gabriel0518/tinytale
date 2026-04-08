@@ -401,7 +401,7 @@ export default function CreateDramaPage() {
     setCoverUploading(field);
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('admin_token') : null;
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.tinytale.top';
       const formData = new FormData();
       formData.append('file', file);
       const res = await fetch(`${API_BASE}/api/admin/upload/image`, {
@@ -1111,7 +1111,7 @@ function StepVideoSubtitles({
   const clipPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const clipPollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.tinytale.top';
   const SOURCE_READY_POLL_INTERVAL_MS = 5000;
   const SOURCE_READY_MAX_WAIT_MS = 60 * 60 * 1000;
   const EPISODE_READY_POLL_INTERVAL_MS = 5000;

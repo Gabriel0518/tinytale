@@ -80,7 +80,7 @@ function resolveAdminPageTitle(pathname: string | null): string {
   return "Admin";
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7002";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.tinytale.top";
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

@@ -173,7 +173,7 @@ function EditInfoModal({ episode, onClose, onSave }: { episode: Episode; onClose
                     setCoverUploading(true);
                     try {
                       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
-                      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7002";
+                      const apiBase = process.env.NEXT_PUBLIC_API_URL || "https://api.tinytale.top";
                       const body = new FormData();
                       body.append("file", file);
                       const res = await fetch(`${apiBase}/api/admin/upload/image`, {

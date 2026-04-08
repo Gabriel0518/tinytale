@@ -174,7 +174,7 @@ const SOCIAL_ICONS: Record<string, { label: string; icon: JSX.Element }> = {
       </svg>
     ) } };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.tinytale.top';
 
 export function Footer() {
   const locale = useLocale();

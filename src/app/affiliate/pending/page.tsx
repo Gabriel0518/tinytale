@@ -74,7 +74,7 @@ const COPY: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   },
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.tinytale.top';
 
 function normalizeExternalUrl(url: string): string {
   const trimmed = url.trim();

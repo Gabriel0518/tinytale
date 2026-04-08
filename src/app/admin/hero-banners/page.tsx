@@ -131,7 +131,7 @@ export default function AdminHeroBannersPage() {
   const handleImageUpload = async (file: File) => {
     setUploading(true);
     try {
-      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:7002";
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "https://api.tinytale.top";
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
       const formData = new FormData();
       formData.append("file", file);

@@ -21,7 +21,7 @@ interface ValidationResult {
   suggestion?: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.tinytale.top';
 
 // Validation constants
 const MAX_FILE_SIZE = 5 * 1024 * 1024 * 1024; // 5GB in bytes

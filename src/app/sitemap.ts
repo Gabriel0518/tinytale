@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { localizePath, SUPPORTED_LOCALES } from '@/lib/i18n';
 import { getSiteUrl } from '@/lib/seo';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:7002';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.tinytale.top';
 const STATIC_PATHS = ['/', '/browse', '/category', '/rankings', '/search', '/help'];
 const DRAMA_PAGE_LIMIT = 100;
 const EPISODE_FETCH_CONCURRENCY = 8;
