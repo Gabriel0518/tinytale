@@ -43,6 +43,10 @@ const RUNTIME_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   id: { offline: 'Kamu sedang offline. Beberapa fitur mungkin tidak tersedia.', online: 'Koneksi kembali normal.', backAgain: 'Tekan kembali sekali lagi untuk keluar.' },
 };
 
+const NATIVE_LAUNCH_MIN_DURATION_MS = 3000;
+const NATIVE_LAUNCH_ROUTE_READY_TIMEOUT_MS = 8000;
+const NATIVE_LAUNCH_HARD_TIMEOUT_MS = 12000;
+
 function routeToNativePath(
   path: string,
   locale: SupportedLocale,
@@ -289,7 +293,7 @@ export function AppRuntime() {
           window.addEventListener('tinytale:route-ready', handleRouteReady as EventListener);
         }),
         new Promise<void>((resolve) => {
-          window.setTimeout(resolve, 2200);
+          window.setTimeout(resolve, NATIVE_LAUNCH_ROUTE_READY_TIMEOUT_MS);
         }),
       ]);
     };
@@ -313,7 +317,7 @@ export function AppRuntime() {
 
     const hardTimeout = window.setTimeout(() => {
       void finishLaunch();
-    }, 4500);
+    }, NATIVE_LAUNCH_HARD_TIMEOUT_MS);
 
     if (authLoading) {
       return () => window.clearTimeout(hardTimeout);
@@ -327,7 +331,7 @@ export function AppRuntime() {
       await waitForRouteReady();
 
       const elapsed = window.performance.now() - (launchStartedAtRef.current ?? window.performance.now());
-      const remaining = Math.max(0, 900 - elapsed);
+      const remaining = Math.max(0, NATIVE_LAUNCH_MIN_DURATION_MS - elapsed);
 
       if (remaining > 0) {
         await new Promise<void>((resolve) => {

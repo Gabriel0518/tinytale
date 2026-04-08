@@ -7,9 +7,16 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.webkit.WebView;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -22,8 +29,8 @@ import org.json.JSONObject;
 public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
     private static final String NATIVE_APP_USER_AGENT_TOKEN = "TinyTaleNativeApp";
     private static final String TAG = "TinyTaleStartup";
-    private static final long STARTUP_WATCHDOG_DELAY_MS = 6000L;
-    private static final long STARTUP_WATCHDOG_RECHECK_MS = 5000L;
+    private static final long STARTUP_WATCHDOG_DELAY_MS = 1200L;
+    private static final long STARTUP_WATCHDOG_RECHECK_MS = 900L;
     private static final String APP_SCHEME_PREFIX = "top.tinytale.app://";
     private static final String WEB_BASE_URL = "https://tinytale.top";
     private static final String[] ROUTE_EXTRA_KEYS = {
@@ -75,6 +82,8 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
     private final Handler startupHandler = new Handler(Looper.getMainLooper());
     private boolean startupWatchdogPassed = false;
     private boolean startupReloadAttempted = false;
+    private boolean nativeLaunchOverlayHidden = false;
+    private View nativeLaunchOverlay;
     private final Runnable startupWatchdogRunnable = this::runStartupWatchdog;
 
     private Intent normalizeNotificationIntent(Intent intent) {
@@ -231,8 +240,25 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         Intent launchIntent = normalizeNotificationIntent(getIntent());
         setIntent(launchIntent);
         super.onCreate(savedInstanceState);
+        nativeLaunchOverlay = findViewById(R.id.native_launch_overlay);
+        if (nativeLaunchOverlay == null) {
+            ViewGroup contentRoot = findViewById(android.R.id.content);
+            if (contentRoot != null) {
+                nativeLaunchOverlay = buildNativeLaunchOverlay();
+                contentRoot.addView(
+                    nativeLaunchOverlay,
+                    new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                );
+            }
+        }
         getBridge().getWebView().setBackgroundColor(Color.parseColor("#141414"));
         ((View) getBridge().getWebView().getParent()).setBackgroundColor(Color.parseColor("#141414"));
+        if (nativeLaunchOverlay != null) {
+            nativeLaunchOverlay.bringToFront();
+        }
         String currentUserAgent = getBridge().getWebView().getSettings().getUserAgentString();
         if (currentUserAgent == null) {
             currentUserAgent = "";
@@ -321,6 +347,86 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         webView.evaluateJavascript(CAPACITOR_TRIGGER_EVENT_SHIM, null);
     }
 
+    private View buildNativeLaunchOverlay() {
+        FrameLayout overlay = new FrameLayout(this);
+        overlay.setClickable(true);
+        overlay.setFocusable(true);
+        overlay.setBackgroundColor(Color.parseColor("#141414"));
+        overlay.setAlpha(1f);
+
+        LinearLayout shell = new LinearLayout(this);
+        shell.setOrientation(LinearLayout.VERTICAL);
+        shell.setGravity(Gravity.CENTER);
+
+        FrameLayout.LayoutParams shellParams = new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        shellParams.gravity = Gravity.CENTER;
+        overlay.addView(shell, shellParams);
+
+        ImageView logo = new ImageView(this);
+        int logoSize = dpToPx(144);
+        LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(logoSize, logoSize);
+        logo.setImageResource(R.mipmap.ic_launcher);
+        logo.setContentDescription(getString(R.string.app_name));
+        shell.addView(logo, logoParams);
+
+        TextView title = new TextView(this);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        titleParams.topMargin = dpToPx(18);
+        title.setText("TinyTale");
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28);
+        title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
+        title.setLetterSpacing(0.02f);
+        shell.addView(title, titleParams);
+
+        TextView subtitle = new TextView(this);
+        LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        subtitleParams.topMargin = dpToPx(8);
+        subtitle.setText("SHORT DRAMA STREAMING");
+        subtitle.setTextColor(Color.parseColor("#7AFFFFFF"));
+        subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        subtitle.setLetterSpacing(0.24f);
+        shell.addView(subtitle, subtitleParams);
+
+        return overlay;
+    }
+
+    private int dpToPx(int valueDp) {
+        return Math.round(
+            TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP,
+                valueDp,
+                getResources().getDisplayMetrics()
+            )
+        );
+    }
+
+    private void hideNativeLaunchOverlay() {
+        if (nativeLaunchOverlayHidden || nativeLaunchOverlay == null) {
+            return;
+        }
+
+        nativeLaunchOverlayHidden = true;
+        nativeLaunchOverlay.animate()
+            .alpha(0f)
+            .setDuration(220L)
+            .withEndAction(() -> {
+                if (nativeLaunchOverlay != null) {
+                    nativeLaunchOverlay.setVisibility(View.GONE);
+                }
+            })
+            .start();
+    }
+
     private void runStartupWatchdog() {
         if (startupWatchdogPassed || getBridge() == null) {
             return;
@@ -356,6 +462,7 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
                 if (snapshot.isHealthy()) {
                     startupWatchdogPassed = true;
                     startupHandler.removeCallbacks(startupWatchdogRunnable);
+                    hideNativeLaunchOverlay();
                     Log.d(
                         TAG,
                         "Startup content detected. href=" + snapshot.href
