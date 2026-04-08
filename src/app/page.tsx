@@ -7,7 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Check, ChevronRight, Play, Plus, Star } from 'lucide-react';
-import { homeApi, userApi } from '@/lib/api';
+import { homeApi, prefetchDramaDetailBundle, userApi } from '@/lib/api';
 import { Drama, Category, HomepageBanner, HomepageFeaturedBuckets, HomepageHeroBanner, HomepagePlaylist } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
 import { HomeCarousel } from '@/components/features/HomeCarousel';
@@ -1124,10 +1124,18 @@ export default function Home() {
     if (!isMobile || mobileContentStage !== 'full') return;
 
     const routes = new Set<string>([localizePath('/browse', locale)]);
+    const dramaIds = new Set<string>();
     const primaryDramaId = currentHeroBanner?.dramaId || heroDrama?._id || trendingDramas[0]?._id;
     if (primaryDramaId) {
+      dramaIds.add(primaryDramaId);
       routes.add(localizePath(`/drama/${primaryDramaId}`, locale));
     }
+    trendingDramas.slice(0, 3).forEach((drama) => {
+      if (drama?._id) dramaIds.add(drama._id);
+    });
+    newReleases.slice(0, 2).forEach((drama: Drama) => {
+      if (drama?._id) dramaIds.add(drama._id);
+    });
 
     const idleWindow = window as typeof window & {
       requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
@@ -1136,6 +1144,9 @@ export default function Home() {
 
     const prefetchRoutes = () => {
       routes.forEach((route) => router.prefetch(route));
+      dramaIds.forEach((dramaId) => {
+        void prefetchDramaDetailBundle(dramaId);
+      });
     };
 
     if (typeof idleWindow.requestIdleCallback === 'function') {
@@ -1153,6 +1164,7 @@ export default function Home() {
     currentHeroBanner?.dramaId,
     heroDrama?._id,
     trendingDramas,
+    newReleases,
   ]);
 
   return (

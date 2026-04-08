@@ -3,8 +3,10 @@
 import { ReactNode, useRef, useState, useCallback, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Drama } from "@/types";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { prefetchDramaDetailBundle } from "@/lib/api";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { localizeCategoryLabel } from "@/lib/categoryI18n";
 import { useLocale } from "@/hooks/useLocale";
@@ -34,6 +36,7 @@ const CAROUSEL_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
 
 export function HomeCarousel({ title, dramas, className, getDramaHref, renderCardOverlay }: HomeCarouselProps) {
   const locale = useLocale();
+  const router = useRouter();
   const t = resolveLocaleCopy(CAROUSEL_TEXT, locale);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -130,6 +133,17 @@ export function HomeCarousel({ title, dramas, className, getDramaHref, renderCar
               href={getDramaHref ? getDramaHref(drama) : localizePath(`/drama/${drama._id}`, locale)}
               className={`shrink-0 snap-start ${cardWidthClass}`}
               draggable={false}
+              onMouseEnter={() => {
+                router.prefetch(localizePath(`/drama/${drama._id}`, locale));
+                void prefetchDramaDetailBundle(drama._id);
+              }}
+              onFocus={() => {
+                router.prefetch(localizePath(`/drama/${drama._id}`, locale));
+                void prefetchDramaDetailBundle(drama._id);
+              }}
+              onTouchStart={() => {
+                void prefetchDramaDetailBundle(drama._id);
+              }}
               onClick={(e) => {
                 if (hasDragged.current) e.preventDefault();
               }}

@@ -7,7 +7,7 @@ import { useParams, useRouter, useSearchParams} from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Check, Play, Plus, Sparkles } from "lucide-react";
-import { dramasApi, reviewsApi, userApi, coinsApi, episodesApi } from "@/lib/api";
+import { dramaDiscoveryApi, reviewsApi, userApi, coinsApi, episodesApi, prefetchDramaDetailBundle } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -15,6 +15,7 @@ import { Drama, Episode, EpisodeAccessResult, Review, StreamPlaybackInfo } from 
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import { DramaCard } from "@/components/features/DramaCard";
+import { DramaDetailSkeleton } from "@/components/features/DramaDetailSkeleton";
 import { formatDuration, resolveDramaMode } from "@/lib/utils";
 import { CloudflarePlayer, PlayerRoot, usePlayerContext } from "@/components/player";
 import type { CloudflarePlayerHandle } from "@/components/player";
@@ -198,45 +199,6 @@ function normalizeReview(raw: unknown, fallback?: Partial<Review>): Review {
     likes: typeof item.likes === "number" ? item.likes : fallback?.likes,
     createdAt: String(item.createdAt || fallback?.createdAt || new Date().toISOString()),
   };
-}
-
-function extractDramaDetailPayload(payload: unknown): { drama: Drama | null; episodes: Episode[] } {
-  const root = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
-  const data = (root.data && typeof root.data === "object" ? root.data : root) as Record<string, unknown>;
-  const drama = (data.drama && typeof data.drama === "object" ? data.drama : data) as Drama | null;
-  const episodes = Array.isArray(data.episodes)
-    ? (data.episodes as Episode[])
-    : Array.isArray((drama as Drama | null)?.episodes)
-      ? ((drama as Drama).episodes as Episode[])
-      : [];
-
-  if (!drama || typeof drama._id !== "string") {
-    return { drama: null, episodes };
-  }
-
-  return { drama, episodes };
-}
-
-function extractReviewList(payload: unknown): { reviews: Review[]; total: number } {
-  const root = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
-  const data = (root.data && typeof root.data === "object" ? root.data : root) as Record<string, unknown>;
-  const reviewItems = Array.isArray(data.reviews)
-    ? data.reviews
-    : Array.isArray(data.comments)
-      ? data.comments
-      : [];
-  const total = typeof data.total === "number" ? data.total : reviewItems.length;
-
-  return {
-    reviews: reviewItems.map((review) => normalizeReview(review)),
-    total,
-  };
-}
-
-function extractRelatedDramaList(payload: unknown): Drama[] {
-  const root = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
-  const data = root.data ?? root;
-  return Array.isArray(data) ? (data as Drama[]) : [];
 }
 
 /** Inner player component that consumes PlayerRoot context */
@@ -455,7 +417,7 @@ function DramaDetailContent() {
   const [unlockingAll, setUnlockingAll] = useState(false);
   const [unlockedEpisodeIds, setUnlockedEpisodeIds] = useState<Set<string>>(new Set());
   const [episodeAccessMap, setEpisodeAccessMap] = useState<Record<string, EpisodeAccessResult>>({});
-  // Fetch drama data
+
   useEffect(() => {
     if (!dramaId) {
       setDrama(null);
@@ -483,15 +445,21 @@ function DramaDetailContent() {
       setEpisodeAccessMap({});
 
       try {
-        const dramaRes = await dramasApi.getById(dramaId);
+        const bootstrapRes = await dramaDiscoveryApi.getBootstrap(dramaId);
         if (cancelled) return;
 
-        const { drama: dramaData, episodes: episodesData } = extractDramaDetailPayload(dramaRes);
+        const payload = ((bootstrapRes as unknown as Record<string, unknown>)?.data || bootstrapRes) as Record<string, unknown>;
+        const dramaData = (payload.drama && typeof payload.drama === "object" ? payload.drama : null) as Drama | null;
+        const episodesData = Array.isArray(payload.episodes) ? (payload.episodes as Episode[]) : [];
+        const relatedData = Array.isArray(payload.related) ? (payload.related as Drama[]) : [];
+        const reviewsData = Array.isArray(payload.reviews) ? payload.reviews.map((review) => normalizeReview(review)) : [];
+        const totalReviews = typeof payload.reviewTotal === "number" ? payload.reviewTotal : reviewsData.length;
+
         setDrama(dramaData);
         setEpisodes(episodesData);
-        if (!dramaData) {
-          return;
-        }
+        setRelatedDramas(relatedData);
+        setReviews(reviewsData);
+        setReviewTotal(totalReviews);
       } catch (error) {
         console.error("Failed to fetch drama:", error);
         if (!cancelled) {
@@ -505,23 +473,6 @@ function DramaDetailContent() {
         if (!cancelled) {
           setLoading(false);
         }
-      }
-
-      const [reviewsRes, relatedRes] = await Promise.allSettled([
-        reviewsApi.getByDrama(dramaId),
-        dramasApi.getRelated(dramaId),
-      ]);
-
-      if (cancelled) return;
-
-      if (reviewsRes.status === "fulfilled") {
-        const nextReviews = extractReviewList(reviewsRes.value);
-        setReviews(nextReviews.reviews);
-        setReviewTotal(nextReviews.total);
-      }
-
-      if (relatedRes.status === "fulfilled") {
-        setRelatedDramas(extractRelatedDramaList(relatedRes.value));
       }
     };
     fetchData();
@@ -862,11 +813,7 @@ function DramaDetailContent() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#141414] flex items-center justify-center">
-        <div className="text-white">{t.loading}</div>
-      </div>
-    );
+    return <DramaDetailSkeleton />;
   }
 
   if (!drama) {
@@ -1125,6 +1072,17 @@ function DramaDetailContent() {
                       key={d._id}
                       type="button"
                       onClick={() => router.push(localizePath(`/drama/${d._id}`, locale))}
+                      onMouseEnter={() => {
+                        router.prefetch(localizePath(`/drama/${d._id}`, locale));
+                        void prefetchDramaDetailBundle(d._id);
+                      }}
+                      onFocus={() => {
+                        router.prefetch(localizePath(`/drama/${d._id}`, locale));
+                        void prefetchDramaDetailBundle(d._id);
+                      }}
+                      onTouchStart={() => {
+                        void prefetchDramaDetailBundle(d._id);
+                      }}
                       className="w-36 shrink-0 text-left"
                     >
                       <div className="relative aspect-[2/3] overflow-hidden rounded-[18px] bg-[#181b20]">
@@ -1593,11 +1551,7 @@ function DramaDetailContent() {
 
 export default function DramaDetailPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#141414] flex items-center justify-center">
-        <div className="text-white">{DRAMA_TEXT.en.loading}</div>
-      </div>
-    }>
+    <Suspense fallback={<DramaDetailSkeleton />}>
       <DramaDetailContent />
     </Suspense>
   );

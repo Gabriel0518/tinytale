@@ -11,6 +11,7 @@ import type {
   HomepageHeroBanner,
   HomepagePlaylist,
   IpGeoData,
+  Review,
   StreamPlaybackInfo,
 } from '@/types';
 import type {
@@ -478,6 +479,20 @@ export const browseApi = {
   },
 };
 
+export const dramaDiscoveryApi = {
+  getBootstrap: (dramaId: string) =>
+    getCachedPublic<{
+      success: boolean;
+      data: {
+        drama: Drama;
+        episodes: Episode[];
+        related: Drama[];
+        reviews: Review[];
+        reviewTotal: number;
+      };
+    }>(`/api/discovery/drama/${dramaId}`, 90_000),
+};
+
 export const publicCreatorApi = {
   getProfile: (creatorId: string) =>
     api.get<{ success: boolean; data: PublicCreatorProfilePayload }>(`/api/creators/${creatorId}/profile`),
@@ -655,11 +670,9 @@ export function prefetchDramaDetailBundle(dramaId: string): Promise<void> {
     return Promise.resolve();
   }
 
-  return Promise.allSettled([
-    dramasApi.getById(dramaId),
-    dramasApi.getRelated(dramaId),
-    reviewsApi.getByDrama(dramaId),
-  ]).then(() => undefined);
+  return dramaDiscoveryApi.getBootstrap(dramaId)
+    .then(() => undefined)
+    .catch(() => undefined);
 }
 
 // Coins API

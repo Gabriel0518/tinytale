@@ -7,7 +7,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SlidersHorizontal, Sparkles, Star } from 'lucide-react';
-import { browseApi } from '@/lib/api';
+import { browseApi, prefetchDramaDetailBundle } from '@/lib/api';
 import { MobileBrowseGridSkeleton, MobilePillRowSkeleton } from '@/components/mobile/MobileSkeletons';
 import { MobilePageShell } from '@/components/mobile/MobilePageShell';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
@@ -323,6 +323,7 @@ function BrowseContent() {
     const prefetchCount = isMobile ? 6 : 10;
     visibleDramas.slice(0, prefetchCount).forEach((drama) => {
       router.prefetch(localizePath(`/drama/${drama._id}`, locale));
+      void prefetchDramaDetailBundle(drama._id);
     });
   }, [visibleDramas, isMobile, router, locale]);
 
@@ -374,6 +375,17 @@ function BrowseContent() {
       <Link
         key={drama._id}
         href={localizePath(`/drama/${drama._id}`, locale)}
+        onMouseEnter={() => {
+          router.prefetch(localizePath(`/drama/${drama._id}`, locale));
+          void prefetchDramaDetailBundle(drama._id);
+        }}
+        onFocus={() => {
+          router.prefetch(localizePath(`/drama/${drama._id}`, locale));
+          void prefetchDramaDetailBundle(drama._id);
+        }}
+        onTouchStart={() => {
+          void prefetchDramaDetailBundle(drama._id);
+        }}
         className="group relative overflow-hidden rounded-[18px] border border-white/5 bg-[#151922] shadow-[0_12px_28px_rgba(0,0,0,0.24)] transition-transform duration-200 active:scale-[0.985] md:hover:-translate-y-1"
       >
         <div className="relative aspect-[0.71] overflow-hidden">
