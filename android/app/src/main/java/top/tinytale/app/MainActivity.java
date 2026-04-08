@@ -1,7 +1,11 @@
 package top.tinytale.app;
 
+import android.animation.ObjectAnimator;
+import android.animation.ValueAnimator;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -354,9 +358,24 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         overlay.setBackgroundColor(Color.parseColor("#141414"));
         overlay.setAlpha(1f);
 
+        View glow = new View(this);
+        GradientDrawable glowBackground = new GradientDrawable();
+        glowBackground.setShape(GradientDrawable.OVAL);
+        glowBackground.setColor(Color.parseColor("#2EE50914"));
+        glow.setBackground(glowBackground);
+        glow.setAlpha(0.9f);
+
+        FrameLayout.LayoutParams glowParams = new FrameLayout.LayoutParams(
+            dpToPx(260),
+            dpToPx(160)
+        );
+        glowParams.gravity = Gravity.CENTER;
+        overlay.addView(glow, glowParams);
+
         LinearLayout shell = new LinearLayout(this);
         shell.setOrientation(LinearLayout.VERTICAL);
         shell.setGravity(Gravity.CENTER);
+        shell.setPadding(dpToPx(32), 0, dpToPx(32), 0);
 
         FrameLayout.LayoutParams shellParams = new FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -366,7 +385,7 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         overlay.addView(shell, shellParams);
 
         ImageView logo = new ImageView(this);
-        int logoSize = dpToPx(144);
+        int logoSize = dpToPx(80);
         LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(logoSize, logoSize);
         logo.setImageResource(R.mipmap.ic_launcher);
         logo.setContentDescription(getString(R.string.app_name));
@@ -380,9 +399,9 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         titleParams.topMargin = dpToPx(18);
         title.setText("TinyTale");
         title.setTextColor(Color.WHITE);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28);
-        title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
-        title.setLetterSpacing(0.02f);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 25);
+        title.setTypeface(title.getTypeface(), Typeface.BOLD);
+        title.setLetterSpacing(-0.02f);
         shell.addView(title, titleParams);
 
         TextView subtitle = new TextView(this);
@@ -394,8 +413,56 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         subtitle.setText("SHORT DRAMA STREAMING");
         subtitle.setTextColor(Color.parseColor("#7AFFFFFF"));
         subtitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-        subtitle.setLetterSpacing(0.24f);
+        subtitle.setTypeface(subtitle.getTypeface(), Typeface.NORMAL);
+        subtitle.setLetterSpacing(0.18f);
         shell.addView(subtitle, subtitleParams);
+
+        FrameLayout progressTrack = new FrameLayout(this);
+        LinearLayout.LayoutParams progressTrackParams = new LinearLayout.LayoutParams(
+            dpToPx(128),
+            dpToPx(3)
+        );
+        progressTrackParams.topMargin = dpToPx(32);
+        GradientDrawable progressTrackBackground = new GradientDrawable();
+        progressTrackBackground.setShape(GradientDrawable.RECTANGLE);
+        progressTrackBackground.setCornerRadius(dpToPx(999));
+        progressTrackBackground.setColor(Color.parseColor("#14FFFFFF"));
+        progressTrack.setBackground(progressTrackBackground);
+        progressTrack.setClipToOutline(true);
+        shell.addView(progressTrack, progressTrackParams);
+
+        View progressBar = new View(this);
+        GradientDrawable progressBarBackground = new GradientDrawable(
+            GradientDrawable.Orientation.LEFT_RIGHT,
+            new int[] {
+                Color.parseColor("#26FFD84D"),
+                Color.parseColor("#FFD84D"),
+                Color.parseColor("#26FFD84D")
+            }
+        );
+        progressBarBackground.setShape(GradientDrawable.RECTANGLE);
+        progressBarBackground.setCornerRadius(dpToPx(999));
+        progressBar.setBackground(progressBarBackground);
+        FrameLayout.LayoutParams progressBarParams = new FrameLayout.LayoutParams(
+            dpToPx(64),
+            ViewGroup.LayoutParams.MATCH_PARENT
+        );
+        progressTrack.addView(progressBar, progressBarParams);
+
+        progressTrack.post(() -> {
+            float travel = progressTrack.getWidth() + progressBar.getWidth();
+            progressBar.setTranslationX(-progressBar.getWidth());
+            ObjectAnimator animator = ObjectAnimator.ofFloat(
+                progressBar,
+                View.TRANSLATION_X,
+                -progressBar.getWidth(),
+                travel * 0.55f,
+                travel
+            );
+            animator.setDuration(1200L);
+            animator.setRepeatCount(ValueAnimator.INFINITE);
+            animator.start();
+        });
 
         return overlay;
     }
