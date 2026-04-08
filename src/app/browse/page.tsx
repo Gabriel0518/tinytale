@@ -7,7 +7,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SlidersHorizontal, Sparkles, Star } from 'lucide-react';
-import { categoriesApi, dramasApi } from '@/lib/api';
+import { browseApi } from '@/lib/api';
 import { MobileBrowseGridSkeleton, MobilePillRowSkeleton } from '@/components/mobile/MobileSkeletons';
 import { MobilePageShell } from '@/components/mobile/MobilePageShell';
 import { PullToRefresh } from '@/components/mobile/PullToRefresh';
@@ -252,12 +252,10 @@ function BrowseContent() {
         setLoading(true);
       }
       try {
-        const [dramasRes, categoriesRes] = await Promise.all([
-          dramasApi.getAll({ limit: 50 }),
-          categoriesApi.getAll(),
-        ]);
-        const fetchedDramas = dramasRes.data?.dramas || [];
-        const fetchedCategories = categoriesRes.data || [];
+        const bootstrapRes = await browseApi.getBootstrap({ limit: 50 });
+        const payload = bootstrapRes.data || { dramas: [], categories: [] };
+        const fetchedDramas = Array.isArray(payload.dramas) ? payload.dramas : [];
+        const fetchedCategories = Array.isArray(payload.categories) ? payload.categories : [];
         setDramas(fetchedDramas);
         setCategories(fetchedCategories);
         writeViewCache<BrowseViewCache>(cacheKey, {
@@ -427,12 +425,10 @@ function BrowseContent() {
       <PullToRefresh
         disabled={!isMobile}
         onRefresh={async () => {
-          const [dramasRes, categoriesRes] = await Promise.all([
-            dramasApi.getAll({ limit: 50 }),
-            categoriesApi.getAll(),
-          ]);
-          const fetchedDramas = dramasRes.data?.dramas || [];
-          const fetchedCategories = categoriesRes.data || [];
+          const bootstrapRes = await browseApi.getBootstrap({ limit: 50 });
+          const payload = bootstrapRes.data || { dramas: [], categories: [] };
+          const fetchedDramas = Array.isArray(payload.dramas) ? payload.dramas : [];
+          const fetchedCategories = Array.isArray(payload.categories) ? payload.categories : [];
           setDramas(fetchedDramas);
           setCategories(fetchedCategories);
           writeViewCache<BrowseViewCache>(cacheKey, {

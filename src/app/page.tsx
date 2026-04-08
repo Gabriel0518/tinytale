@@ -7,7 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Check, ChevronRight, Play, Plus, Star } from 'lucide-react';
-import { dramasApi, categoriesApi, userApi } from '@/lib/api';
+import { homeApi, userApi } from '@/lib/api';
 import { Drama, Category, HomepageBanner, HomepageFeaturedBuckets, HomepageHeroBanner, HomepagePlaylist } from '@/types';
 import { Navbar } from '@/components/features/Navbar';
 import { HomeCarousel } from '@/components/features/HomeCarousel';
@@ -700,20 +700,12 @@ export default function Home() {
     }, 10000);
 
     try {
-      const [dramasRes, categoriesRes, rankingsRes, featuredRes, playlistsRes, bannersRes, heroBannersRes] = await Promise.all([
-        dramasApi.getAll({ limit: isMobile ? MOBILE_HOME_DRAMA_LIMIT : 200 }),
-        categoriesApi.getAll(),
-        dramasApi.getRankings('rating').catch(() => ({ data: [] })),
-        dramasApi.getFeatured().catch(() => ({ data: {} })),
-        dramasApi.getPlaylists().catch(() => ({ data: [] })),
-        dramasApi.getBanners().catch(() => ({ data: [] })),
-        dramasApi.getHeroBanners().catch(() => ({ data: [] })),
-      ]);
-
+      const bootstrapRes = await homeApi.getBootstrap({ isMobile });
+      const bootstrapData = (bootstrapRes as any)?.data || bootstrapRes || {};
       clearTimeout(timeoutId);
 
-      const fetchedDramas = dramasRes.data?.dramas || [];
-      const fetchedCategories = categoriesRes.data || [];
+      const fetchedDramas = Array.isArray(bootstrapData.dramas) ? bootstrapData.dramas : [];
+      const fetchedCategories = Array.isArray(bootstrapData.categories) ? bootstrapData.categories : [];
       const localizedDramas = fetchedDramas;
       const localizedMap = new Map<string, Drama>(
         localizedDramas.map((drama: Drama) => [drama._id, drama])
@@ -727,7 +719,7 @@ export default function Home() {
       setDramas(localizedDramas);
       setCategories(localizedCategories);
 
-      const rankings = rankingsRes.data || [];
+      const rankings = Array.isArray(bootstrapData.rankings) ? bootstrapData.rankings : [];
       setHotRankings(
         Array.isArray(rankings)
           ? rankings.slice(0, 5).map((item: Drama) => mergeLocalizedDrama(item, localizedMap))
@@ -735,7 +727,7 @@ export default function Home() {
       );
       setHeroIndex(0);
 
-      const featuredData: HomepageFeaturedBuckets = featuredRes.data || {};
+      const featuredData: HomepageFeaturedBuckets = bootstrapData.featured || {};
       const recDramas = featuredData.featured || [];
       const trendingFeatured = featuredData.trending || [];
       const newFeatured = featuredData.new || [];
@@ -755,7 +747,7 @@ export default function Home() {
           : []
       );
 
-      const plData = playlistsRes.data || [];
+      const plData = Array.isArray(bootstrapData.playlists) ? bootstrapData.playlists : [];
       setCustomPlaylists(
         (Array.isArray(plData) ? plData : []).map((p: any) => ({
           _id: p._id,
@@ -767,7 +759,7 @@ export default function Home() {
             : [] }))
       );
 
-      const bnData = bannersRes.data || [];
+      const bnData = Array.isArray(bootstrapData.banners) ? bootstrapData.banners : [];
       setBanners(
         (Array.isArray(bnData) ? bnData : []).map((b: any) => ({
           _id: b._id, title: b.title || '', subtitle: b.subtitle || '',
@@ -775,7 +767,7 @@ export default function Home() {
           slot: b.slot || 'standard', position: b.position ?? 0 }))
       );
 
-      const hbData = heroBannersRes.data || [];
+      const hbData = Array.isArray(bootstrapData.heroBanners) ? bootstrapData.heroBanners : [];
       setHeroBanners(
         (Array.isArray(hbData) ? hbData : []).map((item: any) => ({
           _id: item._id,
