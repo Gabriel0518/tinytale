@@ -1,22 +1,16 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { SplashScreen } from '@capacitor/splash-screen';
 import { bootstrapRuntime } from './bootstrap-runtime';
 import { bootstrapSession } from './bootstrap-session';
 
 type LaunchState = 'booting' | 'ready';
 
-const MIN_BRAND_DURATION_MS = 680;
+const MIN_BRAND_DURATION_MS = 3000;
 
 export function LaunchCoordinator({ children }: { children: ReactNode }) {
   const [state, setState] = useState<LaunchState>('booting');
-  const [snapshot, setSnapshot] = useState<{
-    token: string | null;
-    hasUser: boolean;
-    hasRuntime: boolean;
-  }>({
-    token: null,
-    hasUser: false,
-    hasRuntime: false,
-  });
+  const nativeSplashDismissedRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -30,11 +24,6 @@ export function LaunchCoordinator({ children }: { children: ReactNode }) {
 
       window.setTimeout(() => {
         if (!mounted) return;
-        setSnapshot({
-          token: session.token,
-          hasUser: Boolean(session.user),
-          hasRuntime: Boolean(runtime.runtimeSettings),
-        });
         setState('ready');
       }, waitMs);
     }
@@ -46,33 +35,77 @@ export function LaunchCoordinator({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const launchCopy = useMemo(
-    () => ({
-      headline: state === 'booting' ? 'Preparing your local shell' : 'Shell ready',
-      detail:
-        state === 'booting'
-          ? 'Restoring session, runtime settings, and first-route shell.'
-          : snapshot.hasUser
-            ? 'Session restored. Remote hydration can continue in the background.'
-            : 'Guest shell restored. Remote hydration can continue in the background.',
-    }),
-    [snapshot.hasUser, state]
-  );
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || nativeSplashDismissedRef.current) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    const hideNativeSplashAfterFirstPaint = async () => {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve());
+        });
+      });
+
+      if (cancelled || nativeSplashDismissedRef.current) return;
+
+      nativeSplashDismissedRef.current = true;
+
+      try {
+        await SplashScreen.hide({ fadeOutDuration: 180 });
+      } catch {
+        // Ignore hide failures and let the native shell continue booting.
+      }
+    };
+
+    void hideNativeSplashAfterFirstPaint();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const staticLaunchScreen = document.getElementById('native-launch-screen');
+    if (!staticLaunchScreen) return undefined;
+
+    if (state !== 'ready') {
+      staticLaunchScreen.classList.remove('native-launch-screen-hidden');
+      return undefined;
+    }
+
+    staticLaunchScreen.classList.add('native-launch-screen-hidden');
+    const removeTimeout = window.setTimeout(() => {
+      staticLaunchScreen.remove();
+    }, 260);
+
+    return () => {
+      window.clearTimeout(removeTimeout);
+    };
+  }, [state]);
 
   return (
     <>
       <div className={`launch-overlay ${state === 'ready' ? 'launch-overlay-hidden' : ''}`} aria-hidden={state === 'ready'}>
         <div className="launch-panel">
-          <div className="launch-badge">T</div>
-          <p className="launch-kicker">ANDROID-FIRST NATIVE STARTUP</p>
-          <h1 className="launch-headline">{launchCopy.headline}</h1>
-          <p className="launch-detail">{launchCopy.detail}</p>
+          <div className="launch-logo-wrap">
+            <img className="launch-logo" src="/ui/logo-mobile.png" alt="TinyTale" />
+          </div>
+          <p className="launch-kicker">Premium Vertical Stories</p>
+          <h1 className="launch-headline">Your next episode is almost ready.</h1>
+          <p className="launch-detail">Warming up recommendations, artwork, and playback so the home feed lands fully dressed.</p>
+          <div className="launch-highlight">
+            <span className="launch-dot" />
+            <span>Brand launch hold: 3 seconds</span>
+          </div>
           <div className="launch-progress">
             <span className="launch-progress-bar" />
           </div>
           <div className="launch-footnote">
-            <span>{snapshot.token ? 'session-found' : 'guest-mode'}</span>
-            <span>{snapshot.hasRuntime ? 'runtime-restored' : 'runtime-defaults'}</span>
+            <span>TinyTale Original</span>
+            <span>North America launch shell</span>
           </div>
         </div>
       </div>

@@ -646,7 +646,7 @@ export default function PlayerMobileExperience({
         showInternalChrome={false}
         showInternalSpeedMenu={false}
         showInternalProgress
-        progressBarOffset="var(--player-nav-top-offset)"
+        progressBarOffset="0px"
         className="h-[calc(100dvh-var(--player-nav-top-offset))] w-full"
       />
 

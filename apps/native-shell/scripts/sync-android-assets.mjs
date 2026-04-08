@@ -38,8 +38,8 @@ async function main() {
   await copyDir(distDir, publicDir);
 
   const capacitorConfig = {
-    appId: 'top.tinytale.app',
-    appName: 'TinyTale',
+    appId: 'top.tinytale.shell',
+    appName: 'TinyTale Shell',
     webDir: 'dist',
   };
 

@@ -65,9 +65,11 @@ a {
   z-index: 50;
   display: grid;
   place-items: center;
+  padding: 20px;
   background:
-    radial-gradient(circle at top, rgba(255, 59, 92, 0.14), transparent 34%),
-    rgba(15, 17, 21, 0.98);
+    radial-gradient(circle at top, rgba(255, 59, 92, 0.18), transparent 32%),
+    radial-gradient(circle at bottom, rgba(255, 216, 77, 0.08), transparent 24%),
+    linear-gradient(180deg, #18110f 0%, #111318 28%, #0b0c10 100%);
   transition: opacity 260ms ease, visibility 260ms ease;
 }
 
@@ -79,27 +81,29 @@ a {
 
 .launch-panel {
   width: min(100% - 32px, 420px);
-  padding: 32px 26px;
-  border: 1px solid var(--tt-border);
-  border-radius: var(--tt-radius-2xl);
+  padding: 30px 24px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 32px;
   background:
-    linear-gradient(180deg, rgba(30, 37, 50, 0.96), rgba(17, 20, 27, 0.98)),
-    var(--tt-surface);
-  box-shadow: var(--tt-shadow);
+    linear-gradient(180deg, rgba(31, 21, 18, 0.96), rgba(15, 17, 21, 0.98)),
+    rgba(19, 23, 32, 0.96);
+  box-shadow:
+    0 26px 80px rgba(0, 0, 0, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   text-align: center;
+  backdrop-filter: blur(10px);
 }
 
-.launch-badge {
-  display: grid;
-  place-items: center;
-  width: 72px;
-  height: 72px;
+.launch-logo-wrap {
+  display: flex;
+  justify-content: center;
   margin: 0 auto 18px;
-  border-radius: 24px;
-  background: linear-gradient(135deg, var(--tt-accent), #ff6b6b);
-  color: #fff;
-  font-size: 28px;
-  font-weight: 900;
+}
+
+.launch-logo {
+  width: min(220px, 72vw);
+  height: auto;
+  filter: drop-shadow(0 18px 38px rgba(0, 0, 0, 0.4));
 }
 
 .launch-kicker,
@@ -124,9 +128,9 @@ a {
 }
 
 .launch-headline {
-  margin-top: 12px;
-  font-size: 34px;
-  line-height: 1;
+  margin-top: 14px;
+  font-size: 32px;
+  line-height: 1.02;
 }
 
 .launch-detail,
@@ -142,6 +146,26 @@ a {
 .notification-meta {
   color: var(--tt-text-muted);
   line-height: 1.55;
+}
+
+.launch-highlight {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+}
+
+.launch-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #ffd84d, #ff3b5c);
+  box-shadow: 0 0 0 4px rgba(255, 59, 92, 0.12);
 }
 
 .launch-progress {

@@ -18,8 +18,8 @@ function normalizeServerUrl(value: string): string {
 const resolvedServerUrl = serverUrl ? normalizeServerUrl(serverUrl) : undefined;
 
 const config: CapacitorConfig = {
-  appId: 'top.tinytale.app',
-  appName: 'TinyTale',
+  appId: 'top.tinytale.shell',
+  appName: 'TinyTale Shell',
   webDir: 'dist',
   ...(resolvedServerUrl
     ? {
@@ -30,6 +30,14 @@ const config: CapacitorConfig = {
         },
       }
     : {}),
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 0,
+      launchAutoHide: false,
+      backgroundColor: '#141414',
+      showSpinner: false,
+    },
+  },
 };
 
 export default config;

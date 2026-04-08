@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">TinyTale</string>
-    <string name="title_activity_main">TinyTale</string>
-    <string name="package_name">top.tinytale.app</string>
-    <string name="custom_url_scheme">top.tinytale.app</string>
+    <string name="app_name">TinyTale Shell</string>
+    <string name="title_activity_main">TinyTale Shell</string>
+    <string name="package_name">top.tinytale.shell</string>
+    <string name="custom_url_scheme">top.tinytale.shell</string>
 </resources>

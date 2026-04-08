@@ -83,6 +83,7 @@ type PlayerHandleLike = Pick<
   | 'setMuted'
   | 'setPlaybackRate'
   | 'getPlaybackRate'
+  | 'getCurrentTime'
   | 'getDuration'
   | 'enterPictureInPicture'
   | 'exitPictureInPicture'
@@ -97,6 +98,7 @@ type PlayerHandleLike = Pick<
   | 'setMuted'
   | 'setPlaybackRate'
   | 'getPlaybackRate'
+  | 'getCurrentTime'
   | 'getDuration'
   | 'enterPictureInPicture'
   | 'exitPictureInPicture'
@@ -111,6 +113,7 @@ type PlayerHandleLike = Pick<
   | 'setMuted'
   | 'setPlaybackRate'
   | 'getPlaybackRate'
+  | 'getCurrentTime'
   | 'getDuration'
   | 'enterPictureInPicture'
   | 'exitPictureInPicture'
@@ -200,6 +203,7 @@ export default function MobilePlayer({
   const lastPlaybackPositionRef = useRef(initialSeekTime);
   const lastPlaybackProgressAtRef = useRef(Date.now());
   const bufferSignalAtRef = useRef<number | null>(null);
+  const bufferSignalTimeRef = useRef<number | null>(null);
   const bufferSpinnerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(autoplay);
@@ -267,11 +271,12 @@ export default function MobilePlayer({
     lastPlaybackPositionRef.current = restoredSeekTime;
     lastPlaybackProgressAtRef.current = Date.now();
     bufferSignalAtRef.current = null;
+    bufferSignalTimeRef.current = null;
     if (bufferSpinnerTimerRef.current) {
       clearTimeout(bufferSpinnerTimerRef.current);
       bufferSpinnerTimerRef.current = null;
     }
-  }, [videoUrl, streamVideoId, restoredSeekTime, playbackRateProp]);
+  }, [autoplay, videoUrl, streamVideoId, restoredSeekTime, playbackRateProp]);
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -297,6 +302,7 @@ export default function MobilePlayer({
     setIsBuffering(false);
     if (clearSignal) {
       bufferSignalAtRef.current = null;
+      bufferSignalTimeRef.current = null;
     }
   }, [clearBufferSpinnerTimer]);
 
@@ -306,18 +312,33 @@ export default function MobilePlayer({
       return;
     }
 
+    if (
+      !isPlayingRef.current ||
+      !hasStartedPlaybackRef.current ||
+      !hasAdvancedPlaybackRef.current
+    ) {
+      dismissBuffering();
+      return;
+    }
+
     const signaledAt = Date.now();
+    const signaledTime = playerRef.current?.getCurrentTime?.() ?? lastPlaybackPositionRef.current;
     bufferSignalAtRef.current = signaledAt;
+    bufferSignalTimeRef.current = signaledTime;
     setIsBuffering(true);
     setShowBufferSpinner(false);
     clearBufferSpinnerTimer();
 
     bufferSpinnerTimerRef.current = setTimeout(() => {
       const latestSignalAt = bufferSignalAtRef.current;
+      const latestSignalTime = bufferSignalTimeRef.current;
       const lastProgressAt = lastPlaybackProgressAtRef.current;
+      const currentPlaybackTime = playerRef.current?.getCurrentTime?.() ?? lastPlaybackPositionRef.current;
       const hasPlaybackActuallyStalled =
         latestSignalAt !== null &&
         latestSignalAt === signaledAt &&
+        latestSignalTime !== null &&
+        Math.abs(currentPlaybackTime - latestSignalTime) < 0.12 &&
         lastProgressAt <= signaledAt;
 
       if (
@@ -327,7 +348,10 @@ export default function MobilePlayer({
         hasAdvancedPlaybackRef.current
       ) {
         setShowBufferSpinner(true);
+        return;
       }
+
+      dismissBuffering();
     }, 850);
   }, [clearBufferSpinnerTimer, dismissBuffering]);
 
@@ -883,6 +907,7 @@ export default function MobilePlayer({
           onPlay={() => {
             setHasStartedPlayback(true);
             setIsPlaying(true);
+            lastPlaybackProgressAtRef.current = Date.now();
             dismissBuffering(false);
             if (playerMuted) {
               // Unmute imperatively only — don't call setPlayerMuted(false)
@@ -940,6 +965,7 @@ export default function MobilePlayer({
           onPlay={() => {
             setHasStartedPlayback(true);
             setIsPlaying(true);
+            lastPlaybackProgressAtRef.current = Date.now();
             dismissBuffering(false);
             onPlay?.();
           }}

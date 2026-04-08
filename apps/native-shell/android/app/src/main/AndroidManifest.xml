@@ -44,7 +44,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
 
-                <data android:scheme="top.tinytale.app" />
+                <data android:scheme="top.tinytale.shell" />
             </intent-filter>
 
         </activity>

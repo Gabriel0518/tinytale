@@ -5,7 +5,7 @@ import { removeLocalePrefix } from '@i18n';
 import { getNativeShellWebBaseUrl } from '../lib/runtime-config';
 
 const APP_LINK_HOSTS = new Set(['tinytale.top', 'www.tinytale.top', 'localhost', '10.0.2.2']);
-const CUSTOM_SCHEMES = new Set(['top.tinytale.app', 'tinytale']);
+const CUSTOM_SCHEMES = new Set(['top.tinytale.shell', 'tinytale']);
 const PENDING_ROUTE_KEY = 'tinytale.native.pending-route';
 const LAST_HANDLED_TARGET_DEDUPE_MS = 2500;
 const EXTERNAL_WEB_RETURN_DEDUPE_MS = 15000;

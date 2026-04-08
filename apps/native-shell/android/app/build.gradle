@@ -1,10 +1,12 @@
 apply plugin: 'com.android.application'
 
+def nativeShellApplicationId = "top.tinytale.shell"
+
 android {
     namespace = "top.tinytale.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "top.tinytale.app"
+        applicationId nativeShellApplicationId
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -46,7 +48,7 @@ apply from: 'capacitor.build.gradle'
 
 try {
     def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
+    if (servicesJSON.text && nativeShellApplicationId == "top.tinytale.app") {
         apply plugin: 'com.google.gms.google-services'
     }
 } catch(Exception e) {

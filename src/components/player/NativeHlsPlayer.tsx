@@ -79,6 +79,7 @@ export interface NativeHlsPlayerHandle {
   setMuted: (muted: boolean) => void;
   setPlaybackRate: (rate: number) => void;
   getPlaybackRate: () => number;
+  getCurrentTime: () => number;
   getDuration: () => number;
   enterPictureInPicture: () => Promise<void>;
   exitPictureInPicture: () => Promise<void>;
@@ -126,8 +127,11 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
     const autoplayRef = useRef(autoplay);
     const mutedRef = useRef(muted);
     const initialSeekTimeRef = useRef(initialSeekTime);
+    const pendingSeekTimeRef = useRef<number | null>(initialSeekTime > 0 ? initialSeekTime : null);
     const demuxerRetryCountRef = useRef(0);
     const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastPlaybackTimeRef = useRef(0);
+    const disposedRef = useRef(false);
 
     useEffect(() => {
       onAvailableAudioOptionsChangeRef.current = onAvailableAudioOptionsChange;
@@ -144,6 +148,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
       autoplayRef.current = autoplay;
       mutedRef.current = muted;
       initialSeekTimeRef.current = initialSeekTime;
+      pendingSeekTimeRef.current = initialSeekTime > 0 ? initialSeekTime : null;
     }, [autoplay, initialSeekTime, muted]);
 
     useImperativeHandle(ref, () => ({
@@ -167,6 +172,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         if (videoRef.current) videoRef.current.playbackRate = rate;
       },
       getPlaybackRate: () => playbackRateRef.current,
+      getCurrentTime: () => videoRef.current?.currentTime || 0,
       getDuration: () => videoRef.current?.duration || 0,
       enterPictureInPicture: async () => {
         await videoRef.current?.requestPictureInPicture?.();
@@ -218,11 +224,66 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
       onAvailableAudioOptionsChangeRef.current?.(options);
     }, []);
 
+    const applyPendingSeekTime = useCallback((video: HTMLVideoElement, reason: string) => {
+      const pendingSeekTime = pendingSeekTimeRef.current;
+      if (pendingSeekTime === null || pendingSeekTime <= 0) return false;
+
+      const duration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+      const targetTime = duration > 0
+        ? Math.max(0, Math.min(pendingSeekTime, Math.max(0, duration - 0.2)))
+        : Math.max(0, pendingSeekTime);
+
+      if (Math.abs(video.currentTime - targetTime) < 0.15) {
+        pendingSeekTimeRef.current = null;
+        initialSeekTimeRef.current = 0;
+        return false;
+      }
+
+      try {
+        video.currentTime = targetTime;
+        log(`${reason} seek=${targetTime.toFixed(2)}`);
+        if (Math.abs(video.currentTime - targetTime) < 0.35) {
+          pendingSeekTimeRef.current = null;
+          initialSeekTimeRef.current = 0;
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    }, []);
+
+    const recoverPlaybackSource = useCallback((
+      video: HTMLVideoElement,
+      reason: string,
+      retryNumber: number,
+    ) => {
+      const savedTime = Math.max(0, lastPlaybackTimeRef.current || video.currentTime || 0);
+      pendingSeekTimeRef.current = savedTime > 0 ? savedTime : null;
+      log(`${reason} #${retryNumber}/${MAX_DEMUXER_RECOVERY_RETRIES} restore=${savedTime.toFixed(2)}`);
+      onBufferingRef.current?.(true);
+
+      video.removeAttribute('src');
+      setTimeout(() => {
+        if (disposedRef.current) return;
+        log(`${reason} #${retryNumber} reloading src`);
+        video.src = videoUrl;
+        try {
+          video.load();
+        } catch {
+          // Ignore explicit load failures and let play() re-drive the element.
+        }
+        void video.play().catch((err: any) =>
+          log(`${reason} play rejected: ${err.message || err}`)
+        );
+      }, DEMUXER_RECOVERY_DELAY_MS);
+    }, [videoUrl]);
+
     // Attach HLS.js or use native HLS support
     useEffect(() => {
       const video = videoRef.current;
       if (!video || !videoUrl) return undefined;
       let disposed = false;
+      disposedRef.current = false;
 
       log(`init url=${videoUrl.slice(0, 100)} autoplay=${autoplayRef.current} muted=${mutedRef.current}`);
 
@@ -231,9 +292,10 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         ['loadstart', () => log(`loadstart readyState=${video.readyState} networkState=${video.networkState}`)],
         ['loadedmetadata', () => {
           log(`loadedmetadata duration=${video.duration?.toFixed(2)} readyState=${video.readyState}`);
-          if (initialSeekTimeRef.current > 0) video.currentTime = initialSeekTimeRef.current;
+          applyPendingSeekTime(video, 'loadedmetadata');
         }],
         ['canplay', () => {
+          applyPendingSeekTime(video, 'canplay');
           log(`canplay duration=${video.duration?.toFixed(2)} currentTime=${video.currentTime.toFixed(2)}`);
           onBufferingRef.current?.(false);
           if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
@@ -244,6 +306,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
           onPlayRef.current?.();
         }],
         ['playing', () => {
+          applyPendingSeekTime(video, 'playing');
           log(`playing currentTime=${video.currentTime.toFixed(2)}`);
           onBufferingRef.current?.(false);
           if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
@@ -255,28 +318,17 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         ['waiting', () => {
           log(`waiting currentTime=${video.currentTime.toFixed(2)} readyState=${video.readyState}`);
           onBufferingRef.current?.(true);
-          // Start stall timeout — if waiting persists for STALL_TIMEOUT_MS without
-          // resuming, force a recovery reload.
-          if (!stallTimerRef.current) {
+          // Only consider recovery after real playback has started and the frame
+          // has been stuck for an extended period. Normal rebuffering should
+          // freeze on the current frame instead of resetting the source.
+          if (!stallTimerRef.current && video.currentTime > 0.25 && !video.paused && !video.ended) {
             stallTimerRef.current = setTimeout(() => {
               stallTimerRef.current = null;
               if (disposed || video.paused || video.readyState >= 4) return;
               if (demuxerRetryCountRef.current >= MAX_DEMUXER_RECOVERY_RETRIES) return;
               demuxerRetryCountRef.current += 1;
-              const savedTime = video.currentTime;
               const retryNum = demuxerRetryCountRef.current;
-              log(`stall-timeout-recovery #${retryNum}/${MAX_DEMUXER_RECOVERY_RETRIES} from t=${savedTime.toFixed(2)}`);
-              onBufferingRef.current?.(true);
-              video.removeAttribute('src');
-              setTimeout(() => {
-                if (disposed) return;
-                log(`stall-timeout-recovery #${retryNum} reloading src`);
-                video.src = videoUrl;
-                video.currentTime = Math.max(0, savedTime - 2);
-                void video.play().catch((err: any) =>
-                  log(`stall-timeout-recovery play rejected: ${err.message || err}`)
-                );
-              }, DEMUXER_RECOVERY_DELAY_MS);
+              recoverPlaybackSource(video, 'stall-timeout-recovery', retryNum);
             }, STALL_TIMEOUT_MS);
           }
         }],
@@ -294,21 +346,8 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
           // Auto-recover from DEMUXER_ERROR_COULD_NOT_PARSE (MEDIA_ERR_4)
           if (e?.code === 4 && demuxerRetryCountRef.current < MAX_DEMUXER_RECOVERY_RETRIES) {
             demuxerRetryCountRef.current += 1;
-            const savedTime = video.currentTime;
             const retryNum = demuxerRetryCountRef.current;
-            log(`demuxer-recovery #${retryNum}/${MAX_DEMUXER_RECOVERY_RETRIES} from t=${savedTime.toFixed(2)}`);
-            onBufferingRef.current?.(true);
-
-            video.removeAttribute('src');
-            setTimeout(() => {
-              if (disposed) return;
-              log(`demuxer-recovery #${retryNum} reloading src`);
-              video.src = videoUrl;
-              video.currentTime = Math.max(0, savedTime - 2);
-              void video.play().catch((err: any) =>
-                log(`demuxer-recovery play rejected: ${err.message || err}`)
-              );
-            }, DEMUXER_RECOVERY_DELAY_MS);
+            recoverPlaybackSource(video, 'demuxer-recovery', retryNum);
             return;
           }
 
@@ -317,6 +356,11 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         ['timeupdate', () => {
           const t = video.currentTime;
           const d = video.duration || 0;
+          lastPlaybackTimeRef.current = t;
+          if (pendingSeekTimeRef.current !== null && Math.abs(t - pendingSeekTimeRef.current) < 0.35) {
+            pendingSeekTimeRef.current = null;
+            initialSeekTimeRef.current = 0;
+          }
           onTimeUpdateRef.current?.(t, d);
           // Reset retry counter on successful playback progress
           if (demuxerRetryCountRef.current > 0 && t > 0) {
@@ -480,6 +524,7 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
 
       return () => {
         disposed = true;
+        disposedRef.current = true;
         events.forEach(([name, handler]) => video.removeEventListener(name, handler));
         try {
           video.pause();
@@ -519,10 +564,11 @@ const NativeHlsPlayer = forwardRef<NativeHlsPlayerHandle, NativeHlsPlayerProps>(
         lastLogSecRef.current = -1;
         discoveredAudioTracksRef.current = [];
         demuxerRetryCountRef.current = 0;
+        lastPlaybackTimeRef.current = 0;
         if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
         publishAudioOptions([]);
       };
-    }, [autoplay, initialSeekTime, muted, publishAudioOptions, videoUrl]);
+    }, [applyPendingSeekTime, autoplay, initialSeekTime, muted, publishAudioOptions, recoverPlaybackSource, videoUrl]);
 
     // Sync muted prop
     useEffect(() => {

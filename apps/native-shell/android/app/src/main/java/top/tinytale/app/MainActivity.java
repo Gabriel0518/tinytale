@@ -122,8 +122,8 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         setIntent(launchIntent);
         super.onCreate(savedInstanceState);
         DebugPushPlugin.captureLaunchIntent(launchIntent);
-        getBridge().getWebView().setBackgroundColor(Color.parseColor("#141414"));
-        ((View) getBridge().getWebView().getParent()).setBackgroundColor(Color.parseColor("#141414"));
+        getBridge().getWebView().setBackgroundColor(Color.TRANSPARENT);
+        ((View) getBridge().getWebView().getParent()).setBackgroundResource(R.drawable.launch_background);
         String currentUserAgent = getBridge().getWebView().getSettings().getUserAgentString();
         if (currentUserAgent == null) {
             currentUserAgent = "";
