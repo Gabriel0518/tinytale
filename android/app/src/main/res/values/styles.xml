@@ -20,7 +20,7 @@
         <item name="android:background">#141414</item>
         <item name="android:windowBackground">@drawable/splash_brand_background</item>
         <item name="windowSplashScreenBackground">#141414</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_transparent_icon</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>

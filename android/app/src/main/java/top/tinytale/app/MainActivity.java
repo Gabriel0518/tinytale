@@ -18,7 +18,6 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.core.graphics.Insets;
@@ -358,20 +357,6 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         overlay.setBackgroundColor(Color.parseColor("#141414"));
         overlay.setAlpha(1f);
 
-        View glow = new View(this);
-        GradientDrawable glowBackground = new GradientDrawable();
-        glowBackground.setShape(GradientDrawable.OVAL);
-        glowBackground.setColor(Color.parseColor("#2EE50914"));
-        glow.setBackground(glowBackground);
-        glow.setAlpha(0.9f);
-
-        FrameLayout.LayoutParams glowParams = new FrameLayout.LayoutParams(
-            dpToPx(260),
-            dpToPx(160)
-        );
-        glowParams.gravity = Gravity.CENTER;
-        overlay.addView(glow, glowParams);
-
         LinearLayout shell = new LinearLayout(this);
         shell.setOrientation(LinearLayout.VERTICAL);
         shell.setGravity(Gravity.CENTER);
@@ -384,10 +369,26 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         shellParams.gravity = Gravity.CENTER;
         overlay.addView(shell, shellParams);
 
-        ImageView logo = new ImageView(this);
+        TextView logo = new TextView(this);
         int logoSize = dpToPx(80);
         LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(logoSize, logoSize);
-        logo.setImageResource(R.mipmap.ic_launcher);
+        GradientDrawable logoBackground = new GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            new int[] {
+                Color.parseColor("#FF445F"),
+                Color.parseColor("#D90B1C")
+            }
+        );
+        logoBackground.setShape(GradientDrawable.RECTANGLE);
+        logoBackground.setCornerRadius(dpToPx(26));
+        logoBackground.setStroke(dpToPx(1), Color.parseColor("#1AFFFFFF"));
+        logo.setBackground(logoBackground);
+        logo.setGravity(Gravity.CENTER);
+        logo.setText("T");
+        logo.setTextColor(Color.WHITE);
+        logo.setTextSize(TypedValue.COMPLEX_UNIT_SP, 32);
+        logo.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
+        logo.setLetterSpacing(-0.04f);
         logo.setContentDescription(getString(R.string.app_name));
         shell.addView(logo, logoParams);
 

@@ -5,8 +5,4 @@
             <solid android:color="#141414" />
         </shape>
     </item>
-
-    <item
-        android:drawable="@mipmap/ic_launcher"
-        android:gravity="center" />
 </layer-list>
