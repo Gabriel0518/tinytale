@@ -1,5 +1,6 @@
 import { createApiClient, createAuthApi } from '@api';
 import type {
+  Category,
   Drama,
   Episode,
   EpisodeAccessResult,
@@ -116,6 +117,15 @@ function getClientLanguageHint(): string | null {
   return detectClientLocale(window.location.pathname);
 }
 
+type PublicCacheEntry = {
+  expiresAt: number;
+  data?: unknown;
+  promise?: Promise<unknown>;
+};
+
+const PUBLIC_ENDPOINT_CACHE_TTL_MS = 60_000;
+const publicEndpointCache = new Map<string, PublicCacheEntry>();
+
 const LANGUAGE_QUERY_ENDPOINT_PREFIXES = [
   '/api/dramas',
   '/api/categories',
@@ -130,6 +140,51 @@ function appendLanguageQuery(endpoint: string, language: string | null): string 
   if (!LANGUAGE_QUERY_ENDPOINT_PREFIXES.some((prefix) => endpoint.startsWith(prefix))) return endpoint;
   if (endpoint.includes('lang=')) return endpoint;
   return `${endpoint}${endpoint.includes('?') ? '&' : '?'}lang=${encodeURIComponent(language)}`;
+}
+
+function buildPublicCacheKey(endpoint: string): string {
+  return appendLanguageQuery(endpoint, getClientLanguageHint());
+}
+
+function getCachedPublic<T = any>(endpoint: string, ttlMs = PUBLIC_ENDPOINT_CACHE_TTL_MS): Promise<T> {
+  if (typeof window === 'undefined') {
+    return api.get<T>(endpoint);
+  }
+
+  const cacheKey = buildPublicCacheKey(endpoint);
+  const now = Date.now();
+  const cached = publicEndpointCache.get(cacheKey);
+
+  if (cached?.data !== undefined && cached.expiresAt > now) {
+    return Promise.resolve(cached.data as T);
+  }
+
+  if (cached?.promise) {
+    return cached.promise as Promise<T>;
+  }
+
+  const request = api.get<T>(endpoint)
+    .then((data) => {
+      publicEndpointCache.set(cacheKey, {
+        data,
+        expiresAt: Date.now() + ttlMs,
+      });
+      return data;
+    })
+    .catch((error) => {
+      const latest = publicEndpointCache.get(cacheKey);
+      if (latest?.promise === request) {
+        publicEndpointCache.delete(cacheKey);
+      }
+      throw error;
+    });
+
+  publicEndpointCache.set(cacheKey, {
+    expiresAt: now + ttlMs,
+    promise: request,
+  });
+
+  return request;
 }
 
 class ApiClient {
@@ -298,6 +353,21 @@ export type ContinueWatchingEntry = {
   updatedAt: string;
 };
 
+export type HomeBootstrapPayload = {
+  dramas: Drama[];
+  categories: Category[];
+  rankings: Drama[];
+  featured: HomepageFeaturedBuckets;
+  playlists: HomepagePlaylist[];
+  banners: HomepageBanner[];
+  heroBanners: HomepageHeroBanner[];
+};
+
+export type BrowseBootstrapPayload = {
+  dramas: Drama[];
+  categories: Category[];
+};
+
 export type PublicCreatorProfilePayload = {
   creator: {
     _id: string;
@@ -362,7 +432,7 @@ export const dramasApi = {
   },
 
   getById: (id: string) =>
-    api.get(`/api/dramas/${id}`),
+    getCachedPublic(`/api/dramas/${id}`),
 
   getFeatured: () =>
     api.get<{ success: boolean; data: HomepageFeaturedBuckets }>('/api/featured'),
@@ -383,7 +453,29 @@ export const dramasApi = {
     api.get<{ success: boolean; data: HomepageHeroBanner[] }>('/api/hero-banners'),
 
   getRelated: (id: string) =>
-    api.get(`/api/dramas/${id}/related`),
+    getCachedPublic(`/api/dramas/${id}/related`),
+};
+
+export const homeApi = {
+  getBootstrap: (params?: { isMobile?: boolean }) => {
+    const query = new URLSearchParams();
+    query.set('viewport', params?.isMobile ? 'mobile' : 'desktop');
+    return getCachedPublic<{ success: boolean; data: HomeBootstrapPayload }>(
+      `/api/discovery/home?${query.toString()}`,
+      45_000
+    );
+  },
+};
+
+export const browseApi = {
+  getBootstrap: (params?: { limit?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.limit) {
+      query.set('limit', String(params.limit));
+    }
+    const endpoint = `/api/discovery/browse${query.toString() ? `?${query.toString()}` : ''}`;
+    return getCachedPublic<{ success: boolean; data: BrowseBootstrapPayload }>(endpoint, 45_000);
+  },
 };
 
 export const publicCreatorApi = {
@@ -409,7 +501,11 @@ export const episodesApi = {
   getStream: (episodeId: string, token?: string) => {
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    return api.get<StreamPlaybackInfo>(`/api/episodes/${episodeId}/stream`, { headers });
+    const endpoint = `/api/episodes/${episodeId}/stream`;
+    if (!token) {
+      return getCachedPublic<StreamPlaybackInfo>(endpoint, 30_000);
+    }
+    return api.get<StreamPlaybackInfo>(endpoint, { headers });
   },
 
   // Check access permission for an episode
@@ -548,11 +644,23 @@ export const commentsApi = {
 // Reviews API
 export const reviewsApi = {
   getByDrama: (dramaId: string) =>
-    api.get(`/api/dramas/${dramaId}/reviews`),
+    getCachedPublic(`/api/dramas/${dramaId}/reviews`),
 
   add: (token: string, dramaId: string, rating: number, content: string) =>
     api.post(`/api/dramas/${dramaId}/reviews`, { rating, content }, { token }),
 };
+
+export function prefetchDramaDetailBundle(dramaId: string): Promise<void> {
+  if (!dramaId) {
+    return Promise.resolve();
+  }
+
+  return Promise.allSettled([
+    dramasApi.getById(dramaId),
+    dramasApi.getRelated(dramaId),
+    reviewsApi.getByDrama(dramaId),
+  ]).then(() => undefined);
+}
 
 // Coins API
 export const coinsApi = {
