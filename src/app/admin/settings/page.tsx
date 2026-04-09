@@ -34,6 +34,7 @@ interface VipPlan {
   coins?: number;
   sortOrder?: number;
   features?: string[];
+  entitlements?: VipEntitlements;
   stripePriceId?: string;
   stripePriceIds?: {
     tier1?: string;
@@ -48,7 +49,7 @@ interface VipPlan {
   status: "active" | "inactive";
 }
 
-interface VipPrivileges {
+interface VipEntitlements {
   adFree: boolean;
   highQuality: boolean;
   earlyAccess: boolean;
@@ -58,7 +59,13 @@ interface VipPrivileges {
   termsUrl: string;
 }
 
-const DEFAULT_VIP_PRIVILEGES: VipPrivileges = {
+interface VipPricingMultipliers {
+  tier1: number;
+  tier2: number;
+  tier3: number;
+}
+
+const DEFAULT_VIP_PLAN_ENTITLEMENTS: VipEntitlements = {
   adFree: true,
   highQuality: true,
   earlyAccess: false,
@@ -66,6 +73,12 @@ const DEFAULT_VIP_PRIVILEGES: VipPrivileges = {
   freeMonthlyDramas: 30,
   overLimitDiscount: 50,
   termsUrl: "",
+};
+
+const DEFAULT_VIP_TIER_PRICING_MULTIPLIERS: VipPricingMultipliers = {
+  tier1: 1,
+  tier2: 0.85,
+  tier3: 0.7,
 };
 
 function normalizeNonNegativeInt(value: unknown, fallback: number): number {
@@ -80,13 +93,6 @@ function normalizePercent(value: unknown, fallback: number): number {
   if (parsed < 0) return 0;
   if (parsed > 100) return 100;
   return parsed;
-}
-
-function discountRateToPercent(value: unknown, fallbackPercent: number): number {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallbackPercent;
-  if (parsed >= 0 && parsed <= 1) return parsed * 100;
-  return normalizePercent(parsed, fallbackPercent);
 }
 
 function normalizeBoolean(value: unknown, fallback: boolean): boolean {
@@ -117,6 +123,59 @@ function normalizeStripePriceIds(value: any): { tier1?: string; tier2?: string; 
     tier2: tier2 || undefined,
     tier3: tier3 || undefined,
   };
+}
+
+function normalizeVipEntitlements(value: any): VipEntitlements {
+  const source = value && typeof value === "object" ? value : {};
+  return {
+    adFree: normalizeBoolean(source.adFree, DEFAULT_VIP_PLAN_ENTITLEMENTS.adFree),
+    highQuality: normalizeBoolean(source.highQuality, DEFAULT_VIP_PLAN_ENTITLEMENTS.highQuality),
+    earlyAccess: normalizeBoolean(source.earlyAccess, DEFAULT_VIP_PLAN_ENTITLEMENTS.earlyAccess),
+    coinDiscount: normalizePercent(source.coinDiscount, DEFAULT_VIP_PLAN_ENTITLEMENTS.coinDiscount),
+    freeMonthlyDramas: normalizeNonNegativeInt(
+      source.freeMonthlyDramas,
+      DEFAULT_VIP_PLAN_ENTITLEMENTS.freeMonthlyDramas
+    ),
+    overLimitDiscount: normalizePercent(
+      source.overLimitDiscount,
+      DEFAULT_VIP_PLAN_ENTITLEMENTS.overLimitDiscount
+    ),
+    termsUrl: String(source.termsUrl || "").trim(),
+  };
+}
+
+function normalizeVipPricingMultipliers(value: any): VipPricingMultipliers {
+  const source = value && typeof value === "object" ? value : {};
+  const normalizeMultiplier = (input: unknown, fallback: number) => {
+    const parsed = Number(input);
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+    return Number(parsed.toFixed(4));
+  };
+
+  return {
+    tier1: normalizeMultiplier(source.tier1, DEFAULT_VIP_TIER_PRICING_MULTIPLIERS.tier1),
+    tier2: normalizeMultiplier(source.tier2, DEFAULT_VIP_TIER_PRICING_MULTIPLIERS.tier2),
+    tier3: normalizeMultiplier(source.tier3, DEFAULT_VIP_TIER_PRICING_MULTIPLIERS.tier3),
+  };
+}
+
+function resolveVipTierPrice(
+  basePrice: number,
+  multipliers: VipPricingMultipliers,
+  tier: keyof VipPricingMultipliers
+): number {
+  return Number((Math.max(0, Number(basePrice || 0)) * Number(multipliers[tier] || 1)).toFixed(2));
+}
+
+function getVipEntitlementSummary(entitlements: VipEntitlements): string[] {
+  const summary: string[] = [];
+  if (entitlements.adFree) summary.push("Ad-free");
+  if (entitlements.highQuality) summary.push("HD/4K");
+  if (entitlements.earlyAccess) summary.push("Early access");
+  if (entitlements.coinDiscount > 0) summary.push(`${entitlements.coinDiscount}% coin off`);
+  if (entitlements.freeMonthlyDramas > 0) summary.push(`${entitlements.freeMonthlyDramas} free dramas`);
+  if (entitlements.overLimitDiscount > 0) summary.push(`${entitlements.overLimitDiscount}% over-limit off`);
+  return summary;
 }
 
 function normalizeRechargeTiers(value: any): RechargeTier[] {
@@ -507,7 +566,9 @@ export default function AdminSettingsPage() {
   /* ── VIP state ── */
   const [vipPlans, setVipPlans] = useState<VipPlan[]>([]);
   const [editingPlan, setEditingPlan] = useState<VipPlan | null>(null);
-  const [vipPrivileges, setVipPrivileges] = useState<VipPrivileges>(DEFAULT_VIP_PRIVILEGES);
+  const [vipPricingMultipliers, setVipPricingMultipliers] = useState<VipPricingMultipliers>(
+    DEFAULT_VIP_TIER_PRICING_MULTIPLIERS
+  );
 
   /* ── Playback state ── */
   const [videoQuality, setVideoQuality] = useState("720p");
@@ -611,39 +672,11 @@ export default function AdminSettingsPage() {
         );
         setTiers(normalizeRechargeTiers(rawTiers));
       } else if (category === "vip") {
-        const nextPrivileges: VipPrivileges = { ...DEFAULT_VIP_PRIVILEGES };
-
-        const parsedPrivileges = parseMaybeJson(read("vip_privileges"), null);
-        if (parsedPrivileges && typeof parsedPrivileges === "object") {
-          nextPrivileges.adFree = normalizeBoolean((parsedPrivileges as any).adFree, nextPrivileges.adFree);
-          nextPrivileges.highQuality = normalizeBoolean((parsedPrivileges as any).highQuality, nextPrivileges.highQuality);
-          nextPrivileges.earlyAccess = normalizeBoolean((parsedPrivileges as any).earlyAccess, nextPrivileges.earlyAccess);
-          nextPrivileges.coinDiscount = normalizePercent((parsedPrivileges as any).coinDiscount, nextPrivileges.coinDiscount);
-          nextPrivileges.freeMonthlyDramas = normalizeNonNegativeInt(
-            (parsedPrivileges as any).freeMonthlyDramas,
-            nextPrivileges.freeMonthlyDramas
-          );
-          nextPrivileges.overLimitDiscount = normalizePercent(
-            (parsedPrivileges as any).overLimitDiscount,
-            nextPrivileges.overLimitDiscount
-          );
-          nextPrivileges.termsUrl = String((parsedPrivileges as any).termsUrl || nextPrivileges.termsUrl);
-        }
-
-        nextPrivileges.freeMonthlyDramas = normalizeNonNegativeInt(
-          read("vip_monthly_free_drama_quota"),
-          nextPrivileges.freeMonthlyDramas
+        const parsedMultipliers = parseMaybeJson(
+          read("vip_tier_pricing_multipliers"),
+          DEFAULT_VIP_TIER_PRICING_MULTIPLIERS
         );
-        nextPrivileges.overLimitDiscount = normalizePercent(
-          discountRateToPercent(
-            read("vip_over_limit_discount_rate"),
-            nextPrivileges.overLimitDiscount
-          ),
-          nextPrivileges.overLimitDiscount
-        );
-        nextPrivileges.termsUrl = String(read("vip_terms_url") || nextPrivileges.termsUrl || "");
-
-        setVipPrivileges(nextPrivileges);
+        setVipPricingMultipliers(normalizeVipPricingMultipliers(parsedMultipliers));
       } else if (category === "playback") {
         setVideoQuality(String(read("video_quality") || "720p"));
         setAutoPlay(normalizeBoolean(read("auto_play"), true));
@@ -708,6 +741,7 @@ export default function AdminSettingsPage() {
             : typeof plan?.features === "string"
               ? plan.features.split("\n").map((line: string) => line.trim()).filter(Boolean)
               : [],
+          entitlements: normalizeVipEntitlements(plan?.entitlements),
           stripePriceId: String(plan?.stripePriceId || ""),
           stripePriceIds: normalizeStripePriceIds(plan?.stripePriceIds || plan?.stripePriceMap || plan?.priceIds),
           tierPricing: normalizeTierPricing(plan?.tierPricing || plan?.pricingByTier || plan?.prices),
@@ -1257,9 +1291,7 @@ export default function AdminSettingsPage() {
           coins: 0,
           sortOrder: vipPlans.length + 1,
           features: [],
-          tierPricing: {},
-          stripePriceId: "",
-          stripePriceIds: {},
+          entitlements: DEFAULT_VIP_PLAN_ENTITLEMENTS,
           status: "active",
         });
         loadVipPlans();
@@ -1275,7 +1307,11 @@ export default function AdminSettingsPage() {
       } catch { showToast("Failed to delete plan"); }
     };
 
-    const handleEditPlan = (plan: VipPlan) => setEditingPlan({ ...plan });
+    const handleEditPlan = (plan: VipPlan) => setEditingPlan({
+      ...plan,
+      entitlements: normalizeVipEntitlements(plan.entitlements),
+      features: Array.isArray(plan.features) ? [...plan.features] : [],
+    });
 
     const handleSaveEditPlan = async () => {
       if (!editingPlan || !editingPlan._id) return;
@@ -1287,9 +1323,7 @@ export default function AdminSettingsPage() {
           coins: editingPlan.coins || 0,
           sortOrder: editingPlan.sortOrder || 0,
           features: (editingPlan.features || []).map((f) => String(f || "").trim()).filter(Boolean),
-          stripePriceId: String(editingPlan.stripePriceId || "").trim(),
-          stripePriceIds: editingPlan.stripePriceIds || {},
-          tierPricing: editingPlan.tierPricing || {},
+          entitlements: normalizeVipEntitlements(editingPlan.entitlements),
           status: editingPlan.status,
         });
         loadVipPlans();
@@ -1298,28 +1332,13 @@ export default function AdminSettingsPage() {
       } catch { showToast("Failed to update plan"); }
     };
 
-    const handleSavePerks = () => {
-      const normalizedPrivileges: VipPrivileges = {
-        ...vipPrivileges,
-        coinDiscount: normalizePercent(vipPrivileges.coinDiscount, DEFAULT_VIP_PRIVILEGES.coinDiscount),
-        freeMonthlyDramas: normalizeNonNegativeInt(
-          vipPrivileges.freeMonthlyDramas,
-          DEFAULT_VIP_PRIVILEGES.freeMonthlyDramas
-        ),
-        overLimitDiscount: normalizePercent(
-          vipPrivileges.overLimitDiscount,
-          DEFAULT_VIP_PRIVILEGES.overLimitDiscount
-        ),
-        termsUrl: String(vipPrivileges.termsUrl || "").trim(),
-      };
-
-      setVipPrivileges(normalizedPrivileges);
+    const handleSavePricingMultipliers = () => {
+      const normalized = normalizeVipPricingMultipliers(vipPricingMultipliers);
+      setVipPricingMultipliers(normalized);
       return saveSettings([
-        { key: "vip_privileges", value: JSON.stringify(normalizedPrivileges), category: "vip" },
-        { key: "vip_monthly_free_drama_quota", value: normalizedPrivileges.freeMonthlyDramas, category: "vip" },
         {
-          key: "vip_over_limit_discount_rate",
-          value: Number((normalizedPrivileges.overLimitDiscount / 100).toFixed(4)),
+          key: "vip_tier_pricing_multipliers",
+          value: normalized,
           category: "vip",
         },
       ]);
@@ -1342,12 +1361,12 @@ export default function AdminSettingsPage() {
                 <tr className="border-b border-gray-700/50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
                   <th className="pb-3 pr-4">Sort</th>
                   <th className="pb-3 pr-4">Plan Name</th>
-                  <th className="pb-3 pr-4">Price (USD)</th>
-                  <th className="pb-3 pr-4">Tier Pricing</th>
+                  <th className="pb-3 pr-4">Base Price (USD)</th>
+                  <th className="pb-3 pr-4">Tier Preview</th>
                   <th className="pb-3 pr-4">Duration</th>
                   <th className="pb-3 pr-4">Coins</th>
-                  <th className="pb-3 pr-4">Features</th>
-                  <th className="pb-3 pr-4">Stripe Price IDs</th>
+                  <th className="pb-3 pr-4">Entitlements</th>
+                  <th className="pb-3 pr-4">Display Highlights</th>
                   <th className="pb-3 pr-4">Status</th>
                   <th className="pb-3">Actions</th>
                 </tr>
@@ -1362,23 +1381,21 @@ export default function AdminSettingsPage() {
                     <td className="py-3 pr-4 font-medium">{plan.name}</td>
                     <td className="py-3 pr-4">${Number(plan.price || 0).toFixed(2)}</td>
                     <td className="py-3 pr-4 text-xs text-gray-400">
-                      <div>T1: {plan.tierPricing?.tier1 ? `$${Number(plan.tierPricing.tier1).toFixed(2)}` : "-"}</div>
-                      <div>T2: {plan.tierPricing?.tier2 ? `$${Number(plan.tierPricing.tier2).toFixed(2)}` : "-"}</div>
-                      <div>T3: {plan.tierPricing?.tier3 ? `$${Number(plan.tierPricing.tier3).toFixed(2)}` : "-"}</div>
+                      <div>T1: ${resolveVipTierPrice(plan.price, vipPricingMultipliers, "tier1").toFixed(2)}</div>
+                      <div>T2: ${resolveVipTierPrice(plan.price, vipPricingMultipliers, "tier2").toFixed(2)}</div>
+                      <div>T3: ${resolveVipTierPrice(plan.price, vipPricingMultipliers, "tier3").toFixed(2)}</div>
                     </td>
                     <td className="py-3 pr-4">{plan.durationDays} days</td>
                     <td className="py-3 pr-4">{Number(plan.coins || 0).toLocaleString()}</td>
+                    <td className="py-3 pr-4 text-xs text-gray-400 max-w-[220px]">
+                      {(getVipEntitlementSummary(normalizeVipEntitlements(plan.entitlements)).slice(0, 4).join(" / ")) || "-"}
+                      {getVipEntitlementSummary(normalizeVipEntitlements(plan.entitlements)).length > 4 ? " ..." : ""}
+                    </td>
                     <td className="py-3 pr-4 text-xs text-gray-400 max-w-[220px]">
                       {Array.isArray(plan.features) && plan.features.length > 0
                         ? plan.features.slice(0, 3).join(" / ")
                         : "-"}
                       {Array.isArray(plan.features) && plan.features.length > 3 ? " ..." : ""}
-                    </td>
-                    <td className="py-3 pr-4 text-xs text-gray-400">
-                      <div>Default: {plan.stripePriceId || "-"}</div>
-                      <div>T1: {plan.stripePriceIds?.tier1 || "-"}</div>
-                      <div>T2: {plan.stripePriceIds?.tier2 || "-"}</div>
-                      <div>T3: {plan.stripePriceIds?.tier3 || "-"}</div>
                     </td>
                     <td className="py-3 pr-4">
                       <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -1399,62 +1416,59 @@ export default function AdminSettingsPage() {
         </SectionCard>
 
         <SectionCard
-          title="VIP Privileges"
-          action={<PrimaryBtn onClick={handleSavePerks} disabled={saving}>{saving ? "Saving..." : "Save Perks"}</PrimaryBtn>}
+          title="Regional Pricing Coefficients"
+          action={<PrimaryBtn onClick={handleSavePricingMultipliers} disabled={saving}>{saving ? "Saving..." : "Save Coefficients"}</PrimaryBtn>}
         >
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Ad-free */}
-            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-200">Ad-free Experience</p>
-                <Toggle checked={vipPrivileges.adFree} onChange={(v) => setVipPrivileges({ ...vipPrivileges, adFree: v })} />
-              </div>
-              <p className="mt-1 text-xs text-gray-500">Disable all in-app advertisements.</p>
+          <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-4 text-sm text-gray-300">
+            VIP prices now follow one base USD price per plan and a shared country-tier coefficient.
+            Stripe and Airwallex both consume the same resolved price. No provider-specific pricing is needed.
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-3">
+            <div>
+              <FieldLabel>T1 Coefficient</FieldLabel>
+              <NumberInput
+                value={vipPricingMultipliers.tier1}
+                onChange={(v) => setVipPricingMultipliers((prev) => ({ ...prev, tier1: v }))}
+              />
             </div>
-            {/* High-Quality */}
-            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-200">High-Quality Video</p>
-                <Toggle checked={vipPrivileges.highQuality} onChange={(v) => setVipPrivileges({ ...vipPrivileges, highQuality: v })} />
-              </div>
-              <p className="mt-1 text-xs text-gray-500">Allow 1080p and 4K playback options.</p>
+            <div>
+              <FieldLabel>T2 Coefficient</FieldLabel>
+              <NumberInput
+                value={vipPricingMultipliers.tier2}
+                onChange={(v) => setVipPricingMultipliers((prev) => ({ ...prev, tier2: v }))}
+              />
             </div>
-            {/* Early Access */}
-            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-gray-200">Early Access</p>
-                <Toggle checked={vipPrivileges.earlyAccess} onChange={(v) => setVipPrivileges({ ...vipPrivileges, earlyAccess: v })} />
-              </div>
-              <p className="mt-1 text-xs text-gray-500">View content before public release.</p>
-            </div>
-            {/* Coin Discount */}
-            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
-              <p className="text-sm font-medium text-gray-200">Coin Purchase Discount</p>
-              <p className="mt-1 text-xs text-gray-500">Percentage discount on store items.</p>
-              <div className="mt-3">
-                <NumberInput value={vipPrivileges.coinDiscount} onChange={(v) => setVipPrivileges({ ...vipPrivileges, coinDiscount: v })} suffix="%" />
-              </div>
-            </div>
-            {/* Monthly Free Dramas */}
-            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
-              <p className="text-sm font-medium text-gray-200">Monthly Free Dramas</p>
-              <p className="mt-1 text-xs text-gray-500">Number of dramas VIP members can watch for free each month.</p>
-              <div className="mt-3">
-                <NumberInput value={vipPrivileges.freeMonthlyDramas} onChange={(v) => setVipPrivileges({ ...vipPrivileges, freeMonthlyDramas: v })} suffix="dramas" />
-              </div>
-            </div>
-            {/* Over-Limit Discount */}
-            <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
-              <p className="text-sm font-medium text-gray-200">Over-Limit Discount</p>
-              <p className="mt-1 text-xs text-gray-500">VIP discount on episodes beyond the free monthly limit (% of normal price).</p>
-              <div className="mt-3">
-                <NumberInput value={vipPrivileges.overLimitDiscount} onChange={(v) => setVipPrivileges({ ...vipPrivileges, overLimitDiscount: v })} suffix="%" />
-              </div>
+            <div>
+              <FieldLabel>T3 Coefficient</FieldLabel>
+              <NumberInput
+                value={vipPricingMultipliers.tier3}
+                onChange={(v) => setVipPricingMultipliers((prev) => ({ ...prev, tier3: v }))}
+              />
             </div>
           </div>
-          <div className="mt-5">
-            <FieldLabel>VIP Terms of Service URL</FieldLabel>
-            <TextInput value={vipPrivileges.termsUrl} onChange={(v) => setVipPrivileges({ ...vipPrivileges, termsUrl: v })} placeholder="https://example.com/vip-terms" />
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-700/50 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  <th className="pb-3 pr-4">Plan</th>
+                  <th className="pb-3 pr-4">Base</th>
+                  <th className="pb-3 pr-4">T1</th>
+                  <th className="pb-3 pr-4">T2</th>
+                  <th className="pb-3 pr-4">T3</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-700/30 text-gray-300">
+                {vipPlans.map((plan) => (
+                  <tr key={plan._id || plan.name}>
+                    <td className="py-3 pr-4 font-medium">{plan.name}</td>
+                    <td className="py-3 pr-4">${Number(plan.price || 0).toFixed(2)}</td>
+                    <td className="py-3 pr-4">${resolveVipTierPrice(plan.price, vipPricingMultipliers, "tier1").toFixed(2)}</td>
+                    <td className="py-3 pr-4">${resolveVipTierPrice(plan.price, vipPricingMultipliers, "tier2").toFixed(2)}</td>
+                    <td className="py-3 pr-4">${resolveVipTierPrice(plan.price, vipPricingMultipliers, "tier3").toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </SectionCard>
 
@@ -1487,7 +1501,7 @@ export default function AdminSettingsPage() {
                       ]} />
                     </div>
                     <div>
-                      <FieldLabel>Price (USD)</FieldLabel>
+                      <FieldLabel>Base Price (USD)</FieldLabel>
                       <NumberInput value={editingPlan.price} onChange={(v) => setEditingPlan({ ...editingPlan, price: v })} />
                     </div>
                     <div>
@@ -1504,93 +1518,147 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <p className="mb-3 text-sm font-semibold text-gray-300">Tier Pricing (USD)</p>
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div>
-                        <FieldLabel>Tier1</FieldLabel>
-                        <NumberInput
-                          value={Number(editingPlan.tierPricing?.tier1 || 0)}
-                          onChange={(v) => setEditingPlan({
-                            ...editingPlan,
-                            tierPricing: { ...editingPlan.tierPricing, tier1: v > 0 ? v : undefined },
-                          })}
-                        />
-                      </div>
-                      <div>
-                        <FieldLabel>Tier2</FieldLabel>
-                        <NumberInput
-                          value={Number(editingPlan.tierPricing?.tier2 || 0)}
-                          onChange={(v) => setEditingPlan({
-                            ...editingPlan,
-                            tierPricing: { ...editingPlan.tierPricing, tier2: v > 0 ? v : undefined },
-                          })}
-                        />
-                      </div>
-                      <div>
-                        <FieldLabel>Tier3</FieldLabel>
-                        <NumberInput
-                          value={Number(editingPlan.tierPricing?.tier3 || 0)}
-                          onChange={(v) => setEditingPlan({
-                            ...editingPlan,
-                            tierPricing: { ...editingPlan.tierPricing, tier3: v > 0 ? v : undefined },
-                          })}
-                        />
-                      </div>
+                  <div className="rounded-xl border border-gray-700/50 bg-[#1a1a2e] p-4">
+                    <p className="text-sm font-semibold text-gray-200">Regional Price Preview</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Stripe and Airwallex both use the same computed price from the shared T1/T2/T3 coefficients.
+                    </p>
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      {(["tier1", "tier2", "tier3"] as Array<keyof VipPricingMultipliers>).map((tierKey) => (
+                        <div key={tierKey} className="rounded-lg border border-gray-700/50 bg-[#0f0f17] p-4">
+                          <p className="text-xs uppercase tracking-wider text-gray-500">{tierKey.toUpperCase()}</p>
+                          <p className="mt-2 text-2xl font-semibold text-gray-100">
+                            ${resolveVipTierPrice(editingPlan.price, vipPricingMultipliers, tierKey).toFixed(2)}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Base ${Number(editingPlan.price || 0).toFixed(2)} × {vipPricingMultipliers[tierKey]}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
                   <div>
-                    <p className="mb-3 text-sm font-semibold text-gray-300">Stripe Price IDs</p>
-                    <div className="space-y-4">
-                      <div>
-                        <FieldLabel>Default Price ID</FieldLabel>
-                        <TextInput
-                          value={editingPlan.stripePriceId || ""}
-                          onChange={(v) => setEditingPlan({ ...editingPlan, stripePriceId: v })}
-                          placeholder="price_xxx"
-                        />
+                    <p className="mb-3 text-sm font-semibold text-gray-300">Real Entitlements</p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-200">Ad-free Experience</p>
+                          <Toggle
+                            checked={normalizeVipEntitlements(editingPlan.entitlements).adFree}
+                            onChange={(v) => setEditingPlan({
+                              ...editingPlan,
+                              entitlements: {
+                                ...normalizeVipEntitlements(editingPlan.entitlements),
+                                adFree: v,
+                              },
+                            })}
+                          />
+                        </div>
+                        <p className="mt-1 text-xs text-gray-500">Persisted to the VIP plan and returned by the entitlement API.</p>
                       </div>
-                      <div className="grid gap-3 md:grid-cols-3">
-                        <div>
-                          <FieldLabel>Tier1</FieldLabel>
-                          <TextInput
-                            value={editingPlan.stripePriceIds?.tier1 || ""}
+                      <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-200">High-Quality Video</p>
+                          <Toggle
+                            checked={normalizeVipEntitlements(editingPlan.entitlements).highQuality}
                             onChange={(v) => setEditingPlan({
                               ...editingPlan,
-                              stripePriceIds: { ...editingPlan.stripePriceIds, tier1: v || undefined },
+                              entitlements: {
+                                ...normalizeVipEntitlements(editingPlan.entitlements),
+                                highQuality: v,
+                              },
                             })}
-                            placeholder="price_tier1_xxx"
                           />
                         </div>
-                        <div>
-                          <FieldLabel>Tier2</FieldLabel>
-                          <TextInput
-                            value={editingPlan.stripePriceIds?.tier2 || ""}
+                        <p className="mt-1 text-xs text-gray-500">Used as the plan-level flag for HD / 4K playback eligibility.</p>
+                      </div>
+                      <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-gray-200">Early Access</p>
+                          <Toggle
+                            checked={normalizeVipEntitlements(editingPlan.entitlements).earlyAccess}
                             onChange={(v) => setEditingPlan({
                               ...editingPlan,
-                              stripePriceIds: { ...editingPlan.stripePriceIds, tier2: v || undefined },
+                              entitlements: {
+                                ...normalizeVipEntitlements(editingPlan.entitlements),
+                                earlyAccess: v,
+                              },
                             })}
-                            placeholder="price_tier2_xxx"
                           />
                         </div>
-                        <div>
-                          <FieldLabel>Tier3</FieldLabel>
-                          <TextInput
-                            value={editingPlan.stripePriceIds?.tier3 || ""}
+                        <p className="mt-1 text-xs text-gray-500">Plan-level switch for pre-release content gating.</p>
+                      </div>
+                      <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+                        <p className="text-sm font-medium text-gray-200">Coin Purchase Discount</p>
+                        <p className="mt-1 text-xs text-gray-500">Returned with the entitlement payload for payment logic.</p>
+                        <div className="mt-3">
+                          <NumberInput
+                            value={normalizeVipEntitlements(editingPlan.entitlements).coinDiscount}
                             onChange={(v) => setEditingPlan({
                               ...editingPlan,
-                              stripePriceIds: { ...editingPlan.stripePriceIds, tier3: v || undefined },
+                              entitlements: {
+                                ...normalizeVipEntitlements(editingPlan.entitlements),
+                                coinDiscount: v,
+                              },
                             })}
-                            placeholder="price_tier3_xxx"
+                            suffix="%"
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+                        <p className="text-sm font-medium text-gray-200">Monthly Free Dramas</p>
+                        <p className="mt-1 text-xs text-gray-500">Actually drives the VIP monthly free quota in unlock policy.</p>
+                        <div className="mt-3">
+                          <NumberInput
+                            value={normalizeVipEntitlements(editingPlan.entitlements).freeMonthlyDramas}
+                            onChange={(v) => setEditingPlan({
+                              ...editingPlan,
+                              entitlements: {
+                                ...normalizeVipEntitlements(editingPlan.entitlements),
+                                freeMonthlyDramas: v,
+                              },
+                            })}
+                            suffix="dramas"
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+                        <p className="text-sm font-medium text-gray-200">Over-Limit Discount</p>
+                        <p className="mt-1 text-xs text-gray-500">Actually drives episode unlock discount after the free quota is exhausted.</p>
+                        <div className="mt-3">
+                          <NumberInput
+                            value={normalizeVipEntitlements(editingPlan.entitlements).overLimitDiscount}
+                            onChange={(v) => setEditingPlan({
+                              ...editingPlan,
+                              entitlements: {
+                                ...normalizeVipEntitlements(editingPlan.entitlements),
+                                overLimitDiscount: v,
+                              },
+                            })}
+                            suffix="%"
                           />
                         </div>
                       </div>
                     </div>
+                    <div className="mt-4">
+                      <FieldLabel>VIP Terms URL</FieldLabel>
+                      <TextInput
+                        value={normalizeVipEntitlements(editingPlan.entitlements).termsUrl}
+                        onChange={(v) => setEditingPlan({
+                          ...editingPlan,
+                          entitlements: {
+                            ...normalizeVipEntitlements(editingPlan.entitlements),
+                            termsUrl: v,
+                          },
+                        })}
+                        placeholder="https://example.com/vip-terms"
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <FieldLabel>Plan Features (one per line)</FieldLabel>
+                    <FieldLabel>Display Highlights (one per line)</FieldLabel>
                     <textarea
                       value={(editingPlan.features || []).join("\n")}
                       onChange={(e) => setEditingPlan({
@@ -1602,8 +1670,11 @@ export default function AdminSettingsPage() {
                       })}
                       rows={6}
                       className="w-full rounded-lg border border-gray-700/50 bg-[#1a1a2e] px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      placeholder={"Ad-Free Viewing\n4K Ultra HD\nMonthly Free Dramas"}
+                      placeholder={"Ad-free viewing\n4K streaming\n30 free dramas each month"}
                     />
+                    <p className="mt-2 text-xs text-gray-500">
+                      This is the user-facing copy only. Real benefit enforcement comes from the entitlement fields above.
+                    </p>
                   </div>
                 </div>
               </div>
