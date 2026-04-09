@@ -960,6 +960,22 @@ function GoldCoinIcon({
   );
 }
 
+function VipToggleIcon({
+  className = "h-4 w-4",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M2.3 4.2c.27 0 .51.16.62.4l1.28 2.95 2.3-3.19a.76.76 0 0 1 1.23 0l2.3 3.19 1.28-2.95a.68.68 0 0 1 .62-.4c.5 0 .84.49.66.95l-2.02 5.22a.7.7 0 0 1-.65.45H4.31a.7.7 0 0 1-.65-.45L1.64 5.15a.72.72 0 0 1 .66-.95Z"
+        fill="currentColor"
+      />
+      <path d="M4.9 12.2h6.2" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function CoinBadge() {
   return (
     <svg className="h-7 w-7 text-yellow-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -1458,9 +1474,7 @@ export default function CoinsPage() {
                     : "text-white/60"
                 }`}
               >
-                <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                  workspace_premium
-                </span>
+                <VipToggleIcon className="h-[15px] w-[15px] shrink-0" />
                 {mobileCopy.vipTab}
               </button>
             </div>
