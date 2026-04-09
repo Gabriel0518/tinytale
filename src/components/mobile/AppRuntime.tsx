@@ -225,10 +225,30 @@ export function AppRuntime() {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
     if (process.env.NODE_ENV !== 'production') return;
 
-    navigator.serviceWorker.register('/sw.js').catch(() => {
-      // Keep registration failure silent for the web app shell.
-    });
-  }, []);
+    const syncServiceWorker = async () => {
+      if (isApp) {
+        const registrations = await navigator.serviceWorker.getRegistrations().catch(() => []);
+        await Promise.all(registrations.map((registration) => registration.unregister().catch(() => false)));
+
+        if ('caches' in window) {
+          const keys = await caches.keys().catch(() => []);
+          await Promise.all(
+            keys
+              .filter((key) => key.startsWith('tinytale-'))
+              .map((key) => caches.delete(key).catch(() => false)),
+          );
+        }
+
+        return;
+      }
+
+      await navigator.serviceWorker.register('/sw.js').catch(() => {
+        // Keep registration failure silent for the web app shell.
+      });
+    };
+
+    void syncServiceWorker();
+  }, [isApp]);
 
   useEffect(() => {
     if (!isApp) return;

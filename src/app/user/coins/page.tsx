@@ -7,12 +7,18 @@ import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { useAuthGuard } from "@/hooks/useAuthGuard";
 import { useToast } from "@/components/ui/Toast";
-import { coinsApi } from "@/lib/api";
+import { coinsApi, subscriptionApi } from "@/lib/api";
 import { Navbar } from "@/components/features/Navbar";
 import { Footer } from "@/components/features/Footer";
 import { localizePath, SupportedLocale } from "@/lib/i18n";
 import { useLocale } from "@/hooks/useLocale";
 import { resolveLocaleCopy } from "@/lib/locale-copy";
+import { Plus_Jakarta_Sans } from "next/font/google";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["500", "600", "700", "800"],
+});
 
 interface CoinPackage {
   id?: string;
@@ -30,6 +36,18 @@ interface PricingContext {
   currencyCode: string;
 }
 
+interface VipPlan {
+  _id: string;
+  name?: string;
+  price: number;
+  period?: string;
+  duration?: number;
+  durationDays?: number;
+  sortOrder?: number;
+  recommended?: boolean;
+  features?: string[];
+}
+
 type PaymentProvider = "stripe" | "airwallex";
 type PaymentOption = string;
 
@@ -37,6 +55,8 @@ type PaymentChannel = {
   provider: PaymentProvider;
   paymentOptions: PaymentOption[];
 };
+
+type RechargeTab = "coins" | "vip";
 
 type PaymentOptionDefinition = {
   id: PaymentOption;
@@ -793,6 +813,153 @@ const CHECKOUT_CONTEXT_COPY: FlexibleRecord<SupportedLocale, (countryCode: strin
   fr: (countryCode, currencyCode) => `Région de checkout : ${countryCode} ; la devise affichée peut être ${currencyCode}.`,
 };
 
+const MOBILE_RECHARGE_COPY: FlexibleRecord<SupportedLocale, {
+  pageTitle: string;
+  coinsTab: string;
+  vipTab: string;
+  confirmAndPay: (price: string) => string;
+  choosePlan: string;
+  vipActive: string;
+  vipExpiresOn: (date: string) => string;
+  vipPlanFallback: string;
+  yearly: string;
+  monthly: string;
+  hot: string;
+}> = {
+  en: {
+    pageTitle: "Recharge",
+    coinsTab: "Coins",
+    vipTab: "VIP Subscription",
+    confirmAndPay: (price) => `Confirm & Pay ${price}`,
+    choosePlan: "Select Package",
+    vipActive: "VIP Active",
+    vipExpiresOn: (date) => `Expires ${date}`,
+    vipPlanFallback: "VIP Plan",
+    yearly: "Yearly",
+    monthly: "Monthly",
+    hot: "Hot",
+  },
+  zh: {
+    pageTitle: "充值",
+    coinsTab: "金币",
+    vipTab: "VIP 订阅",
+    confirmAndPay: (price) => `确认支付 ${price}`,
+    choosePlan: "选择套餐",
+    vipActive: "VIP 生效中",
+    vipExpiresOn: (date) => `${date} 到期`,
+    vipPlanFallback: "VIP 套餐",
+    yearly: "年付",
+    monthly: "月付",
+    hot: "热门",
+  },
+  ja: {
+    pageTitle: "チャージ",
+    coinsTab: "コイン",
+    vipTab: "VIP サブスク",
+    confirmAndPay: (price) => `${price}で支払う`,
+    choosePlan: "プランを選択",
+    vipActive: "VIP 有効",
+    vipExpiresOn: (date) => `${date} まで`,
+    vipPlanFallback: "VIP プラン",
+    yearly: "年額",
+    monthly: "月額",
+    hot: "人気",
+  },
+  es: {
+    pageTitle: "Recarga",
+    coinsTab: "Monedas",
+    vipTab: "Suscripción VIP",
+    confirmAndPay: (price) => `Confirmar y pagar ${price}`,
+    choosePlan: "Seleccionar plan",
+    vipActive: "VIP activo",
+    vipExpiresOn: (date) => `Vence ${date}`,
+    vipPlanFallback: "Plan VIP",
+    yearly: "Anual",
+    monthly: "Mensual",
+    hot: "Hot",
+  },
+  pt: {
+    pageTitle: "Recarga",
+    coinsTab: "Moedas",
+    vipTab: "Assinatura VIP",
+    confirmAndPay: (price) => `Confirmar e pagar ${price}`,
+    choosePlan: "Selecionar plano",
+    vipActive: "VIP ativo",
+    vipExpiresOn: (date) => `Expira em ${date}`,
+    vipPlanFallback: "Plano VIP",
+    yearly: "Anual",
+    monthly: "Mensal",
+    hot: "Hot",
+  },
+  hi: {
+    pageTitle: "रिचार्ज",
+    coinsTab: "कॉइन्स",
+    vipTab: "VIP सदस्यता",
+    confirmAndPay: (price) => `${price} का भुगतान करें`,
+    choosePlan: "प्लान चुनें",
+    vipActive: "VIP सक्रिय",
+    vipExpiresOn: (date) => `${date} तक`,
+    vipPlanFallback: "VIP प्लान",
+    yearly: "वार्षिक",
+    monthly: "मासिक",
+    hot: "हॉट",
+  },
+  id: {
+    pageTitle: "Isi Ulang",
+    coinsTab: "Koin",
+    vipTab: "Langganan VIP",
+    confirmAndPay: (price) => `Konfirmasi & bayar ${price}`,
+    choosePlan: "Pilih paket",
+    vipActive: "VIP aktif",
+    vipExpiresOn: (date) => `Berakhir ${date}`,
+    vipPlanFallback: "Paket VIP",
+    yearly: "Tahunan",
+    monthly: "Bulanan",
+    hot: "Hot",
+  },
+  ko: {
+    pageTitle: "충전",
+    coinsTab: "코인",
+    vipTab: "VIP 구독",
+    confirmAndPay: (price) => `${price} 결제하기`,
+    choosePlan: "플랜 선택",
+    vipActive: "VIP 이용 중",
+    vipExpiresOn: (date) => `${date} 만료`,
+    vipPlanFallback: "VIP 플랜",
+    yearly: "연간",
+    monthly: "월간",
+    hot: "인기",
+  },
+  fr: {
+    pageTitle: "Recharger",
+    coinsTab: "Pièces",
+    vipTab: "Abonnement VIP",
+    confirmAndPay: (price) => `Confirmer et payer ${price}`,
+    choosePlan: "Choisir un forfait",
+    vipActive: "VIP actif",
+    vipExpiresOn: (date) => `Expire le ${date}`,
+    vipPlanFallback: "Forfait VIP",
+    yearly: "Annuel",
+    monthly: "Mensuel",
+    hot: "Hot",
+  },
+};
+
+function GoldCoinIcon({
+  className = "h-6 w-6",
+}: {
+  className?: string;
+}) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="11" fill="#FFD400" />
+      <circle cx="9.7" cy="8.8" r="5.2" fill="#FFF18A" opacity="0.72" />
+      <circle cx="12" cy="12" r="10.2" stroke="#FFEE88" strokeWidth="0.8" opacity="0.55" />
+      <path d="M12.05 7.2c-1.62 0-2.9.94-2.9 2.35 0 1.34 1.03 1.92 2.61 2.28l.54.12c1.14.26 1.65.51 1.65 1.09 0 .67-.65 1.09-1.72 1.09-1.09 0-1.78-.43-2.22-1.11L8.63 13.7c.49 1.19 1.59 1.96 3.02 2.11v1.02h1.18V15.8c1.73-.18 2.92-1.17 2.92-2.58 0-1.42-.94-2-2.76-2.42l-.61-.14c-1.05-.24-1.43-.48-1.43-1 0-.58.54-.95 1.43-.95.94 0 1.49.38 1.88.95l1.31-.69c-.53-1.01-1.4-1.59-2.59-1.76V6.18h-1.18V7.2Z" fill="#7A4700" />
+    </svg>
+  );
+}
+
 function CoinBadge() {
   return (
     <svg className="h-7 w-7 text-yellow-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -901,6 +1068,7 @@ function PaymentMethodText({
 export default function CoinsPage() {
   const locale = useLocale();
   const t = resolveLocaleCopy(COPY, locale);
+  const mobileCopy = resolveLocaleCopy(MOBILE_RECHARGE_COPY, locale);
   const checkoutContextHint = resolveLocaleCopy(CHECKOUT_CONTEXT_COPY, locale);
   const localeTag = ({
     en: "en-US",
@@ -920,17 +1088,6 @@ export default function CoinsPage() {
     return fallback;
   }, [locale]);
 
-  const formatUsd = useCallback(
-    (value: number) =>
-      new Intl.NumberFormat(localeTag, {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(Number(value || 0)),
-    [localeTag],
-  );
-
   const { user, token, refreshUser } = useAuth();
   const { loading: authLoading } = useAuthGuard();
   const { toast } = useToast();
@@ -949,12 +1106,44 @@ export default function CoinsPage() {
   const [balance, setBalance] = useState(0);
   const [silverBalance, setSilverBalance] = useState(0);
   const [paying, setPaying] = useState(false);
+  const [activeTab, setActiveTab] = useState<RechargeTab>("coins");
+  const [vipPlans, setVipPlans] = useState<VipPlan[]>([]);
+  const [selectedVipPlan, setSelectedVipPlan] = useState<string | null>(null);
+  const [subscribing, setSubscribing] = useState(false);
+  const [prefersMobileLayout, setPrefersMobileLayout] = useState(false);
+  const [vipStatus, setVipStatus] = useState<{ isActive: boolean; expiresAt: string | null }>({
+    isActive: false,
+    expiresAt: null,
+  });
+  const formatUsd = useCallback(
+    (value: number) =>
+      new Intl.NumberFormat(localeTag, {
+        style: "currency",
+        currency: "USD",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(Number(value || 0)),
+    [localeTag],
+  );
 
   useEffect(() => {
     if (!user) return;
     setBalance(user.coins || 0);
     setSilverBalance(user.silverCoins || 0);
   }, [user]);
+
+  useEffect(() => {
+    const syncPreferredLayout = () => {
+      if (typeof window === "undefined") return;
+      const width = window.innerWidth || window.visualViewport?.width || 0;
+      const mobileUserAgent = /Android|iPhone|iPad|iPod|Mobile|wv/i.test(window.navigator.userAgent || "");
+      setPrefersMobileLayout(mobileUserAgent || width < 1024);
+    };
+
+    syncPreferredLayout();
+    window.addEventListener("resize", syncPreferredLayout);
+    return () => window.removeEventListener("resize", syncPreferredLayout);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -971,7 +1160,10 @@ export default function CoinsPage() {
         setPackages(pkgs);
         setPricingContext(res.pricingContext || null);
         setPaymentChannels(res.paymentChannels || {});
-        if (pkgs.length > 0) setSelectedPkg(pkgs[1]?._id || pkgs[0]._id);
+        if (pkgs.length > 0) {
+          const preferred = pkgs.find((item) => (item.tag || "").toLowerCase().includes("best")) || pkgs[2] || pkgs[0];
+          setSelectedPkg(preferred._id);
+        }
       } catch {
         setPricingContext(null);
         setPaymentChannels({
@@ -986,13 +1178,80 @@ export default function CoinsPage() {
           { _id: "p5", coins: 5500, price: 49.99, bonus: 1000, tag: null, originalPrice: 59.99 },
           { _id: "p6", coins: 12000, price: 99.99, bonus: 3000, tag: null, originalPrice: 129.99 },
         ]);
-        setSelectedPkg("p2");
+        setSelectedPkg("p4");
       } finally {
         setLoading(false);
       }
     };
     load();
   }, [user]);
+
+  useEffect(() => {
+    if (!token || !user) return;
+    let cancelled = false;
+
+    const loadVipData = async () => {
+      try {
+        const plansRes = await subscriptionApi.getPlans() as { data?: VipPlan[] };
+        if (!cancelled) {
+          const plans = (plansRes.data || [])
+            .map((item) => ({ ...item, _id: String(item._id || "") }))
+            .filter((item) => item._id)
+            .sort((a, b) => {
+              const orderA = Number(a.sortOrder || 0);
+              const orderB = Number(b.sortOrder || 0);
+              if (orderA !== orderB) return orderA - orderB;
+              return Number(a.price || 0) - Number(b.price || 0);
+            });
+          setVipPlans(plans);
+          if (plans.length > 0) {
+            const recommended = plans.find((item) => item.recommended);
+            setSelectedVipPlan((current) => current || recommended?._id || plans[0]._id);
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          setVipPlans([]);
+          setSelectedVipPlan(null);
+        }
+      }
+
+      try {
+        const statusRes = await subscriptionApi.getStatus(token) as {
+          data?: {
+            status?: string;
+            vipStatus?: string;
+            expiresAt?: string;
+            vipExpiresAt?: string;
+            currentPeriodEnd?: string;
+          };
+        };
+        const data = statusRes.data || {};
+        const currentUser = user as { vipStatus?: string; vipExpiresAt?: string; subscriptionExpiresAt?: string };
+        const normalizedStatus = String(data.vipStatus || data.status || currentUser.vipStatus || "").toLowerCase();
+        const expiresAt = data.vipExpiresAt || data.expiresAt || data.currentPeriodEnd || currentUser.vipExpiresAt || currentUser.subscriptionExpiresAt || null;
+        if (!cancelled) {
+          setVipStatus({
+            isActive: normalizedStatus === "active" || normalizedStatus === "trialing",
+            expiresAt,
+          });
+        }
+      } catch {
+        const currentUser = user as { vipStatus?: string; vipExpiresAt?: string; subscriptionExpiresAt?: string };
+        if (!cancelled) {
+          setVipStatus({
+            isActive: String(currentUser.vipStatus || "").toLowerCase() === "active",
+            expiresAt: currentUser.vipExpiresAt || currentUser.subscriptionExpiresAt || null,
+          });
+        }
+      }
+    };
+
+    loadVipData();
+    return () => {
+      cancelled = true;
+    };
+  }, [token, user]);
 
   const selected = packages.find((pkg) => pkg._id === selectedPkg);
   const availableProviders = useMemo(
@@ -1008,6 +1267,33 @@ export default function CoinsPage() {
   const activeMethods = useMemo(
     () => toPaymentOptionDefinitions(t, effectiveSelectedProvider, paymentChannels[effectiveSelectedProvider]?.paymentOptions || []),
     [effectiveSelectedProvider, paymentChannels, t],
+  );
+  const mobileMethodChoices = useMemo(
+    () =>
+      availableProviders.flatMap((provider) =>
+        toPaymentOptionDefinitions(t, provider, paymentChannels[provider]?.paymentOptions || []).map((method) => ({
+          provider,
+          method,
+        })),
+      ),
+    [availableProviders, paymentChannels, t],
+  );
+  const mobileProviderPills = useMemo(
+    () =>
+      availableProviders.map((provider) => {
+        const defaultPaymentOption =
+          providerSelections[provider]
+          || paymentChannels[provider]?.paymentOptions?.[0]
+          || null;
+
+        return {
+          key: `${provider}-${defaultPaymentOption || "none"}`,
+          provider,
+          paymentOption: defaultPaymentOption,
+          label: t.providerLabels[provider],
+        };
+      }),
+    [availableProviders, paymentChannels, providerSelections, t],
   );
 
   useEffect(() => {
@@ -1035,6 +1321,15 @@ export default function CoinsPage() {
   const selectedProviderMeta = PROVIDER_TOGGLE_META[effectiveSelectedProvider];
   const pricingCountryCode = pricingContext?.countryCode || "US";
   const securedByProviderLabel = t.securedByProvider(selectedProviderMeta.label);
+  const selectedVipPlanData = vipPlans.find((plan) => plan._id === selectedVipPlan) || null;
+
+  const vipPriceLabel = useCallback((plan: VipPlan) => {
+    const period = String(plan.period || "").toLowerCase();
+    if (period.includes("year")) return `${formatUsd(plan.price)}/${mobileCopy.yearly}`;
+    if (period.includes("month")) return `${formatUsd(plan.price)}/${mobileCopy.monthly}`;
+    if (period.includes("week")) return `${formatUsd(plan.price)}/wk`;
+    return formatUsd(plan.price);
+  }, [formatUsd, mobileCopy.monthly, mobileCopy.yearly]);
 
   const startCheckout = async (provider: PaymentProvider, paymentOption: PaymentOption) => {
     if (!selected || !token) return;
@@ -1071,6 +1366,30 @@ export default function CoinsPage() {
     await startCheckout(effectiveSelectedProvider, selectedMethodId);
   };
 
+  const continueWithVipPlan = async () => {
+    if (!token || !selectedVipPlan) {
+      toast(t.toasts.selectPackageFirst, "error");
+      return;
+    }
+
+    setSubscribing(true);
+    try {
+      const res = await subscriptionApi.subscribe(token, selectedVipPlan, "stripe") as {
+        data?: { checkoutUrl?: string };
+      };
+      const checkoutUrl = res.data?.checkoutUrl;
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+      toast(t.toasts.paymentFailed, "error");
+    } catch (error: unknown) {
+      toast(getRuntimeErrorMessage(error, t.toasts.paymentFailed), "error");
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
   const handleRedeem = async () => {
     if (!token || !redeemCode.trim()) return;
     try {
@@ -1098,10 +1417,230 @@ export default function CoinsPage() {
   }
 
   return (
-    <div className="keyboard-safe-form min-h-screen bg-black text-white">
-      <Navbar mobileTitle={t.title} />
+    <div className={`${plusJakartaSans.className} keyboard-safe-form min-h-screen bg-[#070b16] text-white`}>
+      <Navbar mobileTitle={mobileCopy.pageTitle} />
 
       <div className="mx-auto max-w-6xl px-4 pb-16 pt-24">
+        {prefersMobileLayout ? (
+        <div className="mx-auto max-w-[360px]">
+          <div className="relative overflow-hidden rounded-[22px] bg-[linear-gradient(135deg,#161821_0%,#14141d_48%,#17131b_100%)] shadow-[0_16px_34px_rgba(0,0,0,0.3)]">
+            <div className="absolute inset-0 bg-[radial-gradient(110%_90%_at_86%_36%,rgba(255,59,92,0.24)_0%,rgba(255,59,92,0.08)_22%,transparent_64%)]" />
+            <div className="absolute inset-y-0 left-[-16%] w-[65%] rotate-[28deg] bg-[repeating-linear-gradient(180deg,rgba(255,59,92,0.1)_0px,rgba(255,59,92,0.1)_2px,transparent_2px,transparent_18px)] opacity-60" />
+            <div className="absolute inset-x-0 top-[42%] h-px bg-[linear-gradient(90deg,transparent_0%,rgba(255,59,92,0.06)_22%,rgba(255,59,92,0.45)_64%,transparent_100%)]" />
+            <div className="relative flex aspect-[21/9] flex-col items-center justify-center gap-1 px-5">
+              <p className="text-center text-[11px] font-bold uppercase tracking-[0.18em] text-white/55">{t.currentBalance}</p>
+              <div className="mt-1.5 flex items-center justify-center gap-2">
+                <GoldCoinIcon className="h-8 w-8" />
+                <span className="text-[48px] font-extrabold leading-none tracking-[-0.04em] text-white">{balance.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-full border border-[#2a2f3f] bg-[#141928] p-1">
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                onClick={() => setActiveTab("coins")}
+                aria-pressed={activeTab === "coins"}
+                className={`h-10 rounded-full px-4 text-[14px] font-bold transition ${
+                  activeTab === "coins"
+                    ? "bg-[#ff3b5c] text-white shadow-[0_10px_28px_rgba(255,59,92,0.35)]"
+                    : "text-white/60"
+                }`}
+              >
+                {mobileCopy.coinsTab}
+              </button>
+              <button
+                onClick={() => setActiveTab("vip")}
+                aria-pressed={activeTab === "vip"}
+                className={`flex h-10 items-center justify-center gap-1.5 rounded-full px-4 text-[14px] font-bold transition ${
+                  activeTab === "vip"
+                    ? "bg-[#ff3b5c] text-white shadow-[0_10px_28px_rgba(255,59,92,0.35)]"
+                    : "text-white/60"
+                }`}
+              >
+                <span className="material-symbols-outlined text-[15px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  workspace_premium
+                </span>
+                {mobileCopy.vipTab}
+              </button>
+            </div>
+          </div>
+
+          {activeTab === "coins" ? (
+            <>
+              <div className="mt-7 flex items-end justify-between">
+                <h2 className="text-[18px] font-extrabold tracking-[-0.02em] text-white">{t.selectPackage}</h2>
+                <span className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#ff3b5c]">{t.tagBestValue}</span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-3 gap-x-3 gap-y-5">
+                {packages.map((pkg) => {
+                  const isSelected = selectedPkg === pkg._id;
+                  const hasHotTag = (pkg.tag || "").toLowerCase().includes("best") || (pkg.tag || "").toLowerCase().includes("popular");
+
+                  return (
+                    <button
+                      key={pkg._id}
+                      onClick={() => setSelectedPkg(pkg._id)}
+                      aria-pressed={isSelected}
+                      className={`relative min-h-[118px] rounded-[18px] px-2 py-3 text-center transition ${
+                        isSelected
+                          ? "border-2 border-[#ff3b5c] bg-[#0d1120] shadow-[0_0_28px_rgba(255,59,92,0.24)]"
+                          : "border border-transparent bg-transparent"
+                      }`}
+                    >
+                      {isSelected && hasHotTag && (
+                        <span className="absolute right-1.5 top-1.5 rounded-full bg-[#ff3b5c] px-1.5 py-0.5 text-[8px] font-black uppercase tracking-[0.08em] text-white">
+                          {mobileCopy.hot}
+                        </span>
+                      )}
+                      <span className="mx-auto inline-flex h-5 w-5 items-center justify-center">
+                        <GoldCoinIcon className="h-5 w-5" />
+                      </span>
+                      <p className="mt-3 text-[16px] font-extrabold leading-none tracking-[-0.03em] text-white">{pkg.coins.toLocaleString()}</p>
+                      <p className={`mt-2 text-[12px] font-bold ${isSelected ? "text-[#ff3b5c]" : "text-white/45"}`}>{formatUsd(pkg.price)}</p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-8">
+                <p className="text-[13px] font-bold uppercase tracking-[0.24em] text-white/48">{t.paymentMethodsTitle}</p>
+                {mobileProviderPills.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {mobileProviderPills.map((pill) => {
+                      const isSelected = pill.provider === effectiveSelectedProvider && pill.paymentOption === selectedMethodId;
+                      return (
+                        <button
+                          key={pill.key}
+                          onClick={() => {
+                            setSelectedProvider(pill.provider);
+                            setProviderSelections((current) => ({ ...current, [pill.provider]: pill.paymentOption }));
+                          }}
+                          aria-pressed={isSelected}
+                          className={`inline-flex h-12 items-center justify-center rounded-full px-5 text-[14px] font-bold transition ${
+                            isSelected
+                              ? "bg-white text-black shadow-[0_10px_20px_rgba(255,255,255,0.12)]"
+                              : "border border-[#2b3142] bg-[#171d2a] text-white/85"
+                          }`}
+                        >
+                          {pill.label === "Stripe" ? (
+                            <span className="text-[15px] font-black italic tracking-[-0.04em]">stripe</span>
+                          ) : (
+                            pill.label
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-4 text-center text-[14px] text-white/55">
+                    {t.noPaymentChannels}
+                  </div>
+                )}
+
+                {mobileMethodChoices.length > 1 ? (
+                  <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                    {mobileMethodChoices.map(({ provider, method }) => {
+                      const isSelected = provider === effectiveSelectedProvider && method.id === selectedMethodId;
+                      const methodLabel = method.label.length > 16 ? t.providerLabels[provider] : method.label;
+                      return (
+                        <button
+                          key={`${provider}-${method.id}`}
+                          onClick={() => {
+                            setSelectedProvider(provider);
+                            setProviderSelections((current) => ({ ...current, [provider]: method.id }));
+                          }}
+                          aria-pressed={isSelected}
+                          className={`shrink-0 rounded-full px-3 py-1.5 text-[12px] font-semibold transition ${
+                            isSelected
+                              ? "bg-[#ff3b5c] text-white"
+                              : "border border-[#2b3142] bg-[#171d2a] text-white/70"
+                          }`}
+                        >
+                          {methodLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-4 text-center text-[16px] text-white/55">
+                    {t.noPaymentMethods}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-8 flex items-center justify-between text-[15px] text-white/75">
+                <span>Transaction Fee</span>
+                <span className="font-bold text-white">$0.00</span>
+              </div>
+
+              <button
+                onClick={continueWithSelectedMethod}
+                disabled={!selected || paying || activeMethods.length === 0}
+                className="mt-6 inline-flex h-[58px] w-full items-center justify-center rounded-full bg-[#ff3b5c] px-6 text-[17px] font-extrabold text-white shadow-[0_14px_36px_rgba(255,59,92,0.38)] transition disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {paying ? "Processing..." : mobileCopy.confirmAndPay(selected ? formatUsd(selected.price) : "$0.00")}
+              </button>
+
+              <p className="mt-4 px-7 text-center text-[10px] leading-4 text-white/45">
+                By completing the purchase, you agree to our Terms of Service and Privacy Policy.
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="mt-7 flex items-center justify-between">
+                <h2 className="text-[18px] font-extrabold tracking-[-0.02em] text-white">{mobileCopy.vipTab}</h2>
+                {vipStatus.isActive && <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-300">{mobileCopy.vipActive}</span>}
+              </div>
+
+              {vipStatus.expiresAt && (
+                <p className="mt-2 text-[13px] text-white/60">
+                  {mobileCopy.vipExpiresOn(new Date(vipStatus.expiresAt).toLocaleDateString(localeTag))}
+                </p>
+              )}
+
+              <div className="mt-4 space-y-3">
+                {vipPlans.length > 0 ? (
+                  vipPlans.map((plan) => {
+                    const isSelected = selectedVipPlan === plan._id;
+                    return (
+                      <button
+                        key={plan._id}
+                        onClick={() => setSelectedVipPlan(plan._id)}
+                        aria-pressed={isSelected}
+                        className={`w-full rounded-[18px] px-4 py-4 text-left transition ${
+                          isSelected
+                            ? "border-2 border-[#ff3b5c] bg-[#101525] shadow-[0_0_28px_rgba(255,59,92,0.24)]"
+                            : "border border-[#2a2f3f] bg-[#111726]"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-[16px] font-bold text-white">{plan.name || mobileCopy.vipPlanFallback}</span>
+                          <span className="text-[15px] font-bold text-[#ff3b5c]">{vipPriceLabel(plan)}</span>
+                        </div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-4 text-center text-[14px] text-white/55">
+                    No VIP plans available.
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={continueWithVipPlan}
+                disabled={!selectedVipPlanData || subscribing}
+                className="mt-6 inline-flex h-[58px] w-full items-center justify-center rounded-full bg-[#ff3b5c] px-6 text-[17px] font-extrabold text-white shadow-[0_14px_36px_rgba(255,59,92,0.38)] transition disabled:cursor-not-allowed disabled:opacity-55"
+              >
+                {subscribing ? "Processing..." : mobileCopy.confirmAndPay(selectedVipPlanData ? vipPriceLabel(selectedVipPlanData) : "")}
+              </button>
+            </>
+          )}
+        </div>
+        ) : (
+        <div>
         <div className="mb-8">
           <h1 className="text-3xl font-bold">
             <span className="bg-[length:200%_auto] bg-[linear-gradient(90deg,#FFD700_0%,#FFF8DC_25%,#FFD700_50%,#FFF8DC_75%,#FFD700_100%)] bg-clip-text text-transparent animate-shine">
@@ -1110,7 +1649,6 @@ export default function CoinsPage() {
           </h1>
           <p className="mt-2 text-gray-400">{t.subtitle}</p>
         </div>
-
         <div className="relative mb-12 overflow-hidden rounded-2xl border border-yellow-500/20 bg-gradient-to-r from-yellow-900/40 via-yellow-800/30 to-yellow-900/40 p-6 shadow-[0_0_30px_rgba(255,215,0,0.08)]">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,215,0,0.1),transparent_70%)]" />
           <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -1409,6 +1947,8 @@ export default function CoinsPage() {
             </div>
           </div>
         </section>
+        </div>
+        )}
       </div>
 
       <Footer />
