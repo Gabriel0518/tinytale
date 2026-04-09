@@ -30,6 +30,7 @@ import {
   readPrefetchedStream,
   warmPlaybackManifest,
 } from "@/lib/playback-prefetch";
+import { readPrefetchedPlayFeedBootstrap } from "@/lib/play-feed-prefetch";
 import { readSavedPlaybackProgress } from "@/lib/playback-progress-cache";
 import { readPlayFeedSession, type PlayFeedMode, writePlayFeedSession } from "@/lib/play-feed-session";
 import {
@@ -37,6 +38,7 @@ import {
   readPlaybackRuntimeSettings,
   updatePlaybackRuntimeSettings,
 } from "@/lib/runtime-settings";
+import PlayLoadingShell from "./PlayLoadingShell";
 
 const PLAY_TEXT: FlexibleRecord<SupportedLocale, Record<string, string>> = {
   en: {
@@ -325,11 +327,36 @@ function buildFallbackFeedWindow(
   drama: Drama | null,
   episodes: Episode[],
   currentEpisode: Episode,
+  seedWindow?: FeedWindowState | null,
 ): FeedWindowState {
+  const currentItem = buildFeedItemFromEpisode(drama, currentEpisode, 0);
+
+  if (seedWindow) {
+    const seededNextItems = dedupeFeedItems(
+      [seedWindow.current, ...seedWindow.next].filter((item) => item.episodeId !== currentEpisode._id)
+    ).map((item, index): FeedPlayableItem => ({
+      ...item,
+      order: index + 1,
+      preloadPriority: (index === 0 ? "medium" : "low") as FeedPlayableItem["preloadPriority"],
+    }));
+
+    return {
+      current: currentItem,
+      previous: null,
+      next: seededNextItems,
+      cursor: seedWindow.cursor,
+      loadingStates: {
+        current: "loaded",
+        next: seededNextItems.map(() => "loaded"),
+      },
+      canSwitchNext: seededNextItems.length > 0 || Boolean(seedWindow.cursor),
+      canSwitchPrev: false,
+    };
+  }
+
   const currentIndex = episodes.findIndex((episode) => episode._id === currentEpisode._id);
   const previousEpisode = currentIndex > 0 ? episodes[currentIndex - 1] : null;
   const nextEpisodes = currentIndex >= 0 ? episodes.slice(currentIndex + 1, currentIndex + 4) : [];
-  const currentItem = buildFeedItemFromEpisode(drama, currentEpisode, 0);
   const previousItem = previousEpisode ? buildFeedItemFromEpisode(drama, previousEpisode, 0) : null;
   const nextItems = nextEpisodes.map((episode, index) => buildFeedItemFromEpisode(drama, episode, index + 1));
 
@@ -562,6 +589,13 @@ export default function PlayEpisodePage() {
     () => localizePath(`/drama/${activeDramaId}`, locale),
     [activeDramaId, locale]
   );
+  const seededWindowFromPrefetch = useMemo(() => (
+    readPrefetchedPlayFeedBootstrap("for-you", token)?.window ||
+    readPrefetchedPlayFeedBootstrap("for-you")?.window ||
+    null
+  ), [token]);
+  const loadingPoster = currentEpisode?.thumbnail || drama?.cover || seededPlaybackState?.currentEpisode?.thumbnail || seededPlaybackState?.drama?.cover;
+  const loadingTitle = currentEpisode?.title || seededPlaybackState?.currentEpisode?.title || drama?.title || seededPlaybackState?.drama?.title;
 
   useEffect(() => {
     setActiveDramaId(routeDramaId);
@@ -815,13 +849,19 @@ export default function PlayEpisodePage() {
     const nextMode = persisted?.activeMode || "for-you";
     const nextWindows = { ...(persisted?.windows ?? {}) };
     const activeWindow = nextWindows[nextMode];
+    const seedWindow = (
+      nextWindows[nextMode] ||
+      persisted?.windows?.[nextMode] ||
+      seededWindowFromPrefetch ||
+      null
+    );
 
     if (!activeWindow || activeWindow.current.episodeId !== currentEpisode._id) {
-      nextWindows[nextMode] = buildFallbackFeedWindow(drama, episodes, currentEpisode);
+      nextWindows[nextMode] = buildFallbackFeedWindow(drama, episodes, currentEpisode, seedWindow);
     }
 
     persistFeedSession(nextMode, nextWindows);
-  }, [currentEpisode, drama, episodes, isFeedPlayback, persistFeedSession]);
+  }, [currentEpisode, drama, episodes, isFeedPlayback, persistFeedSession, seededWindowFromPrefetch]);
 
   const fetchFeedBootstrap = useCallback(async (mode: PlayFeedMode) => {
     if (mode === "following" && !token) {
@@ -832,6 +872,20 @@ export default function PlayEpisodePage() {
     const existingWindow = feedWindowsRef.current[mode];
     if (existingWindow) {
       return existingWindow;
+    }
+
+    const prefetchedWindow = (
+      readPrefetchedPlayFeedBootstrap(mode, token)?.window ||
+      readPrefetchedPlayFeedBootstrap(mode)?.window ||
+      null
+    );
+    if (prefetchedWindow?.current?.episodeId) {
+      const nextWindows = {
+        ...feedWindowsRef.current,
+        [mode]: prefetchedWindow,
+      };
+      persistFeedSession(activeFeedMode === mode ? mode : activeFeedMode, nextWindows);
+      return prefetchedWindow;
     }
 
     setFeedLoadingMode(mode);
@@ -889,15 +943,17 @@ export default function PlayEpisodePage() {
 
       const payload = (response as any)?.data ?? response;
       const fetchedItems = Array.isArray(payload?.items) ? payload.items as FeedPlayableItem[] : [];
+      const nextCursor = typeof payload?.cursor === "string" ? payload.cursor : targetWindow.cursor;
       const mergedNext = dedupeFeedItems([...targetWindow.next, ...fetchedItems]);
       const nextWindow: FeedWindowState = {
         ...targetWindow,
         next: mergedNext,
+        cursor: nextCursor,
         loadingStates: {
           current: "loaded",
           next: mergedNext.map(() => "loaded"),
         },
-        canSwitchNext: mergedNext.length > 0,
+        canSwitchNext: mergedNext.length > 0 || Boolean(nextCursor),
       };
       const nextWindows = {
         ...feedWindowsRef.current,
@@ -1060,6 +1116,7 @@ export default function PlayEpisodePage() {
       });
       const payload = (response as any)?.data ?? response;
       const items = Array.isArray(payload?.items) ? payload.items as FeedPlayableItem[] : [];
+      const nextCursor = typeof payload?.cursor === "string" ? payload.cursor : window.cursor;
 
       if (items.length > 0) {
         const [targetItem, ...remainingItems] = items;
@@ -1068,7 +1125,8 @@ export default function PlayEpisodePage() {
           current: targetItem,
           previous: null,
           next: remainingItems,
-          canSwitchNext: remainingItems.length > 0 || Boolean(window.cursor),
+          cursor: nextCursor,
+          canSwitchNext: remainingItems.length > 0 || Boolean(nextCursor),
           canSwitchPrev: false,
         });
         navigateToFeedItem(activeFeedMode, targetItem, refreshedWindow);
@@ -1451,6 +1509,53 @@ export default function PlayEpisodePage() {
     navigateToFeedItem(activeFeedMode, targetItem, nextWindow);
   }, [activeFeedMode, findNextPlayableFeedWindow, navigateToFeedItem]);
 
+  const handleEnterRandomFeedFromPaywall = useCallback(async () => {
+    const mode: PlayFeedMode = "for-you";
+    let window = feedWindowsRef.current[mode];
+
+    if (!window) {
+      const prefetchedWindow = (
+        readPrefetchedPlayFeedBootstrap(mode, token)?.window ||
+        readPrefetchedPlayFeedBootstrap(mode)?.window ||
+        null
+      );
+      if (prefetchedWindow?.current?.episodeId) {
+        const nextWindows = {
+          ...feedWindowsRef.current,
+          [mode]: prefetchedWindow,
+        };
+        persistFeedSession(mode, nextWindows);
+        window = prefetchedWindow;
+      }
+    }
+
+    if (!window) {
+      const bootstrappedWindow = await fetchFeedBootstrap(mode);
+      if (!bootstrappedWindow) return;
+      window = bootstrappedWindow;
+    }
+
+    const candidates = [window.current, ...window.next].filter((item) => item.episodeId !== currentEpisodeRef.current?._id);
+    if (candidates.length === 0) return;
+
+    const playableCandidate = candidates.find((item) => item.isFree || unlockedEpisodeIds.has(item.episodeId));
+    const targetItem = playableCandidate || candidates[0];
+    const targetIsWindowCurrent = targetItem.episodeId === window.current.episodeId;
+    const remainingItems = targetIsWindowCurrent
+      ? window.next
+      : window.next.filter((item) => item.episodeId !== targetItem.episodeId);
+    const nextWindow = buildLoadedFeedWindow({
+      ...window,
+      previous: null,
+      current: targetItem,
+      next: remainingItems,
+      canSwitchNext: remainingItems.length > 0 || Boolean(window.cursor),
+      canSwitchPrev: false,
+    });
+
+    navigateToFeedItem(mode, targetItem, nextWindow);
+  }, [fetchFeedBootstrap, navigateToFeedItem, persistFeedSession, token, unlockedEpisodeIds]);
+
   const handleEnded = useCallback(() => {
     if (isFeedPlayback) {
       if (!autoplayNextEpisode) return;
@@ -1484,8 +1589,8 @@ export default function PlayEpisodePage() {
       // Swipe up → skip to next
       if (isFeedPlayback) {
         void handleLockedFeedSkip();
-      } else if (hasNextEpisode) {
-        handleNextEpisode();
+      } else {
+        void handleEnterRandomFeedFromPaywall();
       }
       return;
     }
@@ -1493,10 +1598,10 @@ export default function PlayEpisodePage() {
     // Swipe down → go to previous
     if (isFeedPlayback) {
       void handleFeedPreviousItem();
-    } else if (hasPreviousEpisode) {
-      handlePreviousEpisode();
+    } else {
+      void handleEnterRandomFeedFromPaywall();
     }
-  }, [handleFeedPreviousItem, handleLockedFeedSkip, handleNextEpisode, handlePreviousEpisode, hasNextEpisode, hasPreviousEpisode, isFeedPlayback]);
+  }, [handleEnterRandomFeedFromPaywall, handleFeedPreviousItem, handleLockedFeedSkip, isFeedPlayback]);
 
   const handleBackToParent = useCallback(() => {
     router.replace(playerParentHref, { scroll: false });
@@ -1547,7 +1652,14 @@ export default function PlayEpisodePage() {
 
   // Only show loading screen on initial page load (no episode data at all)
   if (loading && !currentEpisode) {
-    return <div className="fixed inset-0 bg-black" />;
+    return (
+      <PlayLoadingShell
+        title={loadingTitle}
+        poster={loadingPoster}
+        loadingLabel={t.loadingVideo}
+        subtitle={drama?.title || seededPlaybackState?.drama?.title}
+      />
+    );
   }
 
   if (!currentEpisode) {
@@ -1567,7 +1679,14 @@ export default function PlayEpisodePage() {
   }
 
   if (!isPlatformReady) {
-    return <div className="fixed inset-0 bg-black" />;
+    return (
+      <PlayLoadingShell
+        title={loadingTitle}
+        poster={loadingPoster}
+        loadingLabel={t.loadingVideo}
+        subtitle={drama?.title || seededPlaybackState?.drama?.title}
+      />
+    );
   }
 
   const currentEpisodeStatus = currentEpisode.isFree
@@ -1632,19 +1751,9 @@ export default function PlayEpisodePage() {
 
         <div className="relative z-10 flex min-h-screen flex-col justify-between px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))]">
           <div className="flex items-center justify-between gap-3">
-            {isFeedPlayback ? (
-              <div className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[11px] font-semibold text-white/75 backdrop-blur-md">
-                Swipe up to skip
-              </div>
-            ) : (
-              <Link
-                href={playerParentHref}
-                className="inline-flex items-center gap-2 rounded-full bg-black/45 px-3 py-2 text-sm font-medium text-white backdrop-blur-md"
-              >
-                <span aria-hidden="true">←</span>
-                <span>{t.backToDrama}</span>
-              </Link>
-            )}
+            <div className="rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[11px] font-semibold text-white/75 backdrop-blur-md">
+              {isFeedPlayback ? "Swipe up to skip" : locale === "zh" ? "上下滑动切换其他视频" : "Swipe up or down to browse more"}
+            </div>
           </div>
 
           <div className="mx-auto w-full max-w-md rounded-[32px] border border-white/10 bg-black/55 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.5)] backdrop-blur-xl">
