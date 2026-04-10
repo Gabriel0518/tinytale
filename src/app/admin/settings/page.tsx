@@ -54,6 +54,7 @@ interface VipEntitlements {
   highQuality: boolean;
   earlyAccess: boolean;
   coinDiscount: number;
+  monthlyGiftCoins: number;
   freeMonthlyDramas: number;
   overLimitDiscount: number;
   termsUrl: string;
@@ -70,6 +71,7 @@ const DEFAULT_VIP_PLAN_ENTITLEMENTS: VipEntitlements = {
   highQuality: true,
   earlyAccess: false,
   coinDiscount: 10,
+  monthlyGiftCoins: 0,
   freeMonthlyDramas: 30,
   overLimitDiscount: 50,
   termsUrl: "",
@@ -132,6 +134,10 @@ function normalizeVipEntitlements(value: any): VipEntitlements {
     highQuality: normalizeBoolean(source.highQuality, DEFAULT_VIP_PLAN_ENTITLEMENTS.highQuality),
     earlyAccess: normalizeBoolean(source.earlyAccess, DEFAULT_VIP_PLAN_ENTITLEMENTS.earlyAccess),
     coinDiscount: normalizePercent(source.coinDiscount, DEFAULT_VIP_PLAN_ENTITLEMENTS.coinDiscount),
+    monthlyGiftCoins: normalizeNonNegativeInt(
+      source.monthlyGiftCoins,
+      DEFAULT_VIP_PLAN_ENTITLEMENTS.monthlyGiftCoins
+    ),
     freeMonthlyDramas: normalizeNonNegativeInt(
       source.freeMonthlyDramas,
       DEFAULT_VIP_PLAN_ENTITLEMENTS.freeMonthlyDramas
@@ -173,6 +179,7 @@ function getVipEntitlementSummary(entitlements: VipEntitlements): string[] {
   if (entitlements.highQuality) summary.push("HD/4K");
   if (entitlements.earlyAccess) summary.push("Early access");
   if (entitlements.coinDiscount > 0) summary.push(`${entitlements.coinDiscount}% coin off`);
+  if (entitlements.monthlyGiftCoins > 0) summary.push(`${entitlements.monthlyGiftCoins} monthly coins`);
   if (entitlements.freeMonthlyDramas > 0) summary.push(`${entitlements.freeMonthlyDramas} free dramas`);
   if (entitlements.overLimitDiscount > 0) summary.push(`${entitlements.overLimitDiscount}% over-limit off`);
   return summary;
@@ -1603,6 +1610,23 @@ export default function AdminSettingsPage() {
                               },
                             })}
                             suffix="%"
+                          />
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-gray-700/50 bg-[#1a1a2e] p-4">
+                        <p className="text-sm font-medium text-gray-200">Monthly Gift Coins</p>
+                        <p className="mt-1 text-xs text-gray-500">Stored on the plan entitlement payload for monthly VIP coin benefits.</p>
+                        <div className="mt-3">
+                          <NumberInput
+                            value={normalizeVipEntitlements(editingPlan.entitlements).monthlyGiftCoins}
+                            onChange={(v) => setEditingPlan({
+                              ...editingPlan,
+                              entitlements: {
+                                ...normalizeVipEntitlements(editingPlan.entitlements),
+                                monthlyGiftCoins: v,
+                              },
+                            })}
+                            suffix="coins"
                           />
                         </div>
                       </div>
